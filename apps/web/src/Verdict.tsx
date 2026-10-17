@@ -103,29 +103,34 @@ export function Verdict({ session }: { session: Session }) {
       </section>
 
       <div className="two-col">
-        {verdict.consensus.length > 0 ? (
+        {verdict.topics.some((topic) => topic.status === "agreement") ? (
           <section className="stack">
             <h2 className="heading">{t("verdict.consensus")}</h2>
             <ul style={{ margin: 0 }}>
-              {verdict.consensus.map((point) => (
-                <li key={point}>{point}</li>
-              ))}
+              {verdict.topics
+                .filter((topic) => topic.status === "agreement")
+                .map((topic) => (
+                  <li key={topic.topic}>{topic.topic}</li>
+                ))}
             </ul>
           </section>
         ) : null}
-        {verdict.disagreements.length > 0 ? (
+        {verdict.topics.some((topic) => topic.status !== "agreement") ? (
           <section className="stack">
             <h2 className="heading">{t("verdict.disagreements")}</h2>
-            {verdict.disagreements.map((disagreement) => (
-              <div className="positions" key={disagreement.topic}>
-                <strong>{disagreement.topic}</strong>
-                {disagreement.positions.map((position) => (
-                  <span className="muted" key={position}>
-                    {position}
-                  </span>
-                ))}
-              </div>
-            ))}
+            {verdict.topics
+              .filter((topic) => topic.status !== "agreement")
+              .map((topic) => (
+                <div className="positions" key={topic.topic}>
+                  <strong>{topic.topic}</strong>
+                  {topic.positions.map((item) => (
+                    <span className="muted" key={`${item.seat}-${item.position}`}>
+                      {item.seat ? `${item.seat}: ` : ""}
+                      {item.position}
+                    </span>
+                  ))}
+                </div>
+              ))}
           </section>
         ) : null}
       </div>

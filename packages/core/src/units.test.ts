@@ -78,3 +78,44 @@ describe("liveLineupFromEnv", () => {
     expect(() => liveLineupFromEnv({ ANTHROPIC_API_KEY: "a", QUORUMIND_ARBITER: "acme:x" })).toThrow(/Unknown provider/);
   });
 });
+
+describe("rankOptions", () => {
+  it("follows the weights but keeps infeasible options last", async () => {
+    const { rankOptions } = await import("./ranking.ts");
+    const verdict = {
+      options: [
+        {
+          seat: "A",
+          title: "A",
+          feasibility: "feasible",
+          scores: [
+            { criterion: "cost", score: 5 },
+            { criterion: "speed", score: 1 },
+          ],
+        },
+        {
+          seat: "B",
+          title: "B",
+          feasibility: "conditional",
+          scores: [
+            { criterion: "cost", score: 1 },
+            { criterion: "speed", score: 5 },
+          ],
+        },
+        {
+          seat: "C",
+          title: "C",
+          feasibility: "infeasible",
+          scores: [
+            { criterion: "cost", score: 5 },
+            { criterion: "speed", score: 5 },
+          ],
+        },
+      ],
+    } as unknown as import("./schemas.ts").Verdict;
+    expect(rankOptions(verdict, { cost: 5, speed: 1 }).map((option) => option.seat)).toEqual(["A", "B", "C"]);
+    const bySpeed = rankOptions(verdict, { cost: 0, speed: 5 });
+    expect(bySpeed[0]?.score).toBe(1);
+    expect(bySpeed.at(-1)?.seat).toBe("C");
+  });
+});

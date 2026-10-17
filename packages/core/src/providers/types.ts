@@ -1,6 +1,6 @@
 export type ProviderKind = "anthropic" | "openai" | "mock";
 
-export type Task = "interview" | "proposal" | "critique" | "revision" | "verdict";
+export type Task = "interview" | "proposal" | "critique" | "revision" | "probe" | "verdict" | "brief";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -17,6 +17,8 @@ export interface GenerateRequest {
   schema: { [key: string]: unknown };
   schemaName: string;
   maxTokens: number;
+  /** How hard the model should think, from the session's depth; absent means the provider's default. */
+  effort?: "low" | "medium" | "high";
   signal?: AbortSignal;
 }
 

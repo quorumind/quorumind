@@ -49,6 +49,9 @@ export const InterviewTurn = z.object({
 });
 export type InterviewTurn = z.infer<typeof InterviewTurn>;
 
+export const ComponentKind = z.enum(["client", "service", "database", "storage", "queue", "external", "infra"]);
+export type ComponentKind = z.infer<typeof ComponentKind>;
+
 export const Proposal = z.object({
   speech: z.string(),
   title: z.string(),
@@ -62,7 +65,25 @@ export const Proposal = z.object({
     currency: z.string(),
     basis: z.string().describe("What the estimate covers and how it was derived."),
   }),
+  buildCost: z.object({
+    low: z.number(),
+    high: z.number(),
+    currency: z.string(),
+    basis: z.string().describe("What the estimate covers: team, duration, day rate or vendor fees."),
+  }),
   buildTime: z.string(),
+  components: z
+    .array(
+      z.object({
+        id: z.string().describe("Short identifier, e.g. api, db."),
+        label: z.string(),
+        kind: ComponentKind,
+      }),
+    )
+    .describe("The main boxes of the architecture diagram: three to nine components."),
+  flows: z
+    .array(z.object({ from: z.string(), to: z.string(), label: z.string() }))
+    .describe("Arrows between component ids: who calls or feeds whom."),
   risks: z.array(z.string()),
   assumptions: z.array(z.string()),
 });
@@ -107,6 +128,9 @@ export type Feasibility = z.infer<typeof Feasibility>;
 
 export const Confidence = z.enum(["verified", "estimated", "assumed"]);
 
+export const TopicStatus = z.enum(["agreement", "divided", "opposed"]);
+export type TopicStatus = z.infer<typeof TopicStatus>;
+
 export const Verdict = z.object({
   speech: z.string(),
   options: z.array(
@@ -123,8 +147,15 @@ export const Verdict = z.object({
     seat: z.string().nullable().describe("Seat letter of the recommended option, null when none is feasible."),
     rationale: z.string(),
   }),
-  consensus: z.array(z.string()),
-  disagreements: z.array(z.object({ topic: z.string(), positions: z.array(z.string()) })),
+  topics: z
+    .array(
+      z.object({
+        topic: z.string(),
+        status: TopicStatus,
+        positions: z.array(z.object({ seat: z.string(), position: z.string() })),
+      }),
+    )
+    .describe("The map of the debate: every topic discussed, whether the participants agree, and where each one stands."),
   risks: z.array(
     z.object({
       risk: z.string(),
@@ -138,6 +169,27 @@ export const Verdict = z.object({
   openQuestions: z.array(z.string()),
 });
 export type Verdict = z.infer<typeof Verdict>;
+
+/** Raised by the arbiter when the participants agree too fast: an angle nobody has examined yet. */
+export const Probe = z.object({
+  speech: z.string(),
+  angle: z.string().describe("One sentence: the question or scenario the participants must now examine."),
+  rationale: z.string(),
+});
+export type Probe = z.infer<typeof Probe>;
+
+export const Audience = z.enum(["cto", "executive", "client"]);
+export type Audience = z.infer<typeof Audience>;
+
+/** The verdict rewritten for one kind of reader. */
+export const Brief = z.object({
+  speech: z.string(),
+  headline: z.string(),
+  summary: z.string(),
+  sections: z.array(z.object({ title: z.string(), body: z.string() })),
+  nextSteps: z.array(z.string()),
+});
+export type Brief = z.infer<typeof Brief>;
 
 type JsonSchema = { [key: string]: unknown };
 

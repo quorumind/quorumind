@@ -43,8 +43,14 @@ export class MockProvider implements LlmProvider {
         return DEMO_SCRIPT.critiques[seat] ?? { speech: "No further critique.", critiques: [], questionsForUser: [] };
       case "revision":
         return DEMO_SCRIPT.revisions[seat] ?? DEMO_SCRIPT.revisions.A;
+      case "probe":
+        return DEMO_SCRIPT.probe;
       case "verdict":
         return DEMO_SCRIPT.verdict;
+      case "brief": {
+        const audience = /reader: (\w+)/.exec(request.messages.at(-1)?.content ?? "")?.[1] as keyof typeof DEMO_SCRIPT.briefs;
+        return DEMO_SCRIPT.briefs[audience] ?? DEMO_SCRIPT.briefs.cto;
+      }
     }
   }
 }

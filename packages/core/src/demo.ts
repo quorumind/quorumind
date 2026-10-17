@@ -1,4 +1,4 @@
-import type { CritiqueRound, InterviewTurn, Proposal, RequirementsSheet, Revision, Verdict } from "./schemas.ts";
+import type { Audience, Brief, CritiqueRound, InterviewTurn, Probe, Proposal, RequirementsSheet, Revision, Verdict } from "./schemas.ts";
 
 // A complete scripted debate, replayed by the mock provider so people can try Quorumind
 // without an API key, and used by the tests and the quality bench.
@@ -80,7 +80,26 @@ const PROPOSAL_A: Proposal = {
   stack: ["Next.js", "TypeScript", "PostgreSQL", "Stripe", "Transactional email and SMS API"],
   infrastructure: ["EU-region platform hosting with preview environments", "Daily database backups", "CI on every pull request"],
   monthlyCost: { low: 120, high: 260, currency: "EUR", basis: "Hosting, database and SMS for 6,000 members; estimate." },
+  buildCost: { low: 12_000, high: 15_000, currency: "EUR", basis: "Two in-house developers for 4 months at 3 days a week; estimate." },
   buildTime: "About 4 months for two developers at 3 days a week",
+  components: [
+    { id: "members", label: "Members (web and mobile)", kind: "client" },
+    { id: "office", label: "Studio back office", kind: "client" },
+    { id: "app", label: "Next.js app", kind: "service" },
+    { id: "db", label: "Postgres (EU)", kind: "database" },
+    { id: "jobs", label: "Reminder scheduler", kind: "queue" },
+    { id: "stripe", label: "Stripe", kind: "external" },
+    { id: "sms", label: "Email and SMS API", kind: "external" },
+  ],
+  flows: [
+    { from: "members", to: "app", label: "book, buy passes" },
+    { from: "office", to: "app", label: "manage schedules" },
+    { from: "app", to: "db", label: "bookings, passes" },
+    { from: "app", to: "stripe", label: "checkout" },
+    { from: "stripe", to: "app", label: "webhooks" },
+    { from: "jobs", to: "db", label: "upcoming classes" },
+    { from: "jobs", to: "sms", label: "reminders" },
+  ],
   risks: ["Build time is tight for a September launch", "Booking concurrency on Sunday evening peaks"],
   assumptions: ["The team can spend 3 days a week each until launch"],
 };
@@ -99,7 +118,19 @@ const PROPOSAL_B: Proposal = {
   stack: ["Hosted booking platform", "WordPress", "Stripe"],
   infrastructure: ["No servers to run", "Platform-managed backups"],
   monthlyCost: { low: 360, high: 600, currency: "EUR", basis: "Typical per-location subscription for 12 locations; estimate." },
+  buildCost: { low: 4_000, high: 6_000, currency: "EUR", basis: "Six weeks of configuration, data import and site integration; estimate." },
   buildTime: "About 6 weeks of configuration and integration",
+  components: [
+    { id: "members", label: "Members", kind: "client" },
+    { id: "site", label: "WordPress site", kind: "service" },
+    { id: "platform", label: "Booking platform (SaaS)", kind: "external" },
+    { id: "stripe", label: "Stripe", kind: "external" },
+  ],
+  flows: [
+    { from: "members", to: "site", label: "visit" },
+    { from: "site", to: "platform", label: "embedded booking widgets" },
+    { from: "platform", to: "stripe", label: "payments" },
+  ],
   risks: ["Per-location pricing grows with the network", "Data location depends on the vendor"],
   assumptions: ["A vendor with EU hosting and per-location pricing under €50 exists"],
 };
@@ -143,6 +174,28 @@ const CRITIQUES_B: CritiqueRound = {
       requirement: "Ease of maintenance",
       point: "The team owns booking concurrency and reminders forever.",
       argument: "These are solved problems on hosted platforms.",
+    },
+  ],
+  questionsForUser: [],
+};
+
+const CRITIQUES_DEVIL: CritiqueRound = {
+  speech:
+    "Both options hide costs. A underestimates what the team will spend keeping the app alive; B assumes a vendor that nobody has named yet.",
+  critiques: [
+    {
+      target: "A",
+      severity: "major",
+      requirement: "Ease of maintenance",
+      point: "No budget for maintenance after launch.",
+      argument: "Security updates, payment changes and support will take several days a month, paid by the same two part-time developers.",
+    },
+    {
+      target: "B",
+      severity: "major",
+      requirement: "Running cost at most €400 per month",
+      point: "SMS and payment fees come on top of the subscription.",
+      argument: "Booking platforms often bill SMS and card fees separately: the real monthly cost is higher than the subscription.",
     },
   ],
   questionsForUser: [],
@@ -226,11 +279,39 @@ const VERDICT: Verdict = {
     seat: "A",
     rationale: "Running cost is your top priority and a hard constraint; option A meets it with margin and keeps your data in the EU.",
   },
-  consensus: ["Stripe stays the payment provider", "Reminders are essential to cut no-shows", "Waiting lists can wait until after launch"],
-  disagreements: [
+  topics: [
+    {
+      topic: "Stripe stays the payment provider",
+      status: "agreement",
+      positions: [
+        { seat: "A", position: "Stripe Checkout and webhooks" },
+        { seat: "B", position: "Stripe through the platform's integration" },
+      ],
+    },
+    {
+      topic: "Reminders are essential to cut no-shows",
+      status: "agreement",
+      positions: [
+        { seat: "A", position: "Managed scheduler, 24 h and 2 h before class" },
+        { seat: "B", position: "Built into the platform" },
+      ],
+    },
+    {
+      topic: "Cost of maintenance after launch",
+      status: "divided",
+      positions: [
+        { seat: "A", position: "A few days a month, accepted for the control it gives" },
+        { seat: "B", position: "Near zero: the vendor maintains the platform" },
+        { seat: "devil", position: "Underestimated by A, and B's fees grow with every studio" },
+      ],
+    },
     {
       topic: "Build or configure",
-      positions: ["A: owning the code keeps running costs low", "B: a hosted platform removes maintenance work"],
+      status: "opposed",
+      positions: [
+        { seat: "A", position: "Owning the code keeps running costs low" },
+        { seat: "B", position: "A hosted platform removes maintenance work" },
+      ],
     },
   ],
   risks: [
@@ -259,9 +340,47 @@ const VERDICT: Verdict = {
   openQuestions: ["Which SMS provider meets the cost assumption?"],
 };
 
+const PROBE: Probe = {
+  speech: "You agree too quickly. Nobody has looked at what happens when a studio leaves or joins the network.",
+  angle: "What happens to cost and data when the network grows to 20 studios, or when a studio leaves with its members?",
+  rationale: "Per-location pricing and data ownership both change with the size of the network.",
+};
+
+const BRIEFS: Record<Audience, Brief> = {
+  cto: {
+    speech: "Build option A, scoped down: Next.js and Postgres in the EU, Stripe, a managed scheduler.",
+    headline: "Build a lean custom app on the stack the team knows",
+    summary: "Option A respects both hard constraints: EU hosting and a running cost of €120 to €260 per month (estimate).",
+    sections: [
+      {
+        title: "Architecture",
+        body: "Next.js app, managed Postgres in an EU region, Stripe Checkout with webhooks, managed reminder jobs.",
+      },
+      { title: "Main risk", body: "Deadline: freeze the first-release scope now, review every two weeks." },
+    ],
+    nextSteps: ["Freeze the first-release scope", "Load test the Sunday evening peak"],
+  },
+  executive: {
+    speech: "We recommend building our own booking app: it fits the budget and keeps member data in Europe.",
+    headline: "Our own app, live before September, within budget",
+    summary: "About €12,000 to €15,000 to build and €120 to €260 a month to run (estimates), with member data kept in Europe.",
+    sections: [{ title: "What we need from you", body: "Approve a smaller first release; extras come after launch." }],
+    nextSteps: ["Approve the first-release scope"],
+  },
+  client: {
+    speech: "Your members will book classes and buy passes online, from September, without going over your monthly budget.",
+    headline: "Online booking for your 12 studios by September",
+    summary: "Members book, pay and get reminders; your managers update schedules themselves.",
+    sections: [{ title: "Cost", body: "About €12,000 to €15,000 once, then €120 to €260 a month (estimates)." }],
+    nextSteps: ["Confirm the list of features for September"],
+  },
+};
+
 export const DEMO_SCRIPT = {
   proposals: { A: PROPOSAL_A, B: PROPOSAL_B } as Record<string, Proposal>,
-  critiques: { A: CRITIQUES_A, B: CRITIQUES_B } as Record<string, CritiqueRound>,
+  critiques: { A: CRITIQUES_A, B: CRITIQUES_B, devil: CRITIQUES_DEVIL } as Record<string, CritiqueRound>,
+  probe: PROBE,
+  briefs: BRIEFS,
   revisions: { A: REVISION_A, B: REVISION_B } as Record<string, Revision>,
   verdict: VERDICT,
 };

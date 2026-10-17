@@ -1,19 +1,50 @@
 import type { z } from "zod";
 import { partialStringField } from "./partial-json.ts";
 import { costOf } from "./pricing.ts";
+import { fence, redact } from "./privacy.ts";
 import {
   answersBlock,
   arbiterSystem,
+  briefSystem,
+  challengerSystem,
+  contextBlock,
   criticSystem,
+  devilSystem,
+  formalizerSystem,
   interviewerSystem,
+  probeSystem,
   proposalsBlock,
   proposerSystem,
   requirementsBlock,
   reviserSystem,
 } from "./prompts.ts";
 import { type ChatMessage, type LlmProvider, ProviderError, type Task } from "./providers/types.ts";
-import { CritiqueRound, clampScore, InterviewTurn, Proposal, RequirementsSheet, Revision, toStrictJsonSchema, Verdict } from "./schemas.ts";
-import { type Answer, allAnswers, currentProposals, type Session, totalCost } from "./session.ts";
+import {
+  type Audience,
+  Brief,
+  CritiqueRound,
+  clampScore,
+  InterviewTurn,
+  Probe,
+  Proposal,
+  RequirementsSheet,
+  Revision,
+  toStrictJsonSchema,
+  Verdict,
+} from "./schemas.ts";
+import {
+  type Answer,
+  allAnswers,
+  criticSeats,
+  currentProposals,
+  DEVIL_SEAT,
+  type DebateEntry,
+  type Depth,
+  proposerSeats,
+  type Session,
+  totalCost,
+  USER_SEAT,
+} from "./session.ts";
 
 /** After this many answered turns the interviewer must produce the requirements sheet. */
 export const MAX_INTERVIEW_TURNS = 4;
@@ -22,8 +53,12 @@ const MAX_QUESTIONS_PER_ROUND = 3;
 export interface ProviderSet {
   interviewer: LlmProvider;
   arbiter: LlmProvider;
+  /** Every debating seat. In challenge mode they criticise the person's solution instead of proposing. */
   proposers: Record<string, LlmProvider>;
+  devil?: LlmProvider | null;
 }
+
+const EFFORT: Record<Depth, "low" | "high" | undefined> = { quick: "low", standard: undefined, deep: "high" };
 
 export type EngineEvent =
   | { type: "session"; session: Session }
@@ -55,7 +90,9 @@ const SCHEMAS = {
   proposal: { zod: Proposal, json: toStrictJsonSchema(Proposal), name: "proposal", maxTokens: 12_000 },
   critique: { zod: CritiqueRound, json: toStrictJsonSchema(CritiqueRound), name: "critique_round", maxTokens: 10_000 },
   revision: { zod: Revision, json: toStrictJsonSchema(Revision), name: "revision", maxTokens: 14_000 },
+  probe: { zod: Probe, json: toStrictJsonSchema(Probe), name: "probe", maxTokens: 4_000 },
   verdict: { zod: Verdict, json: toStrictJsonSchema(Verdict), name: "verdict", maxTokens: 20_000 },
+  brief: { zod: Brief, json: toStrictJsonSchema(Brief), name: "brief", maxTokens: 8_000 },
 } as const;
 
 export class DebateEngine {
@@ -137,15 +174,49 @@ export class DebateEngine {
     });
   }
 
+  /** Rewrites the verdict for another reader. Failures are thrown to the caller: the session stays complete. */
+  async writeBrief(session: Session, audience: Audience): Promise<void> {
+    if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
+    const brief = await this.call(session, "brief", null, this.providers.arbiter, {
+      system: briefSystem(session.locale, audience),
+      messages: [
+        {
+          role: "user",
+          content: [
+            requirementsBlock(requireSheet(session)),
+            proposalsBlock(currentProposals(session)),
+            fence("debate", JSON.stringify({ verdict: stripSpeech(session.verdict) }, null, 2)),
+            `Write the brief for this reader: ${audience}.`,
+          ].join("\n\n"),
+        },
+      ],
+    });
+    session.briefs[audience] = brief;
+    await this.persist(session);
+  }
+
   private async interviewStep(session: Session) {
-    const messages: ChatMessage[] = [{ role: "user", content: `Project idea:\n<answers>\n${session.idea}\n</answers>` }];
+    const opening = [
+      `Project idea:\n${fence("answers", session.idea)}`,
+      session.challenge ? fence("solution", session.challenge) : "",
+      contextBlock(session.context),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    const messages: ChatMessage[] = [{ role: "user", content: opening }];
     for (const entry of session.interview) {
       if (entry.kind === "interviewer") messages.push({ role: "assistant", content: JSON.stringify(entry.data) });
-      else messages.push({ role: "user", content: answersBlock(entry.answers) });
+      else messages.push({ role: "user", content: answersBlock(entry.answers) || "(no answer)" });
     }
     const userTurns = session.interview.filter((entry) => entry.kind === "user").length;
+    const express = session.mode === "express";
     const turn = await this.call(session, "interview", null, this.providers.interviewer, {
-      system: interviewerSystem(session.locale, userTurns >= MAX_INTERVIEW_TURNS),
+      system: interviewerSystem(session.locale, {
+        forceDone: userTurns >= (express ? 1 : MAX_INTERVIEW_TURNS),
+        express,
+        template: session.template,
+        challenge: session.mode === "challenge",
+      }),
       messages,
     });
     session.interview.push({ kind: "interviewer", data: turn });
@@ -157,21 +228,31 @@ export class DebateEngine {
   }
 
   private async debateStep(session: Session) {
-    const seats = Object.keys(this.providers.proposers);
     const has = (kind: "proposal" | "critiques" | "revision", seat: string, round: number) =>
       session.debate.some((entry) => entry.kind === kind && entry.seat === seat && entry.round === round);
 
-    const missingProposals = seats.filter((seat) => !has("proposal", seat, 0));
-    if (missingProposals.length > 0) {
-      await Promise.all(missingProposals.map((seat) => this.propose(session, seat)));
-      return;
+    if (session.mode === "challenge") {
+      if (!has("proposal", USER_SEAT, 0)) {
+        await this.formalize(session);
+        return;
+      }
+    } else {
+      const missingProposals = proposerSeats(session).filter((seat) => !has("proposal", seat, 0));
+      if (missingProposals.length > 0) {
+        await Promise.all(missingProposals.map((seat) => this.propose(session, seat)));
+        return;
+      }
     }
 
     for (let round = 1; round <= session.rounds; round++) {
-      const missingCritiques = seats.filter((seat) => !has("critiques", seat, round));
+      const missingCritiques = criticSeats(session).filter((seat) => !has("critiques", seat, round));
       if (missingCritiques.length > 0) {
         const proposals = currentProposals(session);
         await Promise.all(missingCritiques.map((seat) => this.criticise(session, seat, round, proposals)));
+        return;
+      }
+      if (shouldProbe(session, round)) {
+        await this.probe(session, round);
         return;
       }
       const asked = session.debate.some((entry) => entry.kind === "questions" && entry.round === round);
@@ -184,7 +265,7 @@ export class DebateEngine {
           return;
         }
       }
-      const missingRevisions = seats.filter((seat) => !has("revision", seat, round));
+      const missingRevisions = proposerSeats(session).filter((seat) => !has("revision", seat, round));
       if (missingRevisions.length > 0) {
         await Promise.all(missingRevisions.map((seat) => this.revise(session, seat, round)));
         return;
@@ -194,11 +275,31 @@ export class DebateEngine {
     await this.judge(session);
   }
 
+  private async formalize(session: Session) {
+    const sheet = requireSheet(session);
+    const proposal = await this.call(session, "proposal", USER_SEAT, this.providers.interviewer, {
+      system: formalizerSystem(session.locale),
+      messages: [
+        {
+          role: "user",
+          content: [requirementsBlock(sheet), fence("solution", session.challenge ?? session.idea), "Restate this solution."].join("\n\n"),
+        },
+      ],
+    });
+    session.debate.push({ kind: "proposal", round: 0, seat: USER_SEAT, data: proposal });
+    await this.persist(session);
+  }
+
   private async propose(session: Session, seat: string) {
     const sheet = requireSheet(session);
     const proposal = await this.call(session, "proposal", seat, this.proposer(seat), {
-      system: proposerSystem(session.locale, seat),
-      messages: [{ role: "user", content: `${requirementsBlock(sheet)}\n\nDesign your solution.` }],
+      system: proposerSystem(session.locale, seat, session.seats[seat]?.persona ?? null),
+      messages: [
+        {
+          role: "user",
+          content: [requirementsBlock(sheet), contextBlock(session.context, 30_000), "Design your solution."].filter(Boolean).join("\n\n"),
+        },
+      ],
     });
     session.debate.push({ kind: "proposal", round: 0, seat, data: proposal });
     await this.persist(session);
@@ -206,17 +307,32 @@ export class DebateEngine {
 
   private async criticise(session: Session, seat: string, round: number, proposals: Record<string, Proposal>) {
     const sheet = requireSheet(session);
-    const others = Object.fromEntries(Object.entries(proposals).filter(([other]) => other !== seat));
-    const critiques = await this.call(session, "critique", seat, this.proposer(seat), {
-      system: criticSystem(session.locale, seat),
+    const devil = seat === DEVIL_SEAT;
+    const targets = Object.fromEntries(Object.entries(proposals).filter(([other]) => other !== seat));
+    const persona = devil ? (session.devil?.persona ?? null) : (session.seats[seat]?.persona ?? null);
+    const system =
+      session.mode === "challenge" && !devil
+        ? challengerSystem(session.locale, seat, persona)
+        : devil
+          ? devilSystem(session.locale, persona)
+          : criticSystem(session.locale, seat, persona);
+    // Critics see what was already said in earlier rounds, so they dig deeper instead of repeating it.
+    const earlier = session.debate.flatMap((entry) =>
+      entry.kind === "critiques" && entry.round < round ? entry.data.critiques.map((critique) => ({ from: entry.seat, ...critique })) : [],
+    );
+    const probe = latestProbe(session.debate, round);
+    const critiques = await this.call(session, "critique", seat, devil ? this.devil() : this.proposer(seat), {
+      system,
       messages: [
         {
           role: "user",
           content: [
             requirementsBlock(sheet),
             answersBlock(allAnswers(session)),
-            proposalsBlock(others),
-            `Criticise these proposals. Valid targets: ${Object.keys(others).join(", ")}.`,
+            proposalsBlock(targets),
+            earlier.length > 0 ? fence("debate", JSON.stringify(earlier, null, 2)) : "",
+            probe ? fence("probe", probe.angle) : "",
+            `Criticise these proposals. Valid targets: ${Object.keys(targets).join(", ")}.`,
           ]
             .filter(Boolean)
             .join("\n\n"),
@@ -225,6 +341,34 @@ export class DebateEngine {
     });
     critiques.critiques = critiques.critiques.filter((critique) => critique.target !== seat && critique.target in proposals);
     session.debate.push({ kind: "critiques", round, seat, data: critiques });
+    await this.persist(session);
+  }
+
+  private async probe(session: Session, round: number) {
+    const sheet = requireSheet(session);
+    const critiques = session.debate.flatMap((entry) =>
+      entry.kind === "critiques" ? entry.data.critiques.map((critique) => ({ round: entry.round, from: entry.seat, ...critique })) : [],
+    );
+    const probe = await this.call(session, "probe", null, this.providers.arbiter, {
+      system: probeSystem(session.locale),
+      messages: [
+        {
+          role: "user",
+          content: [
+            requirementsBlock(sheet),
+            answersBlock(allAnswers(session)),
+            proposalsBlock(currentProposals(session)),
+            fence("debate", JSON.stringify(critiques, null, 2)),
+            "Find the angle nobody examined.",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        },
+      ],
+    });
+    session.debate.push({ kind: "probe", round, data: probe });
+    // The angle is examined in the next round: add one when this was the last.
+    if (round === session.rounds) session.rounds += 1;
     await this.persist(session);
   }
 
@@ -238,7 +382,7 @@ export class DebateEngine {
         : [],
     );
     const revision = await this.call(session, "revision", seat, this.proposer(seat), {
-      system: reviserSystem(session.locale, seat),
+      system: reviserSystem(session.locale, seat, session.seats[seat]?.persona ?? null),
       messages: [
         {
           role: "user",
@@ -246,7 +390,7 @@ export class DebateEngine {
             requirementsBlock(sheet),
             answersBlock(allAnswers(session)),
             proposalsBlock({ [seat]: own }),
-            `<debate>\n${JSON.stringify(received, null, 2)}\n</debate>`,
+            fence("debate", JSON.stringify(received, null, 2)),
             received.length === 0
               ? "No critique targeted your proposal this round. Confirm or improve it."
               : "Answer these critiques and return your revised proposal.",
@@ -264,6 +408,7 @@ export class DebateEngine {
     const sheet = requireSheet(session);
     const transcript = session.debate.flatMap<object>((entry) => {
       if (entry.kind === "critiques") return [{ round: entry.round, from: entry.seat, critiques: entry.data.critiques }];
+      if (entry.kind === "probe") return [{ round: entry.round, from: "arbiter", angle: entry.data.angle }];
       if (entry.kind === "revision") {
         return [
           {
@@ -277,8 +422,9 @@ export class DebateEngine {
       }
       return [];
     });
+    const challenge = session.mode === "challenge";
     const verdict = await this.call(session, "verdict", null, this.providers.arbiter, {
-      system: arbiterSystem(session.locale),
+      system: arbiterSystem(session.locale, challenge),
       messages: [
         {
           role: "user",
@@ -286,7 +432,7 @@ export class DebateEngine {
             requirementsBlock(sheet),
             answersBlock(allAnswers(session)),
             proposalsBlock(currentProposals(session)),
-            `<debate>\n${JSON.stringify(transcript, null, 2)}\n</debate>`,
+            fence("debate", JSON.stringify(transcript, null, 2)),
             "Rule on these options.",
           ]
             .filter(Boolean)
@@ -294,13 +440,21 @@ export class DebateEngine {
         },
       ],
     });
+    const seats = new Set(Object.keys(currentProposals(session)));
+    verdict.options = verdict.options.filter((option) => seats.has(option.seat));
     for (const option of verdict.options) {
       for (const score of option.scores) score.score = clampScore(score.score);
     }
+    if (verdict.recommendation.seat !== null && !seats.has(verdict.recommendation.seat)) verdict.recommendation.seat = null;
     session.debate.push({ kind: "verdict", data: verdict });
     session.verdict = verdict;
     session.phase = "complete";
     await this.persist(session);
+  }
+
+  private devil(): LlmProvider {
+    if (!this.providers.devil) throw new InvalidStateError("No model is assigned to the devil's advocate.");
+    return this.providers.devil;
   }
 
   private proposer(seat: string): LlmProvider {
@@ -329,7 +483,10 @@ export class DebateEngine {
             task,
             seat,
             system: prompt.system,
-            messages: prompt.messages,
+            messages: session.redact
+              ? prompt.messages.map((message) => (message.role === "user" ? { ...message, content: redact(message.content) } : message))
+              : prompt.messages,
+            ...(EFFORT[session.depth] ? { effort: EFFORT[session.depth] } : {}),
             schema: spec.json,
             schemaName: spec.name,
             maxTokens: spec.maxTokens,
@@ -410,4 +567,25 @@ function collectQuestions(session: Session, round: number): string[] {
     }
   }
   return questions.slice(0, MAX_QUESTIONS_PER_ROUND);
+}
+
+/**
+ * Soft consensus: every critic of the round found nothing blocking or major. The arbiter then
+ * raises an angle nobody examined, once per debate. Express sessions skip it to stay short.
+ */
+export function shouldProbe(session: Session, round: number): boolean {
+  if (session.mode === "express") return false;
+  if (session.debate.some((entry) => entry.kind === "probe")) return false;
+  const critiques = session.debate.flatMap((entry) => (entry.kind === "critiques" && entry.round === round ? entry.data.critiques : []));
+  return !critiques.some((critique) => critique.severity === "blocking" || critique.severity === "major");
+}
+
+function latestProbe(debate: DebateEntry[], beforeRound: number) {
+  const entry = debate.findLast((item) => item.kind === "probe" && item.round < beforeRound);
+  return entry?.kind === "probe" ? entry.data : null;
+}
+
+function stripSpeech<T extends { speech: string }>(value: T): Omit<T, "speech"> {
+  const { speech: _speech, ...rest } = value;
+  return rest;
 }

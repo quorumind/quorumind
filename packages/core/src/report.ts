@@ -506,11 +506,13 @@ export function renderReport(session: Session): string {
     }
     lines.push("");
 
-    if (verdict.consensus.length > 0) lines.push(`## ${t.consensus}`, "", list(verdict.consensus), "");
-    if (verdict.disagreements.length > 0) {
+    const agreed = verdict.topics.filter((topic) => topic.status === "agreement");
+    const contested = verdict.topics.filter((topic) => topic.status !== "agreement");
+    if (agreed.length > 0) lines.push(`## ${t.consensus}`, "", list(agreed.map((topic) => topic.topic)), "");
+    if (contested.length > 0) {
       lines.push(`## ${t.disagreements}`, "");
-      for (const disagreement of verdict.disagreements) {
-        lines.push(`- **${disagreement.topic}**`, ...disagreement.positions.map((position) => `  - ${position}`));
+      for (const topic of contested) {
+        lines.push(`- **${topic.topic}**`, ...topic.positions.map((item) => `  - ${item.seat ? `${item.seat}: ` : ""}${item.position}`));
       }
       lines.push("");
     }
