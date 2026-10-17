@@ -73,6 +73,18 @@ flowchart TB
 - **Cost cap.** Tokens and estimated cost are tracked per session and per model, with a
   configurable ceiling that stops the debate.
 
+## Languages
+
+The interface ships in ten languages from the start: English (source), French, Spanish,
+Portuguese, Italian, German, Hindi, Japanese, Simplified Chinese and Arabic, with full
+right-to-left support for Arabic. The interview, the debate and the report follow the user's
+language.
+
+## Contributing
+
+Everything in the codebase is written in English: code, comments, commit messages, issues
+and documentation. User-facing strings live in translation files, never in the code.
+
 ## Roadmap
 
 1. **MVP:** one debate end to end: interview, requirements sheet, 2 proposers + arbiter,
