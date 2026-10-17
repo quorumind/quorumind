@@ -1,0 +1,177 @@
+{
+  "app": {
+    "tagline": "Plusieurs IA débattent de votre projet avant que vous le construisiez.",
+    "footer": "Open source sous licence AGPL v3. Les réponses des modèles peuvent être fausses : vérifiez les affirmations marquées estimées ou supposées."
+  },
+  "nav": {
+    "home": "Accueil",
+    "newSession": "Nouvelle session",
+    "language": "Langue",
+    "theme": "Thème",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "themeSystem": "Système"
+  },
+  "home": {
+    "title": "Débattez-en avant de le construire.",
+    "lead": "Décrivez votre projet. Quorumind vous interroge, puis plusieurs modèles d'IA proposent des solutions, se contredisent, et un arbitre tranche sur ce qui est faisable.",
+    "ideaLabel": "Votre idée de projet",
+    "ideaPlaceholder": "ex. Une application de réservation pour nos 12 studios de yoga, avec cartes et rappels",
+    "start": "Commencer l'entretien",
+    "demo": "Essayer la démo",
+    "demoHint": "Un débat enregistré, en anglais. Aucune clé API nécessaire.",
+    "noKey": "Aucune clé API n'est configurée sur ce serveur : seule la démo est disponible.",
+    "rounds": "Tours de débat",
+    "budget": "Plafond de coût (USD)",
+    "budgetNone": "Sans plafond",
+    "estimate": "Un débat coûte environ {{low}} à {{high}}.",
+    "lineup": "Débattent aujourd'hui : {{seats}}. Arbitre : {{arbiter}}.",
+    "stepInterviewTitle": "Entretien",
+    "stepInterviewBody": "Quorumind vous interroge sur vos objectifs, votre budget, votre équipe et vos contraintes.",
+    "stepDebateTitle": "Débat",
+    "stepDebateBody": "Chaque modèle propose à l'aveugle, puis critique les autres et révise.",
+    "stepVerdictTitle": "Verdict",
+    "stepVerdictBody": "Un arbitre confronte chaque option à votre besoin.",
+    "recent": "Sessions récentes"
+  },
+  "phase": {
+    "interview": "Entretien",
+    "review": "Besoin",
+    "debating": "Débat",
+    "awaiting_answers": "Votre avis",
+    "complete": "Verdict",
+    "failed": "Arrêtée"
+  },
+  "role": {
+    "interviewer": "Intervieweur",
+    "proposer": "Proposant {{seat}}",
+    "arbiter": "Arbitre",
+    "you": "Vous"
+  },
+  "interview": {
+    "thinking": "L'intervieweur prépare ses questions…",
+    "why": "Pourquoi c'est important :",
+    "answerPlaceholder": "Votre réponse, ou « je ne sais pas »",
+    "unknown": "Je ne sais pas",
+    "send": "Envoyer les réponses",
+    "sending": "Envoi…"
+  },
+  "review": {
+    "title": "Vérifiez votre besoin",
+    "lead": "Le débat repose uniquement sur cette fiche. Corrigez ce qui est faux. Les contraintes non négociables rendent une option infaisable.",
+    "onePerLine": "Un élément par ligne",
+    "weight": "Poids",
+    "removePriority": "Retirer cette priorité",
+    "addPriority": "Ajouter une priorité",
+    "start": "Lancer le débat",
+    "starting": "Lancement…",
+    "fields": {
+      "projectName": "Nom du projet",
+      "summary": "Résumé",
+      "goals": "Objectifs",
+      "successCriteria": "Critères de réussite",
+      "mustHave": "Indispensable",
+      "niceToHave": "Souhaitable",
+      "outOfScope": "Hors périmètre",
+      "users": "Utilisateurs et charge",
+      "budget": "Budget",
+      "existingInfrastructure": "Infrastructure existante",
+      "team": "Équipe",
+      "deadline": "Échéance",
+      "hardConstraints": "Contraintes non négociables",
+      "softConstraints": "Contraintes souples",
+      "priorities": "Priorités",
+      "assumptions": "Hypothèses"
+    }
+  },
+  "debate": {
+    "blind": "Propositions à l'aveugle",
+    "critiques": "Tour {{round}} : critiques",
+    "revisions": "Tour {{round}} : révisions",
+    "verdict": "Verdict",
+    "writing": "écrit…",
+    "showDetails": "Voir le détail",
+    "hideDetails": "Masquer le détail",
+    "architecture": "Architecture",
+    "stack": "Technologies",
+    "infrastructure": "Infrastructure",
+    "monthlyCost": "Coût mensuel",
+    "buildTime": "Délai",
+    "risks": "Risques",
+    "assumptions": "Hypothèses",
+    "noCritique": "Aucune critique à ce tour.",
+    "on": "sur l'option {{seat}}",
+    "withdrawn": "Se retire et soutient l'option {{seat}}",
+    "questionsTitle": "Le débat a besoin de vous",
+    "questionsLead": "Vos réponses départagent les options. Le débat reprend dès que vous répondez.",
+    "questionsSend": "Envoyer et reprendre",
+    "yourAnswers": "Vos réponses"
+  },
+  "severity": {
+    "blocking": "Bloquante",
+    "major": "Majeure",
+    "minor": "Mineure"
+  },
+  "stance": {
+    "accepted": "Acceptée",
+    "partially_accepted": "Acceptée en partie",
+    "rejected": "Rejetée"
+  },
+  "verdict": {
+    "recommended": "Recommandée : option {{seat}}",
+    "none": "Aucune option n'est faisable en l'état.",
+    "matrix": "Matrice de décision",
+    "option": "Option",
+    "verdict": "Verdict",
+    "conditions": "Conditions",
+    "consensus": "Points d'accord",
+    "disagreements": "Désaccords restants",
+    "risks": "Risques",
+    "likelihood": "Probabilité",
+    "impact": "Impact",
+    "mitigation": "Parade",
+    "roadmap": "Feuille de route",
+    "exit": "Critère de sortie",
+    "claims": "Affirmations clés",
+    "openQuestions": "Questions ouvertes",
+    "download": "Télécharger le rapport (Markdown)",
+    "scoreOutOf": "{{score}} sur 5"
+  },
+  "feasibility": {
+    "feasible": "Faisable",
+    "conditional": "Faisable sous conditions",
+    "infeasible": "Pas faisable"
+  },
+  "confidence": {
+    "verified": "Vérifié",
+    "estimated": "Estimé",
+    "assumed": "Supposé"
+  },
+  "level": {
+    "low": "Faible",
+    "medium": "Moyen",
+    "high": "Élevé"
+  },
+  "cost": {
+    "label": "Coût jusqu'ici",
+    "cap": "plafond {{cap}}",
+    "partial": "Le prix de certains modèles est inconnu : le total est partiel."
+  },
+  "error": {
+    "title": "La session s'est arrêtée",
+    "budget_exceeded": "Le plafond de coût est atteint.",
+    "provider_error": "Un modèle n'a pas pu répondre.",
+    "internal_error": "Une erreur inattendue s'est produite.",
+    "retry": "Reprendre là où elle s'est arrêtée",
+    "network": "Connexion perdue. Reconnexion…",
+    "request": "La requête a échoué. Vérifiez votre connexion et réessayez."
+  },
+  "demo": {
+    "badge": "Démo"
+  },
+  "common": {
+    "loading": "Chargement…",
+    "notFound": "Cette session n'existe pas.",
+    "back": "Retour à l'accueil"
+  }
+}

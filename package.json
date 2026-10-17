@@ -1,0 +1,31 @@
+{
+  "name": "quorumind",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Several AIs debate your project before you build it.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @quorumind/server & npm run dev -w @quorumind/web",
+    "build": "npm run build -w @quorumind/web",
+    "start": "npm run start -w @quorumind/server",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web && tsc -p bench",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "bench": "node --disable-warning=ExperimentalWarning bench/run.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "22.20.5",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  }
+}

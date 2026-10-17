@@ -1,0 +1,177 @@
+{
+  "app": {
+    "tagline": "在您动手构建之前，让多个 AI 先为您的项目展开辩论。",
+    "footer": "基于 AGPL v3 许可的开源软件。模型的回答可能有误：请核实标注为“估计”或“假设”的论断。"
+  },
+  "nav": {
+    "home": "首页",
+    "newSession": "新会话",
+    "language": "语言",
+    "theme": "主题",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeSystem": "跟随系统"
+  },
+  "home": {
+    "title": "先辩论，再动手。",
+    "lead": "描述您的项目。Quorumind 会先向您提问，然后多个 AI 模型提出方案、相互质疑，最后由仲裁者判断哪些方案可行。",
+    "ideaLabel": "您的项目想法",
+    "ideaPlaceholder": "例如：为我们的 12 家瑜伽馆开发预约应用，支持次卡和提醒",
+    "start": "开始访谈",
+    "demo": "试用演示",
+    "demoHint": "一场以英文录制的辩论，无需 API 密钥。",
+    "noKey": "此服务器未配置 API 密钥，目前只能使用演示。",
+    "rounds": "辩论轮数",
+    "budget": "费用上限（美元）",
+    "budgetNone": "不设上限",
+    "estimate": "一场辩论的费用约为 {{low}} 至 {{high}}。",
+    "lineup": "今日辩手：{{seats}}。仲裁者：{{arbiter}}。",
+    "stepInterviewTitle": "访谈",
+    "stepInterviewBody": "Quorumind 询问您的目标、预算、团队和约束条件。",
+    "stepDebateTitle": "辩论",
+    "stepDebateBody": "每个模型在互不知情的情况下提出方案，再批评他人并修订自己的方案。",
+    "stepVerdictTitle": "结论",
+    "stepVerdictBody": "仲裁者对照您的需求逐一检验每个方案。",
+    "recent": "最近的会话"
+  },
+  "phase": {
+    "interview": "访谈",
+    "review": "需求",
+    "debating": "辩论",
+    "awaiting_answers": "待您回答",
+    "complete": "结论",
+    "failed": "已停止"
+  },
+  "role": {
+    "interviewer": "访谈者",
+    "proposer": "提案方 {{seat}}",
+    "arbiter": "仲裁者",
+    "you": "您"
+  },
+  "interview": {
+    "thinking": "访谈者正在准备问题…",
+    "why": "为什么重要：",
+    "answerPlaceholder": "您的回答，或“我不知道”",
+    "unknown": "我不知道",
+    "send": "提交回答",
+    "sending": "正在提交…"
+  },
+  "review": {
+    "title": "请核对您的需求",
+    "lead": "辩论仅以这份需求表为依据。如有错误请修改。违反硬性约束的方案将被判定为不可行。",
+    "onePerLine": "每行一项",
+    "weight": "权重",
+    "removePriority": "删除此优先级",
+    "addPriority": "添加优先级",
+    "start": "开始辩论",
+    "starting": "正在开始…",
+    "fields": {
+      "projectName": "项目名称",
+      "summary": "概述",
+      "goals": "目标",
+      "successCriteria": "成功标准",
+      "mustHave": "必备功能",
+      "niceToHave": "可选功能",
+      "outOfScope": "不在范围内",
+      "users": "用户与负载",
+      "budget": "预算",
+      "existingInfrastructure": "现有基础设施",
+      "team": "团队",
+      "deadline": "截止日期",
+      "hardConstraints": "硬性约束",
+      "softConstraints": "弹性约束",
+      "priorities": "优先级",
+      "assumptions": "假设"
+    }
+  },
+  "debate": {
+    "blind": "独立提案",
+    "critiques": "第 {{round}} 轮：批评",
+    "revisions": "第 {{round}} 轮：修订",
+    "verdict": "结论",
+    "writing": "正在输入…",
+    "showDetails": "查看详情",
+    "hideDetails": "收起详情",
+    "architecture": "架构",
+    "stack": "技术栈",
+    "infrastructure": "基础设施",
+    "monthlyCost": "每月成本",
+    "buildTime": "开发周期",
+    "risks": "风险",
+    "assumptions": "假设",
+    "noCritique": "本轮没有批评。",
+    "on": "针对方案 {{seat}}",
+    "withdrawn": "撤回方案并支持方案 {{seat}}",
+    "questionsTitle": "辩论需要您的回答",
+    "questionsLead": "您的回答将决定方案之间的取舍。回答后辩论将立即继续。",
+    "questionsSend": "提交并继续",
+    "yourAnswers": "您的回答"
+  },
+  "severity": {
+    "blocking": "致命",
+    "major": "严重",
+    "minor": "轻微"
+  },
+  "stance": {
+    "accepted": "接受",
+    "partially_accepted": "部分接受",
+    "rejected": "驳回"
+  },
+  "verdict": {
+    "recommended": "推荐：方案 {{seat}}",
+    "none": "目前没有可行的方案。",
+    "matrix": "决策矩阵",
+    "option": "方案",
+    "verdict": "结论",
+    "conditions": "条件",
+    "consensus": "共识",
+    "disagreements": "仍存在的分歧",
+    "risks": "风险",
+    "likelihood": "可能性",
+    "impact": "影响",
+    "mitigation": "应对措施",
+    "roadmap": "路线图",
+    "exit": "完成标准",
+    "claims": "关键论断",
+    "openQuestions": "待解决问题",
+    "download": "下载报告（Markdown）",
+    "scoreOutOf": "{{score}} 分（满分 5 分）"
+  },
+  "feasibility": {
+    "feasible": "可行",
+    "conditional": "有条件可行",
+    "infeasible": "不可行"
+  },
+  "confidence": {
+    "verified": "已核实",
+    "estimated": "估计",
+    "assumed": "假设"
+  },
+  "level": {
+    "low": "低",
+    "medium": "中",
+    "high": "高"
+  },
+  "cost": {
+    "label": "目前费用",
+    "cap": "上限 {{cap}}",
+    "partial": "部分模型价格未知：总额不完整。"
+  },
+  "error": {
+    "title": "会话已停止",
+    "budget_exceeded": "已达到费用上限。",
+    "provider_error": "某个模型未能作答。",
+    "internal_error": "发生了意外错误。",
+    "retry": "从中断处继续",
+    "network": "连接已断开，正在重新连接…",
+    "request": "请求失败。请检查网络连接后重试。"
+  },
+  "demo": {
+    "badge": "演示"
+  },
+  "common": {
+    "loading": "加载中…",
+    "notFound": "此会话不存在。",
+    "back": "返回首页"
+  }
+}

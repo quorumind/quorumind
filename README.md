@@ -11,7 +11,42 @@ requirements and tells you what is feasible, what is not, and why.
 You get a decision report: targeted goals, compared options with their verdict, recommended
 infrastructure, risks and a roadmap.
 
-> **Status:** early design. The MVP is being built; nothing is usable yet.
+> **Status:** MVP in progress. The full flow works end to end: interview, requirements
+> sheet, blind proposals, critiques, revisions, verdict and Markdown report, with Claude
+> and OpenAI, in ten languages. A recorded demo runs without any API key.
+
+## Quick start
+
+Requirements: Node.js 22.18 or later.
+
+```bash
+npm install
+cp .env.example .env     # add ANTHROPIC_API_KEY and/or OPENAI_API_KEY + OPENAI_MODEL
+npm run build
+npm start                # http://127.0.0.1:8787
+```
+
+Without any key, Quorumind starts in demo mode: click "Try the demo" to replay a recorded debate.
+
+With Docker:
+
+```bash
+cp .env.example .env
+docker compose up --build   # http://127.0.0.1:8787
+```
+
+The server has no user accounts yet: keep it on localhost or behind an authenticating
+reverse proxy, never directly on the internet.
+
+## Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | Enables Claude. Every role defaults to `claude-opus-5-5` (`ANTHROPIC_MODEL` to change it). |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | Enables OpenAI. With both vendors set, proposer B uses OpenAI so two vendors debate. |
+| `OPENAI_PRICE_INPUT`, `OPENAI_PRICE_OUTPUT` | USD per million tokens, for cost tracking and the cost cap. |
+| `QUORUMIND_INTERVIEWER`, `QUORUMIND_ARBITER`, `QUORUMIND_SEAT_A`, `QUORUMIND_SEAT_B` | Assign any model to any role, as `anthropic:<model>`, `openai:<model>` or `mock`. |
+| `PORT`, `HOST`, `QUORUMIND_DATA_DIR` | Server address and where sessions are stored (SQLite). |
 
 ## How it works
 
@@ -84,6 +119,27 @@ language.
 
 Everything in the codebase is written in English: code, comments, commit messages, issues
 and documentation. User-facing strings live in translation files, never in the code.
+
+## Development
+
+```bash
+npm run dev         # server on :8787 with reload, interface on :5173
+npm test            # unit and API tests
+npm run typecheck
+npm run lint
+npm run bench       # quality bench on the recorded demo
+QUORUMIND_BENCH=live npm run bench   # the same bench on real models (costs money)
+```
+
+| Path | Content |
+| --- | --- |
+| `packages/core` | Debate engine, role prompts, schemas, provider adapters (Claude, OpenAI, demo), pricing, report |
+| `apps/server` | HTTP API, live event stream (SSE), SQLite storage, serves the interface |
+| `apps/web` | React interface, ten languages, right-to-left support, light and dark themes |
+| `bench` | Reference projects replayed end to end, with checks every verdict must pass |
+
+Run the bench after any change to prompts, schemas or models: it is how we know whether a
+change makes debates better or worse.
 
 ## Roadmap
 

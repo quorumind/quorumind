@@ -1,0 +1,177 @@
+{
+  "app": {
+    "tagline": "Mehrere KIs debattieren Ihr Projekt, bevor Sie es bauen.",
+    "footer": "Open Source unter AGPL v3. Modellantworten können falsch sein: Prüfen Sie die als geschätzt oder angenommen markierten Aussagen."
+  },
+  "nav": {
+    "home": "Start",
+    "newSession": "Neue Sitzung",
+    "language": "Sprache",
+    "theme": "Design",
+    "themeLight": "Hell",
+    "themeDark": "Dunkel",
+    "themeSystem": "System"
+  },
+  "home": {
+    "title": "Erst debattieren, dann bauen.",
+    "lead": "Beschreiben Sie Ihr Projekt. Quorumind befragt Sie, dann schlagen mehrere KI-Modelle Lösungen vor, widersprechen einander, und ein Schiedsrichter entscheidet, was umsetzbar ist.",
+    "ideaLabel": "Ihre Projektidee",
+    "ideaPlaceholder": "z. B. Eine Buchungs-App für unsere 12 Yogastudios mit Mehrfachkarten und Erinnerungen",
+    "start": "Befragung starten",
+    "demo": "Demo ansehen",
+    "demoHint": "Eine aufgezeichnete Debatte auf Englisch. Kein API-Schlüssel nötig.",
+    "noKey": "Auf diesem Server ist kein API-Schlüssel eingerichtet, daher ist nur die Demo verfügbar.",
+    "rounds": "Debattenrunden",
+    "budget": "Kostengrenze (USD)",
+    "budgetNone": "Keine Grenze",
+    "estimate": "Eine Debatte kostet etwa {{low}} bis {{high}}.",
+    "lineup": "Heute debattieren: {{seats}}. Schiedsrichter: {{arbiter}}.",
+    "stepInterviewTitle": "Befragung",
+    "stepInterviewBody": "Quorumind fragt nach Zielen, Budget, Team und Vorgaben.",
+    "stepDebateTitle": "Debatte",
+    "stepDebateBody": "Jedes Modell schlägt blind vor, kritisiert dann die anderen und überarbeitet.",
+    "stepVerdictTitle": "Urteil",
+    "stepVerdictBody": "Ein Schiedsrichter prüft jede Option gegen Ihre Anforderungen.",
+    "recent": "Letzte Sitzungen"
+  },
+  "phase": {
+    "interview": "Befragung",
+    "review": "Anforderungen",
+    "debating": "Debatte",
+    "awaiting_answers": "Ihre Antwort",
+    "complete": "Urteil",
+    "failed": "Angehalten"
+  },
+  "role": {
+    "interviewer": "Interviewer",
+    "proposer": "Vorschlag {{seat}}",
+    "arbiter": "Schiedsrichter",
+    "you": "Sie"
+  },
+  "interview": {
+    "thinking": "Der Interviewer bereitet die Fragen vor…",
+    "why": "Warum das wichtig ist:",
+    "answerPlaceholder": "Ihre Antwort oder „Weiß ich nicht“",
+    "unknown": "Weiß ich nicht",
+    "send": "Antworten senden",
+    "sending": "Wird gesendet…"
+  },
+  "review": {
+    "title": "Prüfen Sie Ihre Anforderungen",
+    "lead": "Die Debatte stützt sich nur auf dieses Blatt. Korrigieren Sie, was nicht stimmt. Harte Vorgaben machen eine Option nicht umsetzbar.",
+    "onePerLine": "Ein Eintrag pro Zeile",
+    "weight": "Gewicht",
+    "removePriority": "Diese Priorität entfernen",
+    "addPriority": "Priorität hinzufügen",
+    "start": "Debatte starten",
+    "starting": "Wird gestartet…",
+    "fields": {
+      "projectName": "Projektname",
+      "summary": "Zusammenfassung",
+      "goals": "Ziele",
+      "successCriteria": "Erfolgskriterien",
+      "mustHave": "Unverzichtbar",
+      "niceToHave": "Wünschenswert",
+      "outOfScope": "Nicht im Umfang",
+      "users": "Nutzer und Last",
+      "budget": "Budget",
+      "existingInfrastructure": "Vorhandene Infrastruktur",
+      "team": "Team",
+      "deadline": "Termin",
+      "hardConstraints": "Harte Vorgaben",
+      "softConstraints": "Weiche Vorgaben",
+      "priorities": "Prioritäten",
+      "assumptions": "Annahmen"
+    }
+  },
+  "debate": {
+    "blind": "Blinde Vorschläge",
+    "critiques": "Runde {{round}}: Kritik",
+    "revisions": "Runde {{round}}: Überarbeitungen",
+    "verdict": "Urteil",
+    "writing": "schreibt…",
+    "showDetails": "Details anzeigen",
+    "hideDetails": "Details ausblenden",
+    "architecture": "Architektur",
+    "stack": "Technologien",
+    "infrastructure": "Infrastruktur",
+    "monthlyCost": "Monatliche Kosten",
+    "buildTime": "Entwicklungsdauer",
+    "risks": "Risiken",
+    "assumptions": "Annahmen",
+    "noCritique": "Keine Kritik in dieser Runde.",
+    "on": "zu Option {{seat}}",
+    "withdrawn": "Zieht zurück und unterstützt Option {{seat}}",
+    "questionsTitle": "Die Debatte braucht Ihre Antwort",
+    "questionsLead": "Ihre Antworten entscheiden zwischen den Optionen. Die Debatte geht weiter, sobald Sie antworten.",
+    "questionsSend": "Senden und fortfahren",
+    "yourAnswers": "Ihre Antworten"
+  },
+  "severity": {
+    "blocking": "Blockierend",
+    "major": "Schwer",
+    "minor": "Gering"
+  },
+  "stance": {
+    "accepted": "Angenommen",
+    "partially_accepted": "Teilweise angenommen",
+    "rejected": "Abgelehnt"
+  },
+  "verdict": {
+    "recommended": "Empfohlen: Option {{seat}}",
+    "none": "Keine Option ist in der jetzigen Form umsetzbar.",
+    "matrix": "Entscheidungsmatrix",
+    "option": "Option",
+    "verdict": "Urteil",
+    "conditions": "Bedingungen",
+    "consensus": "Übereinstimmungen",
+    "disagreements": "Verbleibende Meinungsverschiedenheiten",
+    "risks": "Risiken",
+    "likelihood": "Wahrscheinlichkeit",
+    "impact": "Auswirkung",
+    "mitigation": "Gegenmaßnahme",
+    "roadmap": "Fahrplan",
+    "exit": "Abschlusskriterium",
+    "claims": "Zentrale Aussagen",
+    "openQuestions": "Offene Fragen",
+    "download": "Bericht herunterladen (Markdown)",
+    "scoreOutOf": "{{score}} von 5"
+  },
+  "feasibility": {
+    "feasible": "Umsetzbar",
+    "conditional": "Umsetzbar unter Bedingungen",
+    "infeasible": "Nicht umsetzbar"
+  },
+  "confidence": {
+    "verified": "Geprüft",
+    "estimated": "Geschätzt",
+    "assumed": "Angenommen"
+  },
+  "level": {
+    "low": "Niedrig",
+    "medium": "Mittel",
+    "high": "Hoch"
+  },
+  "cost": {
+    "label": "Bisherige Kosten",
+    "cap": "Grenze {{cap}}",
+    "partial": "Einige Modellpreise sind unbekannt: Die Summe ist unvollständig."
+  },
+  "error": {
+    "title": "Die Sitzung wurde angehalten",
+    "budget_exceeded": "Die Kostengrenze ist erreicht.",
+    "provider_error": "Ein Modell konnte nicht antworten.",
+    "internal_error": "Ein unerwarteter Fehler ist aufgetreten.",
+    "retry": "Dort fortsetzen, wo sie angehalten hat",
+    "network": "Verbindung verloren. Neu verbinden…",
+    "request": "Die Anfrage ist fehlgeschlagen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
+  },
+  "demo": {
+    "badge": "Demo"
+  },
+  "common": {
+    "loading": "Wird geladen…",
+    "notFound": "Diese Sitzung existiert nicht.",
+    "back": "Zurück zum Start"
+  }
+}

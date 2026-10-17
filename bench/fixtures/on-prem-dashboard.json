@@ -1,0 +1,14 @@
+{
+  "id": "on-prem-dashboard",
+  "locale": "fr",
+  "idea": "Un tableau de bord interne qui agrège les indicateurs de production de nos trois usines.",
+  "interviewAnswers": [
+    "Aucune donnée ne doit sortir de nos serveurs : tout doit tourner sur site, sans cloud.",
+    "Une équipe informatique de 4 personnes qui connaît Python et PostgreSQL.",
+    "Budget de 30 000 € pour la construction, pas de budget mensuel pour du SaaS."
+  ],
+  "debateAnswers": ["Les données viennent de bases SQL Server existantes, rafraîchies toutes les 15 minutes."],
+  "expect": {
+    "hardConstraintKeywords": ["site"]
+  }
+}

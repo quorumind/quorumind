@@ -1,0 +1,14 @@
+{
+  "id": "budget-mobile",
+  "locale": "es",
+  "idea": "Una app móvil para que los vecinos de un barrio intercambien herramientas.",
+  "interviewAnswers": [
+    "Casi sin presupuesto: 2.000 € y como máximo 30 € al mes.",
+    "Una sola persona que sabe algo de JavaScript, los fines de semana.",
+    "Tiene que funcionar en Android y en iPhone."
+  ],
+  "debateAnswers": ["Una web instalable en el móvil sería suficiente al principio."],
+  "expect": {
+    "hardConstraintKeywords": ["30"]
+  }
+}

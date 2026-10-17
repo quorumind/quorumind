@@ -1,0 +1,14 @@
+{
+  "id": "studio-booking",
+  "locale": "en",
+  "idea": "An online booking and membership app for our network of 12 yoga studios: members book classes, buy passes and get reminders.",
+  "interviewAnswers": [
+    "€15,000 to build and at most €400 a month to run.",
+    "Two JavaScript developers, three days a week each, comfortable with React and Node.js.",
+    "Member data must stay in the EU. We must launch before September."
+  ],
+  "debateAnswers": ["Yes, a hosted platform is fine if it fits the monthly cap with EU hosting."],
+  "expect": {
+    "hardConstraintKeywords": ["EU", "400"]
+  }
+}

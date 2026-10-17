@@ -1,0 +1,177 @@
+{
+  "app": {
+    "tagline": "Several AIs debate your project before you build it.",
+    "footer": "Open source under AGPL v3. Model answers can be wrong: check the claims marked estimated or assumed."
+  },
+  "nav": {
+    "home": "Home",
+    "newSession": "New session",
+    "language": "Language",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System"
+  },
+  "home": {
+    "title": "Debate it before you build it.",
+    "lead": "Describe your project. Quorumind interviews you, then several AI models propose solutions, challenge each other, and an arbiter rules on what is feasible.",
+    "ideaLabel": "Your project idea",
+    "ideaPlaceholder": "e.g. A booking app for our 12 yoga studios, with passes and reminders",
+    "start": "Start the interview",
+    "demo": "Try the demo",
+    "demoHint": "A recorded debate in English. No API key needed.",
+    "noKey": "No API key is configured on this server, so only the demo is available.",
+    "rounds": "Debate rounds",
+    "budget": "Cost cap (USD)",
+    "budgetNone": "No cap",
+    "estimate": "A debate costs about {{low}} to {{high}}.",
+    "lineup": "Debating today: {{seats}}. Arbiter: {{arbiter}}.",
+    "stepInterviewTitle": "Interview",
+    "stepInterviewBody": "Quorumind asks about your goals, budget, team and constraints.",
+    "stepDebateTitle": "Debate",
+    "stepDebateBody": "Each model proposes blind, then criticises the others and revises.",
+    "stepVerdictTitle": "Verdict",
+    "stepVerdictBody": "An arbiter checks every option against your requirements.",
+    "recent": "Recent sessions"
+  },
+  "phase": {
+    "interview": "Interview",
+    "review": "Requirements",
+    "debating": "Debate",
+    "awaiting_answers": "Your input",
+    "complete": "Verdict",
+    "failed": "Stopped"
+  },
+  "role": {
+    "interviewer": "Interviewer",
+    "proposer": "Proposer {{seat}}",
+    "arbiter": "Arbiter",
+    "you": "You"
+  },
+  "interview": {
+    "thinking": "The interviewer is preparing questions…",
+    "why": "Why it matters:",
+    "answerPlaceholder": "Your answer, or “I don't know”",
+    "unknown": "I don't know",
+    "send": "Send answers",
+    "sending": "Sending…"
+  },
+  "review": {
+    "title": "Check your requirements",
+    "lead": "The debate relies only on this sheet. Correct anything wrong. Hard constraints make an option infeasible.",
+    "onePerLine": "One item per line",
+    "weight": "Weight",
+    "removePriority": "Remove this priority",
+    "addPriority": "Add a priority",
+    "start": "Start the debate",
+    "starting": "Starting…",
+    "fields": {
+      "projectName": "Project name",
+      "summary": "Summary",
+      "goals": "Goals",
+      "successCriteria": "Success criteria",
+      "mustHave": "Must have",
+      "niceToHave": "Nice to have",
+      "outOfScope": "Out of scope",
+      "users": "Users and load",
+      "budget": "Budget",
+      "existingInfrastructure": "Existing infrastructure",
+      "team": "Team",
+      "deadline": "Deadline",
+      "hardConstraints": "Hard constraints",
+      "softConstraints": "Soft constraints",
+      "priorities": "Priorities",
+      "assumptions": "Assumptions"
+    }
+  },
+  "debate": {
+    "blind": "Blind proposals",
+    "critiques": "Round {{round}}: critiques",
+    "revisions": "Round {{round}}: revisions",
+    "verdict": "Verdict",
+    "writing": "writing…",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "architecture": "Architecture",
+    "stack": "Stack",
+    "infrastructure": "Infrastructure",
+    "monthlyCost": "Monthly cost",
+    "buildTime": "Build time",
+    "risks": "Risks",
+    "assumptions": "Assumptions",
+    "noCritique": "No critique this round.",
+    "on": "on option {{seat}}",
+    "withdrawn": "Withdraws and supports option {{seat}}",
+    "questionsTitle": "The debate needs your input",
+    "questionsLead": "Your answers decide between the options. The debate resumes as soon as you reply.",
+    "questionsSend": "Send and resume",
+    "yourAnswers": "Your answers"
+  },
+  "severity": {
+    "blocking": "Blocking",
+    "major": "Major",
+    "minor": "Minor"
+  },
+  "stance": {
+    "accepted": "Accepted",
+    "partially_accepted": "Partly accepted",
+    "rejected": "Rejected"
+  },
+  "verdict": {
+    "recommended": "Recommended: option {{seat}}",
+    "none": "No option is feasible as it stands.",
+    "matrix": "Decision matrix",
+    "option": "Option",
+    "verdict": "Verdict",
+    "conditions": "Conditions",
+    "consensus": "Points of agreement",
+    "disagreements": "Remaining disagreements",
+    "risks": "Risks",
+    "likelihood": "Likelihood",
+    "impact": "Impact",
+    "mitigation": "Mitigation",
+    "roadmap": "Roadmap",
+    "exit": "Exit criterion",
+    "claims": "Key claims",
+    "openQuestions": "Open questions",
+    "download": "Download the report (Markdown)",
+    "scoreOutOf": "{{score}} out of 5"
+  },
+  "feasibility": {
+    "feasible": "Feasible",
+    "conditional": "Feasible with conditions",
+    "infeasible": "Not feasible"
+  },
+  "confidence": {
+    "verified": "Verified",
+    "estimated": "Estimated",
+    "assumed": "Assumed"
+  },
+  "level": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High"
+  },
+  "cost": {
+    "label": "Cost so far",
+    "cap": "cap {{cap}}",
+    "partial": "Some model prices are unknown: the total is partial."
+  },
+  "error": {
+    "title": "The session stopped",
+    "budget_exceeded": "The cost cap is reached.",
+    "provider_error": "A model could not answer.",
+    "internal_error": "An unexpected error occurred.",
+    "retry": "Retry from where it stopped",
+    "network": "Connection lost. Reconnecting…",
+    "request": "The request failed. Check your connection and try again."
+  },
+  "demo": {
+    "badge": "Demo"
+  },
+  "common": {
+    "loading": "Loading…",
+    "notFound": "This session does not exist.",
+    "back": "Back to home"
+  }
+}

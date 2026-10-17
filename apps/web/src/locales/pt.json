@@ -1,0 +1,177 @@
+{
+  "app": {
+    "tagline": "Várias IAs debatem seu projeto antes que você o construa.",
+    "footer": "Código aberto sob licença AGPL v3. As respostas dos modelos podem estar erradas: verifique as afirmações marcadas como estimadas ou supostas."
+  },
+  "nav": {
+    "home": "Início",
+    "newSession": "Nova sessão",
+    "language": "Idioma",
+    "theme": "Tema",
+    "themeLight": "Claro",
+    "themeDark": "Escuro",
+    "themeSystem": "Sistema"
+  },
+  "home": {
+    "title": "Debata antes de construir.",
+    "lead": "Descreva seu projeto. O Quorumind entrevista você; depois, vários modelos de IA propõem soluções, questionam uns aos outros e um árbitro decide o que é viável.",
+    "ideaLabel": "Sua ideia de projeto",
+    "ideaPlaceholder": "ex.: Um app de reservas para nossos 12 estúdios de ioga, com pacotes e lembretes",
+    "start": "Começar a entrevista",
+    "demo": "Experimentar a demo",
+    "demoHint": "Um debate gravado, em inglês. Não precisa de chave de API.",
+    "noKey": "Nenhuma chave de API está configurada neste servidor: só a demo está disponível.",
+    "rounds": "Rodadas de debate",
+    "budget": "Limite de custo (USD)",
+    "budgetNone": "Sem limite",
+    "estimate": "Um debate custa entre {{low}} e {{high}}, aproximadamente.",
+    "lineup": "Debatem hoje: {{seats}}. Árbitro: {{arbiter}}.",
+    "stepInterviewTitle": "Entrevista",
+    "stepInterviewBody": "O Quorumind pergunta sobre seus objetivos, orçamento, equipe e restrições.",
+    "stepDebateTitle": "Debate",
+    "stepDebateBody": "Cada modelo propõe às cegas, depois critica os outros e revisa sua proposta.",
+    "stepVerdictTitle": "Veredito",
+    "stepVerdictBody": "Um árbitro confronta cada opção com seus requisitos.",
+    "recent": "Sessões recentes"
+  },
+  "phase": {
+    "interview": "Entrevista",
+    "review": "Requisitos",
+    "debating": "Debate",
+    "awaiting_answers": "Sua opinião",
+    "complete": "Veredito",
+    "failed": "Interrompida"
+  },
+  "role": {
+    "interviewer": "Entrevistador",
+    "proposer": "Proponente {{seat}}",
+    "arbiter": "Árbitro",
+    "you": "Você"
+  },
+  "interview": {
+    "thinking": "O entrevistador está preparando as perguntas…",
+    "why": "Por que importa:",
+    "answerPlaceholder": "Sua resposta, ou “não sei”",
+    "unknown": "Não sei",
+    "send": "Enviar respostas",
+    "sending": "Enviando…"
+  },
+  "review": {
+    "title": "Confira seus requisitos",
+    "lead": "O debate se baseia apenas nesta ficha. Corrija o que estiver errado. Restrições inegociáveis tornam uma opção inviável.",
+    "onePerLine": "Um item por linha",
+    "weight": "Peso",
+    "removePriority": "Remover esta prioridade",
+    "addPriority": "Adicionar uma prioridade",
+    "start": "Iniciar o debate",
+    "starting": "Iniciando…",
+    "fields": {
+      "projectName": "Nome do projeto",
+      "summary": "Resumo",
+      "goals": "Objetivos",
+      "successCriteria": "Critérios de sucesso",
+      "mustHave": "Indispensável",
+      "niceToHave": "Desejável",
+      "outOfScope": "Fora do escopo",
+      "users": "Usuários e carga",
+      "budget": "Orçamento",
+      "existingInfrastructure": "Infraestrutura existente",
+      "team": "Equipe",
+      "deadline": "Prazo",
+      "hardConstraints": "Restrições inegociáveis",
+      "softConstraints": "Restrições flexíveis",
+      "priorities": "Prioridades",
+      "assumptions": "Premissas"
+    }
+  },
+  "debate": {
+    "blind": "Propostas às cegas",
+    "critiques": "Rodada {{round}}: críticas",
+    "revisions": "Rodada {{round}}: revisões",
+    "verdict": "Veredito",
+    "writing": "escrevendo…",
+    "showDetails": "Ver detalhes",
+    "hideDetails": "Ocultar detalhes",
+    "architecture": "Arquitetura",
+    "stack": "Tecnologias",
+    "infrastructure": "Infraestrutura",
+    "monthlyCost": "Custo mensal",
+    "buildTime": "Prazo de desenvolvimento",
+    "risks": "Riscos",
+    "assumptions": "Premissas",
+    "noCritique": "Nenhuma crítica nesta rodada.",
+    "on": "sobre a opção {{seat}}",
+    "withdrawn": "Desiste e apoia a opção {{seat}}",
+    "questionsTitle": "O debate precisa da sua opinião",
+    "questionsLead": "Suas respostas decidem entre as opções. O debate continua assim que você responder.",
+    "questionsSend": "Enviar e continuar",
+    "yourAnswers": "Suas respostas"
+  },
+  "severity": {
+    "blocking": "Bloqueante",
+    "major": "Importante",
+    "minor": "Menor"
+  },
+  "stance": {
+    "accepted": "Aceita",
+    "partially_accepted": "Aceita em parte",
+    "rejected": "Rejeitada"
+  },
+  "verdict": {
+    "recommended": "Recomendada: opção {{seat}}",
+    "none": "Nenhuma opção é viável como está.",
+    "matrix": "Matriz de decisão",
+    "option": "Opção",
+    "verdict": "Veredito",
+    "conditions": "Condições",
+    "consensus": "Pontos de acordo",
+    "disagreements": "Divergências restantes",
+    "risks": "Riscos",
+    "likelihood": "Probabilidade",
+    "impact": "Impacto",
+    "mitigation": "Mitigação",
+    "roadmap": "Roteiro",
+    "exit": "Critério de saída",
+    "claims": "Afirmações principais",
+    "openQuestions": "Questões em aberto",
+    "download": "Baixar o relatório (Markdown)",
+    "scoreOutOf": "{{score}} de 5"
+  },
+  "feasibility": {
+    "feasible": "Viável",
+    "conditional": "Viável com condições",
+    "infeasible": "Inviável"
+  },
+  "confidence": {
+    "verified": "Verificado",
+    "estimated": "Estimado",
+    "assumed": "Suposto"
+  },
+  "level": {
+    "low": "Baixa",
+    "medium": "Média",
+    "high": "Alta"
+  },
+  "cost": {
+    "label": "Custo até agora",
+    "cap": "limite {{cap}}",
+    "partial": "O preço de alguns modelos é desconhecido: o total é parcial."
+  },
+  "error": {
+    "title": "A sessão foi interrompida",
+    "budget_exceeded": "O limite de custo foi atingido.",
+    "provider_error": "Um modelo não conseguiu responder.",
+    "internal_error": "Ocorreu um erro inesperado.",
+    "retry": "Retomar de onde parou",
+    "network": "Conexão perdida. Reconectando…",
+    "request": "A solicitação falhou. Verifique sua conexão e tente novamente."
+  },
+  "demo": {
+    "badge": "Demo"
+  },
+  "common": {
+    "loading": "Carregando…",
+    "notFound": "Esta sessão não existe.",
+    "back": "Voltar ao início"
+  }
+}
