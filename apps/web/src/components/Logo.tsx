@@ -18,39 +18,3 @@ export function Mark() {
     </svg>
   );
 }
-
-/** Two camps in a hemicycle, the brand's illustration of a debate. */
-export function Hemicycle() {
-  const rows = [
-    { radius: 48, seats: 7 },
-    { radius: 76, seats: 10 },
-    { radius: 104, seats: 14 },
-    { radius: 132, seats: 18 },
-  ];
-  const seats: { x: number; y: number; side: "thesis" | "antithesis" }[] = [];
-  for (const row of rows) {
-    for (let i = 0; i < row.seats; i++) {
-      const angle = (Math.PI * i) / (row.seats - 1);
-      if (Math.abs(angle - Math.PI / 2) < 1e-6) continue;
-      seats.push({
-        x: 160 + row.radius * Math.cos(angle),
-        y: 160 - row.radius * Math.sin(angle),
-        side: angle < Math.PI / 2 ? "antithesis" : "thesis",
-      });
-    }
-  }
-  return (
-    <svg className="hemicycle" viewBox="0 0 320 200" aria-hidden="true">
-      {seats.map((seat) => (
-        <circle
-          key={`${seat.x.toFixed(1)}-${seat.y.toFixed(1)}`}
-          cx={seat.x}
-          cy={seat.y}
-          r="6"
-          fill={seat.side === "thesis" ? "var(--thesis)" : "var(--antithesis)"}
-        />
-      ))}
-      <circle cx="160" cy="176" r="10" fill="var(--synthesis)" />
-    </svg>
-  );
-}

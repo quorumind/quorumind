@@ -77,3 +77,21 @@ export const ArrowIcon = () => (
     <path d="M5 12h14M13.5 6.5L19 12l-5.5 5.5" />
   </Icon>
 );
+
+export const MenuIcon = () => (
+  <Icon>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </Icon>
+);
+
+export const PlusIcon = () => (
+  <Icon>
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+);
+
+export const PlayIcon = () => (
+  <Icon>
+    <path d="M8 5.5v13l10.5-6.5z" />
+  </Icon>
+);

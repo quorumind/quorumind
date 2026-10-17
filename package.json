@@ -17,14 +17,16 @@
     "build": "npm run build -w @quorumind/web",
     "start": "npm run start -w @quorumind/server",
     "test": "vitest run",
-    "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web && tsc -p bench",
+    "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web && tsc -p bench && tsc -p media",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "bench": "node --disable-warning=ExperimentalWarning bench/run.ts"
+    "bench": "node --disable-warning=ExperimentalWarning bench/run.ts",
+    "media": "npm run build && node --disable-warning=ExperimentalWarning media/capture.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@types/node": "22.20.5",
+    "playwright": "1.56.1",
     "typescript": "6.0.3",
     "vitest": "5.0.3"
   }

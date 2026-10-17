@@ -15,6 +15,12 @@ infrastructure, risks and a roadmap.
 > sheet, blind proposals, critiques, revisions, verdict and Markdown report, with Claude
 > and OpenAI, in ten languages. A recorded demo runs without any API key.
 
+![The verdict of a debate: the recommended option and the decision matrix](docs/media/verdict.png)
+
+| Interview | Debate | Arabic, right to left |
+| --- | --- | --- |
+| ![The interview](docs/media/interview.png) | ![The debate asks the user a question](docs/media/debate.png) | ![The verdict in Arabic](docs/media/verdict-ar.png) |
+
 ## Quick start
 
 Requirements: Node.js 22.18 or later.
@@ -129,6 +135,7 @@ npm run typecheck
 npm run lint
 npm run bench       # quality bench on the recorded demo
 QUORUMIND_BENCH=live npm run bench   # the same bench on real models (costs money)
+npm run media       # screenshots and demo video in docs/media, filmed on the recorded demo (needs ffmpeg)
 ```
 
 | Path | Content |
@@ -137,6 +144,7 @@ QUORUMIND_BENCH=live npm run bench   # the same bench on real models (costs mone
 | `apps/server` | HTTP API, live event stream (SSE), SQLite storage, serves the interface |
 | `apps/web` | React interface, ten languages, right-to-left support, light and dark themes |
 | `bench` | Reference projects replayed end to end, with checks every verdict must pass |
+| `media` | Films the recorded demo with Playwright for the README and the website |
 
 Run the bench after any change to prompts, schemas or models: it is how we know whether a
 change makes debates better or worse.

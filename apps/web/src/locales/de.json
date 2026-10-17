@@ -10,15 +10,18 @@
     "theme": "Design",
     "themeLight": "Hell",
     "themeDark": "Dunkel",
-    "themeSystem": "System"
+    "themeSystem": "System",
+    "sessions": "Sitzungen",
+    "noSessions": "Noch keine Sitzung. Starten Sie eine, um sie hier zu sehen.",
+    "menu": "Menü öffnen",
+    "closeMenu": "Menü schließen",
+    "site": "Über Quorumind"
   },
   "home": {
-    "title": "Erst debattieren, dann bauen.",
-    "lead": "Beschreiben Sie Ihr Projekt. Quorumind befragt Sie, dann schlagen mehrere KI-Modelle Lösungen vor, widersprechen einander, und ein Schiedsrichter entscheidet, was umsetzbar ist.",
     "ideaLabel": "Ihre Projektidee",
     "ideaPlaceholder": "z. B. Eine Buchungs-App für unsere 12 Yogastudios mit Mehrfachkarten und Erinnerungen",
     "start": "Befragung starten",
-    "demo": "Demo ansehen",
+    "demo": "Aufgezeichnete Demo abspielen",
     "demoHint": "Eine aufgezeichnete Debatte auf Englisch. Kein API-Schlüssel nötig.",
     "noKey": "Auf diesem Server ist kein API-Schlüssel eingerichtet, daher ist nur die Demo verfügbar.",
     "rounds": "Debattenrunden",
@@ -26,13 +29,8 @@
     "budgetNone": "Keine Grenze",
     "estimate": "Eine Debatte kostet etwa {{low}} bis {{high}}.",
     "lineup": "Heute debattieren: {{seats}}. Schiedsrichter: {{arbiter}}.",
-    "stepInterviewTitle": "Befragung",
-    "stepInterviewBody": "Quorumind fragt nach Zielen, Budget, Team und Vorgaben.",
-    "stepDebateTitle": "Debatte",
-    "stepDebateBody": "Jedes Modell schlägt blind vor, kritisiert dann die anderen und überarbeitet.",
-    "stepVerdictTitle": "Urteil",
-    "stepVerdictBody": "Ein Schiedsrichter prüft jede Option gegen Ihre Anforderungen.",
-    "recent": "Letzte Sitzungen"
+    "newTitle": "Neue Sitzung",
+    "newLead": "Beschreiben Sie das Projekt, das Sie vorbereiten möchten. Quorumind befragt Sie, dann debattieren die Modelle und ein Schiedsrichter entscheidet."
   },
   "phase": {
     "interview": "Befragung",
@@ -173,5 +171,29 @@
     "loading": "Wird geladen…",
     "notFound": "Diese Sitzung existiert nicht.",
     "back": "Zurück zum Start"
+  },
+  "tabs": {
+    "verdict": "Urteil",
+    "debate": "Debatte",
+    "interview": "Befragung",
+    "requirements": "Anforderungen",
+    "costs": "Kosten"
+  },
+  "costs": {
+    "step": "Schritt",
+    "who": "Wer",
+    "model": "Modell",
+    "input": "Eingabe-Tokens",
+    "output": "Ausgabe-Tokens",
+    "cost": "Kosten",
+    "total": "Summe",
+    "unknown": "Preis unbekannt"
+  },
+  "task": {
+    "interview": "Befragung",
+    "proposal": "Vorschlag",
+    "critique": "Kritik",
+    "revision": "Überarbeitung",
+    "verdict": "Urteil"
   }
 }

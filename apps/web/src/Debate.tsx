@@ -327,7 +327,6 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
 
   return (
     <section className="transcript" aria-label={t("phase.debating")}>
-      {session.phase === "complete" ? <h2 className="heading">{t("phase.debating")}</h2> : null}
       {items}
     </section>
   );

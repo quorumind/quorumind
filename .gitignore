@@ -5,3 +5,4 @@ data/
 *.log
 *.db
 bench/results/
+docs/media/*.mp4

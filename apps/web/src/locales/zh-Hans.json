@@ -10,15 +10,18 @@
     "theme": "主题",
     "themeLight": "浅色",
     "themeDark": "深色",
-    "themeSystem": "跟随系统"
+    "themeSystem": "跟随系统",
+    "sessions": "会话",
+    "noSessions": "还没有会话。开始一个会话后会显示在这里。",
+    "menu": "打开菜单",
+    "closeMenu": "关闭菜单",
+    "site": "关于 Quorumind"
   },
   "home": {
-    "title": "先辩论，再动手。",
-    "lead": "描述您的项目。Quorumind 会先向您提问，然后多个 AI 模型提出方案、相互质疑，最后由仲裁者判断哪些方案可行。",
     "ideaLabel": "您的项目想法",
     "ideaPlaceholder": "例如：为我们的 12 家瑜伽馆开发预约应用，支持次卡和提醒",
     "start": "开始访谈",
-    "demo": "试用演示",
+    "demo": "回放录制的演示",
     "demoHint": "一场以英文录制的辩论，无需 API 密钥。",
     "noKey": "此服务器未配置 API 密钥，目前只能使用演示。",
     "rounds": "辩论轮数",
@@ -26,13 +29,8 @@
     "budgetNone": "不设上限",
     "estimate": "一场辩论的费用约为 {{low}} 至 {{high}}。",
     "lineup": "今日辩手：{{seats}}。仲裁者：{{arbiter}}。",
-    "stepInterviewTitle": "访谈",
-    "stepInterviewBody": "Quorumind 询问您的目标、预算、团队和约束条件。",
-    "stepDebateTitle": "辩论",
-    "stepDebateBody": "每个模型在互不知情的情况下提出方案，再批评他人并修订自己的方案。",
-    "stepVerdictTitle": "结论",
-    "stepVerdictBody": "仲裁者对照您的需求逐一检验每个方案。",
-    "recent": "最近的会话"
+    "newTitle": "新会话",
+    "newLead": "描述您想要准备的项目。Quorumind 会先向您提问，然后由模型展开辩论，最后由仲裁者作出判断。"
   },
   "phase": {
     "interview": "访谈",
@@ -173,5 +171,29 @@
     "loading": "加载中…",
     "notFound": "此会话不存在。",
     "back": "返回首页"
+  },
+  "tabs": {
+    "verdict": "结论",
+    "debate": "辩论",
+    "interview": "访谈",
+    "requirements": "需求",
+    "costs": "费用"
+  },
+  "costs": {
+    "step": "步骤",
+    "who": "角色",
+    "model": "模型",
+    "input": "输入 token",
+    "output": "输出 token",
+    "cost": "费用",
+    "total": "合计",
+    "unknown": "价格未知"
+  },
+  "task": {
+    "interview": "访谈",
+    "proposal": "提案",
+    "critique": "批评",
+    "revision": "修订",
+    "verdict": "结论"
   }
 }

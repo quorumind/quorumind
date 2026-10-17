@@ -10,15 +10,18 @@
     "theme": "テーマ",
     "themeLight": "ライト",
     "themeDark": "ダーク",
-    "themeSystem": "システム"
+    "themeSystem": "システム",
+    "sessions": "セッション",
+    "noSessions": "まだセッションはありません。始めるとここに表示されます。",
+    "menu": "メニューを開く",
+    "closeMenu": "メニューを閉じる",
+    "site": "Quorumind について"
   },
   "home": {
-    "title": "作る前に、議論しよう。",
-    "lead": "プロジェクトを説明してください。Quorumind があなたにヒアリングし、複数のAIモデルが解決策を提案して互いに反論し、審判役が実現可能性を判定します。",
     "ideaLabel": "プロジェクトのアイデア",
     "ideaPlaceholder": "例：12のヨガスタジオ向けの予約アプリ。回数券とリマインダー付き",
     "start": "ヒアリングを始める",
-    "demo": "デモを試す",
+    "demo": "記録済みのデモを再生",
     "demoHint": "英語で記録された議論です。APIキーは不要です。",
     "noKey": "このサーバーにはAPIキーが設定されていないため、デモのみ利用できます。",
     "rounds": "議論のラウンド数",
@@ -26,13 +29,8 @@
     "budgetNone": "上限なし",
     "estimate": "1回の議論の費用は約 {{low}}〜{{high}} です。",
     "lineup": "今日の議論：{{seats}}。審判：{{arbiter}}。",
-    "stepInterviewTitle": "ヒアリング",
-    "stepInterviewBody": "目標、予算、チーム、制約についてお聞きします。",
-    "stepDebateTitle": "議論",
-    "stepDebateBody": "各モデルが他を見ずに提案し、互いに批判して提案を修正します。",
-    "stepVerdictTitle": "判定",
-    "stepVerdictBody": "審判が各選択肢を要件と照らし合わせます。",
-    "recent": "最近のセッション"
+    "newTitle": "新しいセッション",
+    "newLead": "準備したいプロジェクトを説明してください。Quorumind がヒアリングを行い、モデルが議論し、審判が判定します。"
   },
   "phase": {
     "interview": "ヒアリング",
@@ -173,5 +171,29 @@
     "loading": "読み込み中…",
     "notFound": "このセッションは存在しません。",
     "back": "ホームに戻る"
+  },
+  "tabs": {
+    "verdict": "判定",
+    "debate": "議論",
+    "interview": "ヒアリング",
+    "requirements": "要件",
+    "costs": "費用"
+  },
+  "costs": {
+    "step": "ステップ",
+    "who": "担当",
+    "model": "モデル",
+    "input": "入力トークン",
+    "output": "出力トークン",
+    "cost": "費用",
+    "total": "合計",
+    "unknown": "価格不明"
+  },
+  "task": {
+    "interview": "ヒアリング",
+    "proposal": "提案",
+    "critique": "批判",
+    "revision": "修正",
+    "verdict": "判定"
   }
 }

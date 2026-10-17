@@ -10,15 +10,18 @@
     "theme": "Thème",
     "themeLight": "Clair",
     "themeDark": "Sombre",
-    "themeSystem": "Système"
+    "themeSystem": "Système",
+    "sessions": "Sessions",
+    "noSessions": "Aucune session pour l'instant. Lancez-en une pour la retrouver ici.",
+    "menu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
+    "site": "À propos de Quorumind"
   },
   "home": {
-    "title": "Débattez-en avant de le construire.",
-    "lead": "Décrivez votre projet. Quorumind vous interroge, puis plusieurs modèles d'IA proposent des solutions, se contredisent, et un arbitre tranche sur ce qui est faisable.",
     "ideaLabel": "Votre idée de projet",
     "ideaPlaceholder": "ex. Une application de réservation pour nos 12 studios de yoga, avec cartes et rappels",
     "start": "Commencer l'entretien",
-    "demo": "Essayer la démo",
+    "demo": "Rejouer la démo enregistrée",
     "demoHint": "Un débat enregistré, en anglais. Aucune clé API nécessaire.",
     "noKey": "Aucune clé API n'est configurée sur ce serveur : seule la démo est disponible.",
     "rounds": "Tours de débat",
@@ -26,13 +29,8 @@
     "budgetNone": "Sans plafond",
     "estimate": "Un débat coûte environ {{low}} à {{high}}.",
     "lineup": "Débattent aujourd'hui : {{seats}}. Arbitre : {{arbiter}}.",
-    "stepInterviewTitle": "Entretien",
-    "stepInterviewBody": "Quorumind vous interroge sur vos objectifs, votre budget, votre équipe et vos contraintes.",
-    "stepDebateTitle": "Débat",
-    "stepDebateBody": "Chaque modèle propose à l'aveugle, puis critique les autres et révise.",
-    "stepVerdictTitle": "Verdict",
-    "stepVerdictBody": "Un arbitre confronte chaque option à votre besoin.",
-    "recent": "Sessions récentes"
+    "newTitle": "Nouvelle session",
+    "newLead": "Décrivez le projet à préparer. Quorumind vous interroge, puis les modèles débattent et un arbitre tranche."
   },
   "phase": {
     "interview": "Entretien",
@@ -173,5 +171,29 @@
     "loading": "Chargement…",
     "notFound": "Cette session n'existe pas.",
     "back": "Retour à l'accueil"
+  },
+  "tabs": {
+    "verdict": "Verdict",
+    "debate": "Débat",
+    "interview": "Entretien",
+    "requirements": "Besoin",
+    "costs": "Coûts"
+  },
+  "costs": {
+    "step": "Étape",
+    "who": "Qui",
+    "model": "Modèle",
+    "input": "Jetons en entrée",
+    "output": "Jetons en sortie",
+    "cost": "Coût",
+    "total": "Total",
+    "unknown": "Prix inconnu"
+  },
+  "task": {
+    "interview": "Entretien",
+    "proposal": "Proposition",
+    "critique": "Critiques",
+    "revision": "Révision",
+    "verdict": "Verdict"
   }
 }

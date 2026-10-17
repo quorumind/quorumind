@@ -10,15 +10,18 @@
     "theme": "Theme",
     "themeLight": "Light",
     "themeDark": "Dark",
-    "themeSystem": "System"
+    "themeSystem": "System",
+    "sessions": "Sessions",
+    "noSessions": "No session yet. Start one to see it here.",
+    "menu": "Open the menu",
+    "closeMenu": "Close the menu",
+    "site": "About Quorumind"
   },
   "home": {
-    "title": "Debate it before you build it.",
-    "lead": "Describe your project. Quorumind interviews you, then several AI models propose solutions, challenge each other, and an arbiter rules on what is feasible.",
     "ideaLabel": "Your project idea",
     "ideaPlaceholder": "e.g. A booking app for our 12 yoga studios, with passes and reminders",
     "start": "Start the interview",
-    "demo": "Try the demo",
+    "demo": "Replay the recorded demo",
     "demoHint": "A recorded debate in English. No API key needed.",
     "noKey": "No API key is configured on this server, so only the demo is available.",
     "rounds": "Debate rounds",
@@ -26,13 +29,8 @@
     "budgetNone": "No cap",
     "estimate": "A debate costs about {{low}} to {{high}}.",
     "lineup": "Debating today: {{seats}}. Arbiter: {{arbiter}}.",
-    "stepInterviewTitle": "Interview",
-    "stepInterviewBody": "Quorumind asks about your goals, budget, team and constraints.",
-    "stepDebateTitle": "Debate",
-    "stepDebateBody": "Each model proposes blind, then criticises the others and revises.",
-    "stepVerdictTitle": "Verdict",
-    "stepVerdictBody": "An arbiter checks every option against your requirements.",
-    "recent": "Recent sessions"
+    "newTitle": "New session",
+    "newLead": "Describe the project you want to prepare. Quorumind interviews you, then the models debate and an arbiter rules."
   },
   "phase": {
     "interview": "Interview",
@@ -173,5 +171,29 @@
     "loading": "Loading…",
     "notFound": "This session does not exist.",
     "back": "Back to home"
+  },
+  "tabs": {
+    "verdict": "Verdict",
+    "debate": "Debate",
+    "interview": "Interview",
+    "requirements": "Requirements",
+    "costs": "Costs"
+  },
+  "costs": {
+    "step": "Step",
+    "who": "Who",
+    "model": "Model",
+    "input": "Input tokens",
+    "output": "Output tokens",
+    "cost": "Cost",
+    "total": "Total",
+    "unknown": "Unknown price"
+  },
+  "task": {
+    "interview": "Interview",
+    "proposal": "Proposal",
+    "critique": "Critiques",
+    "revision": "Revision",
+    "verdict": "Verdict"
   }
 }

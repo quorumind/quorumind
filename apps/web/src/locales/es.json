@@ -10,15 +10,18 @@
     "theme": "Tema",
     "themeLight": "Claro",
     "themeDark": "Oscuro",
-    "themeSystem": "Sistema"
+    "themeSystem": "Sistema",
+    "sessions": "Sesiones",
+    "noSessions": "Aún no hay sesiones. Inicie una para verla aquí.",
+    "menu": "Abrir el menú",
+    "closeMenu": "Cerrar el menú",
+    "site": "Acerca de Quorumind"
   },
   "home": {
-    "title": "Debátalo antes de construirlo.",
-    "lead": "Describa su proyecto. Quorumind le entrevista; después, varios modelos de IA proponen soluciones, se cuestionan entre sí y un árbitro decide qué es viable.",
     "ideaLabel": "Su idea de proyecto",
     "ideaPlaceholder": "p. ej. Una app de reservas para nuestros 12 estudios de yoga, con bonos y recordatorios",
     "start": "Empezar la entrevista",
-    "demo": "Probar la demo",
+    "demo": "Reproducir la demo grabada",
     "demoHint": "Un debate grabado, en inglés. No necesita clave API.",
     "noKey": "Este servidor no tiene ninguna clave API configurada: solo está disponible la demo.",
     "rounds": "Rondas de debate",
@@ -26,13 +29,8 @@
     "budgetNone": "Sin límite",
     "estimate": "Un debate cuesta entre {{low}} y {{high}} aproximadamente.",
     "lineup": "Debaten hoy: {{seats}}. Árbitro: {{arbiter}}.",
-    "stepInterviewTitle": "Entrevista",
-    "stepInterviewBody": "Quorumind le pregunta por sus objetivos, presupuesto, equipo y restricciones.",
-    "stepDebateTitle": "Debate",
-    "stepDebateBody": "Cada modelo propone a ciegas, luego critica a los demás y revisa su propuesta.",
-    "stepVerdictTitle": "Veredicto",
-    "stepVerdictBody": "Un árbitro contrasta cada opción con sus requisitos.",
-    "recent": "Sesiones recientes"
+    "newTitle": "Nueva sesión",
+    "newLead": "Describa el proyecto que quiere preparar. Quorumind le entrevista, después los modelos debaten y un árbitro decide."
   },
   "phase": {
     "interview": "Entrevista",
@@ -173,5 +171,29 @@
     "loading": "Cargando…",
     "notFound": "Esta sesión no existe.",
     "back": "Volver al inicio"
+  },
+  "tabs": {
+    "verdict": "Veredicto",
+    "debate": "Debate",
+    "interview": "Entrevista",
+    "requirements": "Requisitos",
+    "costs": "Costes"
+  },
+  "costs": {
+    "step": "Etapa",
+    "who": "Quién",
+    "model": "Modelo",
+    "input": "Tokens de entrada",
+    "output": "Tokens de salida",
+    "cost": "Coste",
+    "total": "Total",
+    "unknown": "Precio desconocido"
+  },
+  "task": {
+    "interview": "Entrevista",
+    "proposal": "Propuesta",
+    "critique": "Críticas",
+    "revision": "Revisión",
+    "verdict": "Veredicto"
   }
 }
