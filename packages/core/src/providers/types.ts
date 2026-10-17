@@ -1,4 +1,7 @@
-export type ProviderKind = "anthropic" | "openai" | "mock";
+export type ProviderKind = "anthropic" | "openai" | "gemini" | "ollama" | "mock";
+
+/** How hard a model thinks before answering: the debate "depth". */
+export type Effort = "low" | "medium" | "high";
 
 export type Task = "interview" | "proposal" | "critique" | "revision" | "probe" | "verdict" | "brief";
 
@@ -18,7 +21,7 @@ export interface GenerateRequest {
   schemaName: string;
   maxTokens: number;
   /** How hard the model should think, from the session's depth; absent means the provider's default. */
-  effort?: "low" | "medium" | "high";
+  effort?: Effort;
   signal?: AbortSignal;
 }
 

@@ -67,12 +67,12 @@ describe("liveLineupFromEnv", () => {
   });
   it("puts two vendors face to face when both keys are set", () => {
     const lineup = liveLineupFromEnv({ ANTHROPIC_API_KEY: "a", OPENAI_API_KEY: "o", OPENAI_MODEL: "some-model" });
-    expect(lineup?.seats.A).toEqual({ provider: "anthropic", model: "claude-opus-5-5" });
-    expect(lineup?.seats.B).toEqual({ provider: "openai", model: "some-model" });
+    expect(lineup?.seats.A).toEqual({ provider: "anthropic", model: "claude-opus-5-5", persona: null });
+    expect(lineup?.seats.B).toEqual({ provider: "openai", model: "some-model", persona: null });
   });
   it("lets the environment override a seat", () => {
     const lineup = liveLineupFromEnv({ ANTHROPIC_API_KEY: "a", QUORUMIND_SEAT_B: "anthropic:claude-sonnet-5-5" });
-    expect(lineup?.seats.B).toEqual({ provider: "anthropic", model: "claude-sonnet-5-5" });
+    expect(lineup?.seats.B).toEqual({ provider: "anthropic", model: "claude-sonnet-5-5", persona: null });
   });
   it("rejects an unknown provider", () => {
     expect(() => liveLineupFromEnv({ ANTHROPIC_API_KEY: "a", QUORUMIND_ARBITER: "acme:x" })).toThrow(/Unknown provider/);

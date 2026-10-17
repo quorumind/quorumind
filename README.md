@@ -48,10 +48,14 @@ reverse proxy, never directly on the internet.
 
 | Variable | Purpose |
 | --- | --- |
-| `ANTHROPIC_API_KEY` | Enables Claude. Every role defaults to `claude-opus-5-5` (`ANTHROPIC_MODEL` to change it). |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | Enables OpenAI. With both vendors set, proposer B uses OpenAI so two vendors debate. |
-| `OPENAI_PRICE_INPUT`, `OPENAI_PRICE_OUTPUT` | USD per million tokens, for cost tracking and the cost cap. |
-| `QUORUMIND_INTERVIEWER`, `QUORUMIND_ARBITER`, `QUORUMIND_SEAT_A`, `QUORUMIND_SEAT_B` | Assign any model to any role, as `anthropic:<model>`, `openai:<model>` or `mock`. |
+| `ANTHROPIC_API_KEY` | Enables Claude. Every role defaults to `claude-opus-5-5` (`ANTHROPIC_MODEL` to change it, `ANTHROPIC_MODELS` for the models offered). |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` or `OPENAI_MODELS` | Enables OpenAI. With two vendors set, proposer B uses the second so two vendors debate. |
+| `OPENAI_REASONING=1` | Sends the debate depth as `reasoning.effort`. Off by default: some models reject it. |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` or `GEMINI_MODELS` | Enables Google Gemini (`GEMINI_BASE_URL` to change the endpoint). |
+| `OPENAI_PRICE_*`, `GEMINI_PRICE_*` (`_INPUT`, `_OUTPUT`) | USD per million tokens, applied to every listed model of that vendor, for cost tracking and the cost cap. |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODELS` | Enables local models through Ollama (free). Without `OLLAMA_MODELS`, the models Ollama has pulled are listed. |
+| `QUORUMIND_LOCAL_ONLY=1` | 100 % local: only Ollama models are used, no data leaves the machine. |
+| `QUORUMIND_INTERVIEWER`, `QUORUMIND_ARBITER`, `QUORUMIND_SEAT_A` to `QUORUMIND_SEAT_D`, `QUORUMIND_DEVIL` | Assign any model to any role, as `anthropic:<model>`, `openai:<model>`, `gemini:<model>`, `ollama:<model>` or `mock`. Seats C, D and the devil's advocate are off unless set (`QUORUMIND_DEVIL=none`). |
 | `PORT`, `HOST`, `QUORUMIND_DATA_DIR` | Server address and where sessions are stored (SQLite). |
 
 ## How it works

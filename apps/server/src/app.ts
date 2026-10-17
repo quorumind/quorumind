@@ -45,7 +45,7 @@ export function createApp(deps: AppDeps) {
   const busy = new Set<string>();
 
   const engineFor = (session: Session) => {
-    const lineup: Lineup = { interviewer: session.interviewer, arbiter: session.arbiter, seats: session.seats };
+    const lineup = { interviewer: session.interviewer, arbiter: session.arbiter, seats: session.seats };
     return new DebateEngine(providersFor(lineup, env, deps.mockDelayMs === undefined ? {} : { mockDelayMs: deps.mockDelayMs }), {
       emit: (id, event) => bus.publish(id, event),
       save: (updated) => store.save(updated),

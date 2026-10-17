@@ -28,7 +28,8 @@ export class AnthropicProvider implements LlmProvider {
           system: request.system,
           messages: request.messages,
           output_config: {
-            effort: this.effort,
+            // The debate depth chosen for the session wins over the configured default.
+            effort: request.effort ?? this.effort,
             format: { type: "json_schema", schema: request.schema },
           },
           // Server-side fallback: if a safety classifier declines, the API re-runs the

@@ -6,12 +6,18 @@ export interface OpenAiOptions {
   /** Required: OpenAI model identifiers change often, so none is assumed. */
   model: string;
   baseURL?: string;
+  /**
+   * Sends the requested effort as `reasoning.effort`. Off by default: models without
+   * reasoning reject the parameter. Enabled with OPENAI_REASONING=1.
+   */
+  reasoning?: boolean;
 }
 
 export class OpenAiProvider implements LlmProvider {
   readonly kind = "openai" as const;
   readonly model: string;
   private readonly client: OpenAI;
+  private readonly reasoning: boolean;
 
   constructor(options: OpenAiOptions) {
     this.client = new OpenAI({
@@ -19,6 +25,7 @@ export class OpenAiProvider implements LlmProvider {
       ...(options.baseURL ? { baseURL: options.baseURL } : {}),
     });
     this.model = options.model;
+    this.reasoning = options.reasoning ?? false;
   }
 
   async generate(request: GenerateRequest, onDelta?: (text: string) => void): Promise<GenerateResult> {
@@ -29,6 +36,7 @@ export class OpenAiProvider implements LlmProvider {
           instructions: request.system,
           input: request.messages.map((message) => ({ role: message.role, content: message.content })),
           max_output_tokens: request.maxTokens,
+          ...(this.reasoning && request.effort ? { reasoning: { effort: request.effort } } : {}),
           text: {
             format: { type: "json_schema", name: request.schemaName, schema: request.schema, strict: true },
           },
