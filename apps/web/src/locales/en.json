@@ -15,7 +15,10 @@
     "noSessions": "No session yet. Start one to see it here.",
     "menu": "Open the menu",
     "closeMenu": "Close the menu",
-    "site": "About Quorumind"
+    "site": "About Quorumind",
+    "gallery": "Gallery",
+    "settings": "Settings",
+    "more": "More"
   },
   "home": {
     "ideaLabel": "Your project idea",
@@ -44,7 +47,9 @@
     "interviewer": "Interviewer",
     "proposer": "Proposer {{seat}}",
     "arbiter": "Arbiter",
-    "you": "You"
+    "you": "You",
+    "devil": "Devil's advocate",
+    "yourSolution": "Your solution"
   },
   "interview": {
     "thinking": "The interviewer is preparing questions…",
@@ -103,7 +108,12 @@
     "questionsTitle": "The debate needs your input",
     "questionsLead": "Your answers decide between the options. The debate resumes as soon as you reply.",
     "questionsSend": "Send and resume",
-    "yourAnswers": "Your answers"
+    "yourAnswers": "Your answers",
+    "buildCost": "Build cost",
+    "estimates": "Costs and durations are estimates.",
+    "probe": "The arbiter steps in",
+    "probeTag": "Angle nobody examined",
+    "yourSolution": "Your solution"
   },
   "severity": {
     "blocking": "Blocking",
@@ -133,7 +143,8 @@
     "claims": "Key claims",
     "openQuestions": "Open questions",
     "download": "Download the report (Markdown)",
-    "scoreOutOf": "{{score}} out of 5"
+    "scoreOutOf": "{{score}} out of 5",
+    "yourSolution": "Your solution holds"
   },
   "feasibility": {
     "feasible": "Feasible",
@@ -170,7 +181,9 @@
   "common": {
     "loading": "Loading…",
     "notFound": "This session does not exist.",
-    "back": "Back to home"
+    "back": "Back to home",
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "tabs": {
     "verdict": "Verdict",
@@ -195,5 +208,145 @@
     "critique": "Critiques",
     "revision": "Revision",
     "verdict": "Verdict"
+  },
+  "setup": {
+    "modeLabel": "What do you need?",
+    "mode": {
+      "standard": "Compare solutions",
+      "express": "Quick opinion",
+      "challenge": "Challenge my idea"
+    },
+    "modeHint": {
+      "standard": "The models design competing options, criticise each other and the arbiter rules.",
+      "express": "Five questions, one short round: a fast first opinion on an idea.",
+      "challenge": "Bring your own solution: the models only hunt for its flaws before you commit."
+    },
+    "solutionLabel": "Your solution",
+    "solutionPlaceholder": "Describe what you plan to build and how: stack, hosting, team, timeline…",
+    "templateLabel": "Kind of project",
+    "templateNone": "Other",
+    "contextLabel": "Documents (optional)",
+    "settings": "Debate settings",
+    "depth": "Depth",
+    "depthOption": {
+      "quick": "Quick",
+      "standard": "Standard",
+      "deep": "Deep (slower, costs more)"
+    },
+    "role": "Role",
+    "model": "Model",
+    "persona": "Expert role",
+    "personaNone": "No particular role",
+    "personaCustom": "Other role…",
+    "personaCustomLabel": "Describe the expert role",
+    "personaCustomPlaceholder": "e.g. a payments specialist",
+    "addSeat": "Add a debater",
+    "removeSeat": "Remove proposer {{seat}}",
+    "addDevil": "Add a devil's advocate",
+    "removeDevil": "Remove the devil's advocate",
+    "devilHint": "The devil's advocate proposes nothing: it attacks every option to surface hidden costs and risks.",
+    "redact": "Mask personal data",
+    "redactHint": "E-mails, phone numbers, card numbers, IBANs and keys are replaced before anything is sent to the models.",
+    "notify": "E-mail me when the debate ends or needs my answer",
+    "estimateUnknown": "The cost estimate is unavailable for some of these models; the real cost is shown as the debate runs.",
+    "local": "Nothing leaves this machine",
+    "startChallenge": "Challenge my solution"
+  },
+  "persona": {
+    "cloud_architect": "Cloud architect",
+    "security": "Security engineer",
+    "finops": "FinOps specialist",
+    "ux": "UX lead",
+    "privacy": "Data protection lawyer"
+  },
+  "template": {
+    "saas": "SaaS web app",
+    "mobile": "Mobile app",
+    "data_ai": "Data and AI",
+    "migration": "Infrastructure migration",
+    "ecommerce": "E-commerce"
+  },
+  "brief": {
+    "title": "Read it as",
+    "full": "Full verdict",
+    "hint": "The same verdict, rewritten for another reader: vocabulary and detail change, never the substance.",
+    "audience": {
+      "cto": "CTO",
+      "executive": "Executive",
+      "client": "Client"
+    },
+    "describe": {
+      "cto": "A version for a CTO or lead developer: architecture, trade-offs and technical risks.",
+      "executive": "A version for whoever decides and pays: outcome, cost, delay, risk, and what is expected from them.",
+      "client": "A version for a non-technical client: what they get, when, for how much, in plain words."
+    },
+    "write": "Write this version",
+    "writing": "Writing…",
+    "nextSteps": "Next steps"
+  },
+  "matrix": {
+    "hint": "Move a weight and the ranking updates. An infeasible option stays last whatever its scores.",
+    "reset": "Reset weights",
+    "score": "Weighted score",
+    "estimates": "Costs are the proposers' estimates."
+  },
+  "map": {
+    "title": "Map of the debate",
+    "agreement": "Agreement",
+    "divided": "Divided",
+    "opposed": "Opposed"
+  },
+  "feedback": {
+    "question": "Did this verdict help you?",
+    "yes": "Yes",
+    "no": "Not really",
+    "commentLabel": "What would have made it more useful? (optional)",
+    "send": "Send",
+    "thanks": "Thank you. Your answer helps us improve the debates.",
+    "reportError": "Report an error in this report",
+    "errorTitle": "Report an error",
+    "errorLabel": "What is wrong?",
+    "errorThanks": "Thank you. We will look into it."
+  },
+  "share": {
+    "button": "Share",
+    "shared": "Shared",
+    "title": "Share this session",
+    "lead": "Anyone with the link can read the verdict, the debate and the requirements. Costs and attached documents stay private.",
+    "create": "Create a read-only link",
+    "link": "Link",
+    "copy": "Copy",
+    "copied": "Copied",
+    "public": "Show it in the public gallery",
+    "publicHint": "Other people can find it as an example. Only finished sessions can be listed.",
+    "stop": "Stop sharing",
+    "privacy": "You can stop sharing at any time: the link stops working at once.",
+    "readOnly": "You are reading a shared session. It cannot be changed."
+  },
+  "session": {
+    "fork": "Start again from here",
+    "forkHint": "A new session with the same requirements, to change what moved and run the debate again",
+    "fromEarlier": "Started from an earlier session",
+    "delete": "Delete",
+    "deleteTitle": "Delete this session?",
+    "deleteLead": "The interview, the debate and the report are deleted for good, and any shared link stops working.",
+    "deleteConfirm": "Delete for good"
+  },
+  "gallery": {
+    "title": "Gallery",
+    "lead": "Real debates their authors chose to publish. Read how the models argued and what the arbiter decided.",
+    "empty": "No public session yet. Share a finished session and choose to show it in the gallery."
+  },
+  "settings": {
+    "title": "Settings",
+    "models": "Models",
+    "modelsLead": "The models this server can use. Pick them per role when you start a session.",
+    "localOnly": "Local-only mode: only models running on this machine are available.",
+    "local": "Local",
+    "data": "Your data",
+    "retention": "Sessions untouched for {{days}} days are deleted automatically.",
+    "retentionNone": "Sessions are kept until you delete them.",
+    "export": "Export all my data (JSON)",
+    "deleteHint": "To delete a session, open it and choose Delete."
   }
 }

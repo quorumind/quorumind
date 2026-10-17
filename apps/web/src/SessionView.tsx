@@ -2,16 +2,18 @@ import type { Session } from "@quorumind/core";
 import { totalCost } from "@quorumind/core/session";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSessions } from "./App.tsx";
-import { api } from "./api.ts";
+import { navigate, useSessions } from "./App.tsx";
+import { api, type Feedback, type Share } from "./api.ts";
 import { Costs } from "./Costs.tsx";
 import { RetryIcon } from "./components/Icons.tsx";
+import { Loader, Skeleton } from "./components/Logo.tsx";
 import { Debate } from "./Debate.tsx";
 import { formatUsd } from "./format.ts";
 import { Interview } from "./Interview.tsx";
 import { Review } from "./Review.tsx";
+import { SessionActions } from "./SessionActions.tsx";
 import { SheetView } from "./SheetView.tsx";
-import { useSession } from "./useSession.ts";
+import { type LiveSpeech, useSession } from "./useSession.ts";
 import { Verdict } from "./Verdict.tsx";
 
 const STEPS = ["interview", "review", "debating", "complete"] as const;
@@ -54,9 +56,73 @@ function defaultTab(session: Session): Tab {
 }
 
 export function SessionView({ id }: { id: string }) {
-  const { t, i18n } = useTranslation();
   const { session, live, connected, missing } = useSession(id);
   const { upsert } = useSessions();
+  const [extras, setExtras] = useState<{ share: Share | null; feedback: Feedback[] }>({ share: null, feedback: [] });
+  const title = session ? (session.sheet?.projectName ?? session.idea) : "";
+  useEffect(() => {
+    if (session) upsert({ id: session.id, idea: title, phase: session.phase, updatedAt: session.updatedAt });
+  }, [session, title, upsert]);
+  useEffect(() => {
+    api.session(id).then(
+      (body) => setExtras({ share: body.share, feedback: body.feedback }),
+      () => undefined,
+    );
+  }, [id]);
+  return (
+    <SessionBody
+      session={session}
+      live={live}
+      connected={connected}
+      missing={missing}
+      share={extras.share}
+      onShare={(share) => setExtras((current) => ({ ...current, share }))}
+      feedback={extras.feedback}
+    />
+  );
+}
+
+/** A session someone shared: read-only, without costs or attached documents. */
+export function SharedView({ token }: { token: string }) {
+  const { t } = useTranslation();
+  const [session, setSession] = useState<Session | null>(null);
+  const [missing, setMissing] = useState(false);
+  useEffect(() => {
+    api.shared(token).then(
+      (body) => setSession(body.session),
+      () => setMissing(true),
+    );
+  }, [token]);
+  return (
+    <div className="stack">
+      <p className="notice">{t("share.readOnly")}</p>
+      <SessionBody session={session} live={{}} connected missing={missing} readOnly reportUrl={api.sharedReportUrl(token)} />
+    </div>
+  );
+}
+
+function SessionBody({
+  session,
+  live,
+  connected,
+  missing,
+  readOnly = false,
+  share = null,
+  onShare,
+  feedback = [],
+  reportUrl,
+}: {
+  session: Session | null;
+  live: LiveSpeech;
+  connected: boolean;
+  missing: boolean;
+  readOnly?: boolean;
+  share?: Share | null;
+  onShare?: (share: Share | null) => void;
+  feedback?: Feedback[];
+  reportUrl?: string;
+}) {
+  const { t, i18n } = useTranslation();
   const [retrying, setRetrying] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
 
@@ -65,9 +131,6 @@ export function SessionView({ id }: { id: string }) {
   // Follow the session: each new phase opens the tab where things happen.
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the phase changes.
   useEffect(() => setTab(null), [phase]);
-  useEffect(() => {
-    if (session) upsert({ id: session.id, idea: title, phase: session.phase, updatedAt: session.updatedAt });
-  }, [session, title, upsert]);
 
   if (missing) {
     return (
@@ -77,11 +140,20 @@ export function SessionView({ id }: { id: string }) {
       </div>
     );
   }
-  if (!session) return <p className="muted">{t("common.loading")}</p>;
+  if (!session) {
+    return (
+      <div className="session-skeleton stack-lg">
+        <Loader label={t("common.loading")} />
+        <Skeleton lines={2} />
+        <Skeleton lines={4} card />
+        <Skeleton lines={3} card />
+      </div>
+    );
+  }
 
   const current = stepIndex(session);
   const cost = totalCost(session);
-  const tabs = availableTabs(session);
+  const tabs = availableTabs(session).filter((name) => !readOnly || name !== "costs");
   const active = tab && tabs.includes(tab) ? tab : defaultTab(session);
 
   const retry = async () => {
@@ -109,6 +181,7 @@ export function SessionView({ id }: { id: string }) {
       <div className="session-head">
         <div className="row session-meta-row">
           {session.demo ? <span className="chip label">{t("demo.badge")}</span> : null}
+          {session.mode !== "standard" ? <span className="chip label">{t(`setup.mode.${session.mode}`)}</span> : null}
           <ol className="progress">
             {STEPS.map((step, index) => (
               <li
@@ -120,19 +193,31 @@ export function SessionView({ id }: { id: string }) {
               </li>
             ))}
           </ol>
-          <span className="cost muted">
-            <span>{t("cost.label")}</span>
-            <span className="mono">{formatUsd(cost.usd, i18n.language)}</span>
-            {session.budgetUsd !== null ? <span>({t("cost.cap", { cap: formatUsd(session.budgetUsd, i18n.language) })})</span> : null}
-          </span>
+          {readOnly ? null : (
+            <span className="cost muted">
+              <span>{t("cost.label")}</span>
+              <span className="mono">{formatUsd(cost.usd, i18n.language)}</span>
+              {session.budgetUsd !== null ? <span>({t("cost.cap", { cap: formatUsd(session.budgetUsd, i18n.language) })})</span> : null}
+            </span>
+          )}
         </div>
-        <h1 className="display">{title}</h1>
+        <div className="session-title-row">
+          <h1 className="display">{title}</h1>
+          {readOnly ? null : <SessionActions session={session} share={share} onShare={onShare ?? (() => undefined)} />}
+        </div>
+        {session.parentId && !readOnly ? (
+          <p className="field-hint" style={{ margin: 0 }}>
+            <a href={`#/s/${session.parentId}`} onClick={() => navigate(`s/${session.parentId}`)}>
+              {t("session.fromEarlier")}
+            </a>
+          </p>
+        ) : null}
         {!connected ? (
           <p className="notice" role="status">
             {t("error.network")}
           </p>
         ) : null}
-        {session.phase === "failed" ? (
+        {session.phase === "failed" && !readOnly ? (
           <div className="notice notice-error stack" role="alert">
             <strong>{t("error.title")}</strong>
             <span>
@@ -170,10 +255,12 @@ export function SessionView({ id }: { id: string }) {
       ) : null}
 
       <div id="tab-panel" {...(tabs.length > 1 ? { role: "tabpanel", "aria-labelledby": `tab-${active}` } : {})}>
-        {active === "verdict" && session.verdict ? <Verdict session={session} /> : null}
+        {active === "verdict" && session.verdict ? (
+          <Verdict session={session} readOnly={readOnly} feedback={feedback} {...(reportUrl ? { reportUrl } : {})} />
+        ) : null}
         {active === "debate" ? <Debate session={session} live={live} /> : null}
         {active === "requirements" && session.sheet ? (
-          session.phase === "review" ? (
+          session.phase === "review" && !readOnly ? (
             <Review session={session} />
           ) : (
             <SheetView sheet={session.sheet} />

@@ -1,13 +1,33 @@
-import type { CritiqueRound, DebateEntry, Proposal, Revision, Session } from "@quorumind/core";
+import type { CritiqueRound, DebateEntry, Probe, Proposal, Revision, Session } from "@quorumind/core";
+import { PERSONA_IDS } from "@quorumind/core/templates";
 import type { TFunction } from "i18next";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "./api.ts";
-import { ArrowIcon } from "./components/Icons.tsx";
+import { ArrowIcon, DevilIcon, ProbeIcon } from "./components/Icons.tsx";
 import { formatMoney } from "./format.ts";
 import type { LiveSpeech } from "./useSession.ts";
 
-const voiceClass = (seat: string | null) => (seat === "A" ? "voice-a" : seat === "B" ? "voice-b" : seat ? "voice-other" : "voice-arbiter");
+const VOICES: Record<string, string> = { A: "voice-a", B: "voice-b", C: "voice-c", D: "voice-d", U: "voice-you", devil: "voice-devil" };
+const voiceClass = (seat: string | null) => (seat ? (VOICES[seat] ?? "voice-other") : "voice-arbiter");
+
+// Seats of one step in a stable order: proposers, the person's solution, the devil's advocate last.
+const SEAT_ORDER = ["A", "B", "C", "D", "U", "devil"];
+const seatRank = (seat: string) => {
+  const index = SEAT_ORDER.indexOf(seat);
+  return index === -1 ? SEAT_ORDER.length : index;
+};
+
+export function seatName(seat: string, t: TFunction): string {
+  if (seat === "devil") return t("role.devil");
+  if (seat === "U") return t("role.yourSolution");
+  return t("role.proposer", { seat });
+}
+
+export function personaLabel(persona: string | null, personas: readonly string[], t: TFunction): string | null {
+  if (!persona) return null;
+  return personas.includes(persona) ? t(`persona.${persona}`) : persona;
+}
 
 function Message({
   session,
@@ -24,17 +44,32 @@ function Message({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const participant = seat ? session.seats[seat] : session.arbiter;
+  const participant = seat === "devil" ? session.devil : seat ? session.seats[seat] : session.arbiter;
+  const persona = personaLabel((participant as { persona?: string | null } | null)?.persona ?? null, PERSONA_IDS, t);
   return (
     <div className={`message ${voiceClass(seat)}`}>
       <div className="message-head">
         <span className="voice-dot" />
-        <span className="label voice-name">{seat ? t("role.proposer", { seat }) : t("role.arbiter")}</span>
+        {seat === "devil" ? (
+          <span className="voice-icon">
+            <DevilIcon />
+          </span>
+        ) : null}
+        <span className="label voice-name">{seat ? seatName(seat, t) : t("role.arbiter")}</span>
+        {persona ? <span className="persona-tag">{persona}</span> : null}
         {participant && participant.provider !== "mock" ? <span className="mono muted">{participant.model}</span> : null}
         {typing ? <span className="muted">{t("debate.writing")}</span> : null}
       </div>
       <div className="bubble">
-        <p className={`speech${typing ? " typing" : ""}`}>{speech}</p>
+        {typing && speech === "…" ? (
+          <span className="typing-dots" role="img" aria-label={t("debate.writing")}>
+            <i />
+            <i />
+            <i />
+          </span>
+        ) : (
+          <p className={`speech${typing ? " typing" : ""}`}>{speech}</p>
+        )}
         {children ? (
           <>
             <button
@@ -70,11 +105,24 @@ function ProposalDetails({ proposal }: { proposal: Proposal }) {
             {money(proposal.monthlyCost.low)} – {money(proposal.monthlyCost.high)}
           </span>
         </div>
+        {proposal.buildCost ? (
+          <div className="fact">
+            <span className="field-hint">{t("debate.buildCost")}</span>
+            <span className="mono">
+              {formatMoney(proposal.buildCost.low, proposal.buildCost.currency, i18n.language)} –{" "}
+              {formatMoney(proposal.buildCost.high, proposal.buildCost.currency, i18n.language)}
+            </span>
+          </div>
+        ) : null}
         <div className="fact">
           <span className="field-hint">{t("debate.buildTime")}</span>
           <span>{proposal.buildTime}</span>
         </div>
       </div>
+      <p className="field-hint" style={{ margin: 0 }}>
+        {t("debate.estimates")}
+      </p>
+      {/* PROPOSAL_DIAGRAM */}
       <div>
         <h4>{t("debate.stack")}</h4>
         <div className="chips">
@@ -146,6 +194,29 @@ function RevisionDetails({ revision }: { revision: Revision }) {
   );
 }
 
+function ProbeCard({ probe }: { probe: Probe }) {
+  const { t } = useTranslation();
+  return (
+    <div className="message voice-arbiter probe">
+      <div className="message-head">
+        <span className="voice-dot" />
+        <span className="label voice-name">{t("role.arbiter")}</span>
+        <span className="chip probe-chip">
+          <ProbeIcon />
+          {t("debate.probeTag")}
+        </span>
+      </div>
+      <div className="bubble">
+        <p className="speech">{probe.speech}</p>
+        <p className="probe-angle">{probe.angle}</p>
+        <p className="field-hint" style={{ margin: 0 }}>
+          {probe.rationale}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function QuestionsCard({ session, questions }: { session: Session; questions: string[] }) {
   const { t } = useTranslation();
   const [answers, setAnswers] = useState<string[]>(() => questions.map(() => ""));
@@ -207,7 +278,9 @@ function QuestionsCard({ session, questions }: { session: Session; questions: st
 function dividerFor(entry: DebateEntry, t: TFunction): string | null {
   switch (entry.kind) {
     case "proposal":
-      return t("debate.blind");
+      return entry.seat === "U" ? t("debate.yourSolution") : t("debate.blind");
+    case "probe":
+      return t("debate.probe");
     case "critiques":
       return t("debate.critiques", { round: entry.round });
     case "revision":
@@ -239,7 +312,7 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
   let group: DebateEntry[] = [];
   const stepOf = (entry: DebateEntry) => ("seat" in entry ? `${entry.kind}:${entry.round}` : null);
   const flush = () => {
-    group.sort((a, b) => ("seat" in a && "seat" in b ? a.seat.localeCompare(b.seat) : 0));
+    group.sort((a, b) => ("seat" in a && "seat" in b ? seatRank(a.seat) - seatRank(b.seat) : 0));
     ordered.push(...group);
     group = [];
   };
@@ -300,6 +373,9 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
           </div>,
         );
         break;
+      case "probe":
+        items.push(<ProbeCard key={key} probe={entry.data} />);
+        break;
       case "verdict":
         items.push(<Message key={key} session={session} seat={null} speech={entry.data.speech} />);
         break;
@@ -307,18 +383,22 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
   });
 
   for (const speech of Object.values(live)) {
-    if (speech.task === "interview") continue;
+    if (speech.task === "interview" || speech.task === "brief") continue;
     const round =
       session.debate.filter((entry) => entry.kind === (speech.task === "critique" ? "critiques" : "revision") && entry.seat === speech.seat)
         .length + 1;
     pushDivider(
       speech.task === "proposal"
-        ? t("debate.blind")
-        : speech.task === "verdict"
-          ? t("debate.verdict")
-          : speech.task === "critique"
-            ? t("debate.critiques", { round })
-            : t("debate.revisions", { round }),
+        ? speech.seat === "U"
+          ? t("debate.yourSolution")
+          : t("debate.blind")
+        : speech.task === "probe"
+          ? t("debate.probe")
+          : speech.task === "verdict"
+            ? t("debate.verdict")
+            : speech.task === "critique"
+              ? t("debate.critiques", { round })
+              : t("debate.revisions", { round }),
     );
     items.push(
       <Message key={`live-${speech.task}-${speech.seat}`} session={session} seat={speech.seat} speech={speech.text || "…"} typing />,

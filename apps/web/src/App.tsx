@@ -2,11 +2,13 @@ import { isLocale } from "@quorumind/core/locales";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type SessionSummary } from "./api.ts";
-import { CrossIcon, MenuIcon, MonitorIcon, MoonIcon, PlusIcon, SunIcon } from "./components/Icons.tsx";
+import { CrossIcon, GalleryIcon, MenuIcon, MonitorIcon, MoonIcon, PlusIcon, SettingsIcon, SunIcon } from "./components/Icons.tsx";
 import { Mark } from "./components/Logo.tsx";
+import { Gallery } from "./Gallery.tsx";
 import { LOCALES } from "./i18n.ts";
 import { NewSession } from "./NewSession.tsx";
-import { SessionView } from "./SessionView.tsx";
+import { SessionView, SharedView } from "./SessionView.tsx";
+import { Settings } from "./Settings.tsx";
 import { type ThemeChoice, useTheme } from "./theme.ts";
 
 const readRoute = () => window.location.hash.replace(/^#\/?/, "");
@@ -66,7 +68,7 @@ function Sidebar({ current }: { current: string | null }) {
   return (
     <div className="sidebar-inner">
       <a className="brand" href="#/" aria-label={`Quorumind, ${t("nav.newSession")}`}>
-        <Mark />
+        <Mark busy={sessions.some((item) => item.phase === "debating")} />
         <span>quorumind</span>
       </a>
       <a className="button button-primary new-session" href="#/">
@@ -92,6 +94,16 @@ function Sidebar({ current }: { current: string | null }) {
             ))}
           </ul>
         )}
+      </nav>
+      <nav className="sidebar-links" aria-label={t("nav.more")}>
+        <a href="#/gallery" aria-current={current === "gallery" ? "page" : undefined}>
+          <GalleryIcon />
+          {t("nav.gallery")}
+        </a>
+        <a href="#/settings" aria-current={current === "settings" ? "page" : undefined}>
+          <SettingsIcon />
+          {t("nav.settings")}
+        </a>
       </nav>
       <div className="sidebar-foot">
         <label className="visually-hidden" htmlFor="language">
@@ -131,6 +143,18 @@ export function App() {
   const sessionsState = useSessionList();
   const [menuOpen, setMenuOpen] = useState(false);
   const sessionId = route.startsWith("s/") ? route.slice(2) : null;
+  const sharedToken = route.startsWith("shared/") ? route.slice(7) : null;
+  const page = sessionId ? (
+    <SessionView key={sessionId} id={sessionId} />
+  ) : sharedToken ? (
+    <SharedView key={sharedToken} token={sharedToken} />
+  ) : route === "gallery" ? (
+    <Gallery />
+  ) : route === "settings" ? (
+    <Settings />
+  ) : (
+    <NewSession />
+  );
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -169,10 +193,10 @@ export function App() {
           </button>
         </header>
         <aside className="sidebar" id="sidebar">
-          <Sidebar current={sessionId} />
+          <Sidebar current={sessionId ?? route} />
         </aside>
         <main className="main">
-          <div className="page">{sessionId ? <SessionView key={sessionId} id={sessionId} /> : <NewSession />}</div>
+          <div className="page">{page}</div>
           <footer className="footer">{t("app.footer")}</footer>
         </main>
       </div>

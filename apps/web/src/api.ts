@@ -1,17 +1,74 @@
-import type { Answer, Lineup, Locale, RequirementsSheet, Session } from "@quorumind/core";
+import type {
+  Answer,
+  Audience,
+  Brief,
+  ContextDocument,
+  Depth,
+  Lineup,
+  Locale,
+  Mode,
+  ModelOption,
+  RequirementsSheet,
+  Session,
+} from "@quorumind/core";
+import type { TemplateId } from "@quorumind/core/templates";
 
 export type { Answer, Lineup, Session };
 
+type Estimate = { low: number; high: number } | null;
+
 export interface AppConfig {
-  live: { lineup: Lineup; estimateUsd: { low: number; high: number } | null } | null;
+  catalog: ModelOption[];
+  live: { lineup: Lineup; estimateUsd: Estimate } | null;
   demo: { lineup: Lineup; idea: string };
+  templates: TemplateId[];
+  personas: string[];
+  localOnly: boolean;
+  notifications: boolean;
+  retentionDays: number | null;
+  maxBudgetUsd: number | null;
 }
 
 export interface SessionSummary {
   id: string;
   idea: string;
   phase: Session["phase"];
+  mode?: Mode;
   updatedAt: string;
+}
+
+export interface Share {
+  token: string;
+  public: boolean;
+  createdAt: string;
+}
+
+export interface Feedback {
+  helpful: boolean | null;
+  kind: "rating" | "error";
+  comment: string;
+  createdAt: string;
+}
+
+export interface GalleryItem extends SessionSummary {
+  token: string;
+  summary: string | null;
+}
+
+export interface NewSessionInput {
+  locale: Locale;
+  idea: string;
+  demo: boolean;
+  mode: Mode;
+  template: TemplateId | null;
+  depth: Depth;
+  rounds: number;
+  budgetUsd: number | null;
+  lineup: Lineup | null;
+  challenge: string | null;
+  context: ContextDocument[];
+  redact: boolean;
+  notify: boolean;
 }
 
 export class ApiError extends Error {
@@ -29,23 +86,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: init?.body ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
   });
+  if (response.status === 204) return undefined as T;
   const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
   if (!response.ok) throw new ApiError(response.status, body.error ?? "error", body.message ?? response.statusText);
   return body as T;
 }
 
+const post = (body: unknown = {}) => ({ method: "POST", body: JSON.stringify(body) });
+
 export const api = {
   config: () => request<AppConfig>("/api/config"),
+  estimate: (lineup: Lineup, rounds: number, mode: Mode) =>
+    request<{ estimateUsd: Estimate }>("/api/estimate", post({ lineup, rounds, mode })),
   sessions: () => request<{ sessions: SessionSummary[] }>("/api/sessions"),
-  session: (id: string) => request<{ session: Session; busy: boolean }>(`/api/sessions/${id}`),
-  create: (input: { locale: Locale; idea: string; demo: boolean; rounds: number; budgetUsd: number | null }) =>
-    request<{ session: Session }>("/api/sessions", { method: "POST", body: JSON.stringify(input) }),
-  answerInterview: (id: string, answers: Answer[]) =>
-    request(`/api/sessions/${id}/interview`, { method: "POST", body: JSON.stringify({ answers }) }),
+  session: (id: string) => request<{ session: Session; busy: boolean; share: Share | null; feedback: Feedback[] }>(`/api/sessions/${id}`),
+  create: (input: NewSessionInput) => request<{ session: Session }>("/api/sessions", post(input)),
+  remove: (id: string) => request<void>(`/api/sessions/${id}`, { method: "DELETE" }),
+  answerInterview: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/interview`, post({ answers })),
   confirmSheet: (id: string, sheet: RequirementsSheet) =>
     request(`/api/sessions/${id}/sheet`, { method: "PUT", body: JSON.stringify({ sheet }) }),
-  answerDebate: (id: string, answers: Answer[]) =>
-    request(`/api/sessions/${id}/answers`, { method: "POST", body: JSON.stringify({ answers }) }),
-  resume: (id: string) => request(`/api/sessions/${id}/resume`, { method: "POST", body: "{}" }),
+  answerDebate: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/answers`, post({ answers })),
+  resume: (id: string) => request(`/api/sessions/${id}/resume`, post()),
+  brief: (id: string, audience: Audience) => request<{ brief: Brief }>(`/api/sessions/${id}/brief`, post({ audience })),
+  fork: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/fork`, post()),
+  share: (id: string, isPublic: boolean) => request<{ share: Share }>(`/api/sessions/${id}/share`, post({ public: isPublic })),
+  unshare: (id: string) => request<void>(`/api/sessions/${id}/share`, { method: "DELETE" }),
+  feedback: (id: string, input: { helpful: boolean | null; kind: "rating" | "error"; comment: string }) =>
+    request<{ feedback: Feedback[] }>(`/api/sessions/${id}/feedback`, post(input)),
+  shared: (token: string) => request<{ session: Session }>(`/api/shared/${token}`),
+  gallery: () => request<{ sessions: GalleryItem[] }>("/api/gallery"),
   reportUrl: (id: string) => `/api/sessions/${id}/report.md`,
+  sharedReportUrl: (token: string) => `/api/shared/${token}/report.md`,
+  exportUrl: () => "/api/export",
 };
