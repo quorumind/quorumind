@@ -58,6 +58,20 @@ reverse proxy, never directly on the internet.
 | `QUORUMIND_INTERVIEWER`, `QUORUMIND_ARBITER`, `QUORUMIND_SEAT_A` to `QUORUMIND_SEAT_D`, `QUORUMIND_DEVIL` | Assign any model to any role, as `anthropic:<model>`, `openai:<model>`, `gemini:<model>`, `ollama:<model>` or `mock`. Seats C, D and the devil's advocate are off unless set (`QUORUMIND_DEVIL=none`). |
 | `PORT`, `HOST`, `QUORUMIND_DATA_DIR` | Server address and where sessions are stored (SQLite). |
 
+## From a coding agent (MCP)
+
+Claude Code, Codex, Cursor and other MCP clients can run a debate before they code: the
+`quorumind-mcp` server in [`apps/mcp`](apps/mcp/README.md) starts a session, relays the
+interview to you, runs the debate on your Quorumind server and writes the verdict into the
+project as `CLAUDE.md`, `AGENTS.md` and `PLAN.md`.
+
+```bash
+npm start   # the Quorumind server, keep it running
+claude mcp add --transport stdio quorumind -- node /path/to/quorumind/apps/mcp/src/main.ts
+```
+
+Setup for Codex and Cursor, the tools and their options: [apps/mcp/README.md](apps/mcp/README.md).
+
 ## How it works
 
 ```mermaid
@@ -146,6 +160,7 @@ npm run media       # screenshots and demo video in docs/media, filmed on the re
 | --- | --- |
 | `packages/core` | Debate engine, role prompts, schemas, provider adapters (Claude, OpenAI, demo), pricing, report |
 | `apps/server` | HTTP API, live event stream (SSE), SQLite storage, serves the interface |
+| `apps/mcp` | MCP server for coding agents: runs a debate through the HTTP API and writes the hand-off files |
 | `apps/web` | React interface, ten languages, right-to-left support, light and dark themes |
 | `bench` | Reference projects replayed end to end, with checks every verdict must pass |
 | `media` | Films the recorded demo with Playwright for the README and the website |

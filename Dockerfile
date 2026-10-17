@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY packages/core/package.json packages/core/
 COPY apps/server/package.json apps/server/
+COPY apps/mcp/package.json apps/mcp/
 COPY apps/web/package.json apps/web/
 RUN npm ci
 COPY . .

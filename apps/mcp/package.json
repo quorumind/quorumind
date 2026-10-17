@@ -1,0 +1,24 @@
+{
+  "name": "@quorumind/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server that lets coding agents run a Quorumind debate and read the verdict.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "bin": {
+    "quorumind-mcp": "src/main.ts"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/main.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@hono/node-server": "2.1.3",
+    "@modelcontextprotocol/client": "2.3.0",
+    "@quorumind/core": "*",
+    "@quorumind/server": "*"
+  }
+}
