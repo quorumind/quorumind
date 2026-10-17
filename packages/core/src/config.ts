@@ -43,11 +43,12 @@ type Env = Record<string, string | undefined>;
 
 const mock = (): Seat => ({ provider: "mock", model: "mock", persona: null });
 
+// The recorded demo shows the V1 cast: two experts and a devil's advocate.
 export const DEMO_LINEUP: Lineup = {
   interviewer: { provider: "mock", model: "mock" },
   arbiter: { provider: "mock", model: "mock" },
-  seats: { A: mock(), B: mock() },
-  devil: null,
+  seats: { A: { ...mock(), persona: "cloud_architect" }, B: { ...mock(), persona: "finops" } },
+  devil: mock(),
 };
 
 const DEFAULT_ANTHROPIC_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];

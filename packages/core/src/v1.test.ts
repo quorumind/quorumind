@@ -165,7 +165,8 @@ describe("stored sessions", () => {
   it("upgrades sessions saved before V1", () => {
     const { session } = setup();
     const legacy = JSON.parse(JSON.stringify(session));
-    for (const key of ["mode", "template", "depth", "devil", "challenge", "context", "redact", "parentId", "briefs"]) delete legacy[key];
+    for (const key of ["mode", "template", "depth", "devil", "challenge", "context", "redact", "parentId", "notify", "briefs"])
+      delete legacy[key];
     legacy.seats = { A: mock, B: mock };
     legacy.verdict = { consensus: ["Stripe"], disagreements: [{ topic: "Build", positions: ["A: yes"] }] };
     const upgraded = normalizeSession(legacy);

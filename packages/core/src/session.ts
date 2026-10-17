@@ -90,6 +90,8 @@ export interface Session {
   redact: boolean;
   /** Session this one was started from, when the person revisits an earlier decision. */
   parentId: string | null;
+  /** Send an e-mail when the debate ends or waits for an answer (when the server can send mail). */
+  notify: boolean;
   interview: InterviewEntry[];
   sheet: RequirementsSheet | null;
   /** Set when the person validates the requirements sheet and the debate may start. */
@@ -119,6 +121,7 @@ export interface NewSessionInput {
   context?: ContextDocument[];
   redact?: boolean;
   parentId?: string | null;
+  notify?: boolean;
 }
 
 export const MAX_ROUNDS = 3;
@@ -147,6 +150,7 @@ export function createSession(input: NewSessionInput): Session {
     context: input.context ?? [],
     redact: input.redact ?? false,
     parentId: input.parentId ?? null,
+    notify: input.notify ?? false,
     interview: [],
     sheet: null,
     sheetConfirmedAt: null,
@@ -169,6 +173,7 @@ export function normalizeSession(stored: Session): Session {
   session.context ??= [];
   session.redact ??= false;
   session.parentId ??= null;
+  session.notify ??= false;
   session.briefs ??= {};
   // Verdicts stored before the debate map listed consensus and disagreements separately.
   const legacy = session.verdict as (Verdict & { consensus?: string[]; disagreements?: { topic: string; positions: string[] }[] }) | null;

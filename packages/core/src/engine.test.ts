@@ -11,12 +11,16 @@ import { createSession, currentProposals, type Session } from "./session.ts";
 function setup(providers: ProviderSet = providersFor(DEMO_LINEUP, {}, { mockDelayMs: 0 }), budgetUsd: number | null = null) {
   const events: EngineEvent[] = [];
   const saved: string[] = [];
-  const engine = new DebateEngine(providers, {
-    emit: (_id, event) => events.push(event),
-    save: (session) => {
-      saved.push(session.phase);
+  // The demo lineup has a devil's advocate: give it the demo model when a test brings its own providers.
+  const engine = new DebateEngine(
+    { devil: new MockProvider({ chunkDelayMs: 0 }), ...providers },
+    {
+      emit: (_id, event) => events.push(event),
+      save: (session) => {
+        saved.push(session.phase);
+      },
     },
-  });
+  );
   const session = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, budgetUsd, ...DEMO_LINEUP });
   return { engine, session, events, saved };
 }

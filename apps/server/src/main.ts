@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { createApp } from "./app.ts";
+import { createApp, retentionDays } from "./app.ts";
 import { EventBus } from "./bus.ts";
+import { notifierFromEnv } from "./notifier.ts";
 import { SessionStore } from "./store.ts";
 
 const env = process.env;
@@ -17,7 +18,24 @@ const hostname = env.HOST ?? "127.0.0.1";
 
 const store = new SessionStore(join(dataDir, "quorumind.db"));
 const demoDelay = env.QUORUMIND_DEMO_DELAY_MS ? Number(env.QUORUMIND_DEMO_DELAY_MS) : undefined;
-const api = createApp({ store, bus: new EventBus(), env, ...(demoDelay === undefined ? {} : { mockDelayMs: demoDelay }) });
+const api = createApp({
+  store,
+  bus: new EventBus(),
+  env,
+  notifier: notifierFromEnv(env),
+  ...(demoDelay === undefined ? {} : { mockDelayMs: demoDelay }),
+});
+
+// QUORUMIND_RETENTION_DAYS: sessions untouched for that long are deleted, at start and then daily.
+const retention = retentionDays(env);
+if (retention !== null) {
+  const purge = () => {
+    const count = store.purgeOlderThan(retention);
+    if (count > 0) console.log(`Deleted ${count} session(s) older than ${retention} days.`);
+  };
+  purge();
+  setInterval(purge, 86_400_000).unref();
+}
 
 const root = new Hono();
 root.route("/", api);

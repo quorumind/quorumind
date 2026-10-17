@@ -43,6 +43,8 @@ const TASK_PROFILE = {
 
 export interface DebatePlan {
   proposerModels: string[];
+  /** Participants that only criticise: the devil's advocate, or every seat in challenge mode. */
+  criticModels?: string[];
   arbiterModel: string;
   rounds: number;
 }
@@ -56,6 +58,11 @@ export function estimateDebateCost(plan: DebatePlan): { low: number; high: numbe
     const revision = costOf(model, { inputTokens: TASK_PROFILE.revision.input, outputTokens: TASK_PROFILE.revision.output });
     if (proposal === null || critique === null || revision === null) return null;
     total += proposal + plan.rounds * (critique + revision);
+  }
+  for (const model of plan.criticModels ?? []) {
+    const critique = costOf(model, { inputTokens: TASK_PROFILE.critique.input, outputTokens: TASK_PROFILE.critique.output });
+    if (critique === null) return null;
+    total += plan.rounds * critique;
   }
   const verdict = costOf(plan.arbiterModel, { inputTokens: TASK_PROFILE.verdict.input, outputTokens: TASK_PROFILE.verdict.output });
   if (verdict === null) return null;

@@ -1,15 +1,41 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { Session } from "@quorumind/core";
+import { normalizeSession, type Session } from "@quorumind/core";
+
+export interface SessionSummary {
+  id: string;
+  idea: string;
+  phase: string;
+  mode: string;
+  updatedAt: string;
+}
+
+export interface Share {
+  token: string;
+  public: boolean;
+  createdAt: string;
+}
+
+export interface Feedback {
+  sessionId: string;
+  helpful: boolean | null;
+  kind: "rating" | "error";
+  comment: string;
+  createdAt: string;
+}
 
 /**
  * Sessions are stored as JSON documents in SQLite. Live session objects are kept in memory
  * so the engine and the HTTP handlers always share the same instance.
+ *
+ * Self-hosted, every session belongs to the single local user (owner null). The hosted
+ * version passes an owner id to every call, and a session is only visible to its owner.
  */
 export class SessionStore {
-  private readonly db: DatabaseSync;
+  readonly db: DatabaseSync;
   private readonly live = new Map<string, Session>();
+  private readonly owners = new Map<string, string | null>();
 
   constructor(path: string) {
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
@@ -19,38 +45,175 @@ export class SessionStore {
         id TEXT PRIMARY KEY,
         data TEXT NOT NULL,
         updated_at TEXT NOT NULL
-      )
+      );
+      CREATE TABLE IF NOT EXISTS shares (
+        token TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL UNIQUE,
+        public INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        helpful INTEGER,
+        kind TEXT NOT NULL,
+        comment TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
     `);
+    const columns = this.db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
+    if (!columns.some((column) => column.name === "owner_id")) this.db.exec("ALTER TABLE sessions ADD COLUMN owner_id TEXT");
   }
 
-  get(id: string): Session | null {
+  get(id: string, owner: string | null = null): Session | null {
     const cached = this.live.get(id);
-    if (cached) return cached;
-    const row = this.db.prepare("SELECT data FROM sessions WHERE id = ?").get(id) as { data: string } | undefined;
-    if (!row) return null;
-    const session = JSON.parse(row.data) as Session;
+    if (cached) return this.owners.get(id) === owner ? cached : null;
+    const row = this.db.prepare("SELECT data, owner_id FROM sessions WHERE id = ?").get(id) as
+      | { data: string; owner_id: string | null }
+      | undefined;
+    if (!row || row.owner_id !== owner) return null;
+    const session = normalizeSession(JSON.parse(row.data) as Session);
     this.live.set(id, session);
+    this.owners.set(id, owner);
     return session;
   }
 
-  save(session: Session): void {
+  save(session: Session, owner: string | null = null): void {
+    if (!this.owners.has(session.id)) this.owners.set(session.id, owner);
     this.live.set(session.id, session);
     this.db
       .prepare(
-        "INSERT INTO sessions (id, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+        "INSERT INTO sessions (id, data, updated_at, owner_id) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
       )
-      .run(session.id, JSON.stringify(session), session.updatedAt);
+      .run(session.id, JSON.stringify(session), session.updatedAt, this.owners.get(session.id) ?? null);
   }
 
-  list(limit = 50): { id: string; idea: string; phase: string; updatedAt: string }[] {
-    const rows = this.db.prepare("SELECT data FROM sessions ORDER BY updated_at DESC LIMIT ?").all(limit) as { data: string }[];
-    return rows.map((row) => {
-      const session = JSON.parse(row.data) as Session;
-      return { id: session.id, idea: session.sheet?.projectName ?? session.idea, phase: session.phase, updatedAt: session.updatedAt };
-    });
+  list(limit = 50, owner: string | null = null): SessionSummary[] {
+    const rows = this.db.prepare("SELECT data FROM sessions WHERE owner_id IS ? ORDER BY updated_at DESC LIMIT ?").all(owner, limit) as {
+      data: string;
+    }[];
+    return rows.map((row) => summarize(normalizeSession(JSON.parse(row.data) as Session)));
+  }
+
+  /** Every session of an owner, in full: the data export the GDPR gives a right to. */
+  all(owner: string | null = null): Session[] {
+    const rows = this.db.prepare("SELECT data FROM sessions WHERE owner_id IS ? ORDER BY updated_at").all(owner) as { data: string }[];
+    return rows.map((row) => normalizeSession(JSON.parse(row.data) as Session));
+  }
+
+  delete(id: string, owner: string | null = null): boolean {
+    if (!this.get(id, owner)) return false;
+    this.live.delete(id);
+    this.owners.delete(id);
+    this.db.prepare("DELETE FROM shares WHERE session_id = ?").run(id);
+    this.db.prepare("DELETE FROM feedback WHERE session_id = ?").run(id);
+    this.db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+    return true;
+  }
+
+  /** Deletes the sessions nobody touched for the given number of days. Returns how many. */
+  purgeOlderThan(days: number, now = Date.now()): number {
+    const cutoff = new Date(now - days * 86_400_000).toISOString();
+    const rows = this.db.prepare("SELECT id FROM sessions WHERE updated_at < ?").all(cutoff) as { id: string }[];
+    for (const { id } of rows) {
+      this.live.delete(id);
+      this.owners.delete(id);
+      this.db.prepare("DELETE FROM shares WHERE session_id = ?").run(id);
+      this.db.prepare("DELETE FROM feedback WHERE session_id = ?").run(id);
+      this.db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+    }
+    return rows.length;
+  }
+
+  share(sessionId: string, isPublic: boolean): Share {
+    const existing = this.shareOf(sessionId);
+    if (existing) {
+      this.db.prepare("UPDATE shares SET public = ? WHERE token = ?").run(isPublic ? 1 : 0, existing.token);
+      return { ...existing, public: isPublic };
+    }
+    const share = { token: randomToken(), public: isPublic, createdAt: new Date().toISOString() };
+    this.db
+      .prepare("INSERT INTO shares (token, session_id, public, created_at) VALUES (?, ?, ?, ?)")
+      .run(share.token, sessionId, isPublic ? 1 : 0, share.createdAt);
+    return share;
+  }
+
+  unshare(sessionId: string): void {
+    this.db.prepare("DELETE FROM shares WHERE session_id = ?").run(sessionId);
+  }
+
+  shareOf(sessionId: string): Share | null {
+    const row = this.db.prepare("SELECT token, public, created_at FROM shares WHERE session_id = ?").get(sessionId) as
+      | { token: string; public: number; created_at: string }
+      | undefined;
+    return row ? { token: row.token, public: row.public === 1, createdAt: row.created_at } : null;
+  }
+
+  /** A shared session, whoever owns it: the token is the permission. */
+  shared(token: string): Session | null {
+    const row = this.db
+      .prepare("SELECT sessions.data AS data FROM shares JOIN sessions ON sessions.id = shares.session_id WHERE shares.token = ?")
+      .get(token) as { data: string } | undefined;
+    if (!row) return null;
+    const stored = normalizeSession(JSON.parse(row.data) as Session);
+    return this.live.get(stored.id) ?? stored;
+  }
+
+  /** Completed sessions their owners chose to make public: the gallery of examples. */
+  gallery(limit = 50): (SessionSummary & { token: string; summary: string | null })[] {
+    const rows = this.db
+      .prepare(
+        "SELECT shares.token AS token, sessions.data AS data FROM shares JOIN sessions ON sessions.id = shares.session_id WHERE shares.public = 1 ORDER BY sessions.updated_at DESC LIMIT ?",
+      )
+      .all(limit) as { token: string; data: string }[];
+    return rows
+      .map((row) => ({ token: row.token, session: normalizeSession(JSON.parse(row.data) as Session) }))
+      .filter(({ session }) => session.phase === "complete")
+      .map(({ token, session }) => ({ ...summarize(session), token, summary: session.sheet?.summary ?? null }));
+  }
+
+  addFeedback(feedback: Feedback): void {
+    this.db
+      .prepare("INSERT INTO feedback (session_id, helpful, kind, comment, created_at) VALUES (?, ?, ?, ?, ?)")
+      .run(
+        feedback.sessionId,
+        feedback.helpful === null ? null : feedback.helpful ? 1 : 0,
+        feedback.kind,
+        feedback.comment,
+        feedback.createdAt,
+      );
+  }
+
+  feedbackOf(sessionId: string): Feedback[] {
+    const rows = this.db
+      .prepare("SELECT helpful, kind, comment, created_at FROM feedback WHERE session_id = ? ORDER BY id")
+      .all(sessionId) as { helpful: number | null; kind: Feedback["kind"]; comment: string; created_at: string }[];
+    return rows.map((row) => ({
+      sessionId,
+      helpful: row.helpful === null ? null : row.helpful === 1,
+      kind: row.kind,
+      comment: row.comment,
+      createdAt: row.created_at,
+    }));
   }
 
   close() {
     this.db.close();
   }
+}
+
+function summarize(session: Session): SessionSummary {
+  return {
+    id: session.id,
+    idea: session.sheet?.projectName ?? session.idea,
+    phase: session.phase,
+    mode: session.mode,
+    updatedAt: session.updatedAt,
+  };
+}
+
+function randomToken(): string {
+  const bytes = new Uint8Array(18);
+  globalThis.crypto.getRandomValues(bytes);
+  return Buffer.from(bytes).toString("base64url");
 }
