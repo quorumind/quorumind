@@ -192,14 +192,23 @@ function Matrix({ session }: { session: Session }) {
               if (!option) return null;
               return (
                 <tr key={option.seat} data-rank={index + 1} data-flip={option.seat}>
-                  <th scope="row" style={{ color: "var(--ink)", fontSize: 15 }}>
+                  <th scope="row" className="option-cell">
                     <span className={VOICES[option.seat] ?? ""}>
                       <span className="voice-name">{option.seat}</span>
                     </span>{" "}
                     {option.title}
                   </th>
-                  <td className="mono">
-                    {rankedOption.score === null ? "–" : rankedOption.score.toLocaleString(i18n.language, { maximumFractionDigits: 1 })}
+                  <td>
+                    {rankedOption.score === null ? (
+                      "–"
+                    ) : (
+                      <span className="weighted">
+                        <span className="weighted-bar">
+                          <i style={{ inlineSize: `${(rankedOption.score / 5) * 100}%` }} />
+                        </span>
+                        <span className="mono">{rankedOption.score.toLocaleString(i18n.language, { maximumFractionDigits: 1 })}</span>
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div className="stack" style={{ gap: "var(--space-2)" }}>

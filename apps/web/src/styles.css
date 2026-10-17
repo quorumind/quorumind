@@ -2467,3 +2467,38 @@ tbody tr[data-rank="1"] th {
     grid-template-columns: minmax(0, 1fr) 120px 16px;
   }
 }
+
+.option-cell {
+  min-inline-size: 200px;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.weighted {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 110px;
+}
+
+.weighted-bar {
+  position: relative;
+  flex: 1;
+  block-size: 6px;
+  border-radius: var(--radius-full);
+  background: var(--line);
+  overflow: hidden;
+}
+
+.weighted-bar i {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--thesis), color-mix(in srgb, var(--thesis) 60%, var(--feasible)));
+  transition: inline-size 500ms var(--ease-spring);
+}
+
+.brief h4 {
+  margin: 0 0 var(--space-1);
+}
