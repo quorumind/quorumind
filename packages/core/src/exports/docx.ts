@@ -290,3 +290,6 @@ export async function renderDocx(session: Session, branding: Branding): Promise<
     children,
   });
 }
+
+export { renderProposalDocx } from "./proposal-docx.ts";
+export { renderQuestionnaireDocx } from "./questionnaire-docx.ts";

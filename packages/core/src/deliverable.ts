@@ -3,7 +3,9 @@ import { deliveryChecks, type OptionChecks, proposalCosting, type Range } from "
 import type { Locale } from "./locales.ts";
 import { rankOptions } from "./ranking.ts";
 import {
+  budgetText,
   checkLine,
+  deadlineText,
   fill,
   formatDayRange,
   formatMoney,
@@ -261,4 +263,132 @@ export function renderClientReport(deliverable: ClientDeliverable): string {
   if (deliverable.openQuestions.length > 0) lines.push(`## ${t.openQuestions}`, "", list(deliverable.openQuestions), "");
   lines.push(`_${t.generated}_`, "");
   return lines.join("\n");
+}
+
+/**
+ * The proposal an agency sends its client, ready to edit: the context restated, the recommended solution, the
+ * alternatives and why they were not retained, risks, roadmap, assumptions and exclusions, open questions and the
+ * revision it is based on. Like the client deliverable it is an allowlist: never the transcript, the debate's
+ * critiques, provider costs or anyone's internal notes.
+ */
+export interface ClientProposal {
+  locale: Locale;
+  /** The project's name. */
+  title: string;
+  /** Who it is prepared for, when the agency says so. */
+  client: string | null;
+  /** The current revision of the verdict: its number and date. */
+  revision: { number: number; date: string } | null;
+  context: {
+    summary: string;
+    goals: string[];
+    successCriteria: string[];
+    scope: string[];
+    constraints: string[];
+    /** The deadline and the budget as the requirements sheet states them, in words. */
+    deadline: string | null;
+    budget: string | null;
+  } | null;
+  /** Null when no option is feasible as it stands. */
+  solution: {
+    seat: string;
+    title: string;
+    summary: string;
+    rationale: string;
+    conditions: string[];
+    architecture: string[];
+    stack: string[];
+    buildTime: string | null;
+    buildWeeks: Range | null;
+    monthlyCost: (Range & { currency: string }) | null;
+    /** The total of its costing, when it has one. */
+    buildCost: (Range & { currency: string }) | null;
+  } | null;
+  /** Shown when no option was recommended. */
+  rationale: string | null;
+  /** The other options, best first, with why they were not retained. */
+  alternatives: { seat: string; title: string; summary: string | null; feasibility: Feasibility; reason: string; conditions: string[] }[];
+  risks: Verdict["risks"];
+  roadmap: Verdict["roadmap"];
+  assumptions: string[];
+  exclusions: string[];
+  openQuestions: string[];
+  /**
+   * The recommended solution's costing by work package (days and amounts, never the day rates behind them), and how
+   * it compares with the budget and the deadline; null when the option has no work packages.
+   */
+  costing: DeliverableCosting | null;
+}
+
+const unique = (items: string[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+export function clientProposal(session: Session, options: { client?: string | null } = {}): ClientProposal {
+  const sheet = session.sheet;
+  const verdict = session.phase === "complete" ? session.verdict : null;
+  const proposals = currentProposals(session);
+  const revision = verdict ? (session.revisions.at(-1) ?? null) : null;
+  const deliverable = clientDeliverable(session);
+  const seat = verdict?.recommendation.seat ?? null;
+  const chosen = seat ? proposals[seat] : undefined;
+  const option = seat ? verdict?.options.find((item) => item.seat === seat) : undefined;
+  const costing = deliverable.options.find((item) => item.seat === seat)?.costing ?? null;
+  const t = reportLabels(session.locale);
+  return {
+    locale: session.locale,
+    title: sheet?.projectName ?? "",
+    client: options.client?.trim() || null,
+    revision: revision ? { number: revision.number, date: revision.createdAt } : null,
+    context: sheet
+      ? {
+          summary: sheet.summary,
+          goals: sheet.goals,
+          successCriteria: sheet.successCriteria,
+          scope: sheet.mustHave,
+          constraints: sheet.hardConstraints,
+          deadline: deadlineText(sheet, t, session.locale) || null,
+          budget: budgetText(sheet, t, session.locale) || null,
+        }
+      : null,
+    solution:
+      seat && verdict
+        ? {
+            seat,
+            title: chosen?.title ?? option?.title ?? seat,
+            summary: chosen?.summary ?? "",
+            rationale: verdict.recommendation.rationale,
+            conditions: option?.conditions ?? [],
+            architecture: chosen?.architecture ?? [],
+            stack: chosen?.stack ?? [],
+            buildTime: chosen?.buildTime ?? null,
+            buildWeeks: chosen?.buildWeeks ?? null,
+            monthlyCost: chosen ? monthlyRange(session, chosen) : null,
+            buildCost: costing ? { ...costing.total, currency: costing.currency } : null,
+          }
+        : null,
+    rationale: verdict && !seat ? verdict.recommendation.rationale : null,
+    alternatives: deliverable.options
+      .filter((item) => item.seat !== seat)
+      .map((item) => ({
+        seat: item.seat,
+        title: proposals[item.seat]?.title ?? item.title,
+        summary: proposals[item.seat]?.summary ?? null,
+        feasibility: item.feasibility,
+        reason: item.reason,
+        conditions: item.conditions,
+      })),
+    risks: deliverable.risks,
+    roadmap: deliverable.roadmap,
+    assumptions: unique([...(sheet?.assumptions ?? []), ...(chosen?.assumptions ?? []), ...(costing?.assumptions ?? [])]),
+    exclusions: unique([...(sheet?.outOfScope ?? []), ...(costing?.exclusions ?? [])]),
+    openQuestions: deliverable.openQuestions,
+    costing,
+  };
 }

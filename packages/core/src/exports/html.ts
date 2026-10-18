@@ -635,3 +635,6 @@ ${options.print ? `<script>${PRINT_SCRIPT}</script>` : ""}
 </html>
 `;
 }
+
+/** The pieces of the report page the other printable documents (the client proposal) are built with. */
+export const REPORT_PAGE = { esc, list, styles: STYLES, mark: MARK, cssString } as const;
