@@ -1,11 +1,10 @@
-import { MAX_CONTEXT_CHARS } from "@quorumind/core";
+import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_BYTES } from "@quorumind/core";
 import { getDocumentProxy } from "unpdf";
 import { docxText, isCompoundFile } from "./docx.ts";
 import { ContextError } from "./errors.ts";
 import { type ImportedDocument, makeDocument } from "./text.ts";
 
-/** Largest file accepted, uploaded or fetched from the web. */
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_FILE_BYTES = MAX_CONTEXT_FILE_BYTES;
 /** Pages read from a PDF: reading stops earlier once enough text is collected. */
 export const MAX_PDF_PAGES = 500;
 

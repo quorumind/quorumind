@@ -49,6 +49,8 @@ export interface ContextDocument {
 export const MAX_CONTEXT_DOCUMENTS = 5;
 /** Characters kept from one document. The prompts read a shorter share of it (see CONTEXT_BUDGET). */
 export const MAX_CONTEXT_CHARS = 100_000;
+/** Largest file the server reads, uploaded or fetched from the web. */
+export const MAX_CONTEXT_FILE_BYTES = 10 * 1024 * 1024;
 
 export interface Answer {
   question: string;
