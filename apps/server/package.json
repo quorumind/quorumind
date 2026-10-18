@@ -13,10 +13,13 @@
     "@quorumind/core": "*",
     "hono": "4.13.12",
     "nodemailer": "^10.0.13",
+    "pg": "8.23.1",
     "unpdf": "1.8.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/nodemailer": "^8.0.2"
+    "@electric-sql/pglite": "0.5.8",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "8.23.1"
   }
 }
