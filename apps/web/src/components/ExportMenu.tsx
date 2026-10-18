@@ -2,7 +2,7 @@ import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DownloadIcon } from "./Icons.tsx";
 
-type ExportKey = "markdown" | "pdf" | "word" | "adr" | "handoff";
+type ExportKey = "markdown" | "pdf" | "word" | "adr" | "handoff" | "jira" | "linear" | "github";
 type Audience = "cto" | "executive" | "client";
 
 interface ExportItem {
@@ -22,6 +22,10 @@ const ITEMS: ExportItem[] = [
   { key: "word", path: "report.docx" },
   { key: "adr", path: "adr.md", needsVerdict: true },
   { key: "handoff", path: "handoff.zip", needsVerdict: true },
+  // The roadmap for issue trackers.
+  { key: "jira", path: "jira.csv", needsVerdict: true },
+  { key: "linear", path: "linear.csv", needsVerdict: true },
+  { key: "github", path: "github-issues.zip", needsVerdict: true },
 ];
 
 const ChevronIcon = () => (

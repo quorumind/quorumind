@@ -80,6 +80,13 @@ an excerpt; they are always treated as data and masked like the rest when PII ma
 API request bodies are capped at 512 KB, except session creation (4 MB, to carry the
 documents) and file uploads (10 MB).
 
+### Integrations
+
+A finished session exports its roadmap for issue trackers, from the export menu: a CSV file for
+Jira (an epic per phase, a story per step), a CSV file for Linear, and a bundle of GitHub issues
+with a script that creates them through the GitHub CLI. Column mappings and import steps:
+[docs/integrations.md](docs/integrations.md).
+
 ## From a coding agent (MCP)
 
 Claude Code, Codex, Cursor and other MCP clients can run a debate before they code: the
@@ -194,7 +201,7 @@ change makes debates better or worse.
 Available today: the full debate with up to four proposers and a devil's advocate, any model
 in any role (Claude, OpenAI, Gemini, Ollama), a cost cap, an interactive decision matrix, a
 debate map, reports rewritten for a CTO, an executive or a client, exports (Markdown, PDF,
-Word, ADR, coding-agent hand-off), resumable and shareable sessions, context import (PDF or
+Word, ADR, coding-agent hand-off, Jira, Linear and GitHub issues), resumable and shareable sessions, context import (PDF or
 Word specifications, web pages, GitHub repositories) and the MCP server.
 
 Next:

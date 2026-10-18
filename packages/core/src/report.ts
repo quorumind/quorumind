@@ -405,9 +405,10 @@ function renderProposal(seat: string, proposal: Proposal, t: Labels, money: (amo
 
 /**
  * The decision as an Architecture Decision Record in the MADR layout, to commit next to the code
- * (for example docs/decisions/0001-<slug>.md). Written in the session's language.
+ * (for example docs/decisions/0001-<slug>.md). Written in the session's language. With a number, the title
+ * is numbered the way ADR tools number theirs ("# 7. Title").
  */
-export function renderAdr(session: Session): string {
+export function renderAdr(session: Session, numbering: { number?: number | null } = {}): string {
   const t = reportLabels(session.locale);
   const verdict = session.verdict;
   const sheet = session.sheet;
@@ -416,7 +417,8 @@ export function renderAdr(session: Session): string {
   const project = sheet?.projectName ?? session.idea;
   const lines: string[] = [];
 
-  lines.push(`# ${t.adr}: ${chosen?.proposal?.title ?? project}`, "");
+  const title = chosen?.proposal?.title ?? project;
+  lines.push(numbering.number ? `# ${numbering.number}. ${title}` : `# ${t.adr}: ${title}`, "");
   lines.push(
     `- **${t.status}:** ${t.proposed}`,
     `- **${t.date}:** ${session.updatedAt.slice(0, 10)}`,

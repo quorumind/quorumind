@@ -8,10 +8,14 @@ import {
   PRINT_SCRIPT,
   parseLogo,
   renderAdr,
+  renderGithubIssues,
   renderHandoff,
   renderHtml,
+  renderJiraCsv,
+  renderLinearCsv,
   reportSlug,
   type Session,
+  trackerFileName,
   zipFiles,
 } from "@quorumind/core";
 import { renderDocx } from "@quorumind/core/docx";
@@ -60,12 +64,19 @@ const REPORT_CSP = [
 ].join("; ");
 
 const MIME = {
+  csv: "text/csv; charset=utf-8",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   markdown: "text/markdown; charset=utf-8",
   zip: "application/zip",
 };
 
-/** Downloads of a session's decision (HTML/PDF, Word, ADR, coding-agent hand-off) and the branding settings. */
+/** ?number=7 numbers an ADR as the seventh of its repository. */
+const AdrNumber = z.coerce.number().int().min(1).max(99_999);
+
+/**
+ * Downloads of a session's decision (HTML/PDF, Word, ADR, coding-agent hand-off, the roadmap for Jira, Linear and
+ * GitHub issues) and the branding settings.
+ */
 export function exportRoutes(deps: ExportDeps) {
   const app = new Hono<{ Variables: { user: User | null } }>();
 
@@ -112,8 +123,38 @@ export function exportRoutes(deps: ExportDeps) {
     const session = await load(c);
     if (!session) return notFound(c);
     if (!session.verdict) return noVerdict(c);
-    attachment(c, MIME.markdown, `0001-${reportSlug(session)}.md`);
-    return c.body(renderAdr(session));
+    const raw = c.req.query("number");
+    const number = raw === undefined ? null : AdrNumber.safeParse(raw);
+    if (number && !number.success)
+      return c.json({ error: "invalid_request", message: "The ADR number must be a whole number from 1." }, 400);
+    const value = number?.success ? number.data : null;
+    attachment(c, MIME.markdown, `${String(value ?? 1).padStart(4, "0")}-${reportSlug(session)}.md`);
+    return c.body(renderAdr(session, { number: value }));
+  });
+
+  // The roadmap for issue trackers: epics and stories for Jira, issues for Linear, issues for GitHub.
+  app.get("/api/sessions/:id/jira.csv", async (c) => {
+    const session = await load(c);
+    if (!session) return notFound(c);
+    if (!session.verdict) return noVerdict(c);
+    attachment(c, MIME.csv, trackerFileName(session, "jira"));
+    return c.body(renderJiraCsv(session));
+  });
+
+  app.get("/api/sessions/:id/linear.csv", async (c) => {
+    const session = await load(c);
+    if (!session) return notFound(c);
+    if (!session.verdict) return noVerdict(c);
+    attachment(c, MIME.csv, trackerFileName(session, "linear"));
+    return c.body(renderLinearCsv(session));
+  });
+
+  app.get("/api/sessions/:id/github-issues.zip", async (c) => {
+    const session = await load(c);
+    if (!session) return notFound(c);
+    if (!session.verdict) return noVerdict(c);
+    attachment(c, MIME.zip, trackerFileName(session, "github"));
+    return c.body(zipFiles(renderGithubIssues(session), new Date(session.updatedAt)) as Uint8Array<ArrayBuffer>);
   });
 
   app.get("/api/sessions/:id/handoff.zip", async (c) => {

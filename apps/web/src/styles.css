@@ -2847,6 +2847,9 @@ button.chip:active {
   inset-inline-start: 0;
   z-index: 30;
   inline-size: min(340px, calc(100vw - 2 * var(--space-4)));
+  /* Eight formats and the reader versions: scroll rather than run off a small screen. */
+  max-block-size: min(75vh, 720px);
+  overflow-y: auto;
   display: grid;
   gap: 2px;
   padding: var(--space-1);

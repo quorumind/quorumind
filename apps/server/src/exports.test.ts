@@ -103,16 +103,55 @@ describe.each(BACKENDS)("on $name", (each) => {
       for (const name of ["CLAUDE.md", "AGENTS.md", "PLAN.md"]) expect(archive).toContain(name);
     });
 
+    it("numbers the ADR when asked, and refuses a number that is not one", async () => {
+      const app = await makeApp();
+      const session = await demoSession(app);
+      const adr = await app.request(`/api/sessions/${session.id}/adr.md?number=7`);
+      expect(adr.headers.get("content-disposition")).toBe('attachment; filename="0007-studio-booking-app.md"');
+      expect(await adr.text()).toMatch(/^# 7\. /);
+      const long = await app.request(`/api/sessions/${session.id}/adr.md?number=12345`);
+      expect(long.headers.get("content-disposition")).toBe('attachment; filename="12345-studio-booking-app.md"');
+      for (const number of ["0", "-1", "1.5", "seven", ""]) {
+        expect((await app.request(`/api/sessions/${session.id}/adr.md?number=${number}`)).status, number).toBe(400);
+      }
+    });
+
+    it("exports the roadmap for Jira, Linear and GitHub issues", async () => {
+      const app = await makeApp();
+      const session = await demoSession(app);
+
+      const jira = await app.request(`/api/sessions/${session.id}/jira.csv`);
+      expect(jira.headers.get("content-type")).toBe("text/csv; charset=utf-8");
+      expect(jira.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-jira.csv"');
+      const csv = await jira.text();
+      expect(csv.startsWith('"Issue ID","Parent","Issue Type","Summary"')).toBe(true);
+      expect(csv).toContain('"Epic","Phase 1: First release"');
+
+      const linear = await app.request(`/api/sessions/${session.id}/linear.csv`);
+      expect(linear.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-linear.csv"');
+      expect((await linear.text()).startsWith('"Title","Description","Status","Priority","Labels","Project"\r\n')).toBe(true);
+
+      const github = await app.request(`/api/sessions/${session.id}/github-issues.zip`);
+      expect(github.headers.get("content-type")).toBe("application/zip");
+      expect(github.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-github-issues.zip"');
+      const archive = new TextDecoder().decode(await github.arrayBuffer());
+      for (const name of ["README.md", "create-issues.sh", "issues.json", "issues/phase-1.md", "issues/phase-1-step-1.md"]) {
+        expect(archive).toContain(name);
+      }
+    });
+
     it("answers 404 for an unknown session and 409 before the verdict", async () => {
       const app = await makeApp();
-      for (const path of ["report.html", "report.docx", "adr.md", "handoff.zip"]) {
+      for (const path of ["report.html", "report.docx", "adr.md", "handoff.zip", "jira.csv", "linear.csv", "github-issues.zip"]) {
         const response = await app.request(`/api/sessions/nope/${path}`);
         expect(response.status).toBe(404);
         expect(((await response.json()) as { error: string }).error).toBe("not_found");
       }
       const session = await demoSession(app, "en", false);
       expect((await app.request(`/api/sessions/${session.id}/adr.md`)).status).toBe(409);
-      expect((await app.request(`/api/sessions/${session.id}/handoff.zip`)).status).toBe(409);
+      for (const path of ["handoff.zip", "jira.csv", "linear.csv", "github-issues.zip"]) {
+        expect((await app.request(`/api/sessions/${session.id}/${path}`)).status).toBe(409);
+      }
       expect((await app.request(`/api/sessions/${session.id}/report.html`)).status).toBe(200);
     });
 
@@ -147,7 +186,7 @@ describe.each(BACKENDS)("on $name", (each) => {
       const { session } = (await created.json()) as { session: Session };
 
       expect((await app.request(`/api/sessions/${session.id}/report.html`, as("ada"))).status).toBe(200);
-      for (const path of ["report.html", "report.docx", "adr.md", "handoff.zip"]) {
+      for (const path of ["report.html", "report.docx", "adr.md", "handoff.zip", "jira.csv", "linear.csv", "github-issues.zip"]) {
         expect((await app.request(`/api/sessions/${session.id}/${path}`, as("bob"))).status).toBe(404);
         expect((await app.request(`/api/sessions/${session.id}/${path}`)).status).toBe(401);
       }
