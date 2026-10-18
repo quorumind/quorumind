@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { PRICE_REFERENCE, priceReferenceRule } from "./cloud-prices.ts";
 import { activeRequirements, complianceInterviewRule, complianceRule, withTemplateFlags } from "./compliance.ts";
-import { COMPLIANCE_VERDICT, settleCompliance, type VerdictWithCompliance } from "./compliance-verdict.ts";
+import { COMPLIANCE_UPDATE, COMPLIANCE_VERDICT, settleCompliance, type VerdictWithCompliance } from "./compliance-verdict.ts";
 import { checkFacts, debateCurrency, sessionCostings, sessionProfile } from "./costing.ts";
 import { partialStringField } from "./partial-json.ts";
 import { costOf, TASK_PROFILE, typicalCallCost } from "./pricing.ts";
@@ -333,8 +333,14 @@ export class DebateEngine {
         if (spent + this.promptEstimate(prompt, "reassess") > this.scope.budgetUsd)
           throw new BudgetExceededError(spent, this.scope.budgetUsd);
       }
-      const { costs, ...verdict } = await this.call(session, "reassess", null, this.providers.arbiter, prompt);
+      // With compliance requirements, the new ruling assesses the options against them again.
+      const requirements = activeRequirements(session);
+      const { costs, ...verdict } =
+        requirements.length > 0
+          ? await this.call(session, "reassess", null, this.providers.arbiter, prompt, COMPLIANCE_UPDATE)
+          : await this.call(session, "reassess", null, this.providers.arbiter, prompt);
       settleVerdict(session, verdict);
+      if ("compliance" in verdict) settleCompliance(verdict as VerdictWithCompliance, requirements);
       const seats = new Set(verdict.options.map((option) => option.seat));
       session.revisions.push({
         number: pending.number,
@@ -386,7 +392,7 @@ export class DebateEngine {
     }
     const persona = seat === DEVIL_SEAT ? (session.devil?.persona ?? null) : (session.seats[seat]?.persona ?? null);
     const data = await this.call(session, "critique", seat, provider, {
-      system: revisionCriticSystem(session.locale, persona),
+      system: revisionCriticSystem(session.locale, persona) + complianceRule(activeRequirements(session), "critique"),
       messages: [
         {
           role: "user",
@@ -416,7 +422,7 @@ export class DebateEngine {
     const verdict = session.verdict as Verdict;
     const said = critiques.flatMap((entry) => entry.data.critiques.map((critique) => ({ from: entry.seat, ...critique })));
     return {
-      system: reassessSystem(session.locale, session.mode === "challenge"),
+      system: reassessSystem(session.locale, session.mode === "challenge") + complianceRule(activeRequirements(session), "arbiter"),
       messages: [
         {
           role: "user",

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { COMPLIANCE_STATUSES, type ComplianceCheck, type ComplianceRequirement } from "./compliance.ts";
-import { toStrictJsonSchema, Verdict } from "./schemas.ts";
+import { toStrictJsonSchema, Verdict, VerdictUpdate } from "./schemas.ts";
 
 // The arbiter's compliance assessment: how each final option meets each requirement of the debate. It is part of the
 // verdict when the debate has requirements, and absent otherwise.
@@ -16,6 +16,19 @@ export const VerdictWithCompliance = Verdict.extend({
   compliance: z.array(ComplianceCheckSchema).describe("Every final option against every compliance requirement."),
 });
 export type VerdictWithCompliance = z.infer<typeof VerdictWithCompliance>;
+
+/** A revised verdict (rule again on new facts) with its compliance assessment. */
+export const VerdictUpdateWithCompliance = VerdictUpdate.extend({
+  compliance: z.array(ComplianceCheckSchema).describe("Every final option against every compliance requirement."),
+});
+
+/** The schema of a revised verdict when the debate has compliance requirements. */
+export const COMPLIANCE_UPDATE = {
+  zod: VerdictUpdateWithCompliance,
+  json: toStrictJsonSchema(VerdictUpdateWithCompliance),
+  name: "verdict_update_compliance",
+  maxTokens: 24_000,
+} as const;
 
 /** The verdict's schema when the debate has compliance requirements. */
 export const COMPLIANCE_VERDICT = {

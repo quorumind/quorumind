@@ -1,4 +1,4 @@
-import { COMPLIANCE_VERDICT, DEMO_COMPLIANCE } from "../compliance-verdict.ts";
+import { COMPLIANCE_UPDATE, COMPLIANCE_VERDICT, DEMO_COMPLIANCE } from "../compliance-verdict.ts";
 import { DEMO_DONE, DEMO_QUESTIONS, DEMO_SCRIPT } from "../demo.ts";
 import type { GenerateRequest, GenerateResult, LlmProvider } from "./types.ts";
 
@@ -52,7 +52,9 @@ export class MockProvider implements LlmProvider {
           ? { ...DEMO_SCRIPT.verdict, compliance: DEMO_COMPLIANCE }
           : DEMO_SCRIPT.verdict;
       case "reassess":
-        return DEMO_SCRIPT.reassessment;
+        return request.schemaName === COMPLIANCE_UPDATE.name
+          ? { ...DEMO_SCRIPT.reassessment, compliance: DEMO_COMPLIANCE }
+          : DEMO_SCRIPT.reassessment;
       case "brief": {
         const audience = /reader: (\w+)/.exec(request.messages.at(-1)?.content ?? "")?.[1] as keyof typeof DEMO_SCRIPT.briefs;
         return DEMO_SCRIPT.briefs[audience] ?? DEMO_SCRIPT.briefs.cto;

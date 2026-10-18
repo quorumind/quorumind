@@ -13,7 +13,7 @@ import {
 } from "./compliance.ts";
 import { COMPLIANCE_LABELS, REQUIREMENT_IDS } from "./compliance-labels.ts";
 import { complianceRows } from "./compliance-report.ts";
-import { COMPLIANCE_VERDICT, settleCompliance, type VerdictWithCompliance } from "./compliance-verdict.ts";
+import { COMPLIANCE_UPDATE, COMPLIANCE_VERDICT, settleCompliance, type VerdictWithCompliance } from "./compliance-verdict.ts";
 import { DEMO_LINEUP } from "./config.ts";
 import { DebateEngine } from "./engine.ts";
 import { renderHtml } from "./exports/html.ts";
@@ -152,6 +152,31 @@ describe("compliance in the debate", () => {
     // The demo's assessment covers personal data, which the health template brings in through its boxes.
     expect(verdictCompliance(session.verdict).length).toBeGreaterThan(0);
     expect(verdictCompliance(session.verdict).every((check) => check.requirement.startsWith("gdpr_"))).toBe(true);
+  });
+
+  it("assesses the options again when the verdict is revised on new facts", async () => {
+    const recorder = new Recorder();
+    const engine = new DebateEngine(
+      { interviewer: recorder, arbiter: recorder, proposers: { A: recorder, B: recorder }, devil: recorder },
+      { emit: () => {}, save: () => {} },
+    );
+    const { session } = await debate({ complianceTemplates: ["personal_data"] });
+    await engine.beginRevision(session, {
+      reason: "client_answers",
+      inputs: {
+        facts: [{ question: "Which SMS provider?", answer: "Brevo, hosted in France", comment: null }],
+        note: null,
+        questionnaireId: null,
+      },
+      by: null,
+    });
+    expect(await engine.runRevision(session)).toBe(true);
+    const reassess = recorder.requests.find((request) => request.task === "reassess");
+    expect(reassess?.schemaName).toBe(COMPLIANCE_UPDATE.name);
+    expect(reassess?.system).toContain("[gdpr_transfers] [hard]");
+    expect(recorder.requests.find((request) => request.task === "critique")?.system).toContain("[gdpr_transfers] [hard]");
+    expect(verdictCompliance(session.revisions.at(-1)?.verdict).length).toBeGreaterThan(0);
+    expect(verdictCompliance(session.verdict)).toEqual(verdictCompliance(session.revisions.at(-1)?.verdict));
   });
 
   it("keeps the usual verdict when no requirement applies", async () => {
