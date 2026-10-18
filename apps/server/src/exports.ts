@@ -21,7 +21,7 @@ import type { User } from "./app.ts";
 import type { BrandingStore } from "./branding.ts";
 
 export interface ExportDeps {
-  /** The session when it exists and belongs to this user. */
+  /** The session when it exists and this user may read it. */
   getSession(id: string, user: User | null): Promise<Session | null>;
   /** Whose branding to use: each account of the hosted version has its own. */
   ownerOf(user: User | null): string | null;

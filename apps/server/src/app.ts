@@ -38,12 +38,39 @@ import type { EventBus } from "./bus.ts";
 import { contextRoutes } from "./context/routes.ts";
 import { exportRoutes } from "./exports.ts";
 import type { Notifier } from "./notifier.ts";
-import type { SessionStore } from "./store.ts";
+import type { Placement, SessionStore, StoredSession } from "./store.ts";
 
 type Env = Record<string, string | undefined>;
 
 export interface User {
   userId: string;
+}
+
+/** The groups a caller shares sessions with (the workspaces of the hosted version). */
+export interface Scope {
+  /** Where the caller's new sessions are created, and whose history they see; null outside any group. */
+  workspace: string | null;
+  /** Every group whose sessions the caller may read, `workspace` included. */
+  workspaces: string[];
+}
+
+/** The author of a session someone else started, as a shared history shows it. */
+export interface Author {
+  name: string | null;
+  email: string | null;
+}
+
+/** What the caller may do with a session, sent with it. */
+export interface SessionAccess {
+  /** The caller started it. */
+  mine: boolean;
+  /** The caller may change it (answer, confirm, resume, delete, share); otherwise they may read and fork it. */
+  canEdit: boolean;
+  /** It belongs to a workspace whose members can read it. */
+  shared: boolean;
+  private: boolean;
+  /** Who started it, when someone else did and the host names authors; null for a former member. */
+  author?: Author | null;
 }
 
 /** The settings of a session its price can depend on. */
@@ -97,6 +124,19 @@ export interface AppHooks {
    * without the cost of each call or the cost cap, and the interface shows calls and tokens only.
    */
   hideProviderCosts?: boolean;
+  /**
+   * Shares sessions within groups: a new session is created in the caller's workspace, the history lists that
+   * workspace's sessions, and every member can read and fork them, unless their author made them private. Without
+   * it, a session is visible to its owner only.
+   */
+  scope?(user: User): Promise<Scope>;
+  /**
+   * Whether the caller may change a session of their workspace that someone else started (answer, confirm, resume,
+   * delete, share), e.g. its owners and admins. Without it, only the author can.
+   */
+  canEdit?(user: User, session: Placement & { id: string }): Promise<boolean>;
+  /** The authors of sessions others started, by owner id; an id left out shows as a former member. */
+  authors?(owners: string[]): Promise<Record<string, Author>>;
 }
 
 export interface AppDeps {
@@ -154,6 +194,8 @@ const NewSession = z.object({
   context: ContextInput,
   redact: z.boolean().default(false),
   notify: z.boolean().default(false),
+  /** Hidden from the other members of the caller's workspace. */
+  private: z.boolean().default(false),
 });
 
 /** Fields of a session that never leave the server through a public link. */
@@ -327,7 +369,22 @@ export function createApp(deps: AppDeps) {
     });
   });
 
-  app.get("/api/sessions", async (c) => c.json({ sessions: await store.list(50, ownerOf(c.get("user"))) }));
+  const scopeOf = (user: User | null): Promise<Scope | null> => (user && hooks.scope ? hooks.scope(user) : Promise.resolve(null));
+
+  // ?mine=1 keeps the caller's own sessions, in a workspace's shared history.
+  app.get("/api/sessions", async (c) => {
+    const user = c.get("user");
+    const scope = await scopeOf(user);
+    if (!user || !scope) return c.json({ sessions: await store.list(50, ownerOf(user)), shared: false });
+    const entries = await store.history(50, { owner: user.userId, workspace: scope.workspace, mine: c.req.query("mine") === "1" });
+    const others = [...new Set(entries.flatMap((entry) => (entry.owner && entry.owner !== user.userId ? [entry.owner] : [])))];
+    const authors = hooks.authors && others.length > 0 ? await hooks.authors(others) : null;
+    const sessions = entries.map(({ owner, workspace: _workspace, private: isPrivate, ...summary }) => {
+      const mine = owner === user.userId;
+      return { ...summary, private: isPrivate, mine, ...(authors && !mine ? { author: authors[owner ?? ""] ?? null } : {}) };
+    });
+    return c.json({ sessions, shared: scope.workspace !== null });
+  });
 
   app.post("/api/sessions", async (c) => {
     const user = c.get("user");
@@ -369,17 +426,50 @@ export function createApp(deps: AppDeps) {
     });
     users.set(session.id, user);
     await authorize(session);
-    await store.save(session, ownerOf(user));
+    const workspace = (await scopeOf(user))?.workspace ?? null;
+    await store.save(session, ownerOf(user), { workspace, private: input.private && workspace !== null });
     runInBackground(session, (engine) => engine.startInterview(session));
     return c.json({ session: view(session) }, 201);
   });
 
+  /**
+   * What the caller may do with a session: its owner everything; with AppHooks.scope, the other members of its
+   * workspace read it (unless it is private) and change it when AppHooks.canEdit allows. Anyone else gets a 404.
+   */
+  const accessOf = async (id: string, user: User | null): Promise<StoredSession & { access: SessionAccess }> => {
+    const found = await store.find(id);
+    if (!found) throw new NotFound();
+    const mine = found.owner === ownerOf(user);
+    const scope = found.workspace === null ? null : await scopeOf(user);
+    if (!user || !scope) {
+      if (!mine) throw new NotFound();
+      return { ...found, access: { mine, canEdit: true, shared: false, private: found.private } };
+    }
+    // A session belongs to its workspace: whoever left it, its author included, no longer sees it.
+    if (!scope.workspaces.includes(found.workspace ?? "") || (found.private && !mine)) throw new NotFound();
+    const { session: _session, ...placement } = found;
+    const canEdit = mine || (hooks.canEdit ? await hooks.canEdit(user, { id, ...placement }) : false);
+    return { ...found, access: { mine, canEdit, shared: true, private: found.private } };
+  };
+
+  /** A session the caller may read. */
   const load = async (id: string, user: User | null) => {
-    const session = await store.get(id, ownerOf(user));
-    if (!session) throw new NotFound();
-    if (!users.has(id)) users.set(id, user);
+    const { session, access } = await accessOf(id, user);
+    if (!users.has(id) && access.mine) users.set(id, user);
     return session;
   };
+
+  /**
+   * A session the caller may change, with its placement: 403 for a member who may only read it. The model work it
+   * starts is done for the caller (their spending checks, usage records and notifications).
+   */
+  const editable = async (id: string, user: User | null) => {
+    const found = await accessOf(id, user);
+    if (!found.access.canEdit) throw new ReadOnly();
+    users.set(id, user);
+    return found;
+  };
+  const loadForEdit = async (id: string, user: User | null) => (await editable(id, user)).session;
 
   const startAction = (session: Session) => {
     if (busy.has(session.id)) throw new InvalidStateError("This session is already working. Wait for it to finish.");
@@ -388,7 +478,9 @@ export function createApp(deps: AppDeps) {
   app.get("/api/sessions/:id", async (c) => {
     const id = c.req.param("id");
     const user = c.get("user");
-    const session = await load(id, user);
+    const { session, owner, access } = await accessOf(id, user);
+    if (!users.has(id) && access.mine) users.set(id, user);
+    if (!access.mine && access.shared && hooks.authors && owner) access.author = (await hooks.authors([owner]))[owner] ?? null;
     return c.json({
       session: view(session),
       busy: busy.has(id),
@@ -396,19 +488,29 @@ export function createApp(deps: AppDeps) {
       feedback: await store.feedbackOf(id),
       price: session.demo ? null : await priceOf(user, session, session.id),
       providerCosts: !hooks.hideProviderCosts,
+      access,
     });
   });
 
   app.delete("/api/sessions/:id", async (c) => {
-    const session = await load(c.req.param("id"), c.get("user"));
+    const { session, owner } = await editable(c.req.param("id"), c.get("user"));
     startAction(session);
-    await store.delete(session.id, ownerOf(c.get("user")));
+    await store.delete(session.id, owner);
     users.delete(session.id);
     return c.body(null, 204);
   });
 
+  // Hides a session from the other members of its workspace, or shares it with them again: its author only.
+  app.put("/api/sessions/:id/visibility", async (c) => {
+    const { session, access } = await accessOf(c.req.param("id"), c.get("user"));
+    if (!access.mine) throw new ReadOnly("Only the author of this session can change who sees it.");
+    const { private: isPrivate } = z.object({ private: z.boolean() }).parse(await c.req.json());
+    await store.setPrivate(session.id, isPrivate);
+    return c.json({ access: { ...access, private: isPrivate } });
+  });
+
   app.post("/api/sessions/:id/interview", async (c) => {
-    const session = await load(c.req.param("id"), c.get("user"));
+    const session = await loadForEdit(c.req.param("id"), c.get("user"));
     startAction(session);
     const { answers } = z.object({ answers: AnswerList }).parse(await c.req.json());
     if (session.phase !== "interview") throw new InvalidStateError("The interview is over.");
@@ -418,7 +520,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.put("/api/sessions/:id/sheet", async (c) => {
-    const session = await load(c.req.param("id"), c.get("user"));
+    const session = await loadForEdit(c.req.param("id"), c.get("user"));
     startAction(session);
     const { sheet } = z.object({ sheet: RequirementsSheet }).parse(await c.req.json());
     await authorize(session);
@@ -428,7 +530,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.post("/api/sessions/:id/answers", async (c) => {
-    const session = await load(c.req.param("id"), c.get("user"));
+    const session = await loadForEdit(c.req.param("id"), c.get("user"));
     startAction(session);
     const { answers } = z.object({ answers: AnswerList }).parse(await c.req.json());
     await authorize(session);
@@ -438,7 +540,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.post("/api/sessions/:id/resume", async (c) => {
-    const session = await load(c.req.param("id"), c.get("user"));
+    const session = await loadForEdit(c.req.param("id"), c.get("user"));
     startAction(session);
     await authorize(session);
     runInBackground(session, async (engine) => {
@@ -450,11 +552,14 @@ export function createApp(deps: AppDeps) {
 
   // The verdict rewritten for another reader. Short enough to wait for.
   app.post("/api/sessions/:id/brief", async (c) => {
-    const session = await load(c.req.param("id"), c.get("user"));
+    const { session, access } = await accessOf(c.req.param("id"), c.get("user"));
     startAction(session);
     const { audience } = z.object({ audience: Audience }).parse(await c.req.json());
     const cached = session.briefs[audience];
     if (cached) return c.json({ brief: cached });
+    // Writing a new one calls a model: for those who may change the session.
+    if (!access.canEdit) throw new ReadOnly();
+    users.set(session.id, c.get("user"));
     await authorize(session);
     busy.add(session.id);
     try {
@@ -469,7 +574,7 @@ export function createApp(deps: AppDeps) {
   // changes what moved in their project and runs the debate again.
   app.post("/api/sessions/:id/fork", async (c) => {
     const user = c.get("user");
-    const source = await load(c.req.param("id"), user);
+    const { session: source, private: isPrivate } = await accessOf(c.req.param("id"), user);
     if (!source.sheet) throw new InvalidStateError("This session has no requirements sheet yet.");
     const session = createSession({
       locale: source.locale,
@@ -494,18 +599,20 @@ export function createApp(deps: AppDeps) {
     session.sheet = structuredClone(source.sheet);
     session.phase = "review";
     users.set(session.id, user);
-    await store.save(session, ownerOf(user));
+    // In the caller's workspace, whoever started the original; a private session's copy stays private.
+    const workspace = (await scopeOf(user))?.workspace ?? null;
+    await store.save(session, ownerOf(user), { workspace, private: isPrivate && workspace !== null });
     return c.json({ session: view(session) }, 201);
   });
 
   app.post("/api/sessions/:id/share", async (c) => {
-    const session = await load(c.req.param("id"), c.get("user"));
+    const session = await loadForEdit(c.req.param("id"), c.get("user"));
     const { public: isPublic } = z.object({ public: z.boolean().default(false) }).parse(await c.req.json());
     return c.json({ share: await store.share(session.id, isPublic) });
   });
 
   app.delete("/api/sessions/:id/share", async (c) => {
-    const session = await load(c.req.param("id"), c.get("user"));
+    const session = await loadForEdit(c.req.param("id"), c.get("user"));
     await store.unshare(session.id);
     return c.body(null, 204);
   });
@@ -586,7 +693,11 @@ export function createApp(deps: AppDeps) {
   app.route(
     "/",
     exportRoutes({
-      getSession: (id, user) => store.get(id, ownerOf(user)),
+      getSession: (id, user) =>
+        load(id, user).catch((error: unknown) => {
+          if (error instanceof NotFound) return null;
+          throw error;
+        }),
       ownerOf,
       branding: deps.brandingStore ?? new SqliteBrandingStore(":memory:"),
     }),
@@ -595,6 +706,7 @@ export function createApp(deps: AppDeps) {
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((error, c) => {
     if (error instanceof NotFound) return c.json({ error: "not_found", message: "This session does not exist." }, 404);
+    if (error instanceof ReadOnly) return c.json({ error: "read_only", message: error.message }, 403);
     if (error instanceof InvalidStateError) return c.json({ error: "invalid_state", message: error.message }, 409);
     if (error instanceof InvalidLineup) return c.json({ error: "invalid_lineup", message: error.message }, 400);
     if (error instanceof PaymentRequired) return c.json({ error: error.code, message: error.message }, 402);
@@ -654,6 +766,12 @@ function defaultLineup(catalog: ModelOption[]): Lineup | null {
 }
 
 class NotFound extends Error {}
+/** A member of the session's workspace who may read it, not change it. */
+class ReadOnly extends Error {
+  constructor(message = "Only the author of this session or an admin of its workspace can change it.") {
+    super(message);
+  }
+}
 class InvalidLineup extends Error {}
 class PaymentRequired extends Error {
   readonly code: string;
