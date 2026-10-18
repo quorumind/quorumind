@@ -217,11 +217,18 @@ export function normalizeSession(stored: Session): Session {
 
 /**
  * True when the models owe the next move: the debate runs, or the interviewer has to answer. The session then has a
- * worker on the server.
+ * worker on the server, or had one when the server stopped (see markInterrupted).
  */
 export function isWorking(session: Session): boolean {
   if (session.phase === "debating") return true;
   return session.phase === "interview" && session.interview.at(-1)?.kind !== "interviewer";
+}
+
+/** Fails a session whose worker is gone, the server having stopped in the middle: it can be resumed from there. */
+export function markInterrupted(session: Session, now = new Date()): void {
+  session.phase = "failed";
+  session.error = { code: "interrupted", message: "The server stopped while this session was working." };
+  session.updatedAt = now.toISOString();
 }
 
 /** Seats that design an option: none in challenge mode, where the person's solution is the only option. */

@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { normalizeSession, type Session } from "@quorumind/core";
+import { isWorking, markInterrupted, normalizeSession, type Session } from "@quorumind/core";
 import {
   type Feedback,
   type GalleryEntry,
@@ -141,6 +141,23 @@ export class PostgresSessionStore implements SessionStore {
       await this.db.query("DELETE FROM sessions WHERE id = $1", [id]);
     });
     return true;
+  }
+
+  async markInterrupted(now = new Date()): Promise<number> {
+    const { rows } = await this.db.query<{ data: Session }>("SELECT data FROM sessions WHERE data->>'phase' IN ('interview', 'debating')");
+    let count = 0;
+    for (const row of rows) {
+      const session = normalizeSession(row.data);
+      if (!isWorking(session)) continue;
+      markInterrupted(session, now);
+      const data = JSON.stringify(session, withoutNul);
+      await this.serialized(session.id, async () => {
+        await this.db.query("UPDATE sessions SET data = $1, updated_at = $2 WHERE id = $3", [data, session.updatedAt, session.id]);
+      });
+      this.live.forget(session.id);
+      count++;
+    }
+    return count;
   }
 
   async purgeOlderThan(days: number, now = Date.now()): Promise<number> {

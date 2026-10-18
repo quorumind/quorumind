@@ -164,6 +164,27 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     expect(await store.delete(session.id)).toBe(false);
   });
 
+  it("fails the sessions a stopped server left working, and only those", async () => {
+    const { store } = storage;
+    const starting = newSession("Interviewer due", day(1));
+    const debating = newSession("Debating", day(1));
+    debating.phase = "debating";
+    const waiting = newSession("Waiting for the person", day(1));
+    waiting.interview.push({ kind: "interviewer", data: { speech: "", status: "ask", questions: [], sheet: null } });
+    const done = completed("Done", day(1));
+    for (const session of [starting, debating, waiting, done]) await store.save(session, "ada");
+
+    const restarted = storage.reopen();
+    expect(await restarted.markInterrupted(new Date(day(2)))).toBe(2);
+    const phases = await Promise.all([starting, debating, waiting, done].map((session) => restarted.get(session.id, "ada")));
+    expect(phases.map((session) => session?.phase)).toEqual(["failed", "failed", "interview", "complete"]);
+    expect(phases[1]?.error?.code).toBe("interrupted");
+    expect(phases[1]?.updatedAt).toBe(day(2));
+    // A second start finds nothing left to fix; the owner is kept.
+    expect(await storage.reopen().markInterrupted()).toBe(0);
+    expect((await storage.reopen().list(50, "ada")).filter((summary) => summary.phase === "failed")).toHaveLength(2);
+  });
+
   it("purges the sessions nobody touched for the retention period", async () => {
     const { store } = storage;
     const stale = newSession("Stale", day(1));

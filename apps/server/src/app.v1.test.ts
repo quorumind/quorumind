@@ -1,4 +1,4 @@
-import type { Session, UsageRecord } from "@quorumind/core";
+import { createSession, DEMO_IDEA, DEMO_LINEUP, type Session, type UsageRecord } from "@quorumind/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type AppHooks, createApp } from "./app.ts";
 import { EventBus } from "./bus.ts";
@@ -317,6 +317,23 @@ describe.each(BACKENDS)("on $name", (each) => {
       const resumed = await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy);
       expect(resumed.phase).toBe("interview");
       expect(records.map((record) => record.task)).toEqual(["interview"]);
+    });
+
+    it("lets the person resume a session a restarted server left working", async () => {
+      storage = await backend.open();
+      // The server stopped in the middle of the first interview turn, and starts again.
+      const session = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, ...DEMO_LINEUP });
+      await storage.store.save(session);
+      const restarted = storage.reopen();
+      expect(await restarted.markInterrupted()).toBe(1);
+      store = restarted;
+      const app = createApp({ store: restarted, brandingStore: storage.brandingStore, bus: new EventBus(), env: {}, mockDelayMs: 0 });
+      const detail = (await (await app.request(`/api/sessions/${session.id}`)).json()) as { session: Session; busy: boolean };
+      expect(detail).toMatchObject({ busy: false, session: { phase: "failed", error: { code: "interrupted" } } });
+
+      expect((await app.request(`/api/sessions/${session.id}/resume`, json({}))).status).toBe(202);
+      const resumed = await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy);
+      expect(resumed).toMatchObject({ phase: "interview", error: null });
     });
 
     it("refuses to delete or act on a session while it works", async () => {

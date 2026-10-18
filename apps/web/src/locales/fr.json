@@ -507,6 +507,7 @@
     "seat_limit": "Le forfait de cet espace n'a plus de place libre. Choisissez un forfait avec plus de places.",
     "read_only": "Seuls l'auteur de cette session et les administrateurs de son espace de travail peuvent la modifier.",
     "stopped": "Vous avez arrêté cette session. Reprenez-la quand vous voulez.",
-    "not_running": "Cette session ne tourne plus."
+    "not_running": "Cette session ne tourne plus.",
+    "interrupted": "Le serveur a redémarré pendant que cette session travaillait. Rien de ce qui a été fait n'est perdu : reprenez-la là où elle s'est arrêtée."
   }
 }

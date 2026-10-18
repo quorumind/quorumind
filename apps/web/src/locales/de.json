@@ -507,6 +507,7 @@
     "seat_limit": "Der Tarif dieses Arbeitsbereichs hat keinen freien Platz mehr. Wählen Sie einen Tarif mit mehr Plätzen.",
     "read_only": "Nur der Autor dieser Sitzung oder ein Admin ihres Arbeitsbereichs kann sie ändern.",
     "stopped": "Sie haben diese Sitzung angehalten. Setzen Sie sie fort, wann Sie möchten.",
-    "not_running": "Diese Sitzung läuft nicht mehr."
+    "not_running": "Diese Sitzung läuft nicht mehr.",
+    "interrupted": "Der Server wurde neu gestartet, während diese Sitzung arbeitete. Nichts Erledigtes ist verloren: Setzen Sie sie dort fort, wo sie angehalten hat."
   }
 }

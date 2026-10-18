@@ -45,6 +45,7 @@ const ERROR_CODES = [
   "provider_refused",
   "stopped",
   "not_running",
+  "interrupted",
   "insufficient_credits",
   "plan_limit",
   "price_limit",

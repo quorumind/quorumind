@@ -19,6 +19,10 @@ const hostname = env.HOST ?? "127.0.0.1";
 // SQLite in the data directory, or PostgreSQL when DATABASE_URL (or DATABASE_URL_FILE) is set.
 const storage = await openStorage(env, dataDir);
 const { store, brandingStore } = storage;
+// The sessions the previous run left in the middle of the models' work have no worker any more: they fail as
+// interrupted, and "Retry from where it stopped" resumes them.
+const interrupted = await store.markInterrupted();
+if (interrupted > 0) console.log(`${interrupted} session(s) were interrupted by the last stop of the server; they can be resumed.`);
 const demoDelay = env.QUORUMIND_DEMO_DELAY_MS ? Number(env.QUORUMIND_DEMO_DELAY_MS) : undefined;
 const api = createApp({
   store,

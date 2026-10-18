@@ -507,6 +507,7 @@
     "seat_limit": "Il piano di questo spazio non ha più posti liberi. Scegli un piano con più posti.",
     "read_only": "Solo l'autore di questa sessione o un amministratore del suo spazio di lavoro può modificarla.",
     "stopped": "Hai interrotto questa sessione. Riprendila quando vuoi.",
-    "not_running": "Questa sessione non è più in corso."
+    "not_running": "Questa sessione non è più in corso.",
+    "interrupted": "Il server si è riavviato mentre questa sessione lavorava. Nulla di quanto fatto è andato perso: riprendila da dove si è fermata."
   }
 }

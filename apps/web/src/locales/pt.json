@@ -507,6 +507,7 @@
     "seat_limit": "O plano deste espaço não tem mais lugares livres. Escolha um plano com mais lugares.",
     "read_only": "Só o autor desta sessão ou um administrador do seu espaço de trabalho pode alterá-la.",
     "stopped": "Você parou esta sessão. Retome quando quiser.",
-    "not_running": "Esta sessão não está mais em andamento."
+    "not_running": "Esta sessão não está mais em andamento.",
+    "interrupted": "O servidor reiniciou enquanto esta sessão trabalhava. Nada do que foi feito se perdeu: retome de onde parou."
   }
 }

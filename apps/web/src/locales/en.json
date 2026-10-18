@@ -507,6 +507,7 @@
     "seat_limit": "This workspace has no seat left in its plan. Choose a plan with more seats.",
     "read_only": "Only the author of this session or an admin of its workspace can change it.",
     "stopped": "You stopped this session. Resume it whenever you like.",
-    "not_running": "This session is not running any more."
+    "not_running": "This session is not running any more.",
+    "interrupted": "The server restarted while this session was working. Nothing done so far is lost: resume it from where it stopped."
   }
 }

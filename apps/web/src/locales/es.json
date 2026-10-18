@@ -507,6 +507,7 @@
     "seat_limit": "El plan de este espacio no tiene puestos libres. Elija un plan con más puestos.",
     "read_only": "Solo el autor de esta sesión o un administrador de su espacio de trabajo pueden modificarla.",
     "stopped": "Ha detenido esta sesión. Reanúdela cuando quiera.",
-    "not_running": "Esta sesión ya no está en curso."
+    "not_running": "Esta sesión ya no está en curso.",
+    "interrupted": "El servidor se reinició mientras esta sesión trabajaba. No se ha perdido nada de lo hecho: reanúdela desde donde se detuvo."
   }
 }

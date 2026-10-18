@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { normalizeSession, type Session } from "@quorumind/core";
+import { isWorking, markInterrupted, normalizeSession, type Session } from "@quorumind/core";
 
 export interface SessionSummary {
   id: string;
@@ -73,6 +73,11 @@ export interface SessionStore {
   all(owner?: string | null): Promise<Session[]>;
   /** Deletes a session of this owner with its share link and feedback. False when there is none. */
   delete(id: string, owner?: string | null): Promise<boolean>;
+  /**
+   * Fails the sessions a stopped server left working (isWorking), with the code "interrupted", so they can be
+   * resumed. Called once at start-up, before serving: no session has a worker yet. Returns how many.
+   */
+  markInterrupted(now?: Date): Promise<number>;
   /** Deletes the sessions nobody touched for the given number of days. Returns how many. */
   purgeOlderThan(days: number, now?: number): Promise<number>;
   share(sessionId: string, isPublic: boolean): Promise<Share>;
@@ -238,6 +243,23 @@ export class SqliteSessionStore implements SessionStore {
     this.db.prepare("DELETE FROM shares WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM feedback WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+  }
+
+  async markInterrupted(now = new Date()): Promise<number> {
+    const rows = this.db.prepare("SELECT data FROM sessions WHERE json_extract(data, '$.phase') IN ('interview', 'debating')").all() as {
+      data: string;
+    }[];
+    const update = this.db.prepare("UPDATE sessions SET data = ?, updated_at = ? WHERE id = ?");
+    let count = 0;
+    for (const row of rows) {
+      const session = normalizeSession(JSON.parse(row.data) as Session);
+      if (!isWorking(session)) continue;
+      markInterrupted(session, now);
+      update.run(JSON.stringify(session), session.updatedAt, session.id);
+      this.live.forget(session.id);
+      count++;
+    }
+    return count;
   }
 
   async purgeOlderThan(days: number, now = Date.now()): Promise<number> {
