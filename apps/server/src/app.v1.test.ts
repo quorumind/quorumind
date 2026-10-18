@@ -66,10 +66,10 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(session.verdict?.topics.length).toBeGreaterThan(0);
     });
 
-    it("shares a session read-only, without attached documents or costs, and lists public ones in the gallery", async () => {
+    it("shares a whole session read-only, without attached documents or costs, and lists public ones in the gallery", async () => {
       const app = await makeApp();
       const session = await completeDemo(app, {}, { context: [{ id: "1", kind: "text", name: "brief.txt", text: "Confidential" }] });
-      const shared = await app.request(`/api/sessions/${session.id}/share`, json({ public: false }));
+      const shared = await app.request(`/api/sessions/${session.id}/share`, json({ public: false, mode: "full" }));
       const { share } = (await shared.json()) as { share: { token: string; public: boolean } };
       const view = (await (await app.request(`/api/shared/${share.token}`)).json()) as { session: Session };
       expect(view.session.verdict).toBeTruthy();

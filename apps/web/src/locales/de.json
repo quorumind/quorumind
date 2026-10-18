@@ -372,7 +372,7 @@
     "button": "Teilen",
     "shared": "Geteilt",
     "title": "Diese Sitzung teilen",
-    "lead": "Alle mit dem Link können das Urteil, die Debatte und die Anforderungen lesen. Kosten und angehängte Dokumente bleiben privat.",
+    "lead": "Wählen Sie, was der Link zeigt und wie lange. Kosten und angehängte Dokumente bleiben immer privat.",
     "create": "Schreibgeschützten Link erstellen",
     "link": "Link",
     "copy": "Kopieren",
@@ -381,7 +381,35 @@
     "publicHint": "Andere können sie als Beispiel finden. Nur abgeschlossene Sitzungen können dort erscheinen.",
     "stop": "Teilen beenden",
     "privacy": "Sie können das Teilen jederzeit beenden: Der Link funktioniert dann sofort nicht mehr.",
-    "readOnly": "Sie lesen eine geteilte Sitzung. Sie kann nicht geändert werden."
+    "readOnly": "Sie lesen eine geteilte Sitzung. Sie kann nicht geändert werden.",
+    "modeLabel": "Was der Link zeigt",
+    "mode": {
+      "client": "Nur die Entscheidung",
+      "full": "Die ganze Sitzung"
+    },
+    "modeHint": {
+      "client": "Das Urteil, die Optionen und ihre Bewertungen, die Risiken, die Roadmap und die offenen Fragen, mit einer für einen Kunden geschriebenen Fassung. Nicht die Debatte, das Interview oder die Anforderungen.",
+      "full": "Das Urteil, die Debatte, das Interview und die Anforderungen."
+    },
+    "expiryLabel": "Der Link funktioniert",
+    "expiry": {
+      "7d": "7 Tage",
+      "30d": "30 Tage",
+      "never": "Ohne Zeitlimit"
+    },
+    "until": "Bis {{date}}",
+    "passwordLabel": "Passwort",
+    "passwordNone": "Kein Passwort",
+    "passwordChange": "Neues Passwort",
+    "passwordSet": "Dieser Link fragt nach einem Passwort.",
+    "passwordApply": "Passwort festlegen",
+    "passwordRemove": "Passwort entfernen",
+    "passwordHint": "Optional, mindestens {{min}} Zeichen. Schicken Sie es getrennt vom Link.",
+    "clientReadOnly": "Sie lesen einen Entscheidungsbericht, den jemand mit Ihnen geteilt hat.",
+    "notReady": "Die Entscheidung ist noch nicht fertig. Schauen Sie wieder vorbei, wenn die Debatte beendet ist.",
+    "lockedTitle": "Dieser Bericht ist geschützt",
+    "lockedLead": "Geben Sie das Passwort ein, das Ihnen die Person gegeben hat, die ihn geteilt hat.",
+    "unlock": "Bericht öffnen"
   },
   "session": {
     "fork": "Von hier neu starten",
@@ -511,6 +539,10 @@
     "stopped": "Sie haben diese Sitzung angehalten. Setzen Sie sie fort, wann Sie möchten.",
     "not_running": "Diese Sitzung läuft nicht mehr.",
     "interrupted": "Der Server wurde neu gestartet, während diese Sitzung arbeitete. Nichts Erledigtes ist verloren: Setzen Sie sie dort fort, wo sie angehalten hat.",
-    "budget_fixed": "Die Kostengrenze dieser Debatte legt der Dienst fest; sie kann nicht geändert werden."
+    "budget_fixed": "Die Kostengrenze dieser Debatte legt der Dienst fest; sie kann nicht geändert werden.",
+    "share_expired": "Dieser Link ist abgelaufen. Bitten Sie die Person, die ihn geteilt hat, um einen neuen.",
+    "password_required": "Dieser Link fragt nach einem Passwort.",
+    "wrong_password": "Das Passwort ist nicht richtig.",
+    "too_many_attempts": "Zu viele falsche Passwörter. Warten Sie ein paar Minuten und versuchen Sie es dann erneut."
   }
 }

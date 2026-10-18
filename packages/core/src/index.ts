@@ -1,5 +1,6 @@
 export * from "./branding.ts";
 export * from "./config.ts";
+export * from "./deliverable.ts";
 export * from "./demo.ts";
 export * from "./diagram.ts";
 export * from "./engine.ts";

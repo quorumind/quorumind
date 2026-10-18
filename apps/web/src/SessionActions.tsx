@@ -4,8 +4,9 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
 import { useCanEdit } from "./access.tsx";
-import { ApiError, api, type Share } from "./api.ts";
+import { ApiError, api, type Share, type ShareSettings } from "./api.ts";
 import { BranchIcon, CheckIcon, ShareIcon, StopIcon, TrashIcon } from "./components/Icons.tsx";
+import { ShareOptions } from "./components/ShareOptions.tsx";
 import { failureText } from "./errors.ts";
 
 /** Share, start again from this session, delete: the actions on a session's header. */
@@ -42,6 +43,8 @@ export function SessionActions({
       setPending(false);
     }
   };
+
+  const apply = (settings: ShareSettings) => run(async () => onShare((await api.share(session.id, settings)).share));
 
   const fork = () =>
     run(async () => {
@@ -125,42 +128,35 @@ export function SessionActions({
                 <input
                   type="checkbox"
                   checked={share.public}
-                  disabled={pending || session.phase !== "complete"}
-                  onChange={(event) => run(async () => onShare((await api.share(session.id, event.target.checked)).share))}
+                  // The gallery lists finished sessions anyone can open: not one behind a password.
+                  disabled={pending || session.phase !== "complete" || share.hasPassword}
+                  onChange={(event) => apply({ public: event.target.checked })}
                 />
                 <span>
                   {t("share.public")}
                   <span className="field-hint">{t("share.publicHint")}</span>
                 </span>
               </label>
-              <div className="row">
-                <button
-                  type="button"
-                  className="button button-quiet danger"
-                  disabled={pending}
-                  onClick={() =>
-                    run(async () => {
-                      await api.unshare(session.id);
-                      onShare(null);
-                    })
-                  }
-                >
-                  {t("share.stop")}
-                </button>
-              </div>
             </>
-          ) : (
-            <div>
+          ) : null}
+          <ShareOptions share={share} pending={pending} onApply={apply} />
+          {share ? (
+            <div className="row">
               <button
                 type="button"
-                className="button button-primary"
+                className="button button-quiet danger"
                 disabled={pending}
-                onClick={() => run(async () => onShare((await api.share(session.id, false)).share))}
+                onClick={() =>
+                  run(async () => {
+                    await api.unshare(session.id);
+                    onShare(null);
+                  })
+                }
               >
-                {t("share.create")}
+                {t("share.stop")}
               </button>
             </div>
-          )}
+          ) : null}
           <p className="field-hint" style={{ margin: 0 }}>
             {t("share.privacy")}
           </p>

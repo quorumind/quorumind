@@ -13,7 +13,7 @@ import { failureText } from "./errors.ts";
 import { formatMoney } from "./format.ts";
 import { useFlip } from "./useFlip.ts";
 
-function FeasibilityChip({ value }: { value: Feasibility }) {
+export function FeasibilityChip({ value }: { value: Feasibility }) {
   const { t } = useTranslation();
   const icon = value === "feasible" ? <CheckIcon /> : value === "conditional" ? <WarningIcon /> : <CrossIcon />;
   return (
@@ -24,7 +24,7 @@ function FeasibilityChip({ value }: { value: Feasibility }) {
   );
 }
 
-function Score({ value }: { value: number }) {
+export function Score({ value }: { value: number }) {
   const { t } = useTranslation();
   return (
     <span className="score" role="img" aria-label={t("verdict.scoreOutOf", { score: value })}>

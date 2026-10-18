@@ -113,6 +113,7 @@ export const LABEL_KEYS = [
   "audienceExecutive",
   "audienceClient",
   "keyFacts",
+  "nextSteps",
 ] as const;
 
 export type Labels = Record<(typeof LABEL_KEYS)[number], string>;
@@ -232,6 +233,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "an executive",
     audienceClient: "a client",
     keyFacts: "Key facts",
+    nextSteps: "Next steps",
   },
   fr: {
     title: "Rapport de décision",
@@ -347,6 +349,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "la direction",
     audienceClient: "un client",
     keyFacts: "Données clés",
+    nextSteps: "Prochaines étapes",
   },
   es: {
     title: "Informe de decisión",
@@ -463,6 +466,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "la dirección",
     audienceClient: "un cliente",
     keyFacts: "Datos clave",
+    nextSteps: "Próximos pasos",
   },
   pt: {
     title: "Relatório de decisão",
@@ -579,6 +583,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "a diretoria",
     audienceClient: "um cliente",
     keyFacts: "Dados principais",
+    nextSteps: "Próximos passos",
   },
   it: {
     title: "Rapporto di decisione",
@@ -695,6 +700,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "la direzione",
     audienceClient: "un cliente",
     keyFacts: "Dati chiave",
+    nextSteps: "Prossimi passi",
   },
   de: {
     title: "Entscheidungsbericht",
@@ -810,6 +816,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "die Geschäftsführung",
     audienceClient: "einen Kunden",
     keyFacts: "Eckdaten",
+    nextSteps: "Nächste Schritte",
   },
   hi: {
     title: "निर्णय रिपोर्ट",
@@ -924,6 +931,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "प्रबंधन",
     audienceClient: "क्लाइंट",
     keyFacts: "मुख्य तथ्य",
+    nextSteps: "अगले कदम",
   },
   ja: {
     title: "意思決定レポート",
@@ -1038,6 +1046,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "経営層",
     audienceClient: "クライアント",
     keyFacts: "主要事項",
+    nextSteps: "次のステップ",
   },
   "zh-Hans": {
     title: "决策报告",
@@ -1151,6 +1160,7 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "管理层",
     audienceClient: "客户",
     keyFacts: "关键信息",
+    nextSteps: "后续步骤",
   },
   ar: {
     title: "تقرير القرار",
@@ -1265,5 +1275,6 @@ export const LABELS: Record<Locale, Labels> = {
     audienceExecutive: "الإدارة التنفيذية",
     audienceClient: "العميل",
     keyFacts: "المعطيات الرئيسية",
+    nextSteps: "الخطوات التالية",
   },
 };

@@ -143,7 +143,7 @@ describe("session limits", () => {
     const app = makeApp();
     const created = await app.request("/api/sessions", json({ locale: "en", demo: true, context: [document(0, 10)] }));
     const { session } = (await created.json()) as { session: Session };
-    const shared = await app.request(`/api/sessions/${session.id}/share`, json({ public: false }));
+    const shared = await app.request(`/api/sessions/${session.id}/share`, json({ public: false, mode: "full" }));
     const { share } = (await shared.json()) as { share: { token: string } };
     const view = (await (await app.request(`/api/shared/${share.token}`)).json()) as { session: Session };
     expect(view.session.context[0]).toMatchObject({ name: "spec-0.pdf", text: "" });

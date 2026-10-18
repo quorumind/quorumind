@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { isWorking, markInterrupted, normalizeSession, type Session } from "@quorumind/core";
 import {
+  applyShareSettings,
   type Feedback,
   type GalleryEntry,
   galleryOf,
@@ -9,11 +10,13 @@ import {
   type NewPlacement,
   type Placement,
   placementOf,
-  randomToken,
+  publicShare,
   type SessionStore,
   type SessionSummary,
   type Share,
+  type ShareSettings,
   type StoredSession,
+  type StoredShare,
   summarize,
 } from "../store.ts";
 import type { Database } from "./database.ts";
@@ -30,10 +33,16 @@ export const iso = (value: unknown): string => (value instanceof Date ? value.to
 const withoutNul = (_key: string, value: unknown) =>
   typeof value === "string" && value.includes("\0") ? value.replaceAll("\0", "") : value;
 
-const toShare = (row: Record<string, unknown>): Share => ({
+const SHARE_COLUMNS = "shares.token, shares.public, shares.created_at, shares.mode, shares.expires_at, shares.password_hash";
+
+const toShare = (row: Record<string, unknown>): StoredShare => ({
   token: String(row.token),
   public: row.public === true,
   createdAt: iso(row.created_at),
+  mode: row.mode === "client" ? "client" : "full",
+  expiresAt: row.expires_at == null ? null : iso(row.expires_at),
+  hasPassword: row.password_hash != null,
+  passwordHash: row.password_hash == null ? null : String(row.password_hash),
 });
 
 type PlacedRow = { data: Session; owner_id: string | null; workspace_id: string | null; private: boolean };
@@ -167,15 +176,22 @@ export class PostgresSessionStore implements SessionStore {
     return rows.length;
   }
 
-  async share(sessionId: string, isPublic: boolean): Promise<Share> {
-    // One link per session: a second call only changes whether it is public.
+  async share(sessionId: string, settings: ShareSettings): Promise<Share> {
+    // One link per session: a second call changes it and keeps its token.
+    const next = applyShareSettings(await this.storedShareOf(sessionId), settings);
     const { rows } = await this.db.query(
-      `INSERT INTO shares (token, session_id, public, created_at) VALUES ($1, $2, $3, $4)
-       ON CONFLICT (session_id) DO UPDATE SET public = excluded.public
-       RETURNING token, public, created_at`,
-      [randomToken(), sessionId, isPublic, new Date().toISOString()],
+      `INSERT INTO shares (token, session_id, public, created_at, mode, expires_at, password_hash) VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (session_id) DO UPDATE
+       SET public = excluded.public, mode = excluded.mode, expires_at = excluded.expires_at, password_hash = excluded.password_hash
+       RETURNING ${SHARE_COLUMNS.replaceAll("shares.", "")}`,
+      [next.token, sessionId, next.public, next.createdAt, next.mode, next.expiresAt, next.passwordHash],
     );
-    return toShare(rows[0] as Record<string, unknown>);
+    return publicShare(toShare(rows[0] as Record<string, unknown>));
+  }
+
+  private async storedShareOf(sessionId: string): Promise<StoredShare | null> {
+    const { rows } = await this.db.query(`SELECT ${SHARE_COLUMNS} FROM shares WHERE session_id = $1`, [sessionId]);
+    return rows[0] ? toShare(rows[0]) : null;
   }
 
   async unshare(sessionId: string): Promise<void> {
@@ -183,25 +199,27 @@ export class PostgresSessionStore implements SessionStore {
   }
 
   async shareOf(sessionId: string): Promise<Share | null> {
-    const { rows } = await this.db.query("SELECT token, public, created_at FROM shares WHERE session_id = $1", [sessionId]);
-    return rows[0] ? toShare(rows[0]) : null;
+    const share = await this.storedShareOf(sessionId);
+    return share ? publicShare(share) : null;
   }
 
-  async shared(token: string): Promise<Session | null> {
-    const { rows } = await this.db.query<{ data: Session }>(
-      "SELECT sessions.data FROM shares JOIN sessions ON sessions.id = shares.session_id WHERE shares.token = $1",
+  async shared(token: string): Promise<{ session: Session; share: StoredShare } | null> {
+    const { rows } = await this.db.query<{ data: Session } & Record<string, unknown>>(
+      `SELECT sessions.data, ${SHARE_COLUMNS} FROM shares JOIN sessions ON sessions.id = shares.session_id WHERE shares.token = $1`,
       [token],
     );
-    if (!rows[0]) return null;
-    const stored = normalizeSession(rows[0].data);
-    return this.live.peek(stored.id) ?? stored;
+    const row = rows[0];
+    if (!row) return null;
+    const stored = normalizeSession(row.data);
+    return { session: this.live.peek(stored.id) ?? stored, share: toShare(row) };
   }
 
   async gallery(limit = 50): Promise<GalleryEntry[]> {
     const { rows } = await this.db.query<{ token: string; data: Session }>(
       `SELECT shares.token, sessions.data FROM shares JOIN sessions ON sessions.id = shares.session_id
-       WHERE shares.public ORDER BY sessions.updated_at DESC LIMIT $1`,
-      [limit],
+       WHERE shares.public AND NOT sessions.private AND shares.password_hash IS NULL AND (shares.expires_at IS NULL OR shares.expires_at > $1)
+       ORDER BY sessions.updated_at DESC LIMIT $2`,
+      [new Date().toISOString(), limit],
     );
     return galleryOf(rows.map((row) => ({ token: row.token, session: normalizeSession(row.data) })));
   }

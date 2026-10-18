@@ -1,6 +1,8 @@
+import type { IncomingMessage } from "node:http";
 import {
   Audience,
   catalogFromEnv,
+  clientDeliverable,
   createSession,
   DEMO_IDEA,
   DEMO_LINEUP,
@@ -24,6 +26,7 @@ import {
   PROPOSER_SEATS,
   providersFor,
   RequirementsSheet,
+  renderClientReport,
   renderReport,
   type Session,
   TEMPLATE_IDS,
@@ -39,7 +42,19 @@ import { contextRoutes } from "./context/routes.ts";
 import { invalidRequest } from "./errors.ts";
 import { exportRoutes } from "./exports.ts";
 import type { Notifier } from "./notifier.ts";
-import type { Placement, SessionStore, StoredSession } from "./store.ts";
+import {
+  AttemptLimiter,
+  accessToken,
+  hashPassword,
+  SHARE_ATTEMPT_LIMITS,
+  SHARE_EXPIRIES,
+  SHARE_MODES,
+  SHARE_PASSWORD,
+  type ShareExpiry,
+  validAccess,
+  verifyPassword,
+} from "./share.ts";
+import type { Placement, SessionStore, ShareSettings, StoredSession, StoredShare } from "./store.ts";
 
 type Env = Record<string, string | undefined>;
 
@@ -209,15 +224,26 @@ const NewSession = z.object({
 
 const ResumeInput = z.object({ budgetUsd: z.number().positive().max(1_000).nullable().optional() });
 
-/** Fields of a session that never leave the server through a public link. */
+/** A session through a "full" share link: everything but its costs, its cost cap and its attached documents. */
 function publicView(session: Session): Session {
   return {
     ...session,
     context: session.context.map(({ source: _source, ...doc }) => ({ ...doc, text: "" })),
     usage: [],
+    budgetUsd: null,
+    error: session.error ? { code: session.error.code, message: "" } : null,
     notify: false,
   };
 }
+
+const ShareInput = z.object({
+  public: z.boolean().optional(),
+  mode: z.enum(SHARE_MODES).optional(),
+  expiresIn: z.enum(Object.keys(SHARE_EXPIRIES) as [ShareExpiry, ...ShareExpiry[]]).optional(),
+  /** A new password, or null to remove it. */
+  password: z.string().min(SHARE_PASSWORD.min).max(SHARE_PASSWORD.max).nullable().optional(),
+});
+const AccessInput = z.object({ password: z.string().max(SHARE_PASSWORD.max) });
 
 /** A session as sent to someone who must not see what the providers charge (AppHooks.hideProviderCosts). */
 function withoutProviderCosts(session: Session): Session {
@@ -248,6 +274,7 @@ export function createApp(deps: AppDeps) {
   /** The background work of each session that has some, to stop it. */
   const workers = new Map<string, { controller: AbortController; done: Promise<void> }>();
   const users = new Map<string, User | null>();
+  const attempts = { link: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.link), caller: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.caller) };
   const mockOptions = deps.mockDelayMs === undefined ? {} : { mockDelayMs: deps.mockDelayMs };
 
   // Ollama discovery takes a network call: done once, then reused.
@@ -314,14 +341,40 @@ export function createApp(deps: AppDeps) {
     await deps.notifier.notify(session, session.phase, recipient);
   };
 
+  // A client share link shows the verdict rewritten for a client: it is written once the verdict exists and such a
+  // link does. Its failure only leaves the deliverable without it. The caller holds the session busy.
+  const clientBrief = async (session: Session) => {
+    if (session.phase !== "complete" || session.briefs.client) return;
+    // Hosted, a model call is made on behalf of its owner only: through a link, the owner may be unknown here.
+    if (hooks.identify && !users.get(session.id)) return;
+    try {
+      await authorize(session);
+      await engineFor(session).writeBrief(session, "client");
+    } catch (error) {
+      console.error(`The client brief of session ${session.id} failed:`, error);
+    }
+  };
+  const writeClientBrief = async (session: Session) => {
+    if (busy.has(session.id) || session.phase !== "complete" || session.briefs.client) return;
+    busy.add(session.id);
+    try {
+      await clientBrief(session);
+    } finally {
+      busy.delete(session.id);
+    }
+  };
+
   // Long operations run in the background; the client follows them through the event stream. Each one can be
   // stopped (POST /stop), which cancels the model calls in flight.
   const runInBackground = (session: Session, work: (engine: DebateEngine) => Promise<void>) => {
     busy.add(session.id);
     const controller = new AbortController();
     const done = work(engineFor(session, controller.signal))
-      // The person who stopped the session knows: no e-mail for it.
-      .then(() => (session.error?.code === "stopped" ? undefined : notify(session)))
+      .then(async () => {
+        // The person who stopped the session knows: no e-mail for it.
+        if (session.error?.code !== "stopped") await notify(session);
+        if (session.phase === "complete" && (await store.shareOf(session.id))?.mode === "client") await clientBrief(session);
+      })
       .catch((error) => console.error(`Session ${session.id} failed:`, error))
       .finally(() => {
         busy.delete(session.id);
@@ -649,10 +702,23 @@ export function createApp(deps: AppDeps) {
     return c.json({ session: view(session) }, 201);
   });
 
+  // Creates the share link of a session, or changes it: a field left out keeps its value. A new link shows the client
+  // deliverable for 30 days, without a password.
   app.post("/api/sessions/:id/share", async (c) => {
     const session = await loadForEdit(c.req.param("id"), c.get("user"));
-    const { public: isPublic } = z.object({ public: z.boolean().default(false) }).parse(await c.req.json());
-    return c.json({ share: await store.share(session.id, isPublic) });
+    const input = ShareInput.parse(await c.req.json());
+    const existing = await store.shareOf(session.id);
+    const expiresIn = input.expiresIn ?? (existing ? undefined : "30d");
+    const days = expiresIn === undefined ? undefined : SHARE_EXPIRIES[expiresIn];
+    const settings: ShareSettings = {
+      public: input.public,
+      mode: input.mode ?? (existing ? undefined : "client"),
+      expiresAt: days === undefined ? undefined : days === null ? null : new Date(Date.now() + days * 86_400_000).toISOString(),
+      passwordHash: input.password === undefined ? undefined : input.password === null ? null : await hashPassword(input.password),
+    };
+    const share = await store.share(session.id, settings);
+    if (share.mode === "client") void writeClientBrief(session);
+    return c.json({ share });
   });
 
   app.delete("/api/sessions/:id/share", async (c) => {
@@ -661,16 +727,57 @@ export function createApp(deps: AppDeps) {
     return c.body(null, 204);
   });
 
+  /**
+   * The session behind a share link, when the link still works and the visitor may open it: a protected link needs
+   * the access token its password gives (X-Share-Access header, or ?access= for a download link).
+   */
+  const openShare = async (c: Context) => {
+    const token = c.req.param("token") ?? "";
+    const found = await store.shared(token);
+    if (!found) throw new NotFound();
+    const { share } = found;
+    if (share.expiresAt !== null && Date.parse(share.expiresAt) <= Date.now()) throw new ShareRefused(410, "share_expired");
+    if (share.passwordHash !== null) {
+      const access = c.req.header("x-share-access") ?? c.req.query("access");
+      if (!validAccess(access, share.token, share.passwordHash)) throw new ShareRefused(401, "password_required");
+    }
+    return found;
+  };
+  const shareInfo = (share: StoredShare) => ({ mode: share.mode, expiresAt: share.expiresAt, hasPassword: share.hasPassword });
+
   app.get("/api/shared/:token", async (c) => {
-    const session = await store.shared(c.req.param("token"));
-    if (!session) throw new NotFound();
-    return c.json({ session: publicView(session) });
+    const { session, share } = await openShare(c);
+    if (share.mode === "full") return c.json({ share: shareInfo(share), session: publicView(session) });
+    void writeClientBrief(session);
+    return c.json({ share: shareInfo(share), deliverable: clientDeliverable(session) });
   });
 
   app.get("/api/shared/:token/report.md", async (c) => {
-    const session = await store.shared(c.req.param("token"));
-    if (!session) throw new NotFound();
-    return markdown(c, publicView(session));
+    const { session, share } = await openShare(c);
+    if (share.mode === "full") return markdown(c, publicView(session));
+    c.header("Content-Type", "text/markdown; charset=utf-8");
+    c.header("Content-Disposition", `attachment; filename="${slug(session)}-report.md"`);
+    return c.body(renderClientReport(clientDeliverable(session)));
+  });
+
+  // The password of a protected link, for an access token valid a few hours. Wrong passwords are counted per link
+  // and per caller.
+  app.post("/api/shared/:token/access", async (c) => {
+    const token = c.req.param("token");
+    const found = await store.shared(token);
+    if (!found) throw new NotFound();
+    const { share } = found;
+    if (share.expiresAt !== null && Date.parse(share.expiresAt) <= Date.now()) throw new ShareRefused(410, "share_expired");
+    if (share.passwordHash === null) return c.json({ access: null, expiresAt: null });
+    const caller = `${token}:${(c.env as { incoming?: IncomingMessage } | undefined)?.incoming?.socket.remoteAddress ?? "local"}`;
+    if (!attempts.link.allows(token) || !attempts.caller.allows(caller)) throw new ShareRefused(429, "too_many_attempts");
+    const { password } = AccessInput.parse(await c.req.json());
+    if (!(await verifyPassword(password, share.passwordHash))) {
+      attempts.link.fail(token);
+      attempts.caller.fail(caller);
+      throw new ShareRefused(401, "wrong_password");
+    }
+    return c.json(accessToken(share.token, share.passwordHash));
   });
 
   app.get("/api/gallery", async (c) => c.json({ sessions: await store.gallery() }));
@@ -758,6 +865,7 @@ export function createApp(deps: AppDeps) {
       return c.json({ error: "invalid_lineup", message: error.message, ...(error.model ? { params: { model: error.model } } : {}) }, 400);
     }
     if (error instanceof PaymentRequired) return c.json({ error: error.code, message: error.message }, 402);
+    if (error instanceof ShareRefused) return c.json({ error: error.code, message: error.message }, error.status);
     if (error instanceof z.ZodError) return c.json(invalidRequest(error), 400);
     if (error instanceof SyntaxError) return c.json({ error: "invalid_request", message: "The body is not valid JSON." }, 400);
     console.error(error);
@@ -832,6 +940,24 @@ class InvalidLineup extends Error {
     this.model = model;
   }
 }
+/** A share link that does not open: expired (410), protected (401) or asked too many wrong passwords (429). */
+class ShareRefused extends Error {
+  readonly status: 401 | 410 | 429;
+  readonly code: "share_expired" | "password_required" | "wrong_password" | "too_many_attempts";
+  constructor(status: ShareRefused["status"], code: ShareRefused["code"]) {
+    super(SHARE_REFUSALS[code]);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+const SHARE_REFUSALS = {
+  share_expired: "This share link has expired.",
+  password_required: "This share link is protected by a password.",
+  wrong_password: "The password is not right.",
+  too_many_attempts: "Too many wrong passwords. Wait a few minutes and try again.",
+} as const;
+
 class PaymentRequired extends Error {
   readonly code: string;
   constructor(code: string, message: string) {

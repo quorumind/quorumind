@@ -372,7 +372,7 @@
     "button": "Compartilhar",
     "shared": "Compartilhada",
     "title": "Compartilhar esta sessão",
-    "lead": "Qualquer pessoa com o link pode ler o veredito, o debate e os requisitos. Os custos e os documentos anexados continuam privados.",
+    "lead": "Escolha o que o link mostra e por quanto tempo. Os custos e os documentos anexados continuam sempre privados.",
     "create": "Criar um link somente leitura",
     "link": "Link",
     "copy": "Copiar",
@@ -381,7 +381,35 @@
     "publicHint": "Outras pessoas poderão encontrá-la como exemplo. Só sessões concluídas podem ser listadas.",
     "stop": "Parar de compartilhar",
     "privacy": "Você pode parar de compartilhar a qualquer momento: o link deixa de funcionar na hora.",
-    "readOnly": "Você está lendo uma sessão compartilhada. Ela não pode ser alterada."
+    "readOnly": "Você está lendo uma sessão compartilhada. Ela não pode ser alterada.",
+    "modeLabel": "O que o link mostra",
+    "mode": {
+      "client": "Só a decisão",
+      "full": "A sessão inteira"
+    },
+    "modeHint": {
+      "client": "O veredito, as opções e suas notas, os riscos, o roteiro e as perguntas em aberto, com uma versão escrita para um cliente. Nem o debate, nem a entrevista, nem os requisitos.",
+      "full": "O veredito, o debate, a entrevista e os requisitos."
+    },
+    "expiryLabel": "O link funciona por",
+    "expiry": {
+      "7d": "7 dias",
+      "30d": "30 dias",
+      "never": "Sem limite de tempo"
+    },
+    "until": "Até {{date}}",
+    "passwordLabel": "Senha",
+    "passwordNone": "Sem senha",
+    "passwordChange": "Nova senha",
+    "passwordSet": "Este link pede uma senha.",
+    "passwordApply": "Definir a senha",
+    "passwordRemove": "Remover a senha",
+    "passwordHint": "Opcional, pelo menos {{min}} caracteres. Envie-a separadamente do link.",
+    "clientReadOnly": "Você está lendo um relatório de decisão que alguém compartilhou com você.",
+    "notReady": "A decisão ainda não está pronta. Volte quando o debate terminar.",
+    "lockedTitle": "Este relatório está protegido",
+    "lockedLead": "Digite a senha que a pessoa que o compartilhou lhe deu.",
+    "unlock": "Abrir o relatório"
   },
   "session": {
     "fork": "Recomeçar daqui",
@@ -511,6 +539,10 @@
     "stopped": "Você parou esta sessão. Retome quando quiser.",
     "not_running": "Esta sessão não está mais em andamento.",
     "interrupted": "O servidor reiniciou enquanto esta sessão trabalhava. Nada do que foi feito se perdeu: retome de onde parou.",
-    "budget_fixed": "O limite de custo deste debate é definido pelo serviço e não pode ser alterado."
+    "budget_fixed": "O limite de custo deste debate é definido pelo serviço e não pode ser alterado.",
+    "share_expired": "Este link expirou. Peça um novo à pessoa que o compartilhou.",
+    "password_required": "Este link pede uma senha.",
+    "wrong_password": "A senha não está certa.",
+    "too_many_attempts": "Senhas erradas demais. Espere alguns minutos e tente de novo."
   }
 }

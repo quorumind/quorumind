@@ -2,6 +2,7 @@ import type {
   Answer,
   Audience,
   Brief,
+  ClientDeliverable,
   ContextDocument,
   Depth,
   Lineup,
@@ -67,11 +68,29 @@ export interface SessionAccess {
   author?: Author | null;
 }
 
+export type ShareMode = "client" | "full";
+export type ShareExpiry = "7d" | "30d" | "never";
+
 export interface Share {
   token: string;
   public: boolean;
   createdAt: string;
+  /** client: the decision deliverable only; full: the whole session, without costs or documents. */
+  mode: ShareMode;
+  expiresAt: string | null;
+  hasPassword: boolean;
 }
+
+/** What creating or changing a share link sets; a field left out keeps its value. password: null removes it. */
+export interface ShareSettings {
+  public?: boolean;
+  mode?: ShareMode;
+  expiresIn?: ShareExpiry;
+  password?: string | null;
+}
+
+/** What a share link opens on: the decision deliverable (client) or the whole session (full). */
+export type SharedView = { share: { mode: "client" }; deliverable: ClientDeliverable } | { share: { mode: "full" }; session: Session };
 
 export interface Feedback {
   helpful: boolean | null;
@@ -155,13 +174,18 @@ export const api = {
   stop: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/stop`, post()),
   brief: (id: string, audience: Audience) => request<{ brief: Brief }>(`/api/sessions/${id}/brief`, post({ audience })),
   fork: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/fork`, post()),
-  share: (id: string, isPublic: boolean) => request<{ share: Share }>(`/api/sessions/${id}/share`, post({ public: isPublic })),
+  share: (id: string, settings: ShareSettings) => request<{ share: Share }>(`/api/sessions/${id}/share`, post(settings)),
   unshare: (id: string) => request<void>(`/api/sessions/${id}/share`, { method: "DELETE" }),
   feedback: (id: string, input: { helpful: boolean | null; kind: "rating" | "error"; comment: string }) =>
     request<{ feedback: Feedback[] }>(`/api/sessions/${id}/feedback`, post(input)),
-  shared: (token: string) => request<{ session: Session }>(`/api/shared/${token}`),
+  /** `access` is the token a protected link gives for its password. */
+  shared: (token: string, access: string | null) =>
+    request<SharedView>(`/api/shared/${token}`, access ? { headers: { "X-Share-Access": access } } : undefined),
+  shareAccess: (token: string, password: string) =>
+    request<{ access: string | null; expiresAt: string | null }>(`/api/shared/${token}/access`, post({ password })),
   gallery: () => request<{ sessions: GalleryItem[] }>("/api/gallery"),
   reportUrl: (id: string) => `/api/sessions/${id}/report.md`,
-  sharedReportUrl: (token: string) => `/api/shared/${token}/report.md`,
+  sharedReportUrl: (token: string, access: string | null = null) =>
+    `/api/shared/${token}/report.md${access ? `?access=${encodeURIComponent(access)}` : ""}`,
   exportUrl: () => "/api/export",
 };

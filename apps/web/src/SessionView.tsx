@@ -1,10 +1,11 @@
 import type { Session } from "@quorumind/core";
 import { totalCost } from "@quorumind/core/session";
-import { type KeyboardEvent, useContext, useEffect, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
 import { AccessContext, AccessLine, FULL_ACCESS } from "./access.tsx";
-import { api, type Feedback, type PriceQuote, type SessionAccess, type Share } from "./api.ts";
+import { ApiError, api, type Feedback, type PriceQuote, type SessionAccess, type Share, type SharedView as SharedData } from "./api.ts";
+import { ClientReport } from "./ClientReport.tsx";
 import { Costs } from "./Costs.tsx";
 import { RetryIcon } from "./components/Icons.tsx";
 import { Loader, Skeleton } from "./components/Logo.tsx";
@@ -113,19 +114,120 @@ export function SessionView({ id }: { id: string }) {
 /** A session someone shared: read-only, without costs or attached documents. */
 export function SharedView({ token }: { token: string }) {
   const { t } = useTranslation();
-  const [session, setSession] = useState<Session | null>(null);
-  const [missing, setMissing] = useState(false);
+  const [grant, setGrant] = useState<string | null>(() => storedAccess(token));
+  const [state, setState] = useState<
+    { kind: "loading" } | { kind: "open"; view: SharedData } | { kind: "locked" } | { kind: "expired" } | { kind: "missing" }
+  >({ kind: "loading" });
   useEffect(() => {
-    api.shared(token).then(
-      (body) => setSession(body.session),
-      () => setMissing(true),
+    api.shared(token, grant).then(
+      (view) => setState({ kind: "open", view }),
+      (caught) => {
+        const code = caught instanceof ApiError ? caught.code : null;
+        setState({ kind: code === "password_required" ? "locked" : code === "share_expired" ? "expired" : "missing" });
+      },
     );
-  }, [token]);
+  }, [token, grant]);
+
+  if (state.kind === "locked") {
+    return (
+      <SharePassword
+        token={token}
+        onAccess={(granted) => {
+          keepAccess(token, granted);
+          setGrant(granted);
+        }}
+      />
+    );
+  }
+  if (state.kind === "expired") {
+    return (
+      <div className="narrow stack">
+        <p className="notice notice-error">{t("errors.share_expired")}</p>
+      </div>
+    );
+  }
+  const reportUrl = api.sharedReportUrl(token, grant);
+  if (state.kind === "open" && state.view.share.mode === "client" && "deliverable" in state.view) {
+    return (
+      <div className="stack">
+        <p className="notice">{t("share.clientReadOnly")}</p>
+        <ClientReport deliverable={state.view.deliverable} reportUrl={reportUrl} />
+      </div>
+    );
+  }
+  const session = state.kind === "open" && "session" in state.view ? state.view.session : null;
   return (
     <div className="stack">
       <p className="notice">{t("share.readOnly")}</p>
-      <SessionBody session={session} live={{}} connected missing={missing} readOnly reportUrl={api.sharedReportUrl(token)} />
+      <SessionBody session={session} live={{}} connected missing={state.kind === "missing"} readOnly reportUrl={reportUrl} />
     </div>
+  );
+}
+
+// The access a protected link's password gives lasts a few hours: kept for the tab, so a reload does not ask again.
+const accessKey = (token: string) => `quorumind.share.${token}`;
+function storedAccess(token: string): string | null {
+  try {
+    return sessionStorage.getItem(accessKey(token));
+  } catch {
+    return null;
+  }
+}
+function keepAccess(token: string, access: string) {
+  try {
+    sessionStorage.setItem(accessKey(token), access);
+  } catch {
+    // Not critical: the password is asked again after a reload.
+  }
+}
+
+function SharePassword({ token, onAccess }: { token: string; onAccess: (access: string) => void }) {
+  const { t } = useTranslation();
+  const [password, setPassword] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+    try {
+      const { access } = await api.shareAccess(token, password);
+      onAccess(access ?? "");
+    } catch (caught) {
+      setError(failureText(t, caught));
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <form className="narrow card stack" onSubmit={submit}>
+      <h1 className="heading">{t("share.lockedTitle")}</h1>
+      <p style={{ margin: 0 }}>{t("share.lockedLead")}</p>
+      <div className="field">
+        <label className="field-label" htmlFor="share-password">
+          {t("share.passwordLabel")}
+        </label>
+        <input
+          id="share-password"
+          className="input"
+          type="password"
+          autoComplete="current-password"
+          maxLength={200}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+      </div>
+      {error ? (
+        <p className="notice notice-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div>
+        <button type="submit" className="button button-primary" disabled={pending || !password}>
+          {t("share.unlock")}
+        </button>
+      </div>
+    </form>
   );
 }
 

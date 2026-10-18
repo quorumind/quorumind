@@ -372,7 +372,7 @@
     "button": "分享",
     "shared": "已分享",
     "title": "分享此会话",
-    "lead": "任何拥有链接的人都可以查看结论、辩论和需求。费用和附加的文档仍保持私密。",
+    "lead": "选择链接显示的内容和有效期。费用和附加文档始终保持私密。",
     "create": "创建只读链接",
     "link": "链接",
     "copy": "复制",
@@ -381,7 +381,35 @@
     "publicHint": "其他人可以把它作为示例找到。只有已完成的会话才能公开展示。",
     "stop": "停止分享",
     "privacy": "您可以随时停止分享：链接会立即失效。",
-    "readOnly": "您正在查看一个分享的会话，无法修改。"
+    "readOnly": "您正在查看一个分享的会话，无法修改。",
+    "modeLabel": "链接显示的内容",
+    "mode": {
+      "client": "仅决策",
+      "full": "整个会话"
+    },
+    "modeHint": {
+      "client": "裁决、各方案及其评分、风险、路线图和待解决问题，以及为客户撰写的版本。不包括辩论、访谈或需求。",
+      "full": "裁决、辩论、访谈和需求。"
+    },
+    "expiryLabel": "链接有效期",
+    "expiry": {
+      "7d": "7 天",
+      "30d": "30 天",
+      "never": "不限时间"
+    },
+    "until": "至 {{date}}",
+    "passwordLabel": "密码",
+    "passwordNone": "无密码",
+    "passwordChange": "新密码",
+    "passwordSet": "此链接需要密码。",
+    "passwordApply": "设置密码",
+    "passwordRemove": "移除密码",
+    "passwordHint": "可选，至少 {{min}} 个字符。请与链接分开发送。",
+    "clientReadOnly": "您正在阅读他人与您分享的决策报告。",
+    "notReady": "决策尚未完成。请在辩论结束后再来查看。",
+    "lockedTitle": "此报告受密码保护",
+    "lockedLead": "请输入分享者提供给您的密码。",
+    "unlock": "打开报告"
   },
   "session": {
     "fork": "从这里重新开始",
@@ -511,6 +539,10 @@
     "stopped": "您已停止此会话。可随时继续。",
     "not_running": "此会话已不在运行。",
     "interrupted": "此会话运行期间服务器重新启动了。已完成的内容不会丢失：请从中断处继续。",
-    "budget_fixed": "此辩论的费用上限由服务设定，无法更改。"
+    "budget_fixed": "此辩论的费用上限由服务设定，无法更改。",
+    "share_expired": "此链接已过期。请向分享者索取新链接。",
+    "password_required": "此链接需要密码。",
+    "wrong_password": "密码不正确。",
+    "too_many_attempts": "错误密码次数过多。请等待几分钟后重试。"
   }
 }

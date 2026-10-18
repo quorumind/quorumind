@@ -154,7 +154,7 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     const { store } = storage;
     const session = completed("Shared");
     await store.save(session);
-    const share = await store.share(session.id, true);
+    const share = await store.share(session.id, { public: true });
     await store.addFeedback({ sessionId: session.id, helpful: true, kind: "rating", comment: "", createdAt: day(1) });
     expect(await store.delete(session.id)).toBe(true);
     expect(await store.get(session.id)).toBeNull();
@@ -191,7 +191,7 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     const fresh = newSession("Fresh", day(20));
     await store.save(stale);
     await store.save(fresh);
-    await store.share(stale.id, false);
+    await store.share(stale.id, {});
     await store.addFeedback({ sessionId: stale.id, helpful: null, kind: "error", comment: "Broke", createdAt: day(1) });
 
     expect(await store.purgeOlderThan(10, Date.parse(day(15)))).toBe(1);
@@ -203,21 +203,39 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     expect(await store.purgeOlderThan(10, Date.parse(day(15)))).toBe(0);
   });
 
-  it("shares a session through one link, public or not", async () => {
+  it("shares a session through one link, and changes only what is asked", async () => {
     const { store } = storage;
     const session = completed("Shared");
     await store.save(session, "ada");
     expect(await store.shareOf(session.id)).toBeNull();
 
-    const share = await store.share(session.id, false);
-    expect(share).toEqual({ token: expect.stringMatching(/^[\w-]{24}$/), public: false, createdAt: expect.any(String) });
-    const again = await store.share(session.id, true);
+    const share = await store.share(session.id, {});
+    expect(share).toEqual({
+      token: expect.stringMatching(/^[\w-]{24}$/),
+      public: false,
+      createdAt: expect.any(String),
+      mode: "client",
+      expiresAt: null,
+      hasPassword: false,
+    });
+    const again = await store.share(session.id, { public: true });
     expect(again).toEqual({ ...share, public: true });
     expect(await store.shareOf(session.id)).toEqual(again);
+    const changed = await store.share(session.id, { mode: "full", expiresAt: day(30), passwordHash: "scrypt$hash" });
+    expect(changed).toEqual({ ...again, mode: "full", expiresAt: day(30), hasPassword: true });
+    expect(JSON.stringify(await store.shareOf(session.id))).not.toContain("scrypt");
+    expect(await store.share(session.id, { passwordHash: null, expiresAt: null })).toEqual({
+      ...changed,
+      expiresAt: null,
+      hasPassword: false,
+    });
 
     // The token is the permission: whoever owns the session. A live session is the object in use.
-    expect(await store.shared(share.token)).toBe(session);
-    expect(await storage.reopen().shared(share.token)).toEqual(session);
+    expect((await store.shared(share.token))?.session).toBe(session);
+    expect(await storage.reopen().shared(share.token)).toEqual({
+      session,
+      share: { ...changed, expiresAt: null, hasPassword: false, passwordHash: null },
+    });
     expect(await store.shared("unknown")).toBeNull();
 
     await store.unshare(session.id);
@@ -232,9 +250,16 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     const newer = completed("Newer", day(2));
     const unfinished = newSession("Unfinished", day(3));
     const unlisted = completed("Unlisted", day(4));
-    for (const session of [older, newer, unfinished, unlisted]) {
-      await store.save(session);
-      await store.share(session.id, session !== unlisted);
+    const expired = completed("Expired", day(5));
+    const protectedOne = completed("Protected", day(6));
+    const hidden = completed("Private", day(7));
+    for (const session of [older, newer, unfinished, unlisted, expired, protectedOne, hidden]) {
+      await store.save(session, "ada", { workspace: "team", private: session === hidden });
+      await store.share(session.id, {
+        public: session !== unlisted,
+        ...(session === expired ? { expiresAt: day(1) } : {}),
+        ...(session === protectedOne ? { passwordHash: "scrypt$hash" } : {}),
+      });
     }
     const gallery = await storage.reopen().gallery();
     expect(gallery.map((entry) => entry.idea)).toEqual(["Newer", "Older project"]);
@@ -276,12 +301,13 @@ describe("the PostgreSQL schema", () => {
     const db = await pgliteDatabase();
     try {
       const runs = await Promise.all([migrateSessions(db), migrateSessions(db)]);
-      expect(runs.flat()).toEqual([1, 2]);
+      expect(runs.flat()).toEqual([1, 2, 3]);
       expect(await migrateSessions(db)).toEqual([]);
       const { rows } = await db.query("SELECT component, version, name FROM schema_migrations ORDER BY version");
       expect(rows).toEqual([
         { component: "quorumind", version: 1, name: "sessions" },
         { component: "quorumind", version: 2, name: "workspaces" },
+        { component: "quorumind", version: 3, name: "share_options" },
       ]);
     } finally {
       await db.close();
@@ -300,7 +326,7 @@ describe("the PostgreSQL schema", () => {
         JSON.stringify(session),
         day(1),
       ]);
-      expect(await migrateSessions(db)).toEqual([2]);
+      expect(await migrateSessions(db)).toEqual([2, 3]);
       const store = new PostgresSessionStore(db);
       expect(await store.find(session.id)).toMatchObject({ owner: "ada", workspace: null, private: false });
       expect((await store.history(50, { owner: "ada", workspace: "team" })).map((entry) => entry.id)).toEqual([session.id]);
@@ -355,6 +381,56 @@ describe("the SQLite schema", () => {
       await store.close();
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("share links made before their options", () => {
+  it("keep showing the whole session, with no expiry, on SQLite", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "quorumind-shares-"));
+    try {
+      const path = join(dir, "quorumind.db");
+      const db = new DatabaseSync(path);
+      db.exec(`CREATE TABLE sessions (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL, owner_id TEXT);
+        CREATE TABLE shares (token TEXT PRIMARY KEY, session_id TEXT NOT NULL UNIQUE, public INTEGER NOT NULL, created_at TEXT NOT NULL);`);
+      const session = completed("Old link", day(1));
+      db.prepare("INSERT INTO sessions (id, data, updated_at) VALUES (?, ?, ?)").run(session.id, JSON.stringify(session), day(1));
+      db.prepare("INSERT INTO shares VALUES ('old-token', ?, 1, ?)").run(session.id, day(1));
+      db.close();
+      const store = new SqliteSessionStore(path);
+      expect(await store.shareOf(session.id)).toEqual({
+        token: "old-token",
+        public: true,
+        createdAt: day(1),
+        mode: "full",
+        expiresAt: null,
+        hasPassword: false,
+      });
+      expect((await store.gallery()).map((entry) => entry.token)).toEqual(["old-token"]);
+      await store.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keep showing the whole session, with no expiry, on PostgreSQL", async () => {
+    const db = await pgliteDatabase();
+    try {
+      await migrate(db, "quorumind", loadMigrations(fileURLToPath(new URL("./postgres/migrations/", import.meta.url))).slice(0, 2));
+      const session = completed("Old link", day(1));
+      await new PostgresSessionStore(db).save(session);
+      await db.query("INSERT INTO shares (token, session_id, public, created_at) VALUES ('old-token', $1, true, $2)", [session.id, day(1)]);
+      expect(await migrateSessions(db)).toEqual([3]);
+      expect(await new PostgresSessionStore(db).shareOf(session.id)).toEqual({
+        token: "old-token",
+        public: true,
+        createdAt: day(1),
+        mode: "full",
+        expiresAt: null,
+        hasPassword: false,
+      });
+    } finally {
+      await db.close();
     }
   });
 });

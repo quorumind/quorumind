@@ -372,7 +372,7 @@
     "button": "Share",
     "shared": "Shared",
     "title": "Share this session",
-    "lead": "Anyone with the link can read the verdict, the debate and the requirements. Costs and attached documents stay private.",
+    "lead": "Choose what the link shows and for how long. Costs and attached documents always stay private.",
     "create": "Create a read-only link",
     "link": "Link",
     "copy": "Copy",
@@ -381,7 +381,35 @@
     "publicHint": "Other people can find it as an example. Only finished sessions can be listed.",
     "stop": "Stop sharing",
     "privacy": "You can stop sharing at any time: the link stops working at once.",
-    "readOnly": "You are reading a shared session. It cannot be changed."
+    "readOnly": "You are reading a shared session. It cannot be changed.",
+    "modeLabel": "What the link shows",
+    "mode": {
+      "client": "The decision only",
+      "full": "The whole session"
+    },
+    "modeHint": {
+      "client": "The verdict, the options and their scores, the risks, the roadmap and the open questions, with a version written for a client. Not the debate, the interview or the requirements.",
+      "full": "The verdict, the debate, the interview and the requirements."
+    },
+    "expiryLabel": "The link works for",
+    "expiry": {
+      "7d": "7 days",
+      "30d": "30 days",
+      "never": "No time limit"
+    },
+    "until": "Until {{date}}",
+    "passwordLabel": "Password",
+    "passwordNone": "No password",
+    "passwordChange": "New password",
+    "passwordSet": "This link asks for a password.",
+    "passwordApply": "Set the password",
+    "passwordRemove": "Remove the password",
+    "passwordHint": "Optional, at least {{min}} characters. Send it separately from the link.",
+    "clientReadOnly": "You are reading a decision report someone shared with you.",
+    "notReady": "The decision is not ready yet. Come back once the debate is over.",
+    "lockedTitle": "This report is protected",
+    "lockedLead": "Enter the password the person who shared it gave you.",
+    "unlock": "Open the report"
   },
   "session": {
     "fork": "Start again from here",
@@ -511,6 +539,10 @@
     "stopped": "You stopped this session. Resume it whenever you like.",
     "not_running": "This session is not running any more.",
     "interrupted": "The server restarted while this session was working. Nothing done so far is lost: resume it from where it stopped.",
-    "budget_fixed": "The cost cap of this debate is set by the service and cannot be changed."
+    "budget_fixed": "The cost cap of this debate is set by the service and cannot be changed.",
+    "share_expired": "This link has expired. Ask the person who shared it for a new one.",
+    "password_required": "This link asks for a password.",
+    "wrong_password": "The password is not right.",
+    "too_many_attempts": "Too many wrong passwords. Wait a few minutes, then try again."
   }
 }

@@ -372,7 +372,7 @@
     "button": "Partager",
     "shared": "Partagée",
     "title": "Partager cette session",
-    "lead": "Toute personne disposant du lien peut lire le verdict, le débat et le besoin. Les coûts et les documents joints restent privés.",
+    "lead": "Choisissez ce que le lien montre et pour combien de temps. Les coûts et les documents joints restent toujours privés.",
     "create": "Créer un lien en lecture seule",
     "link": "Lien",
     "copy": "Copier",
@@ -381,7 +381,35 @@
     "publicHint": "D'autres personnes pourront la consulter comme exemple. Seules les sessions terminées peuvent y figurer.",
     "stop": "Arrêter le partage",
     "privacy": "Vous pouvez arrêter le partage à tout moment : le lien cesse aussitôt de fonctionner.",
-    "readOnly": "Vous consultez une session partagée. Elle ne peut pas être modifiée."
+    "readOnly": "Vous consultez une session partagée. Elle ne peut pas être modifiée.",
+    "modeLabel": "Ce que le lien montre",
+    "mode": {
+      "client": "La décision seulement",
+      "full": "Toute la session"
+    },
+    "modeHint": {
+      "client": "Le verdict, les options et leurs notes, les risques, la feuille de route et les questions ouvertes, avec une version rédigée pour un client. Ni le débat, ni l'entretien, ni le besoin.",
+      "full": "Le verdict, le débat, l'entretien et le besoin."
+    },
+    "expiryLabel": "Le lien fonctionne pendant",
+    "expiry": {
+      "7d": "7 jours",
+      "30d": "30 jours",
+      "never": "Sans limite de durée"
+    },
+    "until": "Jusqu'au {{date}}",
+    "passwordLabel": "Mot de passe",
+    "passwordNone": "Aucun mot de passe",
+    "passwordChange": "Nouveau mot de passe",
+    "passwordSet": "Ce lien demande un mot de passe.",
+    "passwordApply": "Définir le mot de passe",
+    "passwordRemove": "Retirer le mot de passe",
+    "passwordHint": "Facultatif, au moins {{min}} caractères. Transmettez-le séparément du lien.",
+    "clientReadOnly": "Vous consultez un rapport de décision que l'on vous a partagé.",
+    "notReady": "La décision n'est pas encore prête. Revenez une fois le débat terminé.",
+    "lockedTitle": "Ce rapport est protégé",
+    "lockedLead": "Saisissez le mot de passe que la personne qui l'a partagé vous a donné.",
+    "unlock": "Ouvrir le rapport"
   },
   "session": {
     "fork": "Repartir d'ici",
@@ -511,6 +539,10 @@
     "stopped": "Vous avez arrêté cette session. Reprenez-la quand vous voulez.",
     "not_running": "Cette session ne tourne plus.",
     "interrupted": "Le serveur a redémarré pendant que cette session travaillait. Rien de ce qui a été fait n'est perdu : reprenez-la là où elle s'est arrêtée.",
-    "budget_fixed": "Le plafond de coût de ce débat est fixé par le service et ne peut pas être modifié."
+    "budget_fixed": "Le plafond de coût de ce débat est fixé par le service et ne peut pas être modifié.",
+    "share_expired": "Ce lien a expiré. Demandez-en un nouveau à la personne qui l'a partagé.",
+    "password_required": "Ce lien demande un mot de passe.",
+    "wrong_password": "Le mot de passe n'est pas le bon.",
+    "too_many_attempts": "Trop de mots de passe erronés. Patientez quelques minutes, puis réessayez."
   }
 }

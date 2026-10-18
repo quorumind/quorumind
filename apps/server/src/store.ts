@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { isWorking, markInterrupted, normalizeSession, type Session } from "@quorumind/core";
+import type { ShareMode } from "./share.ts";
 
 export interface SessionSummary {
   id: string;
@@ -13,8 +14,28 @@ export interface SessionSummary {
 
 export interface Share {
   token: string;
+  /** Listed in the public gallery. */
   public: boolean;
   createdAt: string;
+  /** client: the decision deliverable only; full: the whole session, without its costs or attached documents. */
+  mode: ShareMode;
+  /** When the link stops working; null when it never does. */
+  expiresAt: string | null;
+  /** The link asks for a password. */
+  hasPassword: boolean;
+}
+
+/** A share link with what only the server reads: the hash of its password. */
+export interface StoredShare extends Share {
+  passwordHash: string | null;
+}
+
+/** What creating or changing a share link sets: a field left out keeps its value, or its default on a new link. */
+export interface ShareSettings {
+  public?: boolean;
+  mode?: ShareMode;
+  expiresAt?: string | null;
+  passwordHash?: string | null;
 }
 
 export interface Feedback {
@@ -80,12 +101,13 @@ export interface SessionStore {
   markInterrupted(now?: Date): Promise<number>;
   /** Deletes the sessions nobody touched for the given number of days. Returns how many. */
   purgeOlderThan(days: number, now?: number): Promise<number>;
-  share(sessionId: string, isPublic: boolean): Promise<Share>;
+  /** Creates the share link of a session (one per session) or changes it. A new link is a client one, private. */
+  share(sessionId: string, settings: ShareSettings): Promise<Share>;
   unshare(sessionId: string): Promise<void>;
   shareOf(sessionId: string): Promise<Share | null>;
-  /** A shared session, whoever owns it: the token is the permission. */
-  shared(token: string): Promise<Session | null>;
-  /** Completed sessions their owners chose to make public: the gallery of examples. */
+  /** A shared session, whoever owns it, with its link: the token is the permission, the caller checks the rest. */
+  shared(token: string): Promise<{ session: Session; share: StoredShare } | null>;
+  /** Completed sessions their owners chose to make public, not private, behind no password and not expired: the gallery. */
   gallery(limit?: number): Promise<GalleryEntry[]>;
   addFeedback(feedback: Feedback): Promise<void>;
   feedbackOf(sessionId: string): Promise<Feedback[]>;
@@ -180,6 +202,11 @@ export class SqliteSessionStore implements SessionStore {
     if (!columns.some((column) => column.name === "private"))
       this.db.exec("ALTER TABLE sessions ADD COLUMN private INTEGER NOT NULL DEFAULT 0");
     this.db.exec("CREATE INDEX IF NOT EXISTS sessions_workspace ON sessions (workspace_id, updated_at)");
+    // Share options: the links made before keep showing the whole session, with no expiry and no password.
+    const shareColumns = (this.db.prepare("PRAGMA table_info(shares)").all() as { name: string }[]).map((column) => column.name);
+    if (!shareColumns.includes("mode")) this.db.exec("ALTER TABLE shares ADD COLUMN mode TEXT NOT NULL DEFAULT 'full'");
+    if (!shareColumns.includes("expires_at")) this.db.exec("ALTER TABLE shares ADD COLUMN expires_at TEXT");
+    if (!shareColumns.includes("password_hash")) this.db.exec("ALTER TABLE shares ADD COLUMN password_hash TEXT");
   }
 
   async get(id: string, owner: string | null = null): Promise<Session | null> {
@@ -269,17 +296,24 @@ export class SqliteSessionStore implements SessionStore {
     return rows.length;
   }
 
-  async share(sessionId: string, isPublic: boolean): Promise<Share> {
-    const existing = await this.shareOf(sessionId);
+  async share(sessionId: string, settings: ShareSettings): Promise<Share> {
+    const existing = this.storedShareOf(sessionId);
+    const next = applyShareSettings(existing, settings);
     if (existing) {
-      this.db.prepare("UPDATE shares SET public = ? WHERE token = ?").run(isPublic ? 1 : 0, existing.token);
-      return { ...existing, public: isPublic };
+      this.db
+        .prepare("UPDATE shares SET public = ?, mode = ?, expires_at = ?, password_hash = ? WHERE token = ?")
+        .run(next.public ? 1 : 0, next.mode, next.expiresAt, next.passwordHash, next.token);
+    } else {
+      this.db
+        .prepare("INSERT INTO shares (token, session_id, public, created_at, mode, expires_at, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run(next.token, sessionId, next.public ? 1 : 0, next.createdAt, next.mode, next.expiresAt, next.passwordHash);
     }
-    const share = { token: randomToken(), public: isPublic, createdAt: new Date().toISOString() };
-    this.db
-      .prepare("INSERT INTO shares (token, session_id, public, created_at) VALUES (?, ?, ?, ?)")
-      .run(share.token, sessionId, isPublic ? 1 : 0, share.createdAt);
-    return share;
+    return publicShare(next);
+  }
+
+  private storedShareOf(sessionId: string): StoredShare | null {
+    const row = this.db.prepare(`SELECT ${SHARE_COLUMNS} FROM shares WHERE session_id = ?`).get(sessionId) as ShareRow | undefined;
+    return row ? sqliteShare(row) : null;
   }
 
   async unshare(sessionId: string): Promise<void> {
@@ -287,27 +321,29 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   async shareOf(sessionId: string): Promise<Share | null> {
-    const row = this.db.prepare("SELECT token, public, created_at FROM shares WHERE session_id = ?").get(sessionId) as
-      | { token: string; public: number; created_at: string }
-      | undefined;
-    return row ? { token: row.token, public: row.public === 1, createdAt: row.created_at } : null;
+    const share = this.storedShareOf(sessionId);
+    return share ? publicShare(share) : null;
   }
 
-  async shared(token: string): Promise<Session | null> {
+  async shared(token: string): Promise<{ session: Session; share: StoredShare } | null> {
     const row = this.db
-      .prepare("SELECT sessions.data AS data FROM shares JOIN sessions ON sessions.id = shares.session_id WHERE shares.token = ?")
-      .get(token) as { data: string } | undefined;
+      .prepare(
+        `SELECT sessions.data AS data, ${SHARE_COLUMNS} FROM shares JOIN sessions ON sessions.id = shares.session_id WHERE shares.token = ?`,
+      )
+      .get(token) as (ShareRow & { data: string }) | undefined;
     if (!row) return null;
     const stored = normalizeSession(JSON.parse(row.data) as Session);
-    return this.live.peek(stored.id) ?? stored;
+    return { session: this.live.peek(stored.id) ?? stored, share: sqliteShare(row) };
   }
 
   async gallery(limit = 50): Promise<GalleryEntry[]> {
     const rows = this.db
       .prepare(
-        "SELECT shares.token AS token, sessions.data AS data FROM shares JOIN sessions ON sessions.id = shares.session_id WHERE shares.public = 1 ORDER BY sessions.updated_at DESC LIMIT ?",
+        `SELECT shares.token AS token, sessions.data AS data FROM shares JOIN sessions ON sessions.id = shares.session_id
+         WHERE shares.public = 1 AND sessions.private = 0 AND shares.password_hash IS NULL AND (shares.expires_at IS NULL OR shares.expires_at > ?)
+         ORDER BY sessions.updated_at DESC LIMIT ?`,
       )
-      .all(limit) as { token: string; data: string }[];
+      .all(new Date().toISOString(), limit) as { token: string; data: string }[];
     return galleryOf(rows.map((row) => ({ token: row.token, session: normalizeSession(JSON.parse(row.data) as Session) })));
   }
 
@@ -344,6 +380,46 @@ export class SqliteSessionStore implements SessionStore {
 type SqliteRow = { data: string; owner_id: string | null; workspace_id: string | null; private: number };
 
 const sqlitePlacement = (row: SqliteRow): Placement => ({ owner: row.owner_id, workspace: row.workspace_id, private: row.private === 1 });
+
+const SHARE_COLUMNS = "shares.token, shares.public, shares.created_at, shares.mode, shares.expires_at, shares.password_hash";
+
+interface ShareRow {
+  token: string;
+  public: number;
+  created_at: string;
+  mode: string;
+  expires_at: string | null;
+  password_hash: string | null;
+}
+
+const sqliteShare = (row: ShareRow): StoredShare => ({
+  token: row.token,
+  public: row.public === 1,
+  createdAt: row.created_at,
+  mode: row.mode === "client" ? "client" : "full",
+  expiresAt: row.expires_at,
+  hasPassword: row.password_hash !== null,
+  passwordHash: row.password_hash,
+});
+
+/** The link as it is after the change: a new one is private, a client one, with no expiry and no password. */
+export function applyShareSettings(existing: StoredShare | null, settings: ShareSettings): StoredShare {
+  const passwordHash = settings.passwordHash !== undefined ? settings.passwordHash : (existing?.passwordHash ?? null);
+  return {
+    token: existing?.token ?? randomToken(),
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    public: settings.public ?? existing?.public ?? false,
+    mode: settings.mode ?? existing?.mode ?? "client",
+    expiresAt: settings.expiresAt !== undefined ? settings.expiresAt : (existing?.expiresAt ?? null),
+    hasPassword: passwordHash !== null,
+    passwordHash,
+  };
+}
+
+/** A share link as the owner sees it: never with its password hash. */
+export function publicShare({ passwordHash: _hash, ...share }: StoredShare): Share {
+  return share;
+}
 
 export function summarize(session: Session): SessionSummary {
   return {

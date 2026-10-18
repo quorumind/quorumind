@@ -372,7 +372,7 @@
     "button": "Condividi",
     "shared": "Condivisa",
     "title": "Condividi questa sessione",
-    "lead": "Chiunque abbia il link può leggere il verdetto, il dibattito e i requisiti. I costi e i documenti allegati restano privati.",
+    "lead": "Scegli cosa mostra il link e per quanto tempo. I costi e i documenti allegati restano sempre privati.",
     "create": "Crea un link in sola lettura",
     "link": "Link",
     "copy": "Copia",
@@ -381,7 +381,35 @@
     "publicHint": "Altre persone potranno trovarla come esempio. Solo le sessioni concluse possono comparire nella galleria.",
     "stop": "Interrompi la condivisione",
     "privacy": "Puoi interrompere la condivisione in qualsiasi momento: il link smette subito di funzionare.",
-    "readOnly": "Stai leggendo una sessione condivisa. Non può essere modificata."
+    "readOnly": "Stai leggendo una sessione condivisa. Non può essere modificata.",
+    "modeLabel": "Cosa mostra il link",
+    "mode": {
+      "client": "Solo la decisione",
+      "full": "L'intera sessione"
+    },
+    "modeHint": {
+      "client": "Il verdetto, le opzioni e i loro punteggi, i rischi, la roadmap e le domande aperte, con una versione scritta per un cliente. Non il dibattito, l'intervista o i requisiti.",
+      "full": "Il verdetto, il dibattito, l'intervista e i requisiti."
+    },
+    "expiryLabel": "Il link funziona per",
+    "expiry": {
+      "7d": "7 giorni",
+      "30d": "30 giorni",
+      "never": "Senza limite di tempo"
+    },
+    "until": "Fino al {{date}}",
+    "passwordLabel": "Password",
+    "passwordNone": "Nessuna password",
+    "passwordChange": "Nuova password",
+    "passwordSet": "Questo link chiede una password.",
+    "passwordApply": "Imposta la password",
+    "passwordRemove": "Rimuovi la password",
+    "passwordHint": "Facoltativa, almeno {{min}} caratteri. Inviala separatamente dal link.",
+    "clientReadOnly": "Stai leggendo un rapporto di decisione che qualcuno ha condiviso con te.",
+    "notReady": "La decisione non è ancora pronta. Torna quando il dibattito sarà finito.",
+    "lockedTitle": "Questo rapporto è protetto",
+    "lockedLead": "Inserisci la password che ti ha dato chi lo ha condiviso.",
+    "unlock": "Apri il rapporto"
   },
   "session": {
     "fork": "Riparti da qui",
@@ -511,6 +539,10 @@
     "stopped": "Hai interrotto questa sessione. Riprendila quando vuoi.",
     "not_running": "Questa sessione non è più in corso.",
     "interrupted": "Il server si è riavviato mentre questa sessione lavorava. Nulla di quanto fatto è andato perso: riprendila da dove si è fermata.",
-    "budget_fixed": "Il tetto di spesa di questo dibattito è fissato dal servizio e non può essere modificato."
+    "budget_fixed": "Il tetto di spesa di questo dibattito è fissato dal servizio e non può essere modificato.",
+    "share_expired": "Questo link è scaduto. Chiedine uno nuovo a chi lo ha condiviso.",
+    "password_required": "Questo link chiede una password.",
+    "wrong_password": "La password non è corretta.",
+    "too_many_attempts": "Troppe password errate. Attendi qualche minuto, poi riprova."
   }
 }
