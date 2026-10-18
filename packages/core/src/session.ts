@@ -148,6 +148,8 @@ export interface VerdictRevision {
 
 /** A revision on its way: the arbiter works on it, or it stopped on `error` and can be asked again. */
 export interface PendingRevision {
+  /** Each attempt has its own id: a revision asked again after a failure is a new attempt with the same number. */
+  id: string;
   number: number;
   reason: Exclude<RevisionReason, "debate">;
   inputs: RevisionInputs;

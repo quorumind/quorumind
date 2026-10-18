@@ -3,7 +3,8 @@ import { createTransport } from "nodemailer";
 
 type Env = Record<string, string | undefined>;
 
-export type NotifyReason = "complete" | "awaiting_answers" | "failed";
+/** answers_received: the client submitted a questionnaire about the session. */
+export type NotifyReason = "complete" | "awaiting_answers" | "failed" | "answers_received";
 
 /** Sends an e-mail when a long debate ends or waits for the person. Optional: needs an SMTP URL. */
 export interface Notifier {
@@ -14,6 +15,7 @@ const SUBJECTS: Record<NotifyReason, string> = {
   complete: "Your Quorumind verdict is ready",
   awaiting_answers: "The Quorumind debate needs your answer",
   failed: "Your Quorumind session stopped",
+  answers_received: "Your client answered the questionnaire",
 };
 
 /** What each notification asks of the person, in e-mails and chat messages. */
@@ -21,6 +23,7 @@ export const BODIES: Record<NotifyReason, string> = {
   complete: "The arbiter has ruled. Open the session to read the verdict and download the report.",
   awaiting_answers: "The models need information only you have before they can go on. Answer to resume the debate.",
   failed: "The session stopped on an error. Open it to resume from where it stopped.",
+  answers_received: "Open the session to read the answers, then update the recommendation with them.",
 };
 
 /**

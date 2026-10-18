@@ -2,23 +2,27 @@ import { createHash } from "node:crypto";
 import {
   Audience,
   BRAND_NAME_MAX,
+  clientProposal,
   isAccent,
   LOGO_MAX_DATA_URL,
   normalizeSession,
   PRINT_SCRIPT,
   parseLogo,
+  QUESTIONNAIRE_LIMITS,
   renderAdr,
   renderGithubIssues,
   renderHandoff,
   renderHtml,
   renderJiraCsv,
   renderLinearCsv,
+  renderProposalHtml,
   reportSlug,
   type Session,
+  sessionAtRevision,
   trackerFileName,
   zipFiles,
 } from "@quorumind/core";
-import { renderDocx } from "@quorumind/core/docx";
+import { renderDocx, renderProposalDocx } from "@quorumind/core/docx";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { User } from "./app.ts";
@@ -83,9 +87,12 @@ export function exportRoutes(deps: ExportDeps) {
   type Ctx = Context<{ Variables: { user: User | null } }>;
   const notFound = (c: Ctx) => c.json({ error: "not_found", message: "This session does not exist." }, 404);
   const noVerdict = (c: Ctx) => c.json({ error: "wrong_phase", message: "The verdict is not ready yet." }, 409);
+  // ?revision=N: the session as it stood at an earlier revision of its verdict.
   const load = async (c: Ctx) => {
-    const session = await deps.getSession(c.req.param("id") ?? "", c.get("user"));
-    return session ? normalizeSession(session) : null;
+    const found = await deps.getSession(c.req.param("id") ?? "", c.get("user"));
+    const session = found ? normalizeSession(found) : null;
+    const revision = c.req.query("revision");
+    return session && revision ? sessionAtRevision(session, Number(revision)) : session;
   };
   const branding = (c: Ctx) => deps.branding.get(deps.ownerOf(c.get("user")));
   const attachment = (c: Ctx, type: string, name: string) => {
@@ -117,6 +124,30 @@ export function exportRoutes(deps: ExportDeps) {
     const document = await renderDocx(session, await branding(c));
     attachment(c, MIME.docx, `${reportSlug(session)}-report.docx`);
     return c.body(document as Uint8Array<ArrayBuffer>);
+  });
+
+  // The client proposal, to edit and send: Word, or a printable page (?print=1 for the PDF). ?client= names who it
+  // is prepared for.
+  const proposalOf = (c: Ctx, session: Session) =>
+    clientProposal(session, { client: (c.req.query("client") ?? "").trim().slice(0, QUESTIONNAIRE_LIMITS.client) || null });
+
+  app.get("/api/sessions/:id/proposal.docx", async (c) => {
+    const session = await load(c);
+    if (!session) return notFound(c);
+    if (!session.verdict || session.phase !== "complete") return noVerdict(c);
+    const document = await renderProposalDocx(proposalOf(c, session), await branding(c));
+    attachment(c, MIME.docx, `${reportSlug(session)}-proposal.docx`);
+    return c.body(document as Uint8Array<ArrayBuffer>);
+  });
+
+  app.get("/api/sessions/:id/proposal.html", async (c) => {
+    const session = await load(c);
+    if (!session) return notFound(c);
+    if (!session.verdict || session.phase !== "complete") return noVerdict(c);
+    c.header("Content-Security-Policy", REPORT_CSP);
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("Cache-Control", "no-store");
+    return c.html(renderProposalHtml(proposalOf(c, session), await branding(c), { print: c.req.query("print") === "1" }));
   });
 
   app.get("/api/sessions/:id/adr.md", async (c) => {

@@ -85,6 +85,13 @@ export class AttemptLimiter {
     return this.recent(key).length < this.limits.perWindow;
   }
 
+  /** Counts one attempt, failed or not: false, and nothing counted, when this key already used up its attempts. */
+  hit(key: string): boolean {
+    if (!this.allows(key)) return false;
+    this.fail(key);
+    return true;
+  }
+
   fail(key: string) {
     const recent = this.recent(key);
     recent.push(this.now());

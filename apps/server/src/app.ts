@@ -10,6 +10,7 @@ import {
   DebateEngine,
   deliveryChecks,
   estimateDebateCost,
+  estimateRevisionCost,
   hasProfile,
   INTERRUPTED,
   InvalidStateError,
@@ -27,12 +28,16 @@ import {
   type OrgProfile,
   type Participant,
   PERSONA_IDS,
+  type PendingRevision,
   PROPOSER_SEATS,
   providersFor,
+  type Questionnaire,
   RequirementsSheet,
+  type RevisionRequest,
   renderClientReport,
   renderReport,
   type Session,
+  sessionAtRevision,
   sessionCostings,
   TEMPLATE_IDS,
   type UsageRecord,
@@ -49,6 +54,7 @@ import { invalidRequest } from "./errors.ts";
 import { exportRoutes } from "./exports.ts";
 import type { Notifier } from "./notifier.ts";
 import { profileRoutes } from "./profile.ts";
+import { questionnaireRoutes } from "./questionnaires.ts";
 import {
   AttemptLimiter,
   accessToken,
@@ -61,7 +67,15 @@ import {
   validAccess,
   verifyPassword,
 } from "./share.ts";
-import type { Placement, SessionStore, ShareSettings, StoredSession, StoredShare } from "./store.ts";
+import {
+  type Placement,
+  publicQuestionnaire,
+  type SessionStore,
+  type ShareSettings,
+  type StoredQuestionnaire,
+  type StoredSession,
+  type StoredShare,
+} from "./store.ts";
 
 type Env = Record<string, string | undefined>;
 
@@ -104,6 +118,23 @@ export type SpendRefusal = "insufficient_credits" | "plan_limit" | "price_limit"
 /** The settings of a session its price can depend on. */
 export type PricedSettings = Pick<Session, "mode" | "depth" | "locale">;
 
+/** What is priced: a session's debate, or a revision of its verdict (the next one). */
+export type PricedItem = "debate" | "revision";
+
+/** What model work is for: the debate (its interview, rounds, verdict and briefs), or one revision of its verdict. */
+export type Purchase = { kind: "debate" } | { kind: "revision"; number: number };
+
+/**
+ * A step in the life of a verdict revision. started: it is recorded and no model was called yet. completed: the new
+ * verdict exists. failed: it stopped before, and the current verdict stays. Each attempt has its own id.
+ */
+export interface RevisionEvent {
+  id: string;
+  number: number;
+  reason: PendingRevision["reason"];
+  status: "started" | "completed" | "failed";
+}
+
 /** What a debate costs the person, as the host sells it. */
 export interface PriceQuote {
   /** In `currency`; 0 when the person's plan covers it. */
@@ -123,13 +154,27 @@ export interface AppHooks {
   identify?(request: Request): Promise<User | null>;
   /**
    * Called before any model work starts or resumes. Refusing answers HTTP 402 with the code, which the interface
-   * explains; `reason` is the English message sent with it.
+   * explains; `reason` is the English message sent with it. `purchase` says what the work is for: the debate, unless
+   * it is a revision of the verdict.
    */
   authorizeSpend?(
     user: User,
     session: Session,
     estimateUsd: number,
+    purchase?: Purchase,
   ): Promise<{ ok: true } | { ok: false; reason: string; code: SpendRefusal }>;
+  /**
+   * The life of each verdict revision, for the person who asked for it: a host selling revisions charges on
+   * "started" and gives back on "failed". Throwing on "started" cancels the revision before any model call.
+   */
+  onRevision?(user: User, session: Session, event: RevisionEvent): void | Promise<void>;
+  /** The provider cost cap of one verdict revision, in US dollars; without it, a revision has no cap of its own. */
+  revisionBudgetUsd?(session: Session): number | null;
+  /**
+   * After a client submitted a questionnaire through its link, for the owner of the session (null for the single
+   * local user of a self-hosted server). The notifier, when there is one, sends its e-mail as well.
+   */
+  onQuestionnaireSubmitted?(owner: User | null, session: Session, questionnaire: Questionnaire): void | Promise<void>;
   /** After every model call, with its real cost (null when the price is unknown). */
   onUsage?(user: User, session: Session, record: UsageRecord): void | Promise<void>;
   /** The models this user may pick. */
@@ -147,9 +192,10 @@ export interface AppHooks {
   sessionBudgetUsd?(settings: Pick<Session, "mode" | "depth">): number | null;
   /**
    * The price of a debate for this user, shown before launch instead of the provider cost estimate
-   * and in the session header. `sessionId` is set once the session exists. Null shows no price.
+   * and in the session header. `sessionId` is set once the session exists. Null shows no price. With `item`
+   * "revision", the price of the session's next verdict revision, shown on the button that makes it.
    */
-  quote?(user: User, settings: PricedSettings, sessionId: string | null): Promise<PriceQuote | null>;
+  quote?(user: User, settings: PricedSettings, sessionId: string | null, item?: PricedItem): Promise<PriceQuote | null>;
   /**
    * Keeps provider costs, in US dollars, away from the people using the app: sessions are sent
    * without the cost of each call or the cost cap, and the interface shows calls and tokens only.
@@ -239,6 +285,38 @@ const NewSession = z.object({
 
 const ResumeInput = z.object({ budgetUsd: z.number().positive().max(1_000).nullable().optional() });
 
+const RevisionInput = z.object({
+  facts: z
+    .array(
+      z.object({
+        question: z
+          .string()
+          .trim()
+          .max(2_000)
+          .nullable()
+          .default(null)
+          .transform((value) => value || null),
+        answer: z.string().trim().max(4_000),
+        comment: z
+          .string()
+          .trim()
+          .max(2_000)
+          .nullable()
+          .default(null)
+          .transform((value) => value || null),
+      }),
+    )
+    .max(20)
+    .default([]),
+  note: z
+    .string()
+    .trim()
+    .max(4_000)
+    .nullable()
+    .default(null)
+    .transform((value) => value || null),
+});
+
 /** A session through a "full" share link: everything but its costs, its cost cap and its attached documents. */
 function publicView(session: Session): Session {
   return {
@@ -302,8 +380,8 @@ export function createApp(deps: AppDeps) {
   };
   const envFor = (user: User | null): Env => (user && hooks.providerEnv ? hooks.providerEnv(user) : env);
   const view = (session: Session) => (hooks.hideProviderCosts ? withoutProviderCosts(session) : session);
-  const priceOf = (user: User | null, priced: PricedSettings, sessionId: string | null) =>
-    user && hooks.quote ? hooks.quote(user, priced, sessionId) : Promise.resolve(null);
+  const priceOf = (user: User | null, priced: PricedSettings, sessionId: string | null, item: PricedItem = "debate") =>
+    user && hooks.quote ? hooks.quote(user, priced, sessionId, item) : Promise.resolve(null);
 
   /** The profile a new session follows: the host's, else the one saved in the settings. The recorded demo follows none. */
   const profileFor = async (user: User | null, session: Session): Promise<OrgProfile | null> => {
@@ -348,11 +426,17 @@ export function createApp(deps: AppDeps) {
     });
   };
 
-  const authorize = async (session: Session) => {
+  const authorize = async (session: Session, purchase: Purchase = { kind: "debate" }) => {
     const user = users.get(session.id) ?? null;
     if (!user || !hooks.authorizeSpend || session.demo) return;
-    const estimate = session.verdict ? 0.05 : (estimateFor(session)?.high ?? 1);
-    const answer = await hooks.authorizeSpend(user, session, estimate);
+    const critic = session.devil?.model ?? Object.values(session.seats)[0]?.model ?? null;
+    const estimate =
+      purchase.kind === "revision"
+        ? (estimateRevisionCost({ arbiterModel: session.arbiter.model, criticModel: critic })?.high ?? 0.5)
+        : session.verdict
+          ? 0.05
+          : (estimateFor(session)?.high ?? 1);
+    const answer = await hooks.authorizeSpend(user, session, estimate, purchase);
     if (!answer.ok) throw new PaymentRequired(answer.code, answer.reason);
   };
 
@@ -424,7 +508,9 @@ export function createApp(deps: AppDeps) {
       return next();
     }
     const user = await hooks.identify(c.req.raw);
-    if (!user && !open.includes(c.req.path) && !c.req.path.startsWith("/api/shared/")) {
+    // Share links and questionnaire links need no account.
+    const link = c.req.path.startsWith("/api/shared/") || c.req.path.startsWith("/api/questionnaire/");
+    if (!user && !open.includes(c.req.path) && !link) {
       return c.json({ error: "unauthorized", message: "Sign in to continue." }, 401);
     }
     c.set("user", user);
@@ -579,6 +665,42 @@ export function createApp(deps: AppDeps) {
     if (busy.has(session.id)) throw new InvalidStateError("This session is already working. Wait for it to finish.", "session_busy");
   };
 
+  /**
+   * Starts a revision of a session's verdict for the caller who may change it: recorded at once, then made in the
+   * background (the arbiter only, and a short critique when needed). The host hears when it starts and how it ends;
+   * `onMade` runs once the new verdict exists.
+   */
+  const startRevision = async (
+    session: Session,
+    request: Omit<RevisionRequest, "by">,
+    onMade: (number: number) => Promise<void> = async () => {},
+  ): Promise<PendingRevision> => {
+    startAction(session);
+    if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
+    const user = users.get(session.id) ?? null;
+    const number = (session.revisions.at(-1)?.number ?? 1) + 1;
+    await authorize(session, { kind: "revision", number });
+    const pending = await engineFor(session).beginRevision(session, { ...request, by: ownerOf(user) });
+    const tell = async (status: RevisionEvent["status"]) => {
+      if (!user || !hooks.onRevision || session.demo) return;
+      await hooks.onRevision(user, session, { id: pending.id, number: pending.number, reason: pending.reason, status });
+    };
+    try {
+      await tell("started");
+    } catch (error) {
+      pending.error = { code: "internal_error", message: "The revision could not start." };
+      await store.save(session);
+      throw error;
+    }
+    const cap = lowestCap(hooks.revisionBudgetUsd?.(session), hooks.maxBudgetUsd);
+    runInBackground(session, async (engine) => {
+      const made = await engine.runRevision(session, { budgetUsd: cap });
+      if (made) await onMade(pending.number).catch((error: unknown) => console.error(`After revision ${pending.number}:`, error));
+      await tell(made ? "completed" : "failed");
+    });
+    return pending;
+  };
+
   app.get("/api/sessions/:id", async (c) => {
     const id = c.req.param("id");
     const user = c.get("user");
@@ -594,9 +716,23 @@ export function createApp(deps: AppDeps) {
       share: await store.shareOf(id),
       feedback: await store.feedbackOf(id),
       price: session.demo ? null : await priceOf(user, session, session.id),
+      // What the next revision of the verdict costs, shown on the button that makes it.
+      revisionPrice: session.demo || !session.verdict || !access.canEdit ? null : await priceOf(user, session, session.id, "revision"),
       providerCosts: !hooks.hideProviderCosts,
       access,
     });
+  });
+
+  // A revision of the verdict from facts the person states: corrections, answers received another way.
+  app.post("/api/sessions/:id/revisions", async (c) => {
+    const session = await loadForEdit(c.req.param("id"), c.get("user"));
+    const input = RevisionInput.parse(await c.req.json());
+    if (input.facts.length === 0 && !input.note) throw new InvalidStateError("State at least one new fact.", "no_answers");
+    const pending = await startRevision(session, {
+      reason: "edit",
+      inputs: { facts: input.facts, note: input.note, questionnaireId: null },
+    });
+    return c.json({ accepted: true, revision: pending.number }, 202);
   });
 
   app.delete("/api/sessions/:id", async (c) => {
@@ -834,13 +970,25 @@ export function createApp(deps: AppDeps) {
     const sessions = await store.all(ownerOf(c.get("user")));
     const exported = [];
     for (const session of sessions) {
-      exported.push({ ...view(session), share: await store.shareOf(session.id), feedback: await store.feedbackOf(session.id) });
+      exported.push({
+        ...view(session),
+        share: await store.shareOf(session.id),
+        feedback: await store.feedbackOf(session.id),
+        questionnaires: (await store.questionnairesOf(session.id)).map(publicQuestionnaire),
+      });
     }
     c.header("Content-Disposition", `attachment; filename="quorumind-export-${new Date().toISOString().slice(0, 10)}.json"`);
     return c.json({ exportedAt: new Date().toISOString(), sessions: exported });
   });
 
-  app.get("/api/sessions/:id/report.md", async (c) => markdown(c, await load(c.req.param("id"), c.get("user"))));
+  // ?revision=N: the report of an earlier revision of the verdict.
+  app.get("/api/sessions/:id/report.md", async (c) => {
+    const session = await load(c.req.param("id"), c.get("user"));
+    const revision = c.req.query("revision");
+    const shown = revision ? sessionAtRevision(session, Number(revision)) : session;
+    if (!shown) throw new NotFound();
+    return markdown(c, shown);
+  });
 
   app.get("/api/sessions/:id/events", async (c) => {
     const session = await load(c.req.param("id"), c.get("user"));
@@ -874,8 +1022,31 @@ export function createApp(deps: AppDeps) {
     });
   });
 
+  // The client answered a questionnaire: the agency hears it by e-mail when the server sends mail, in its chat channel
+  // when it has one, and through the host's hook.
+  const answered = async (found: StoredSession, questionnaire: StoredQuestionnaire) => {
+    const owner = found.owner ? { userId: found.owner } : null;
+    if (deps.chat) await deps.chat.notify(found.session, "answers_received", found);
+    if (deps.notifier) {
+      const recipient = owner && hooks.notifyRecipient ? await hooks.notifyRecipient(owner) : null;
+      await deps.notifier.notify(found.session, "answers_received", recipient);
+    }
+    await hooks.onQuestionnaireSubmitted?.(owner, found.session, publicQuestionnaire(questionnaire));
+  };
+
   app.route("/", contextRoutes({ env }));
   app.route("/", profileRoutes({ branding: settings, ownerOf, hosted: Boolean(hooks.profile) }));
+  app.route(
+    "/",
+    questionnaireRoutes({
+      store,
+      branding: settings,
+      readable: load,
+      editable,
+      revise: async (session, { inputs }, onMade) => startRevision(session, { reason: "client_answers", inputs }, onMade),
+      answered,
+    }),
+  );
   app.route(
     "/",
     exportRoutes({

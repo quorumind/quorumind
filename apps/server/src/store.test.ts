@@ -318,7 +318,7 @@ describe("the PostgreSQL schema", () => {
     const db = await pgliteDatabase();
     try {
       const runs = await Promise.all([migrateSessions(db), migrateSessions(db)]);
-      expect(runs.flat()).toEqual([1, 2, 3, 4]);
+      expect(runs.flat()).toEqual([1, 2, 3, 4, 5, 6]);
       expect(await migrateSessions(db)).toEqual([]);
       const { rows } = await db.query("SELECT component, version, name FROM schema_migrations ORDER BY version");
       expect(rows).toEqual([
@@ -326,6 +326,8 @@ describe("the PostgreSQL schema", () => {
         { component: "quorumind", version: 2, name: "workspaces" },
         { component: "quorumind", version: 3, name: "share_options" },
         { component: "quorumind", version: 4, name: "settings_updated_at" },
+        { component: "quorumind", version: 5, name: "verdict_revisions" },
+        { component: "quorumind", version: 6, name: "questionnaires" },
       ]);
     } finally {
       await db.close();
@@ -344,7 +346,7 @@ describe("the PostgreSQL schema", () => {
         JSON.stringify(session),
         day(1),
       ]);
-      expect(await migrateSessions(db)).toEqual([2, 3, 4]);
+      expect(await migrateSessions(db)).toEqual([2, 3, 4, 5, 6]);
       const store = new PostgresSessionStore(db);
       expect(await store.find(session.id)).toMatchObject({ owner: "ada", workspace: null, private: false });
       expect((await store.history(50, { owner: "ada", workspace: "team" })).map((entry) => entry.id)).toEqual([session.id]);
@@ -438,7 +440,7 @@ describe("share links made before their options", () => {
       const session = completed("Old link", day(1));
       await new PostgresSessionStore(db).save(session);
       await db.query("INSERT INTO shares (token, session_id, public, created_at) VALUES ('old-token', $1, true, $2)", [session.id, day(1)]);
-      expect(await migrateSessions(db)).toEqual([3, 4]);
+      expect(await migrateSessions(db)).toEqual([3, 4, 5, 6]);
       expect(await new PostgresSessionStore(db).shareOf(session.id)).toEqual({
         token: "old-token",
         public: true,

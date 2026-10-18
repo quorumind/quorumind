@@ -298,6 +298,7 @@ export class DebateEngine {
     if (session.revisions.length === 0) session.revisions.push(firstRevision(session.verdict, session.updatedAt));
     const latest = session.revisions.at(-1) as VerdictRevision;
     session.revising = {
+      id: globalThis.crypto.randomUUID(),
       number: latest.number + 1,
       reason: request.reason,
       inputs: structuredClone(request.inputs),

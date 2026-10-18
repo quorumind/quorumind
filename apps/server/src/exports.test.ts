@@ -54,6 +54,32 @@ describe.each(BACKENDS)("on $name", (each) => {
   });
 
   describe("exports", () => {
+    it("serves the client proposal in Word and as a printable page, for the client the agency names", async () => {
+      const app = await makeApp();
+      await app.request("/api/branding", send("PUT", { name: "Atelier Nord", logoDataUrl: null, accent: "#aa3366" }));
+      const review = await demoSession(app, "en", false);
+      expect((await app.request(`/api/sessions/${review.id}/proposal.docx`)).status).toBe(409);
+      const session = await demoSession(app);
+      const word = await app.request(`/api/sessions/${session.id}/proposal.docx?client=Studio%20Collective`);
+      expect(word.status).toBe(200);
+      expect(word.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-proposal.docx"');
+      expect(
+        Buffer.from(await word.arrayBuffer())
+          .subarray(0, 2)
+          .toString(),
+      ).toBe("PK");
+
+      const page = await app.request(`/api/sessions/${session.id}/proposal.html?print=1&client=Studio%20Collective`);
+      expect(page.headers.get("content-security-policy")).toContain("script-src 'sha256-");
+      const html = await page.text();
+      expect(html).toContain("<dd>Studio Collective</dd>");
+      expect(html).toContain("<dd>Atelier Nord</dd>");
+      expect(html).toContain("Revision 1 · ");
+      expect(html).toContain(PRINT_SCRIPT);
+      for (const internal of ["Debate map", "Devil", "mock", "How this report was produced"]) expect(html).not.toContain(internal);
+      expect((await app.request(`/api/sessions/${session.id}/proposal.html?revision=7`)).status).toBe(404);
+    });
+
     it("serves a self-contained report page, with the print call only when asked", async () => {
       const app = await makeApp();
       const session = await demoSession(app);

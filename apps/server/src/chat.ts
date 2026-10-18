@@ -72,6 +72,7 @@ const STATUS: Record<NotifyReason, string> = {
   complete: "Verdict ready",
   awaiting_answers: "Waiting for answers",
   failed: "Stopped on an error",
+  answers_received: "Client answered",
 };
 
 export interface ChatMessage {

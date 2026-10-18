@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { isWorking, markInterrupted, normalizeSession, type Session } from "@quorumind/core";
+import { isWorking, markInterrupted, normalizeSession, type Questionnaire, type Session } from "@quorumind/core";
 import type { ShareMode } from "./share.ts";
 
 export interface InterruptOptions {
@@ -52,6 +52,21 @@ export interface Feedback {
 }
 
 export type GalleryEntry = SessionSummary & { token: string; summary: string | null };
+
+/** A questionnaire as the server keeps it: with the hash of its password instead of whether it has one. */
+export type StoredQuestionnaire = Omit<Questionnaire, "hasPassword"> & { passwordHash: string | null };
+
+/** What submitting a questionnaire records. */
+export interface Submission {
+  answers: Questionnaire["answers"];
+  submittedAt: string;
+  submittedBy: NonNullable<Questionnaire["submittedBy"]>;
+}
+
+/** A questionnaire as the agency sees it: never with its password hash. */
+export function publicQuestionnaire({ passwordHash, ...questionnaire }: StoredQuestionnaire): Questionnaire {
+  return { ...questionnaire, hasPassword: passwordHash !== null };
+}
 
 /** Who a session belongs to, and who else may read it. */
 export interface Placement {
@@ -118,6 +133,15 @@ export interface SessionStore {
   gallery(limit?: number): Promise<GalleryEntry[]>;
   addFeedback(feedback: Feedback): Promise<void>;
   feedbackOf(sessionId: string): Promise<Feedback[]>;
+  /** The questionnaires sent about a session, oldest first. */
+  questionnairesOf(sessionId: string): Promise<StoredQuestionnaire[]>;
+  /** A questionnaire by its id, or by the token of its link: the token is the permission, the caller checks the rest. */
+  questionnaire(key: { id: string } | { token: string }): Promise<StoredQuestionnaire | null>;
+  /** Creates a questionnaire, or stores its new values. */
+  saveQuestionnaire(questionnaire: StoredQuestionnaire): Promise<void>;
+  /** Records the answers of an open questionnaire, once: false when it was submitted meanwhile, or is gone. */
+  submitQuestionnaire(id: string, submission: Submission): Promise<boolean>;
+  deleteQuestionnaire(id: string): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -201,6 +225,25 @@ export class SqliteSessionStore implements SessionStore {
         comment TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS questionnaires (
+        id TEXT PRIMARY KEY,
+        token TEXT NOT NULL UNIQUE,
+        session_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        password_hash TEXT,
+        client TEXT,
+        message TEXT,
+        questions TEXT NOT NULL,
+        answers TEXT NOT NULL,
+        status TEXT NOT NULL,
+        submitted_at TEXT,
+        submitted_by TEXT,
+        revision INTEGER NOT NULL,
+        applied_revision INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS questionnaires_session ON questionnaires (session_id, created_at);
     `);
     const columns = this.db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
     if (!columns.some((column) => column.name === "owner_id")) this.db.exec("ALTER TABLE sessions ADD COLUMN owner_id TEXT");
@@ -214,6 +257,17 @@ export class SqliteSessionStore implements SessionStore {
     if (!shareColumns.includes("mode")) this.db.exec("ALTER TABLE shares ADD COLUMN mode TEXT NOT NULL DEFAULT 'full'");
     if (!shareColumns.includes("expires_at")) this.db.exec("ALTER TABLE shares ADD COLUMN expires_at TEXT");
     if (!shareColumns.includes("password_hash")) this.db.exec("ALTER TABLE shares ADD COLUMN password_hash TEXT");
+    // Verdict revisions (version 1 of this file): a session ruled on before them keeps its verdict as revision 1.
+    if ((this.db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version < 1) {
+      this.db.exec(`
+        UPDATE sessions SET data = json_set(data, '$.revisions', json_array(json_object(
+          'number', 1, 'createdAt', json_extract(data, '$.updatedAt'), 'reason', 'debate',
+          'inputs', json_object('facts', json_array(), 'note', NULL, 'questionnaireId', NULL), 'basedOn', NULL,
+          'verdict', json(json_extract(data, '$.verdict')), 'costs', json_array(), 'critiques', json_array(), 'by', NULL)))
+        WHERE json_type(data, '$.revisions') IS NULL AND json_type(data, '$.verdict') = 'object';
+        PRAGMA user_version = 1;
+      `);
+    }
   }
 
   async get(id: string, owner: string | null = null): Promise<Session | null> {
@@ -275,6 +329,7 @@ export class SqliteSessionStore implements SessionStore {
   private remove(id: string) {
     this.live.forget(id);
     this.db.prepare("DELETE FROM shares WHERE session_id = ?").run(id);
+    this.db.prepare("DELETE FROM questionnaires WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM feedback WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
   }
@@ -282,7 +337,9 @@ export class SqliteSessionStore implements SessionStore {
   async markInterrupted(now = new Date(), options: InterruptOptions = {}): Promise<number> {
     const stale = options.staleBefore?.toISOString() ?? "9999";
     const rows = this.db
-      .prepare("SELECT data FROM sessions WHERE json_extract(data, '$.phase') IN ('interview', 'debating') AND updated_at < ?")
+      .prepare(
+        "SELECT data FROM sessions WHERE (json_extract(data, '$.phase') IN ('interview', 'debating') OR json_type(data, '$.revising') = 'object') AND updated_at < ?",
+      )
       .all(stale) as { data: string }[];
     const update = this.db.prepare("UPDATE sessions SET data = ?, updated_at = ? WHERE id = ?");
     let count = 0;
@@ -380,9 +437,99 @@ export class SqliteSessionStore implements SessionStore {
     }));
   }
 
+  async questionnairesOf(sessionId: string): Promise<StoredQuestionnaire[]> {
+    const rows = this.db
+      .prepare("SELECT * FROM questionnaires WHERE session_id = ? ORDER BY created_at, id")
+      .all(sessionId) as unknown as QuestionnaireRow[];
+    return rows.map(sqliteQuestionnaire);
+  }
+
+  async questionnaire(key: { id: string } | { token: string }): Promise<StoredQuestionnaire | null> {
+    const row = (
+      "id" in key
+        ? this.db.prepare("SELECT * FROM questionnaires WHERE id = ?").get(key.id)
+        : this.db.prepare("SELECT * FROM questionnaires WHERE token = ?").get(key.token)
+    ) as QuestionnaireRow | undefined;
+    return row ? sqliteQuestionnaire(row) : null;
+  }
+
+  async saveQuestionnaire(q: StoredQuestionnaire): Promise<void> {
+    this.db
+      .prepare(
+        `INSERT INTO questionnaires (id, token, session_id, created_at, updated_at, expires_at, password_hash, client, message, questions,
+           answers, status, submitted_at, submitted_by, revision, applied_revision)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, expires_at = excluded.expires_at,
+           password_hash = excluded.password_hash, client = excluded.client, message = excluded.message, questions = excluded.questions,
+           answers = excluded.answers, status = excluded.status, submitted_at = excluded.submitted_at, submitted_by = excluded.submitted_by,
+           revision = excluded.revision, applied_revision = excluded.applied_revision`,
+      )
+      .run(
+        q.id,
+        q.token,
+        q.sessionId,
+        q.createdAt,
+        q.updatedAt,
+        q.expiresAt,
+        q.passwordHash,
+        q.client,
+        q.message,
+        JSON.stringify(q.questions),
+        JSON.stringify(q.answers),
+        q.status,
+        q.submittedAt,
+        q.submittedBy,
+        q.revision,
+        q.appliedRevision,
+      );
+  }
+
+  async submitQuestionnaire(id: string, submission: Submission): Promise<boolean> {
+    const result = this.db
+      .prepare(
+        `UPDATE questionnaires SET status = 'submitted', answers = ?, submitted_at = ?, submitted_by = ?, updated_at = ?, applied_revision = NULL
+         WHERE id = ? AND status = 'open'`,
+      )
+      .run(JSON.stringify(submission.answers), submission.submittedAt, submission.submittedBy, submission.submittedAt, id);
+    return Number(result.changes) === 1;
+  }
+
+  async deleteQuestionnaire(id: string): Promise<void> {
+    this.db.prepare("DELETE FROM questionnaires WHERE id = ?").run(id);
+  }
+
   async close() {
     this.db.close();
   }
+}
+
+type QuestionnaireRow = Record<string, unknown> & { questions: string; answers: string };
+
+const sqliteQuestionnaire = (row: QuestionnaireRow): StoredQuestionnaire =>
+  questionnaireOf({ ...row, questions: JSON.parse(row.questions), answers: JSON.parse(row.answers) });
+
+/** A questionnaire from the columns of either database, its JSON already parsed. */
+export function questionnaireOf(row: Record<string, unknown>): StoredQuestionnaire {
+  const text = (value: unknown) => (value == null ? null : String(value));
+  const time = (value: unknown) => (value instanceof Date ? value.toISOString() : String(value));
+  return {
+    id: String(row.id),
+    sessionId: String(row.session_id),
+    token: String(row.token),
+    createdAt: time(row.created_at),
+    updatedAt: time(row.updated_at),
+    expiresAt: time(row.expires_at),
+    passwordHash: text(row.password_hash),
+    client: text(row.client),
+    message: text(row.message),
+    questions: row.questions as StoredQuestionnaire["questions"],
+    answers: row.answers as StoredQuestionnaire["answers"],
+    status: row.status === "submitted" ? "submitted" : "open",
+    submittedAt: row.submitted_at == null ? null : time(row.submitted_at),
+    submittedBy: row.submitted_by === "client" || row.submitted_by === "agency" ? row.submitted_by : null,
+    revision: Number(row.revision),
+    appliedRevision: row.applied_revision == null ? null : Number(row.applied_revision),
+  };
 }
 
 type SqliteRow = { data: string; owner_id: string | null; workspace_id: string | null; private: number };

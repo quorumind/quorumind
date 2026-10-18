@@ -12,12 +12,15 @@ import {
   type Placement,
   placementOf,
   publicShare,
+  questionnaireOf,
   type SessionStore,
   type SessionSummary,
   type Share,
   type ShareSettings,
+  type StoredQuestionnaire,
   type StoredSession,
   type StoredShare,
+  type Submission,
   summarize,
 } from "../store.ts";
 import type { Database } from "./database.ts";
@@ -155,7 +158,8 @@ export class PostgresSessionStore implements SessionStore {
 
   async markInterrupted(now = new Date(), options: InterruptOptions = {}): Promise<number> {
     const { rows } = await this.db.query<{ data: Session }>(
-      "SELECT data FROM sessions WHERE data->>'phase' IN ('interview', 'debating') AND ($1::timestamptz IS NULL OR updated_at < $1)",
+      `SELECT data FROM sessions WHERE (data->>'phase' IN ('interview', 'debating') OR jsonb_typeof(data->'revising') = 'object')
+       AND ($1::timestamptz IS NULL OR updated_at < $1)`,
       [options.staleBefore?.toISOString() ?? null],
     );
     let count = 0;
@@ -244,6 +248,62 @@ export class PostgresSessionStore implements SessionStore {
       [sessionId],
     );
     return rows.map((row) => ({ sessionId, helpful: row.helpful, kind: row.kind, comment: row.comment, createdAt: iso(row.created_at) }));
+  }
+
+  async questionnairesOf(sessionId: string): Promise<StoredQuestionnaire[]> {
+    const { rows } = await this.db.query("SELECT * FROM questionnaires WHERE session_id = $1 ORDER BY created_at, id", [sessionId]);
+    return rows.map(questionnaireOf);
+  }
+
+  async questionnaire(key: { id: string } | { token: string }): Promise<StoredQuestionnaire | null> {
+    const { rows } =
+      "id" in key
+        ? await this.db.query("SELECT * FROM questionnaires WHERE id = $1", [key.id])
+        : await this.db.query("SELECT * FROM questionnaires WHERE token = $1", [key.token]);
+    return rows[0] ? questionnaireOf(rows[0]) : null;
+  }
+
+  async saveQuestionnaire(q: StoredQuestionnaire): Promise<void> {
+    await this.db.query(
+      `INSERT INTO questionnaires (id, token, session_id, created_at, updated_at, expires_at, password_hash, client, message, questions,
+         answers, status, submitted_at, submitted_by, revision, applied_revision)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       ON CONFLICT (id) DO UPDATE SET updated_at = excluded.updated_at, expires_at = excluded.expires_at,
+         password_hash = excluded.password_hash, client = excluded.client, message = excluded.message, questions = excluded.questions,
+         answers = excluded.answers, status = excluded.status, submitted_at = excluded.submitted_at, submitted_by = excluded.submitted_by,
+         revision = excluded.revision, applied_revision = excluded.applied_revision`,
+      [
+        q.id,
+        q.token,
+        q.sessionId,
+        q.createdAt,
+        q.updatedAt,
+        q.expiresAt,
+        q.passwordHash,
+        q.client,
+        q.message,
+        JSON.stringify(q.questions, withoutNul),
+        JSON.stringify(q.answers, withoutNul),
+        q.status,
+        q.submittedAt,
+        q.submittedBy,
+        q.revision,
+        q.appliedRevision,
+      ].map((value) => (typeof value === "string" ? value.replaceAll("\0", "") : value)),
+    );
+  }
+
+  async submitQuestionnaire(id: string, submission: Submission): Promise<boolean> {
+    const { rowCount } = await this.db.query(
+      `UPDATE questionnaires SET status = 'submitted', answers = $2, submitted_at = $3, submitted_by = $4, updated_at = $3, applied_revision = NULL
+       WHERE id = $1 AND status = 'open'`,
+      [id, JSON.stringify(submission.answers, withoutNul), submission.submittedAt, submission.submittedBy],
+    );
+    return rowCount === 1;
+  }
+
+  async deleteQuestionnaire(id: string): Promise<void> {
+    await this.db.query("DELETE FROM questionnaires WHERE id = $1", [id]);
   }
 
   /** The database belongs to whoever opened it: closing the store waits for its pending writes only. */
