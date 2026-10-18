@@ -15,7 +15,10 @@
     "noSessions": "Noch keine Sitzung. Starten Sie eine, um sie hier zu sehen.",
     "menu": "Menü öffnen",
     "closeMenu": "Menü schließen",
-    "site": "Über Quorumind"
+    "site": "Über Quorumind",
+    "gallery": "Galerie",
+    "settings": "Einstellungen",
+    "more": "Mehr"
   },
   "home": {
     "ideaLabel": "Ihre Projektidee",
@@ -44,7 +47,9 @@
     "interviewer": "Interviewer",
     "proposer": "Vorschlag {{seat}}",
     "arbiter": "Schiedsrichter",
-    "you": "Sie"
+    "you": "Sie",
+    "devil": "Advocatus Diaboli",
+    "yourSolution": "Ihre Lösung"
   },
   "interview": {
     "thinking": "Der Interviewer bereitet die Fragen vor…",
@@ -103,7 +108,12 @@
     "questionsTitle": "Die Debatte braucht Ihre Antwort",
     "questionsLead": "Ihre Antworten entscheiden zwischen den Optionen. Die Debatte geht weiter, sobald Sie antworten.",
     "questionsSend": "Senden und fortfahren",
-    "yourAnswers": "Ihre Antworten"
+    "yourAnswers": "Ihre Antworten",
+    "buildCost": "Entwicklungskosten",
+    "estimates": "Kosten und Zeitangaben sind Schätzungen.",
+    "probe": "Der Schiedsrichter greift ein",
+    "probeTag": "Von niemandem geprüfter Aspekt",
+    "yourSolution": "Ihre Lösung"
   },
   "severity": {
     "blocking": "Blockierend",
@@ -134,6 +144,7 @@
     "openQuestions": "Offene Fragen",
     "download": "Bericht herunterladen (Markdown)",
     "scoreOutOf": "{{score}} von 5",
+    "yourSolution": "Ihre Lösung hält stand",
     "architecture": "Empfohlene Architektur"
   },
   "feasibility": {
@@ -171,7 +182,9 @@
   "common": {
     "loading": "Wird geladen…",
     "notFound": "Diese Sitzung existiert nicht.",
-    "back": "Zurück zum Start"
+    "back": "Zurück zum Start",
+    "cancel": "Abbrechen",
+    "close": "Schließen"
   },
   "tabs": {
     "verdict": "Urteil",
@@ -196,6 +209,146 @@
     "critique": "Kritik",
     "revision": "Überarbeitung",
     "verdict": "Urteil"
+  },
+  "setup": {
+    "modeLabel": "Was brauchen Sie?",
+    "mode": {
+      "standard": "Lösungen vergleichen",
+      "express": "Schnelle Einschätzung",
+      "challenge": "Meine Idee prüfen"
+    },
+    "modeHint": {
+      "standard": "Die Modelle entwerfen konkurrierende Optionen, kritisieren sich gegenseitig, und der Schiedsrichter entscheidet.",
+      "express": "Fünf Fragen, eine kurze Runde: eine schnelle erste Einschätzung zu einer Idee.",
+      "challenge": "Bringen Sie Ihre eigene Lösung mit: Die Modelle suchen nur nach ihren Schwächen, bevor Sie sich festlegen."
+    },
+    "solutionLabel": "Ihre Lösung",
+    "solutionPlaceholder": "Beschreiben Sie, was Sie bauen möchten und wie: Technologien, Hosting, Team, Zeitplan…",
+    "templateLabel": "Projektart",
+    "templateNone": "Sonstiges",
+    "contextLabel": "Dokumente (optional)",
+    "settings": "Debatteneinstellungen",
+    "depth": "Tiefe",
+    "depthOption": {
+      "quick": "Schnell",
+      "standard": "Standard",
+      "deep": "Gründlich (langsamer, teurer)"
+    },
+    "role": "Rolle",
+    "model": "Modell",
+    "persona": "Expertenrolle",
+    "personaNone": "Keine bestimmte Rolle",
+    "personaCustom": "Andere Rolle…",
+    "personaCustomLabel": "Expertenrolle beschreiben",
+    "personaCustomPlaceholder": "z. B. Spezialist für Zahlungsverkehr",
+    "addSeat": "Debattierenden hinzufügen",
+    "removeSeat": "Vorschlag {{seat}} entfernen",
+    "addDevil": "Advocatus Diaboli hinzufügen",
+    "removeDevil": "Advocatus Diaboli entfernen",
+    "devilHint": "Der Advocatus Diaboli schlägt nichts vor: Er greift jede Option an, um versteckte Kosten und Risiken aufzudecken.",
+    "redact": "Personenbezogene Daten maskieren",
+    "redactHint": "E-Mail-Adressen, Telefonnummern, Kartennummern, IBANs und Schlüssel werden ersetzt, bevor etwas an die Modelle gesendet wird.",
+    "notify": "Mich per E-Mail benachrichtigen, wenn die Debatte endet oder meine Antwort braucht",
+    "estimateUnknown": "Für einige dieser Modelle ist keine Kostenschätzung verfügbar; die tatsächlichen Kosten werden während der Debatte angezeigt.",
+    "local": "Nichts verlässt dieses Gerät",
+    "startChallenge": "Meine Lösung prüfen"
+  },
+  "persona": {
+    "cloud_architect": "Cloud-Architekt",
+    "security": "Sicherheitsingenieur",
+    "finops": "FinOps-Spezialist",
+    "ux": "UX-Leitung",
+    "privacy": "Datenschutzjurist"
+  },
+  "template": {
+    "saas": "SaaS-Web-App",
+    "mobile": "Mobile App",
+    "data_ai": "Daten und KI",
+    "migration": "Infrastrukturmigration",
+    "ecommerce": "E-Commerce"
+  },
+  "brief": {
+    "title": "Lesefassung",
+    "full": "Vollständiges Urteil",
+    "hint": "Dasselbe Urteil, umgeschrieben für andere Leser: Wortwahl und Detailtiefe ändern sich, der Inhalt nie.",
+    "audience": {
+      "cto": "CTO",
+      "executive": "Geschäftsführung",
+      "client": "Kunde"
+    },
+    "describe": {
+      "cto": "Eine Fassung für CTO oder Lead Developer: Architektur, Abwägungen und technische Risiken.",
+      "executive": "Eine Fassung für alle, die entscheiden und zahlen: Ergebnis, Kosten, Zeitrahmen, Risiken und was von ihnen erwartet wird.",
+      "client": "Eine Fassung für Kunden ohne Technikwissen: was sie bekommen, wann und zu welchem Preis, in einfachen Worten."
+    },
+    "write": "Diese Fassung schreiben",
+    "writing": "Wird geschrieben…",
+    "nextSteps": "Nächste Schritte"
+  },
+  "matrix": {
+    "hint": "Verschieben Sie ein Gewicht, und die Rangfolge passt sich an. Eine nicht umsetzbare Option bleibt unabhängig von ihren Punkten auf dem letzten Platz.",
+    "reset": "Gewichte zurücksetzen",
+    "score": "Gewichtete Punktzahl",
+    "estimates": "Die Kosten sind Schätzungen aus den Vorschlägen."
+  },
+  "map": {
+    "title": "Debattenkarte",
+    "agreement": "Einigkeit",
+    "divided": "Geteilt",
+    "opposed": "Gegensätzlich"
+  },
+  "feedback": {
+    "question": "War dieses Urteil hilfreich für Sie?",
+    "yes": "Ja",
+    "no": "Nicht wirklich",
+    "commentLabel": "Was hätte es nützlicher gemacht? (optional)",
+    "send": "Senden",
+    "thanks": "Danke. Ihre Antwort hilft uns, die Debatten zu verbessern.",
+    "reportError": "Fehler in diesem Bericht melden",
+    "errorTitle": "Fehler melden",
+    "errorLabel": "Was ist falsch?",
+    "errorThanks": "Danke. Wir sehen uns das an."
+  },
+  "share": {
+    "button": "Teilen",
+    "shared": "Geteilt",
+    "title": "Diese Sitzung teilen",
+    "lead": "Alle mit dem Link können das Urteil, die Debatte und die Anforderungen lesen. Kosten und angehängte Dokumente bleiben privat.",
+    "create": "Schreibgeschützten Link erstellen",
+    "link": "Link",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "public": "In der öffentlichen Galerie zeigen",
+    "publicHint": "Andere können sie als Beispiel finden. Nur abgeschlossene Sitzungen können dort erscheinen.",
+    "stop": "Teilen beenden",
+    "privacy": "Sie können das Teilen jederzeit beenden: Der Link funktioniert dann sofort nicht mehr.",
+    "readOnly": "Sie lesen eine geteilte Sitzung. Sie kann nicht geändert werden."
+  },
+  "session": {
+    "fork": "Von hier neu starten",
+    "forkHint": "Eine neue Sitzung mit denselben Anforderungen, um Geändertes anzupassen und die Debatte erneut zu führen",
+    "fromEarlier": "Aus einer früheren Sitzung gestartet",
+    "delete": "Löschen",
+    "deleteTitle": "Diese Sitzung löschen?",
+    "deleteLead": "Befragung, Debatte und Bericht werden endgültig gelöscht, und geteilte Links funktionieren nicht mehr.",
+    "deleteConfirm": "Endgültig löschen"
+  },
+  "gallery": {
+    "title": "Galerie",
+    "lead": "Echte Debatten, die ihre Urheber veröffentlicht haben. Lesen Sie, wie die Modelle argumentiert und was der Schiedsrichter entschieden hat.",
+    "empty": "Noch keine öffentliche Sitzung. Teilen Sie eine abgeschlossene Sitzung und lassen Sie sie in der Galerie zeigen."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "models": "Modelle",
+    "modelsLead": "Die Modelle, die dieser Server nutzen kann. Sie wählen sie beim Start einer Sitzung für jede Rolle.",
+    "localOnly": "Nur-lokal-Modus: Es sind nur Modelle verfügbar, die auf diesem Gerät laufen.",
+    "local": "Lokal",
+    "data": "Ihre Daten",
+    "retention": "Sitzungen, die {{days}} Tage lang unverändert bleiben, werden automatisch gelöscht.",
+    "retentionNone": "Sitzungen bleiben gespeichert, bis Sie sie löschen.",
+    "export": "Alle meine Daten exportieren (JSON)",
+    "deleteHint": "Um eine Sitzung zu löschen, öffnen Sie sie und wählen Sie „Löschen“."
   },
   "export": {
     "button": "Exportieren",

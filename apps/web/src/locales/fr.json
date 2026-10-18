@@ -15,7 +15,10 @@
     "noSessions": "Aucune session pour l'instant. Lancez-en une pour la retrouver ici.",
     "menu": "Ouvrir le menu",
     "closeMenu": "Fermer le menu",
-    "site": "À propos de Quorumind"
+    "site": "À propos de Quorumind",
+    "gallery": "Galerie",
+    "settings": "Paramètres",
+    "more": "Plus"
   },
   "home": {
     "ideaLabel": "Votre idée de projet",
@@ -44,7 +47,9 @@
     "interviewer": "Intervieweur",
     "proposer": "Proposant {{seat}}",
     "arbiter": "Arbitre",
-    "you": "Vous"
+    "you": "Vous",
+    "devil": "Avocat du diable",
+    "yourSolution": "Votre solution"
   },
   "interview": {
     "thinking": "L'intervieweur prépare ses questions…",
@@ -103,7 +108,12 @@
     "questionsTitle": "Le débat a besoin de vous",
     "questionsLead": "Vos réponses départagent les options. Le débat reprend dès que vous répondez.",
     "questionsSend": "Envoyer et reprendre",
-    "yourAnswers": "Vos réponses"
+    "yourAnswers": "Vos réponses",
+    "buildCost": "Coût de réalisation",
+    "estimates": "Les coûts et les délais sont des estimations.",
+    "probe": "L'arbitre intervient",
+    "probeTag": "Angle que personne n'a examiné",
+    "yourSolution": "Votre solution"
   },
   "severity": {
     "blocking": "Bloquante",
@@ -134,6 +144,7 @@
     "openQuestions": "Questions ouvertes",
     "download": "Télécharger le rapport (Markdown)",
     "scoreOutOf": "{{score}} sur 5",
+    "yourSolution": "Votre solution tient la route",
     "architecture": "Architecture recommandée"
   },
   "feasibility": {
@@ -171,7 +182,9 @@
   "common": {
     "loading": "Chargement…",
     "notFound": "Cette session n'existe pas.",
-    "back": "Retour à l'accueil"
+    "back": "Retour à l'accueil",
+    "cancel": "Annuler",
+    "close": "Fermer"
   },
   "tabs": {
     "verdict": "Verdict",
@@ -196,6 +209,146 @@
     "critique": "Critiques",
     "revision": "Révision",
     "verdict": "Verdict"
+  },
+  "setup": {
+    "modeLabel": "De quoi avez-vous besoin ?",
+    "mode": {
+      "standard": "Comparer des solutions",
+      "express": "Avis rapide",
+      "challenge": "Challenger mon idée"
+    },
+    "modeHint": {
+      "standard": "Les modèles conçoivent des options concurrentes, se critiquent mutuellement et l'arbitre tranche.",
+      "express": "Cinq questions, un tour court : un premier avis rapide sur une idée.",
+      "challenge": "Apportez votre propre solution : les modèles ne font qu'en traquer les failles avant que vous vous engagiez."
+    },
+    "solutionLabel": "Votre solution",
+    "solutionPlaceholder": "Décrivez ce que vous prévoyez de construire et comment : technologies, hébergement, équipe, calendrier…",
+    "templateLabel": "Type de projet",
+    "templateNone": "Autre",
+    "contextLabel": "Documents (facultatif)",
+    "settings": "Paramètres du débat",
+    "depth": "Profondeur",
+    "depthOption": {
+      "quick": "Rapide",
+      "standard": "Standard",
+      "deep": "Approfondi (plus lent, plus cher)"
+    },
+    "role": "Rôle",
+    "model": "Modèle",
+    "persona": "Rôle d'expert",
+    "personaNone": "Aucun rôle particulier",
+    "personaCustom": "Autre rôle…",
+    "personaCustomLabel": "Décrivez le rôle d'expert",
+    "personaCustomPlaceholder": "ex. un spécialiste des paiements",
+    "addSeat": "Ajouter un débatteur",
+    "removeSeat": "Retirer le proposant {{seat}}",
+    "addDevil": "Ajouter un avocat du diable",
+    "removeDevil": "Retirer l'avocat du diable",
+    "devilHint": "L'avocat du diable ne propose rien : il attaque chaque option pour révéler les coûts et les risques cachés.",
+    "redact": "Masquer les données personnelles",
+    "redactHint": "Les e-mails, numéros de téléphone, numéros de carte, IBAN et clés sont remplacés avant tout envoi aux modèles.",
+    "notify": "M'avertir par e-mail quand le débat se termine ou attend ma réponse",
+    "estimateUnknown": "L'estimation du coût n'est pas disponible pour certains de ces modèles ; le coût réel s'affiche pendant le débat.",
+    "local": "Rien ne quitte cette machine",
+    "startChallenge": "Challenger ma solution"
+  },
+  "persona": {
+    "cloud_architect": "Architecte cloud",
+    "security": "Ingénieur sécurité",
+    "finops": "Spécialiste FinOps",
+    "ux": "Responsable UX",
+    "privacy": "Juriste RGPD"
+  },
+  "template": {
+    "saas": "Application web SaaS",
+    "mobile": "Application mobile",
+    "data_ai": "Données et IA",
+    "migration": "Migration d'infrastructure",
+    "ecommerce": "E-commerce"
+  },
+  "brief": {
+    "title": "Version pour",
+    "full": "Verdict complet",
+    "hint": "Le même verdict, réécrit pour un autre lecteur : le vocabulaire et le niveau de détail changent, jamais le fond.",
+    "audience": {
+      "cto": "CTO",
+      "executive": "Direction",
+      "client": "Client"
+    },
+    "describe": {
+      "cto": "Une version pour un CTO ou un lead développeur : architecture, compromis et risques techniques.",
+      "executive": "Une version pour qui décide et paie : résultat, coût, délai, risque, et ce qu'on attend de lui.",
+      "client": "Une version pour un client non technique : ce qu'il obtient, quand, pour combien, en termes simples."
+    },
+    "write": "Rédiger cette version",
+    "writing": "Rédaction…",
+    "nextSteps": "Prochaines étapes"
+  },
+  "matrix": {
+    "hint": "Modifiez un poids et le classement se met à jour. Une option infaisable reste dernière, quelles que soient ses notes.",
+    "reset": "Réinitialiser les poids",
+    "score": "Score pondéré",
+    "estimates": "Les coûts sont les estimations des proposants."
+  },
+  "map": {
+    "title": "Carte du débat",
+    "agreement": "Accord",
+    "divided": "Avis partagés",
+    "opposed": "Opposition"
+  },
+  "feedback": {
+    "question": "Ce verdict vous a-t-il aidé ?",
+    "yes": "Oui",
+    "no": "Pas vraiment",
+    "commentLabel": "Qu'est-ce qui l'aurait rendu plus utile ? (facultatif)",
+    "send": "Envoyer",
+    "thanks": "Merci. Votre réponse nous aide à améliorer les débats.",
+    "reportError": "Signaler une erreur dans ce rapport",
+    "errorTitle": "Signaler une erreur",
+    "errorLabel": "Qu'est-ce qui ne va pas ?",
+    "errorThanks": "Merci. Nous allons l'examiner."
+  },
+  "share": {
+    "button": "Partager",
+    "shared": "Partagée",
+    "title": "Partager cette session",
+    "lead": "Toute personne disposant du lien peut lire le verdict, le débat et le besoin. Les coûts et les documents joints restent privés.",
+    "create": "Créer un lien en lecture seule",
+    "link": "Lien",
+    "copy": "Copier",
+    "copied": "Copié",
+    "public": "L'afficher dans la galerie publique",
+    "publicHint": "D'autres personnes pourront la consulter comme exemple. Seules les sessions terminées peuvent y figurer.",
+    "stop": "Arrêter le partage",
+    "privacy": "Vous pouvez arrêter le partage à tout moment : le lien cesse aussitôt de fonctionner.",
+    "readOnly": "Vous consultez une session partagée. Elle ne peut pas être modifiée."
+  },
+  "session": {
+    "fork": "Repartir d'ici",
+    "forkHint": "Une nouvelle session avec le même besoin, pour modifier ce qui a changé et relancer le débat",
+    "fromEarlier": "Issue d'une session précédente",
+    "delete": "Supprimer",
+    "deleteTitle": "Supprimer cette session ?",
+    "deleteLead": "L'entretien, le débat et le rapport sont supprimés définitivement, et tout lien partagé cesse de fonctionner.",
+    "deleteConfirm": "Supprimer définitivement"
+  },
+  "gallery": {
+    "title": "Galerie",
+    "lead": "De vrais débats que leurs auteurs ont choisi de publier. Découvrez comment les modèles ont argumenté et ce que l'arbitre a tranché.",
+    "empty": "Aucune session publique pour l'instant. Partagez une session terminée et choisissez de l'afficher dans la galerie."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "models": "Modèles",
+    "modelsLead": "Les modèles que ce serveur peut utiliser. Choisissez-les pour chaque rôle en lançant une session.",
+    "localOnly": "Mode local uniquement : seuls les modèles qui tournent sur cette machine sont disponibles.",
+    "local": "Local",
+    "data": "Vos données",
+    "retention": "Les sessions inactives depuis {{days}} jours sont supprimées automatiquement.",
+    "retentionNone": "Les sessions sont conservées jusqu'à ce que vous les supprimiez.",
+    "export": "Exporter toutes mes données (JSON)",
+    "deleteHint": "Pour supprimer une session, ouvrez-la et choisissez Supprimer."
   },
   "export": {
     "button": "Exporter",
@@ -241,7 +394,7 @@
     "logoTooLarge": "Ce fichier dépasse {{size}} Ko.",
     "logoType": "Choisissez une image PNG, JPEG ou SVG.",
     "accent": "Couleur d'accent",
-    "accentHint": "Utilisée pour les titres et les éléments mis en avant.",
+    "accentHint": "Utilisée pour les titres et les éléments mis en avant dans les exports.",
     "save": "Enregistrer",
     "saving": "Enregistrement…",
     "reset": "Rétablir l'identité Quorumind",

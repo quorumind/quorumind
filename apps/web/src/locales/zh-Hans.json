@@ -15,7 +15,10 @@
     "noSessions": "还没有会话。开始一个会话后会显示在这里。",
     "menu": "打开菜单",
     "closeMenu": "关闭菜单",
-    "site": "关于 Quorumind"
+    "site": "关于 Quorumind",
+    "gallery": "展示区",
+    "settings": "设置",
+    "more": "更多"
   },
   "home": {
     "ideaLabel": "您的项目想法",
@@ -44,7 +47,9 @@
     "interviewer": "访谈者",
     "proposer": "提案方 {{seat}}",
     "arbiter": "仲裁者",
-    "you": "您"
+    "you": "您",
+    "devil": "魔鬼代言人",
+    "yourSolution": "您的方案"
   },
   "interview": {
     "thinking": "访谈者正在准备问题…",
@@ -103,7 +108,12 @@
     "questionsTitle": "辩论需要您的回答",
     "questionsLead": "您的回答将决定方案之间的取舍。回答后辩论将立即继续。",
     "questionsSend": "提交并继续",
-    "yourAnswers": "您的回答"
+    "yourAnswers": "您的回答",
+    "buildCost": "开发成本",
+    "estimates": "成本和周期均为估算。",
+    "probe": "仲裁者介入",
+    "probeTag": "无人考虑过的角度",
+    "yourSolution": "您的方案"
   },
   "severity": {
     "blocking": "致命",
@@ -134,6 +144,7 @@
     "openQuestions": "待解决问题",
     "download": "下载报告（Markdown）",
     "scoreOutOf": "{{score}} 分（满分 5 分）",
+    "yourSolution": "您的方案站得住",
     "architecture": "推荐的架构"
   },
   "feasibility": {
@@ -171,7 +182,9 @@
   "common": {
     "loading": "加载中…",
     "notFound": "此会话不存在。",
-    "back": "返回首页"
+    "back": "返回首页",
+    "cancel": "取消",
+    "close": "关闭"
   },
   "tabs": {
     "verdict": "结论",
@@ -196,6 +209,146 @@
     "critique": "批评",
     "revision": "修订",
     "verdict": "结论"
+  },
+  "setup": {
+    "modeLabel": "您需要什么？",
+    "mode": {
+      "standard": "对比方案",
+      "express": "快速意见",
+      "challenge": "挑战我的想法"
+    },
+    "modeHint": {
+      "standard": "模型分别设计相互竞争的方案，互相批评，最后由仲裁者裁决。",
+      "express": "五个问题，一轮简短辩论：快速获得对某个想法的初步意见。",
+      "challenge": "带上您自己的方案：在您拍板之前，模型只负责找出其中的漏洞。"
+    },
+    "solutionLabel": "您的方案",
+    "solutionPlaceholder": "描述您打算构建什么、如何构建：技术栈、托管、团队、时间表…",
+    "templateLabel": "项目类型",
+    "templateNone": "其他",
+    "contextLabel": "资料（可选）",
+    "settings": "辩论设置",
+    "depth": "深度",
+    "depthOption": {
+      "quick": "快速",
+      "standard": "标准",
+      "deep": "深入（更慢，费用更高）"
+    },
+    "role": "角色",
+    "model": "模型",
+    "persona": "专家角色",
+    "personaNone": "无特定角色",
+    "personaCustom": "其他角色…",
+    "personaCustomLabel": "描述专家角色",
+    "personaCustomPlaceholder": "例如：支付专家",
+    "addSeat": "添加辩手",
+    "removeSeat": "移除提案方 {{seat}}",
+    "addDevil": "添加魔鬼代言人",
+    "removeDevil": "移除魔鬼代言人",
+    "devilHint": "魔鬼代言人不提出方案：它会攻击每个方案，揭示隐藏的成本和风险。",
+    "redact": "个人数据脱敏",
+    "redactHint": "在发送给模型之前，邮箱、电话号码、卡号、IBAN 和密钥都会被替换。",
+    "notify": "辩论结束或需要我回答时，发邮件通知我",
+    "estimateUnknown": "部分模型无法估算费用；辩论进行时会显示实际费用。",
+    "local": "数据不会离开本机",
+    "startChallenge": "挑战我的方案"
+  },
+  "persona": {
+    "cloud_architect": "云架构师",
+    "security": "安全工程师",
+    "finops": "FinOps 专家",
+    "ux": "UX 负责人",
+    "privacy": "数据保护律师"
+  },
+  "template": {
+    "saas": "SaaS Web 应用",
+    "mobile": "移动应用",
+    "data_ai": "数据与 AI",
+    "migration": "基础设施迁移",
+    "ecommerce": "电子商务"
+  },
+  "brief": {
+    "title": "按读者查看",
+    "full": "完整结论",
+    "hint": "同一份结论，为另一位读者改写：措辞和详略会变，实质内容不变。",
+    "audience": {
+      "cto": "CTO",
+      "executive": "管理层",
+      "client": "客户"
+    },
+    "describe": {
+      "cto": "面向 CTO 或技术负责人的版本：架构、权衡和技术风险。",
+      "executive": "面向决策者和出资方的版本：结果、成本、周期、风险，以及需要他们做什么。",
+      "client": "面向非技术客户的版本：用平实的语言说明他们能得到什么、何时得到、花费多少。"
+    },
+    "write": "生成此版本",
+    "writing": "正在生成…",
+    "nextSteps": "后续步骤"
+  },
+  "matrix": {
+    "hint": "调整权重，排名随之更新。不可行的方案无论得分多少都排在最后。",
+    "reset": "重置权重",
+    "score": "加权得分",
+    "estimates": "费用为提案方的估算。"
+  },
+  "map": {
+    "title": "辩论地图",
+    "agreement": "一致",
+    "divided": "有分歧",
+    "opposed": "对立"
+  },
+  "feedback": {
+    "question": "这份结论对您有帮助吗？",
+    "yes": "有帮助",
+    "no": "不太有",
+    "commentLabel": "怎样才能更有用？（可选）",
+    "send": "发送",
+    "thanks": "谢谢！您的回答能帮助我们改进辩论。",
+    "reportError": "反馈此报告中的错误",
+    "errorTitle": "反馈错误",
+    "errorLabel": "哪里有误？",
+    "errorThanks": "谢谢，我们会进行核查。"
+  },
+  "share": {
+    "button": "分享",
+    "shared": "已分享",
+    "title": "分享此会话",
+    "lead": "任何拥有链接的人都可以查看结论、辩论和需求。费用和附加的文档仍保持私密。",
+    "create": "创建只读链接",
+    "link": "链接",
+    "copy": "复制",
+    "copied": "已复制",
+    "public": "在公开展示区中显示",
+    "publicHint": "其他人可以把它作为示例找到。只有已完成的会话才能公开展示。",
+    "stop": "停止分享",
+    "privacy": "您可以随时停止分享：链接会立即失效。",
+    "readOnly": "您正在查看一个分享的会话，无法修改。"
+  },
+  "session": {
+    "fork": "从这里重新开始",
+    "forkHint": "以相同的需求新建会话，修改有变化的部分后重新辩论",
+    "fromEarlier": "基于之前的会话创建",
+    "delete": "删除",
+    "deleteTitle": "删除此会话？",
+    "deleteLead": "访谈、辩论和报告将被永久删除，所有分享链接也将失效。",
+    "deleteConfirm": "永久删除"
+  },
+  "gallery": {
+    "title": "展示区",
+    "lead": "作者自愿公开的真实辩论。看看模型如何交锋，仲裁者又作出了怎样的裁决。",
+    "empty": "还没有公开的会话。分享一个已完成的会话，并选择在展示区中显示。"
+  },
+  "settings": {
+    "title": "设置",
+    "models": "模型",
+    "modelsLead": "此服务器可用的模型。开始会话时可按角色选择。",
+    "localOnly": "仅本地模式：只能使用在本机运行的模型。",
+    "local": "本地",
+    "data": "您的数据",
+    "retention": "超过 {{days}} 天未操作的会话将被自动删除。",
+    "retentionNone": "会话将一直保留，直到您删除。",
+    "export": "导出我的全部数据（JSON）",
+    "deleteHint": "要删除会话，请打开它并选择“删除”。"
   },
   "export": {
     "button": "导出",

@@ -15,7 +15,10 @@
     "noSessions": "まだセッションはありません。始めるとここに表示されます。",
     "menu": "メニューを開く",
     "closeMenu": "メニューを閉じる",
-    "site": "Quorumind について"
+    "site": "Quorumind について",
+    "gallery": "ギャラリー",
+    "settings": "設定",
+    "more": "その他"
   },
   "home": {
     "ideaLabel": "プロジェクトのアイデア",
@@ -44,7 +47,9 @@
     "interviewer": "インタビュアー",
     "proposer": "提案者 {{seat}}",
     "arbiter": "審判",
-    "you": "あなた"
+    "you": "あなた",
+    "devil": "悪魔の代弁者",
+    "yourSolution": "あなたの案"
   },
   "interview": {
     "thinking": "インタビュアーが質問を準備しています…",
@@ -103,7 +108,12 @@
     "questionsTitle": "議論にあなたの回答が必要です",
     "questionsLead": "あなたの回答が選択肢の決め手になります。回答すると議論が再開します。",
     "questionsSend": "送信して再開",
-    "yourAnswers": "あなたの回答"
+    "yourAnswers": "あなたの回答",
+    "buildCost": "開発費用",
+    "estimates": "費用と期間は推定です。",
+    "probe": "審判が介入します",
+    "probeTag": "誰も検討しなかった観点",
+    "yourSolution": "あなたの案"
   },
   "severity": {
     "blocking": "致命的",
@@ -134,6 +144,7 @@
     "openQuestions": "未解決の質問",
     "download": "レポートをダウンロード（Markdown）",
     "scoreOutOf": "5点中{{score}}点",
+    "yourSolution": "あなたの案は成り立ちます",
     "architecture": "推奨アーキテクチャ"
   },
   "feasibility": {
@@ -171,7 +182,9 @@
   "common": {
     "loading": "読み込み中…",
     "notFound": "このセッションは存在しません。",
-    "back": "ホームに戻る"
+    "back": "ホームに戻る",
+    "cancel": "キャンセル",
+    "close": "閉じる"
   },
   "tabs": {
     "verdict": "判定",
@@ -196,6 +209,146 @@
     "critique": "批判",
     "revision": "修正",
     "verdict": "判定"
+  },
+  "setup": {
+    "modeLabel": "何が必要ですか？",
+    "mode": {
+      "standard": "解決策を比較",
+      "express": "手早く意見を聞く",
+      "challenge": "自分の案を検証"
+    },
+    "modeHint": {
+      "standard": "モデルが競合する選択肢を設計し、互いに批判し合い、審判が判定します。",
+      "express": "質問は5つ、議論は短く1ラウンド。アイデアについての最初の意見をすばやく得られます。",
+      "challenge": "あなた自身の解決策を持ち込みます。決定する前に、モデルがその弱点だけを探します。"
+    },
+    "solutionLabel": "あなたの解決策",
+    "solutionPlaceholder": "何をどのように作る予定かを説明してください：技術スタック、ホスティング、チーム、スケジュール…",
+    "templateLabel": "プロジェクトの種類",
+    "templateNone": "その他",
+    "contextLabel": "資料（任意）",
+    "settings": "議論の設定",
+    "depth": "深さ",
+    "depthOption": {
+      "quick": "クイック",
+      "standard": "標準",
+      "deep": "詳細（時間と費用が増えます）"
+    },
+    "role": "役割",
+    "model": "モデル",
+    "persona": "専門家の役割",
+    "personaNone": "特定の役割なし",
+    "personaCustom": "その他の役割…",
+    "personaCustomLabel": "専門家の役割を説明してください",
+    "personaCustomPlaceholder": "例：決済の専門家",
+    "addSeat": "提案者を追加",
+    "removeSeat": "提案者 {{seat}} を削除",
+    "addDevil": "悪魔の代弁者を追加",
+    "removeDevil": "悪魔の代弁者を削除",
+    "devilHint": "悪魔の代弁者は何も提案しません。すべての選択肢を攻撃し、隠れた費用やリスクを明らかにします。",
+    "redact": "個人データをマスク",
+    "redactHint": "メールアドレス、電話番号、カード番号、IBAN、キーは、モデルに送信される前に置き換えられます。",
+    "notify": "議論が終わったとき、または回答が必要なときにメールで通知する",
+    "estimateUnknown": "一部のモデルは費用を見積もれません。実際の費用は議論の進行に合わせて表示されます。",
+    "local": "このマシンの外には何も送信されません",
+    "startChallenge": "自分の案を検証する"
+  },
+  "persona": {
+    "cloud_architect": "クラウドアーキテクト",
+    "security": "セキュリティエンジニア",
+    "finops": "FinOps スペシャリスト",
+    "ux": "UX リード",
+    "privacy": "データ保護の弁護士"
+  },
+  "template": {
+    "saas": "SaaS Web アプリ",
+    "mobile": "モバイルアプリ",
+    "data_ai": "データと AI",
+    "migration": "インフラ移行",
+    "ecommerce": "EC サイト"
+  },
+  "brief": {
+    "title": "読み手を選ぶ",
+    "full": "完全な判定",
+    "hint": "同じ判定を別の読み手向けに書き直します。変わるのは言葉づかいと詳しさだけで、内容は変わりません。",
+    "audience": {
+      "cto": "CTO",
+      "executive": "経営層",
+      "client": "クライアント"
+    },
+    "describe": {
+      "cto": "CTO やリード開発者向けの版：アーキテクチャ、トレードオフ、技術的リスク。",
+      "executive": "判断し費用を負担する人向けの版：結果、費用、期間、リスク、そして求められること。",
+      "client": "技術に詳しくないクライアント向けの版：何が、いつ、いくらで手に入るかを平易な言葉で。"
+    },
+    "write": "この版を作成",
+    "writing": "作成中…",
+    "nextSteps": "次のステップ"
+  },
+  "matrix": {
+    "hint": "重みを動かすと順位が更新されます。実現不可能な選択肢は、スコアに関係なく最下位のままです。",
+    "reset": "重みをリセット",
+    "score": "加重スコア",
+    "estimates": "費用は提案者による推定です。"
+  },
+  "map": {
+    "title": "議論マップ",
+    "agreement": "合意",
+    "divided": "意見が分かれる",
+    "opposed": "対立"
+  },
+  "feedback": {
+    "question": "この判定は役に立ちましたか？",
+    "yes": "はい",
+    "no": "あまり",
+    "commentLabel": "どうすればもっと役に立ちましたか？（任意）",
+    "send": "送信",
+    "thanks": "ありがとうございます。いただいた回答は議論の改善に役立てます。",
+    "reportError": "このレポートの誤りを報告",
+    "errorTitle": "誤りを報告",
+    "errorLabel": "何が間違っていますか？",
+    "errorThanks": "ありがとうございます。確認します。"
+  },
+  "share": {
+    "button": "共有",
+    "shared": "共有中",
+    "title": "このセッションを共有",
+    "lead": "リンクを知っている人は誰でも、判定、議論、要件を閲覧できます。費用と添付資料は非公開のままです。",
+    "create": "閲覧専用リンクを作成",
+    "link": "リンク",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "public": "公開ギャラリーに掲載",
+    "publicHint": "他の人が例として見つけられます。掲載できるのは完了したセッションだけです。",
+    "stop": "共有を停止",
+    "privacy": "共有はいつでも停止できます。停止するとリンクはすぐに使えなくなります。",
+    "readOnly": "共有されたセッションを閲覧しています。変更はできません。"
+  },
+  "session": {
+    "fork": "ここからやり直す",
+    "forkHint": "同じ要件で新しいセッションを作成し、変わった点を直して議論をもう一度行います",
+    "fromEarlier": "以前のセッションから作成",
+    "delete": "削除",
+    "deleteTitle": "このセッションを削除しますか？",
+    "deleteLead": "ヒアリング、議論、レポートは完全に削除され、共有リンクも使えなくなります。",
+    "deleteConfirm": "完全に削除"
+  },
+  "gallery": {
+    "title": "ギャラリー",
+    "lead": "作成者が公開を選んだ実際の議論です。モデルがどう議論し、審判が何を判定したかを読めます。",
+    "empty": "公開されたセッションはまだありません。完了したセッションを共有し、ギャラリーへの掲載を選んでください。"
+  },
+  "settings": {
+    "title": "設定",
+    "models": "モデル",
+    "modelsLead": "このサーバーで使えるモデルです。セッションを始めるときに役割ごとに選べます。",
+    "localOnly": "ローカル専用モード：このマシンで動作するモデルだけを利用できます。",
+    "local": "ローカル",
+    "data": "あなたのデータ",
+    "retention": "{{days}} 日間操作のないセッションは自動的に削除されます。",
+    "retentionNone": "セッションは削除するまで保持されます。",
+    "export": "すべてのデータをエクスポート（JSON）",
+    "deleteHint": "セッションを削除するには、セッションを開いて「削除」を選んでください。"
   },
   "export": {
     "button": "エクスポート",
