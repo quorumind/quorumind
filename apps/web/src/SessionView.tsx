@@ -163,6 +163,7 @@ function SessionBody({
   const access = useContext(AccessContext);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [newCap, setNewCap] = useState("");
   const [tab, setTab] = useState<Tab | null>(null);
 
   const phase = session?.phase;
@@ -195,11 +196,15 @@ function SessionBody({
   const tabs = availableTabs(session).filter((name) => !readOnly || name !== "costs");
   const active = tab && tabs.includes(tab) ? tab : defaultTab(session);
 
+  // A self-hosted server lets the person raise the cap a debate reached; a host selling debates keeps it fixed.
+  const raisable = session.error?.code === "budget_exceeded" && providerCosts;
   const retry = async () => {
     setRetrying(true);
     setRetryError(null);
     try {
-      await api.resume(session.id);
+      const cap = Number(newCap);
+      await api.resume(session.id, raisable && newCap.trim() && cap > 0 ? cap : undefined);
+      setNewCap("");
     } catch (caught) {
       setRetryError(failureText(t, caught));
     } finally {
@@ -281,7 +286,25 @@ function SessionBody({
             </span>
             {retryError ? <span>{retryError}</span> : null}
             {access.canEdit ? (
-              <div>
+              <div className="row">
+                {raisable ? (
+                  <div className="field">
+                    <label className="field-hint" htmlFor="new-cap">
+                      {t("error.newCap")}
+                    </label>
+                    <input
+                      id="new-cap"
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      inputMode="decimal"
+                      placeholder={session.budgetUsd === null ? "" : formatUsd(session.budgetUsd, i18n.language)}
+                      value={newCap}
+                      onChange={(event) => setNewCap(event.target.value)}
+                    />
+                  </div>
+                ) : null}
                 <button type="button" className="button button-secondary" onClick={retry} disabled={retrying}>
                   <RetryIcon />
                   {t("error.retry")}

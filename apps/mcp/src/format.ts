@@ -79,7 +79,7 @@ const NEXT: Record<Status, string> = {
   complete:
     "Read the verdict with quorumind_verdict (format summary, markdown or adr), and write the hand-off files for coding agents with quorumind_handoff.",
   failed:
-    "Call quorumind_resume to retry the step that failed (raise the budget first if the cost cap was reached; on a hosted server, the debate's price includes its cap).",
+    "Call quorumind_resume to retry the step that failed. If the cost cap was reached, ask the user whether to raise it and pass budget_usd (on a hosted server, the debate's price includes its cap, which cannot be raised).",
   running: "The models are still working. Call quorumind_status with wait: true to keep waiting.",
   stalled:
     "The server is not working on this session any more (it may have restarted). Open the session in the Quorumind interface to see where it stands.",

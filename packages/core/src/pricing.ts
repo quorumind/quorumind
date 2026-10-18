@@ -32,14 +32,21 @@ export function costOf(model: string, usage: Usage): number | null {
   return (usage.inputTokens * price.input + usage.outputTokens * price.output) / 1_000_000;
 }
 
-// Rough token profile of one call per task, measured on demo sessions. Used only to show
-// an estimate before a debate starts; the real cost is tracked call by call.
-const TASK_PROFILE = {
+// Rough token profile of one call per task, measured on demo sessions. Used to show an estimate before a debate
+// starts, and to keep the verdict within the cost cap; the real cost is tracked call by call.
+export const TASK_PROFILE = {
   proposal: { input: 3_000, output: 2_500 },
   critique: { input: 7_000, output: 2_000 },
   revision: { input: 9_000, output: 3_000 },
+  probe: { input: 9_000, output: 1_500 },
   verdict: { input: 14_000, output: 4_000 },
 } as const;
+
+/** The typical cost of one call of a debate task, or null when the model's price is unknown. */
+export function typicalCallCost(model: string, task: keyof typeof TASK_PROFILE): number | null {
+  const profile = TASK_PROFILE[task];
+  return costOf(model, { inputTokens: profile.input, outputTokens: profile.output });
+}
 
 export interface DebatePlan {
   proposerModels: string[];

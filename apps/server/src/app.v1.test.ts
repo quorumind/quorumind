@@ -1,4 +1,4 @@
-import { createSession, DEMO_IDEA, DEMO_LINEUP, type Session, type UsageRecord } from "@quorumind/core";
+import { createSession, DEMO_IDEA, DEMO_LINEUP, type Session, setModelPrice, type UsageRecord } from "@quorumind/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type AppHooks, createApp } from "./app.ts";
 import { EventBus } from "./bus.ts";
@@ -346,6 +346,44 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(refused.status).toBe(409);
       expect(await refused.json()).toMatchObject({ error: "session_busy" });
       await app.request(`/api/sessions/${session.id}/stop`, json({}));
+    });
+  });
+
+  describe("cost cap", () => {
+    afterEach(() => setModelPrice("mock", { input: 0, output: 0 }));
+
+    it("raises the cap when resuming, within the host's cap", async () => {
+      // The demo model costs something here, so its cap is reached after the first interview turn.
+      setModelPrice("mock", { input: 1_000, output: 1_000 });
+      const app = await makeApp({}, { maxBudgetUsd: 5 });
+      const created = await app.request("/api/sessions", json({ locale: "en", demo: true, budgetUsd: 0.01 }));
+      const { session } = (await created.json()) as { session: Session };
+      await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy);
+      await app.request(`/api/sessions/${session.id}/interview`, json({ answers: [{ question: "Budget?", answer: "15k" }] }));
+      const failed = await waitFor(app, session.id, (s, busy) => s.phase === "failed" && !busy);
+      expect(failed.error?.code).toBe("budget_exceeded");
+
+      const invalid = await app.request(`/api/sessions/${session.id}/resume`, json({ budgetUsd: -1 }));
+      expect(await invalid.json()).toMatchObject({ error: "invalid_request", params: { field: "budgetUsd" } });
+      const resumed = await app.request(`/api/sessions/${session.id}/resume`, json({ budgetUsd: 50 }));
+      expect(resumed.status).toBe(202);
+      expect(await resumed.json()).toEqual({ accepted: true, budgetUsd: 5 });
+      const review = await waitFor(app, session.id, (s, busy) => s.phase === "review" && !busy);
+      expect(review.budgetUsd).toBe(5);
+      expect((await store.get(session.id))?.budgetUsd).toBe(5);
+    });
+
+    it("keeps each debate's cap fixed on a host that sells debates at a price", async () => {
+      const identify: AppHooks["identify"] = async () => ({ userId: "ada" });
+      const app = await makeApp({}, { identify, hideProviderCosts: true });
+      const session = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, ...DEMO_LINEUP });
+      session.phase = "failed";
+      session.error = { code: "budget_exceeded", message: "" };
+      await store.save(session, "ada");
+      const refused = await app.request(`/api/sessions/${session.id}/resume`, json({ budgetUsd: 50 }));
+      expect(refused.status).toBe(409);
+      expect(await refused.json()).toMatchObject({ error: "budget_fixed" });
+      expect((await app.request(`/api/sessions/${session.id}/resume`, json({}))).status).toBe(202);
     });
   });
 

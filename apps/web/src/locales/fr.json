@@ -145,7 +145,8 @@
     "download": "Télécharger le rapport (Markdown)",
     "scoreOutOf": "{{score}} sur 5",
     "yourSolution": "Votre solution tient la route",
-    "architecture": "Architecture recommandée"
+    "architecture": "Architecture recommandée",
+    "shortened": "Le débat a été écourté pour rester dans son budget : {{done}} des {{planned}} tour(s) prévu(s) ont eu lieu avant le verdict."
   },
   "feasibility": {
     "feasible": "Faisable",
@@ -172,7 +173,8 @@
     "title": "La session s'est arrêtée",
     "retry": "Reprendre là où elle s'est arrêtée",
     "network": "Connexion perdue. Reconnexion…",
-    "request": "La requête a échoué. Vérifiez votre connexion et réessayez."
+    "request": "La requête a échoué. Vérifiez votre connexion et réessayez.",
+    "newCap": "Nouveau plafond de coût (facultatif)"
   },
   "demo": {
     "badge": "Démo"
@@ -508,6 +510,7 @@
     "read_only": "Seuls l'auteur de cette session et les administrateurs de son espace de travail peuvent la modifier.",
     "stopped": "Vous avez arrêté cette session. Reprenez-la quand vous voulez.",
     "not_running": "Cette session ne tourne plus.",
-    "interrupted": "Le serveur a redémarré pendant que cette session travaillait. Rien de ce qui a été fait n'est perdu : reprenez-la là où elle s'est arrêtée."
+    "interrupted": "Le serveur a redémarré pendant que cette session travaillait. Rien de ce qui a été fait n'est perdu : reprenez-la là où elle s'est arrêtée.",
+    "budget_fixed": "Le plafond de coût de ce débat est fixé par le service et ne peut pas être modifié."
   }
 }

@@ -16,7 +16,7 @@ import {
 } from "docx";
 import { type Branding, imageSize, isAccent, parseLogo, QUORUMIND_ACCENT } from "../branding.ts";
 import { type Locale, localeInfo } from "../locales.ts";
-import { chosenOption, formatRange, modeName, reportLabels, seatName, sessionProbes } from "../report.ts";
+import { chosenOption, formatRange, methodNotes, modeName, participants, reportLabels, seatName, sessionProbes } from "../report.ts";
 import type { Proposal } from "../schemas.ts";
 import { currentProposals, type Session } from "../session.ts";
 
@@ -245,6 +245,10 @@ export async function renderDocx(session: Session, branding: Branding): Promise<
     children.push(heading(t.answers));
     children.push(...bullets(answers.map((entry) => `${entry.question} → ${entry.answer}`)));
   }
+
+  children.push(heading(t.method));
+  for (const note of methodNotes(session, t)) children.push(para(note, { style: { color: MUTED, size: 18 } }));
+  children.push(...bullets(participants(session, t).map((item) => `${item.role}: ${item.model}`)));
 
   function proposalBlocks(seat: string, proposal: Proposal): (Paragraph | Table)[] {
     const components = proposal.components ?? [];

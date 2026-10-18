@@ -207,6 +207,8 @@ const NewSession = z.object({
   private: z.boolean().default(false),
 });
 
+const ResumeInput = z.object({ budgetUsd: z.number().positive().max(1_000).nullable().optional() });
+
 /** Fields of a session that never leave the server through a public link. */
 function publicView(session: Session): Session {
   return {
@@ -561,15 +563,24 @@ export function createApp(deps: AppDeps) {
     return c.json({ accepted: true }, 202);
   });
 
+  // Retries the step a failed session stopped on. `budgetUsd` sets a new cost cap first (null for none), within the
+  // host's caps; a host that keeps provider costs to itself keeps each debate's cap fixed.
   app.post("/api/sessions/:id/resume", async (c) => {
     const session = await loadForEdit(c.req.param("id"), c.get("user"));
     startAction(session);
+    const { budgetUsd } = ResumeInput.parse(await c.req.json().catch(() => ({})));
+    if (session.phase !== "failed") throw new InvalidStateError("Only a failed session can be resumed.");
+    let cap: number | null | undefined;
+    if (budgetUsd !== undefined) {
+      if (hooks.hideProviderCosts) throw new InvalidStateError("This server sets the cost cap of each debate.", "budget_fixed");
+      cap = lowestCap(budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.(session));
+    }
     await authorize(session);
     runInBackground(session, async (engine) => {
-      const next = await engine.resume(session);
+      const next = await engine.resume(session, cap === undefined ? {} : { budgetUsd: cap });
       if (next === "debate" && session.phase === "debating") await engine.runDebate(session);
     });
-    return c.json({ accepted: true }, 202);
+    return c.json({ accepted: true, ...(cap === undefined ? {} : { budgetUsd: cap }) }, 202);
   });
 
   // Stops the work in flight: the model calls are cancelled, nothing more is spent, and the session fails with the

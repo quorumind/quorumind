@@ -145,7 +145,8 @@
     "download": "Baixar o relatório (Markdown)",
     "scoreOutOf": "{{score}} de 5",
     "yourSolution": "Sua solução se sustenta",
-    "architecture": "Arquitetura recomendada"
+    "architecture": "Arquitetura recomendada",
+    "shortened": "O debate foi encurtado para caber no seu orçamento: {{done}} das {{planned}} rodada(s) previstas aconteceram antes do veredito."
   },
   "feasibility": {
     "feasible": "Viável",
@@ -172,7 +173,8 @@
     "title": "A sessão foi interrompida",
     "retry": "Retomar de onde parou",
     "network": "Conexão perdida. Reconectando…",
-    "request": "A solicitação falhou. Verifique sua conexão e tente novamente."
+    "request": "A solicitação falhou. Verifique sua conexão e tente novamente.",
+    "newCap": "Novo limite de custo (opcional)"
   },
   "demo": {
     "badge": "Demo"
@@ -508,6 +510,7 @@
     "read_only": "Só o autor desta sessão ou um administrador do seu espaço de trabalho pode alterá-la.",
     "stopped": "Você parou esta sessão. Retome quando quiser.",
     "not_running": "Esta sessão não está mais em andamento.",
-    "interrupted": "O servidor reiniciou enquanto esta sessão trabalhava. Nada do que foi feito se perdeu: retome de onde parou."
+    "interrupted": "O servidor reiniciou enquanto esta sessão trabalhava. Nada do que foi feito se perdeu: retome de onde parou.",
+    "budget_fixed": "O limite de custo deste debate é definido pelo serviço e não pode ser alterado."
   }
 }

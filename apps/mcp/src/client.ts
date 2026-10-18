@@ -116,8 +116,9 @@ export class QuorumindClient {
     await this.json("POST", `/api/sessions/${encodeURIComponent(id)}/answers`, { answers });
   }
 
-  async resume(id: string) {
-    await this.json("POST", `/api/sessions/${encodeURIComponent(id)}/resume`, {});
+  /** Retries a failed session; `budgetUsd` raises its cost cap first. */
+  async resume(id: string, budgetUsd?: number) {
+    await this.json("POST", `/api/sessions/${encodeURIComponent(id)}/resume`, budgetUsd === undefined ? {} : { budgetUsd });
   }
 
   /** Stops the work in flight; answers once it has stopped, with the session as it was left. */

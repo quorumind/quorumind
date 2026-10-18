@@ -96,6 +96,13 @@ export function participants(session: Session, t: Labels): { role: string; model
   ];
 }
 
+/** The paragraphs of the method box: how the report was produced, and whether the debate was cut short for its budget. */
+export function methodNotes(session: Session, t: Labels): string[] {
+  const notes = [fill(t.methodText, { rounds: session.rounds })];
+  if (session.shortened) notes.push(fill(t.shortened, { done: session.shortened.rounds, planned: session.rounds }));
+  return notes;
+}
+
 /** The angles the arbiter raised when the participants agreed too fast. */
 export function sessionProbes(session: Session): { round: number; data: Probe }[] {
   return session.debate.flatMap((entry) => (entry.kind === "probe" ? [{ round: entry.round, data: entry.data }] : []));
@@ -359,7 +366,7 @@ export function renderReport(session: Session): string {
     lines.push(`## ${t.answers}`, "", list(answers.map((entry) => `**${entry.question}** ${entry.answer}`)), "");
   }
 
-  lines.push(`## ${t.method}`, "", fill(t.methodText, { rounds: session.rounds }), "");
+  lines.push(`## ${t.method}`, "", ...methodNotes(session, t).flatMap((note) => [note, ""]));
   lines.push(list(participants(session, t).map((item) => say(item.role, item.model))), "");
   return lines.join("\n");
 }

@@ -353,14 +353,22 @@ export function createMcpServer(options: McpOptions): McpServer {
     {
       title: "Retry a failed session",
       description:
-        "Retry the step a failed session stopped on (a provider error, or the cost cap). Then waits for the next stopping point, like quorumind_answer.",
-      inputSchema: z.object({ session_id: SessionId }),
+        "Retry the step a failed session stopped on (a provider error, the cost cap, a stop or a server restart). Then waits for the next stopping point, like quorumind_answer.",
+      inputSchema: z.object({
+        session_id: SessionId,
+        budget_usd: z
+          .number()
+          .positive()
+          .max(1_000)
+          .optional()
+          .describe("A new cost cap in US dollars, when the cap was reached and the user agrees to raise it. Self-hosted servers only."),
+      }),
     },
-    ({ session_id }, ctx) =>
+    ({ session_id, budget_usd }, ctx) =>
       guarded(async () => {
         const state = await client.getSession(session_id);
         if (state.session.phase !== "failed") return refuse(state, "Only a failed session can be resumed.");
-        await client.resume(session_id);
+        await client.resume(session_id, budget_usd);
         return settle(session_id, null, ctx);
       }),
   );

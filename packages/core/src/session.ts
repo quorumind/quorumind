@@ -91,6 +91,11 @@ export interface Session {
   /** Number of critique and revision cycles after the blind proposals. */
   rounds: number;
   budgetUsd: number | null;
+  /**
+   * Set when the remaining rounds were skipped so that the verdict fits in the cost cap: the rounds every participant
+   * finished before the arbiter ruled.
+   */
+  shortened: { rounds: number } | null;
   interviewer: Participant;
   arbiter: Participant;
   seats: Record<string, Seat>;
@@ -164,6 +169,7 @@ export function createSession(input: NewSessionInput): Session {
     phase: "interview",
     rounds: mode === "express" ? 1 : Math.min(MAX_ROUNDS, Math.max(1, input.rounds ?? 1)),
     budgetUsd: input.budgetUsd ?? null,
+    shortened: null,
     interviewer: input.interviewer,
     arbiter: input.arbiter,
     seats: Object.fromEntries(Object.entries(input.seats).map(([seat, value]) => [seat, { ...value, persona: value.persona ?? null }])),
@@ -197,6 +203,7 @@ export function normalizeSession(stored: Session): Session {
   session.parentId ??= null;
   session.notify ??= false;
   session.briefs ??= {};
+  session.shortened ??= null;
   // Verdicts stored before the debate map listed consensus and disagreements separately.
   const legacy = session.verdict as (Verdict & { consensus?: string[]; disagreements?: { topic: string; positions: string[] }[] }) | null;
   if (legacy && !legacy.topics) {

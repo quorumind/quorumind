@@ -102,6 +102,7 @@ export const LABEL_KEYS = [
   "detailedRequirements",
   "method",
   "methodText",
+  "shortened",
   "interviewer",
   "proposer",
   "arbiter",
@@ -219,6 +220,8 @@ export const LABELS: Record<Locale, Labels> = {
     method: "How this report was produced",
     methodText:
       "Several AI models designed solutions separately, critiqued each other and revised them over {rounds} round(s). An independent arbiter then checked every option against your requirements. Costs and durations are estimates to confirm with quotes, and each key claim is marked verified, estimated or assumed: read this report as a well-argued second opinion, not a guarantee.",
+    shortened:
+      "The debate was shortened to stay within its budget: {done} of the {planned} planned round(s) took place before the verdict.",
     interviewer: "Interviewer",
     proposer: "Proposer {seat}",
     arbiter: "Arbiter",
@@ -333,6 +336,7 @@ export const LABELS: Record<Locale, Labels> = {
     method: "Comment ce rapport a été établi",
     methodText:
       "Plusieurs modèles d'IA ont conçu des solutions séparément, se sont critiqués les uns les autres et les ont révisées en {rounds} tour(s). Un arbitre indépendant a ensuite confronté chaque option à votre besoin. Les coûts et les délais sont des estimations à confirmer par des devis, et chaque affirmation clé porte la mention vérifié, estimé ou supposé : lisez ce rapport comme un second avis solidement argumenté, et non comme une garantie.",
+    shortened: "Le débat a été écourté pour rester dans son budget : {done} des {planned} tour(s) prévu(s) ont eu lieu avant le verdict.",
     interviewer: "Intervieweur",
     proposer: "Proposant {seat}",
     arbiter: "Arbitre",
@@ -447,6 +451,8 @@ export const LABELS: Record<Locale, Labels> = {
     method: "Cómo se elaboró este informe",
     methodText:
       "Varios modelos de IA diseñaron soluciones por separado, se criticaron entre sí y las revisaron a lo largo de {rounds} ronda(s). Después, un árbitro independiente contrastó cada opción con sus requisitos. Los costes y los plazos son estimaciones que deben confirmarse con presupuestos, y cada afirmación clave lleva la indicación verificado, estimado o supuesto: lea este informe como una segunda opinión bien argumentada, no como una garantía.",
+    shortened:
+      "El debate se acortó para no salirse de su presupuesto: se celebraron {done} de las {planned} ronda(s) previstas antes del veredicto.",
     interviewer: "Entrevistador",
     proposer: "Proponente {seat}",
     arbiter: "Árbitro",
@@ -561,6 +567,8 @@ export const LABELS: Record<Locale, Labels> = {
     method: "Como este relatório foi produzido",
     methodText:
       "Vários modelos de IA conceberam soluções separadamente, criticaram-se mutuamente e as revisaram ao longo de {rounds} rodada(s). Em seguida, um árbitro independente confrontou cada opção com seus requisitos. Custos e prazos são estimativas a confirmar com orçamentos, e cada afirmação principal recebe a indicação verificado, estimado ou suposto: leia este relatório como uma segunda opinião bem fundamentada, não como uma garantia.",
+    shortened:
+      "O debate foi encurtado para caber no seu orçamento: {done} das {planned} rodada(s) previstas aconteceram antes do veredito.",
     interviewer: "Entrevistador",
     proposer: "Proponente {seat}",
     arbiter: "Árbitro",
@@ -675,6 +683,8 @@ export const LABELS: Record<Locale, Labels> = {
     method: "Come è stato prodotto questo rapporto",
     methodText:
       "Diversi modelli di IA hanno progettato soluzioni separatamente, si sono criticati a vicenda e le hanno riviste nel corso di {rounds} round. Un arbitro indipendente ha poi confrontato ogni opzione con i suoi requisiti. Costi e tempi sono stime da confermare con dei preventivi, e ogni affermazione chiave è contrassegnata come verificato, stimato o ipotizzato: legga questo rapporto come un secondo parere ben argomentato, non come una garanzia.",
+    shortened:
+      "Il dibattito è stato accorciato per restare nel suo budget: si sono svolti {done} dei {planned} round previsti prima del verdetto.",
     interviewer: "Intervistatore",
     proposer: "Proponente {seat}",
     arbiter: "Arbitro",
@@ -789,6 +799,7 @@ export const LABELS: Record<Locale, Labels> = {
     method: "Wie dieser Bericht entstanden ist",
     methodText:
       "Mehrere KI-Modelle haben getrennt voneinander Lösungen entworfen, sich gegenseitig kritisiert und ihre Lösungen in {rounds} Runde(n) überarbeitet. Anschließend hat ein unabhängiger Schiedsrichter jede Option an Ihren Anforderungen gemessen. Kosten und Zeitangaben sind Schätzungen, die durch Angebote zu bestätigen sind, und jede zentrale Aussage ist als geprüft, geschätzt oder angenommen gekennzeichnet: Lesen Sie diesen Bericht als gut begründete Zweitmeinung, nicht als Garantie.",
+    shortened: "Die Debatte wurde gekürzt, um im Budget zu bleiben: {done} von {planned} geplanten Runde(n) fanden vor dem Urteil statt.",
     interviewer: "Interviewer",
     proposer: "Vorschlag {seat}",
     arbiter: "Schiedsrichter",
@@ -902,6 +913,7 @@ export const LABELS: Record<Locale, Labels> = {
     method: "यह रिपोर्ट कैसे तैयार की गई",
     methodText:
       "कई AI मॉडलों ने अलग-अलग समाधान तैयार किए, एक-दूसरे की आलोचना की और {rounds} दौर में उन्हें संशोधित किया। इसके बाद एक स्वतंत्र निर्णायक ने हर विकल्प को आपकी आवश्यकताओं की कसौटी पर परखा। लागत और अवधि अनुमान हैं जिनकी पुष्टि कोटेशन से करनी होगी, और हर मुख्य दावे को ‘सत्यापित’, ‘अनुमानित’ या ‘मान लिया गया’ के रूप में चिह्नित किया गया है: इस रिपोर्ट को गारंटी नहीं, बल्कि ठोस तर्कों पर आधारित दूसरी राय के रूप में पढ़ें।",
+    shortened: "बहस को उसके बजट में रखने के लिए छोटा किया गया: फ़ैसले से पहले {planned} तय दौरों में से {done} हुए।",
     interviewer: "इंटरव्यूअर",
     proposer: "प्रस्तावक {seat}",
     arbiter: "निर्णायक",
@@ -1015,6 +1027,7 @@ export const LABELS: Record<Locale, Labels> = {
     method: "このレポートの作成方法",
     methodText:
       "複数の AI モデルがそれぞれ個別に解決策を設計し、互いに批評し合い、{rounds} ラウンドにわたって修正しました。その後、独立した審判が各選択肢をご提示いただいた要件と照らし合わせました。費用と期間は見積書で確認すべき推定値であり、主な主張にはそれぞれ「確認済み」「推定」「仮定」のいずれかを付けています。このレポートは保証ではなく、十分な根拠に基づくセカンドオピニオンとしてお読みください。",
+    shortened: "予算内に収めるため、議論は短縮されました。判定までに、予定の{planned}ラウンドのうち{done}ラウンドが行われました。",
     interviewer: "インタビュアー",
     proposer: "提案者 {seat}",
     arbiter: "審判",
@@ -1127,6 +1140,7 @@ export const LABELS: Record<Locale, Labels> = {
     method: "本报告的生成方式",
     methodText:
       "多个 AI 模型分别设计方案，相互评审，并经过 {rounds} 轮修订。随后，一位独立的仲裁者对照您的需求逐一检验了每个方案。成本和周期均为估算，需通过报价加以确认；每条关键论断都标注了“已核实”“估计”或“假设”。请将本报告视为论证充分的第二意见，而非保证。",
+    shortened: "为控制在预算之内，辩论被缩短：在裁决之前，计划的 {planned} 轮中进行了 {done} 轮。",
     interviewer: "访谈者",
     proposer: "提案方 {seat}",
     arbiter: "仲裁者",
@@ -1240,6 +1254,7 @@ export const LABELS: Record<Locale, Labels> = {
     method: "كيف أُعدّ هذا التقرير",
     methodText:
       "صمّمت عدة نماذج ذكاء اصطناعي حلولًا بشكل منفصل، وانتقد بعضها بعضًا، ثم راجعت حلولها على مدى جولات بلغ عددها {rounds}. بعد ذلك، قيّم حَكَم مستقل كل خيار في ضوء متطلباتك. التكاليف والمدد تقديرات ينبغي تأكيدها بعروض أسعار، وكل ادعاء رئيسي موسوم بأنه «مُتحقق منه» أو «تقديري» أو «مفترض»: اقرأ هذا التقرير بوصفه رأيًا ثانيًا محكم الحجة، لا ضمانًا.",
+    shortened: "اختُصر النقاش ليبقى ضمن ميزانيته: جرت {done} من أصل {planned} جولة مقررة قبل الحكم.",
     interviewer: "المحاور",
     proposer: "المقترِح {seat}",
     arbiter: "الحَكَم",

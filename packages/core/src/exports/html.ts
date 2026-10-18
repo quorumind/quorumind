@@ -8,6 +8,7 @@ import {
   formatRange,
   formatScore,
   labelled,
+  methodNotes,
   participants,
   type ReportLabels,
   reportLabels,
@@ -295,10 +296,9 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
   };
 
   const methodBox = () =>
-    `<section class="method"><h2>${esc(t.method)}</h2><p>${esc(fill(t.methodText, { rounds: session.rounds }))}</p><dl class="roles">${participants(
-      session,
-      t,
-    )
+    `<section class="method"><h2>${esc(t.method)}</h2>${methodNotes(session, t)
+      .map((note) => `<p>${esc(note)}</p>`)
+      .join("")}<dl class="roles">${participants(session, t)
       .map((item) => `<div><dt>${esc(item.role)}</dt><dd>${esc(item.model)}</dd></div>`)
       .join("")}</dl></section>`;
 

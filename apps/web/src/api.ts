@@ -150,7 +150,8 @@ export const api = {
   confirmSheet: (id: string, sheet: RequirementsSheet) =>
     request(`/api/sessions/${id}/sheet`, { method: "PUT", body: JSON.stringify({ sheet }) }),
   answerDebate: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/answers`, post({ answers })),
-  resume: (id: string) => request(`/api/sessions/${id}/resume`, post()),
+  /** Retries a failed session, with a new cost cap when `budgetUsd` is given (self-hosted only). */
+  resume: (id: string, budgetUsd?: number) => request(`/api/sessions/${id}/resume`, post(budgetUsd === undefined ? {} : { budgetUsd })),
   stop: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/stop`, post()),
   brief: (id: string, audience: Audience) => request<{ brief: Brief }>(`/api/sessions/${id}/brief`, post({ audience })),
   fork: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/fork`, post()),

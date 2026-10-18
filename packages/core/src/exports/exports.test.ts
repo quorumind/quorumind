@@ -212,3 +212,19 @@ describe("Word report", () => {
     expect(unzip(document, "word/styles.xml")).toContain("AA3366");
   });
 });
+
+describe("a debate shortened to stay within its budget", () => {
+  it("says so in the method box of every format", async () => {
+    const session = await demo();
+    session.shortened = { rounds: 0 };
+    const note = "The debate was shortened to stay within its budget: 0 of the 1 planned round(s) took place before the verdict.";
+    expect(renderReport(session)).toContain(`## How this report was produced\n\nSeveral AI models`);
+    expect(renderReport(session)).toContain(note);
+    expect(renderHtml(session, DEFAULT_BRANDING, { print: false, audience: null })).toContain(`<p>${note}</p>`);
+    const xml = unzip(await renderDocx(session, DEFAULT_BRANDING), "word/document.xml");
+    if (xml !== null) expect(xml).toContain(note);
+
+    session.shortened = null;
+    expect(renderReport(session)).not.toContain("shortened");
+  });
+});

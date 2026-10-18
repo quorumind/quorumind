@@ -420,6 +420,11 @@ export function Verdict({
           </p>
         ) : null}
         <p style={{ margin: 0, maxInlineSize: "70ch" }}>{verdict.recommendation.rationale}</p>
+        {session.shortened ? (
+          <p className="field-hint" style={{ margin: 0 }}>
+            {t("verdict.shortened", { done: session.shortened.rounds, planned: session.rounds })}
+          </p>
+        ) : null}
         <div className="row">
           {readOnly ? (
             // A shared session only offers its Markdown report: the other exports belong to its owner.

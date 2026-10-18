@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { partialStringField } from "./partial-json.ts";
-import { costOf } from "./pricing.ts";
+import { costOf, TASK_PROFILE, typicalCallCost } from "./pricing.ts";
 import { fence, redact } from "./privacy.ts";
 import {
   answersBlock,
@@ -189,9 +189,14 @@ export class DebateEngine {
    * Puts a failed session back where it stopped, so the failed step can run again.
    * Returns what the caller should do next.
    */
-  async resume(session: Session): Promise<"interview" | "review" | "debate"> {
+  async resume(session: Session, options: { budgetUsd?: number | null } = {}): Promise<"interview" | "review" | "debate"> {
     if (session.phase !== "failed") throw new InvalidStateError("Only a failed session can be resumed.");
     session.error = null;
+    // A new cost cap gives the rounds skipped to keep the verdict within the old one another chance.
+    if (options.budgetUsd !== undefined) {
+      session.budgetUsd = options.budgetUsd;
+      if (!session.verdict) session.shortened = null;
+    }
     let next: "interview" | "review" | "debate";
     if (!session.sheet) {
       session.phase = "interview";
@@ -293,14 +298,19 @@ export class DebateEngine {
       }
     }
 
-    for (let round = 1; round <= session.rounds; round++) {
+    // Each step of the rounds first checks that the verdict still fits in the cost cap after it: when it would not,
+    // the remaining rounds are skipped and the arbiter rules on what was said.
+    for (let round = 1; round <= session.rounds && !session.shortened; round++) {
       const missingCritiques = criticSeats(session).filter((seat) => !has("critiques", seat, round));
       if (missingCritiques.length > 0) {
+        const critics = missingCritiques.map((seat) => (seat === DEVIL_SEAT ? this.devil() : this.proposer(seat)));
+        if (await this.shortenBefore(session, "critique", critics)) break;
         const proposals = currentProposals(session);
         await settleAll(missingCritiques.map((seat) => this.criticise(session, seat, round, proposals)));
         return;
       }
       if (shouldProbe(session, round)) {
+        if (await this.shortenBefore(session, "probe", [this.providers.arbiter])) break;
         await this.probe(session, round);
         return;
       }
@@ -316,12 +326,39 @@ export class DebateEngine {
       }
       const missingRevisions = proposerSeats(session).filter((seat) => !has("revision", seat, round));
       if (missingRevisions.length > 0) {
+        const revisers = missingRevisions.map((seat) => this.proposer(seat));
+        if (await this.shortenBefore(session, "revision", revisers)) break;
         await settleAll(missingRevisions.map((seat) => this.revise(session, seat, round)));
         return;
       }
     }
 
     await this.judge(session);
+  }
+
+  /**
+   * True, and the session marked shortened, when one more step of `task` by these models would leave less than the
+   * verdict needs under the cost cap (with a margin: the transcript the arbiter reads still grows).
+   */
+  private async shortenBefore(session: Session, task: Task, providers: LlmProvider[]): Promise<boolean> {
+    if (session.budgetUsd === null) return false;
+    const step = providers.reduce((sum, provider) => sum + callEstimate(session, task, provider.model), 0);
+    const reserve = VERDICT_MARGIN * this.verdictEstimate(session);
+    if (totalCost(session).usd + step + reserve <= session.budgetUsd) return false;
+    session.shortened = { rounds: completedRounds(session) };
+    await this.persist(session);
+    return true;
+  }
+
+  /** What the verdict should cost: its prompt as it stands, and the typical length of a verdict. */
+  private verdictEstimate(session: Session): number {
+    const prompt = this.verdictPrompt(session);
+    const chars = prompt.system.length + prompt.messages.reduce((sum, message) => sum + message.content.length, 0);
+    const cost = costOf(this.providers.arbiter.model, {
+      inputTokens: Math.ceil(chars / CHARS_PER_TOKEN),
+      outputTokens: TASK_PROFILE.verdict.output,
+    });
+    return cost ?? 0;
   }
 
   private async formalize(session: Session) {
@@ -458,6 +495,25 @@ export class DebateEngine {
   }
 
   private async judge(session: Session) {
+    // The cap is checked against the verdict's estimate: a verdict that cannot fit is not started.
+    if (session.budgetUsd !== null) {
+      const spent = totalCost(session).usd;
+      if (spent + this.verdictEstimate(session) > session.budgetUsd) throw new BudgetExceededError(spent, session.budgetUsd);
+    }
+    const verdict = await this.call(session, "verdict", null, this.providers.arbiter, this.verdictPrompt(session));
+    const seats = new Set(Object.keys(currentProposals(session)));
+    verdict.options = verdict.options.filter((option) => seats.has(option.seat));
+    for (const option of verdict.options) {
+      for (const score of option.scores) score.score = clampScore(score.score);
+    }
+    if (verdict.recommendation.seat !== null && !seats.has(verdict.recommendation.seat)) verdict.recommendation.seat = null;
+    session.debate.push({ kind: "verdict", data: verdict });
+    session.verdict = verdict;
+    session.phase = "complete";
+    await this.persist(session);
+  }
+
+  private verdictPrompt(session: Session): { system: string; messages: ChatMessage[] } {
     const sheet = requireSheet(session);
     const transcript = session.debate.flatMap<object>((entry) => {
       if (entry.kind === "critiques") return [{ round: entry.round, from: entry.seat, critiques: entry.data.critiques }];
@@ -475,9 +531,8 @@ export class DebateEngine {
       }
       return [];
     });
-    const challenge = session.mode === "challenge";
-    const verdict = await this.call(session, "verdict", null, this.providers.arbiter, {
-      system: arbiterSystem(session.locale, challenge),
+    return {
+      system: arbiterSystem(session.locale, session.mode === "challenge"),
       messages: [
         {
           role: "user",
@@ -493,17 +548,7 @@ export class DebateEngine {
             .join("\n\n"),
         },
       ],
-    });
-    const seats = new Set(Object.keys(currentProposals(session)));
-    verdict.options = verdict.options.filter((option) => seats.has(option.seat));
-    for (const option of verdict.options) {
-      for (const score of option.scores) score.score = clampScore(score.score);
-    }
-    if (verdict.recommendation.seat !== null && !seats.has(verdict.recommendation.seat)) verdict.recommendation.seat = null;
-    session.debate.push({ kind: "verdict", data: verdict });
-    session.verdict = verdict;
-    session.phase = "complete";
-    await this.persist(session);
+    };
   }
 
   private devil(): LlmProvider {
@@ -605,6 +650,32 @@ export class DebateEngine {
       await this.persist(session);
     }
   }
+}
+
+// The verdict's estimate is kept with this margin while the rounds run: what the arbiter reads still grows.
+const VERDICT_MARGIN = 1.25;
+// A rough count, enough for an estimate: about four characters of English or JSON per token.
+const CHARS_PER_TOKEN = 4;
+
+/** What one more call of a task by this model should cost: its last such call, or the typical one. */
+function callEstimate(session: Session, task: Task, model: string): number {
+  const last = session.usage.findLast((record) => record.task === task && record.model === model && record.costUsd !== null);
+  if (last?.costUsd != null) return last.costUsd;
+  return (task in TASK_PROFILE ? typicalCallCost(model, task as keyof typeof TASK_PROFILE) : null) ?? 0;
+}
+
+/** The rounds every critic and every proposer finished. */
+function completedRounds(session: Session): number {
+  const has = (kind: "critiques" | "revision", seat: string, round: number) =>
+    session.debate.some((entry) => entry.kind === kind && entry.seat === seat && entry.round === round);
+  let done = 0;
+  for (let round = 1; round <= session.rounds; round++) {
+    const critiqued = criticSeats(session).every((seat) => has("critiques", seat, round));
+    const revised = proposerSeats(session).every((seat) => has("revision", seat, round));
+    if (!critiqued || !revised) break;
+    done = round;
+  }
+  return done;
 }
 
 /**

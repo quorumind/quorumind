@@ -145,7 +145,8 @@
     "download": "Bericht herunterladen (Markdown)",
     "scoreOutOf": "{{score}} von 5",
     "yourSolution": "Ihre Lösung hält stand",
-    "architecture": "Empfohlene Architektur"
+    "architecture": "Empfohlene Architektur",
+    "shortened": "Die Debatte wurde gekürzt, um im Budget zu bleiben: {{done}} von {{planned}} geplanten Runde(n) fanden vor dem Urteil statt."
   },
   "feasibility": {
     "feasible": "Umsetzbar",
@@ -172,7 +173,8 @@
     "title": "Die Sitzung wurde angehalten",
     "retry": "Dort fortsetzen, wo sie angehalten hat",
     "network": "Verbindung verloren. Neu verbinden…",
-    "request": "Die Anfrage ist fehlgeschlagen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
+    "request": "Die Anfrage ist fehlgeschlagen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    "newCap": "Neue Kostengrenze (optional)"
   },
   "demo": {
     "badge": "Demo"
@@ -508,6 +510,7 @@
     "read_only": "Nur der Autor dieser Sitzung oder ein Admin ihres Arbeitsbereichs kann sie ändern.",
     "stopped": "Sie haben diese Sitzung angehalten. Setzen Sie sie fort, wann Sie möchten.",
     "not_running": "Diese Sitzung läuft nicht mehr.",
-    "interrupted": "Der Server wurde neu gestartet, während diese Sitzung arbeitete. Nichts Erledigtes ist verloren: Setzen Sie sie dort fort, wo sie angehalten hat."
+    "interrupted": "Der Server wurde neu gestartet, während diese Sitzung arbeitete. Nichts Erledigtes ist verloren: Setzen Sie sie dort fort, wo sie angehalten hat.",
+    "budget_fixed": "Die Kostengrenze dieser Debatte legt der Dienst fest; sie kann nicht geändert werden."
   }
 }

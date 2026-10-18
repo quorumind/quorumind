@@ -145,7 +145,8 @@
     "download": "Scarica il rapporto (Markdown)",
     "scoreOutOf": "{{score}} su 5",
     "yourSolution": "La tua soluzione regge",
-    "architecture": "Architettura consigliata"
+    "architecture": "Architettura consigliata",
+    "shortened": "Il dibattito è stato accorciato per restare nel suo budget: si sono svolti {{done}} dei {{planned}} round previsti prima del verdetto."
   },
   "feasibility": {
     "feasible": "Fattibile",
@@ -172,7 +173,8 @@
     "title": "La sessione si è interrotta",
     "retry": "Riprendi da dove si è fermata",
     "network": "Connessione persa. Riconnessione…",
-    "request": "La richiesta non è riuscita. Controlla la connessione e riprova."
+    "request": "La richiesta non è riuscita. Controlla la connessione e riprova.",
+    "newCap": "Nuovo tetto di spesa (facoltativo)"
   },
   "demo": {
     "badge": "Demo"
@@ -508,6 +510,7 @@
     "read_only": "Solo l'autore di questa sessione o un amministratore del suo spazio di lavoro può modificarla.",
     "stopped": "Hai interrotto questa sessione. Riprendila quando vuoi.",
     "not_running": "Questa sessione non è più in corso.",
-    "interrupted": "Il server si è riavviato mentre questa sessione lavorava. Nulla di quanto fatto è andato perso: riprendila da dove si è fermata."
+    "interrupted": "Il server si è riavviato mentre questa sessione lavorava. Nulla di quanto fatto è andato perso: riprendila da dove si è fermata.",
+    "budget_fixed": "Il tetto di spesa di questo dibattito è fissato dal servizio e non può essere modificato."
   }
 }

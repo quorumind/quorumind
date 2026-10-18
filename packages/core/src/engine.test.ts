@@ -117,6 +117,71 @@ describe("cost cap", () => {
     expect(session.error).toMatchObject({ code: "budget_exceeded", params: { spentUsd: 2, budgetUsd: 1.5 } });
   });
 
+  // Each call reports what it cost; the price table gives the typical cost of a call not made yet
+  // (critique 1.00, revision 1.50, verdict 2.00), which is what the engine estimates with.
+  const COSTS: Partial<Record<GenerateRequest["task"], number>> = { interview: 0.1, proposal: 1, critique: 1, revision: 1, verdict: 1 };
+  const reporting = (): LlmProvider => {
+    const inner = new MockProvider({ chunkDelayMs: 0 });
+    return {
+      kind: "openrouter",
+      model: "reporting-test-model",
+      generate: async (request, onDelta) => ({
+        ...(await inner.generate(request, onDelta)),
+        model: "reporting-test-model",
+        costUsd: COSTS[request.task] ?? 0,
+      }),
+    };
+  };
+
+  async function toDebate(budgetUsd: number) {
+    setModelPrice("reporting-test-model", { input: 0, output: 500 });
+    const provider = reporting();
+    const { engine, session } = setup({ interviewer: provider, arbiter: provider, proposers: { A: provider, B: provider } }, budgetUsd);
+    await engine.startInterview(session);
+    await engine.answerInterview(session, [{ question: "Budget?", answer: "€15,000" }]);
+    await engine.confirmSheet(session, session.sheet!);
+    return { engine, session };
+  }
+
+  it("skips the rounds that would leave no room for the verdict, and says so in the report", async () => {
+    // 2.20 spent after the proposals; the critiques (2.00) and the verdict's reserve (2.50) would pass 5.
+    const { engine, session } = await toDebate(5);
+    await engine.runDebate(session);
+    expect(session.phase).toBe("complete");
+    expect(session.shortened).toEqual({ rounds: 0 });
+    expect(session.debate.some((entry) => entry.kind === "critiques")).toBe(false);
+    expect(session.usage.map((record) => record.task)).toEqual(["interview", "interview", "proposal", "proposal", "verdict"]);
+    expect(renderReport(session)).toContain("The debate was shortened to stay within its budget: 0 of the 1 planned round(s)");
+    session.locale = "fr";
+    expect(renderReport(session)).toContain("Le débat a été écourté pour rester dans son budget");
+  });
+
+  it("does not start a verdict that cannot fit, and runs the skipped rounds once the cap is raised", async () => {
+    const { engine, session } = await toDebate(3);
+    await engine.runDebate(session);
+    expect(session.phase).toBe("failed");
+    expect(session.error).toMatchObject({ code: "budget_exceeded", params: { spentUsd: 2.2, budgetUsd: 3 } });
+    expect(session.usage.some((record) => record.task === "verdict")).toBe(false);
+
+    // Retrying with the same cap fails again at once, without calling a model.
+    await engine.resume(session);
+    await engine.runDebate(session);
+    expect(session.error?.code).toBe("budget_exceeded");
+    expect(session.usage).toHaveLength(4);
+
+    await engine.resume(session, { budgetUsd: 20 });
+    expect(session.shortened).toBeNull();
+    await engine.runDebate(session);
+    while (session.phase === "awaiting_answers") {
+      await engine.answerDebate(session, [{ question: "Hosted platform?", answer: "Yes" }]);
+      await engine.runDebate(session);
+    }
+    expect(session.phase).toBe("complete");
+    expect(session.shortened).toBeNull();
+    expect(session.debate.some((entry) => entry.kind === "critiques")).toBe(true);
+    expect(renderReport(session)).not.toContain("shortened");
+  });
+
   it("records the cost a provider reports rather than the price table's", async () => {
     setModelPrice("priced-test-model", { input: 1, output: 0 });
     const inner = new PricedProvider();

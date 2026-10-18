@@ -145,7 +145,8 @@
     "download": "Descargar el informe (Markdown)",
     "scoreOutOf": "{{score}} de 5",
     "yourSolution": "Su solución se sostiene",
-    "architecture": "Arquitectura recomendada"
+    "architecture": "Arquitectura recomendada",
+    "shortened": "El debate se acortó para no salirse de su presupuesto: se celebraron {{done}} de las {{planned}} ronda(s) previstas antes del veredicto."
   },
   "feasibility": {
     "feasible": "Viable",
@@ -172,7 +173,8 @@
     "title": "La sesión se ha detenido",
     "retry": "Reanudar desde donde se detuvo",
     "network": "Conexión perdida. Reconectando…",
-    "request": "La solicitud ha fallado. Compruebe su conexión e inténtelo de nuevo."
+    "request": "La solicitud ha fallado. Compruebe su conexión e inténtelo de nuevo.",
+    "newCap": "Nuevo límite de coste (opcional)"
   },
   "demo": {
     "badge": "Demo"
@@ -508,6 +510,7 @@
     "read_only": "Solo el autor de esta sesión o un administrador de su espacio de trabajo pueden modificarla.",
     "stopped": "Ha detenido esta sesión. Reanúdela cuando quiera.",
     "not_running": "Esta sesión ya no está en curso.",
-    "interrupted": "El servidor se reinició mientras esta sesión trabajaba. No se ha perdido nada de lo hecho: reanúdela desde donde se detuvo."
+    "interrupted": "El servidor se reinició mientras esta sesión trabajaba. No se ha perdido nada de lo hecho: reanúdela desde donde se detuvo.",
+    "budget_fixed": "El límite de coste de este debate lo fija el servicio y no se puede cambiar."
   }
 }

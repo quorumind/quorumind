@@ -145,7 +145,8 @@
     "download": "Download the report (Markdown)",
     "scoreOutOf": "{{score}} out of 5",
     "yourSolution": "Your solution holds",
-    "architecture": "Recommended architecture"
+    "architecture": "Recommended architecture",
+    "shortened": "The debate was shortened to stay within its budget: {{done}} of the {{planned}} planned round(s) took place before the verdict."
   },
   "feasibility": {
     "feasible": "Feasible",
@@ -172,7 +173,8 @@
     "title": "The session stopped",
     "retry": "Retry from where it stopped",
     "network": "Connection lost. Reconnecting…",
-    "request": "The request failed. Check your connection and try again."
+    "request": "The request failed. Check your connection and try again.",
+    "newCap": "New cost cap (optional)"
   },
   "demo": {
     "badge": "Demo"
@@ -508,6 +510,7 @@
     "read_only": "Only the author of this session or an admin of its workspace can change it.",
     "stopped": "You stopped this session. Resume it whenever you like.",
     "not_running": "This session is not running any more.",
-    "interrupted": "The server restarted while this session was working. Nothing done so far is lost: resume it from where it stopped."
+    "interrupted": "The server restarted while this session was working. Nothing done so far is lost: resume it from where it stopped.",
+    "budget_fixed": "The cost cap of this debate is set by the service and cannot be changed."
   }
 }
