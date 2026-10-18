@@ -1,12 +1,15 @@
+import { isLocale } from "@quorumind/core/locales";
+import { localeCurrency } from "@quorumind/core/profile";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type AppConfig, api } from "./api.ts";
 import { BrandingSettings } from "./components/BrandingSettings.tsx";
 import { DownloadIcon } from "./components/Icons.tsx";
+import { ProfileSettings } from "./components/ProfileSettings.tsx";
 import { groupLabel } from "./format.ts";
 
 export function Settings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [config, setConfig] = useState<AppConfig | null>(null);
   useEffect(() => {
     api.config().then(setConfig, () => undefined);
@@ -33,6 +36,17 @@ export function Settings() {
           ))}
         </ul>
       </section>
+
+      {config?.profileSettings === false ? (
+        <section className="card stack">
+          <h2 className="heading">{t("profile.title")}</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            {t("profile.managed")}
+          </p>
+        </section>
+      ) : config ? (
+        <ProfileSettings defaultCurrency={localeCurrency(isLocale(i18n.language) ? i18n.language : "en")} />
+      ) : null}
 
       <BrandingSettings />
 

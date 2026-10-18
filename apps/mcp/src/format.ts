@@ -184,6 +184,25 @@ export function formatSheet(sheet: RequirementsSheet): string {
 
 const json = (value: unknown) => `\`${JSON.stringify(value)}\``;
 
+/**
+ * The organisation profile the proposals will follow, for quorumind_review; null when there is none or the person set
+ * it aside.
+ */
+export function profileNotice(session: Session): string | null {
+  const profile = session.profile;
+  if (!profile || session.ignoreProfile) return null;
+  const rules = [
+    profile.forbiddenTechnologies.length > 0 ? `never ${profile.forbiddenTechnologies.join(", ")}` : "",
+    profile.hosting.euOnly ? "EU hosting only" : "",
+    profile.hosting.providers.length > 0 ? `hosting with ${profile.hosting.providers.join(", ")}` : "",
+    profile.hosting.onPremises ? "on-premises accepted" : "",
+    profile.roles.length > 0 ? `priced with ${profile.roles.length} day rate(s) in ${profile.currency}` : "",
+  ].filter(Boolean);
+  return `### Organisation profile\nProposals will stay within the profile of ${profile.name.trim() || "the organisation"}${
+    rules.length > 0 ? `: ${rules.join("; ")}` : ""
+  }. To debate without it, call quorumind_confirm with ignore_profile: true.`;
+}
+
 const amount = (value: number, currency: string) => `${value.toLocaleString("en")} ${currency}`;
 
 export function formatVerdictSummary(session: Session, costs: SessionCosts = {}): string {

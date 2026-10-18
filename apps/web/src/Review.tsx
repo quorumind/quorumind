@@ -1,5 +1,5 @@
 import type { BudgetPeriod, DurationUnit, RequirementsSheet, Session } from "@quorumind/core";
-import { debateCurrency } from "@quorumind/core/costing";
+import { debateCurrency, sessionProfile } from "@quorumind/core/costing";
 import { currencyCode } from "@quorumind/core/profile";
 import { COMPLIANCE_KEYS } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
@@ -49,6 +49,49 @@ const amountOf = (text: string): number | null => {
 };
 const textOf = (value: number | null | undefined) => (value === null || value === undefined ? "" : String(value));
 
+/** What the proposals will stay within, and the switch that sets the profile aside for this debate. */
+function ProfileNotice({ session, ignore, onIgnore }: { session: Session; ignore: boolean; onIgnore: (ignore: boolean) => void }) {
+  const { t, i18n } = useTranslation();
+  const profile = sessionProfile({ profile: session.profile, ignoreProfile: false });
+  if (!profile) return null;
+  const rules = [
+    profile.forbiddenTechnologies.length > 0 ? t("review.profile.forbidden", { list: profile.forbiddenTechnologies.join(", ") }) : "",
+    profile.hosting.euOnly ? t("review.profile.euOnly") : "",
+    profile.hosting.providers.length > 0 ? t("review.profile.providers", { list: profile.hosting.providers.join(", ") }) : "",
+    profile.hosting.onPremises ? t("review.profile.onPremises") : "",
+    profile.preferredTechnologies.length > 0 ? t("review.profile.preferred", { list: profile.preferredTechnologies.join(", ") }) : "",
+    profile.roles.length > 0 ? t("review.profile.rates", { count: profile.roles.length, currency: profile.currency }) : "",
+  ].filter(Boolean);
+  const saved = profile.updatedAt
+    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: "long" }).format(new Date(profile.updatedAt))
+    : null;
+  return (
+    <section className={`card stack profile-notice${ignore ? " profile-ignored" : ""}`} aria-labelledby="profile-notice-title">
+      <div className="stack" style={{ gap: "var(--space-1)" }}>
+        <h3 className="title" id="profile-notice-title" style={{ margin: 0 }}>
+          {profile.name.trim() ? t("review.profile.titleNamed", { name: profile.name.trim() }) : t("review.profile.title")}
+        </h3>
+        <p style={{ margin: 0 }}>{t("review.profile.lead")}</p>
+        {rules.length > 0 ? (
+          <ul style={{ margin: 0 }}>
+            {rules.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
+        ) : null}
+        {saved ? <span className="field-hint">{t("review.profile.saved", { date: saved })}</span> : null}
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={ignore} onChange={(event) => onIgnore(event.target.checked)} />
+        <span>
+          {t("review.profile.ignore")}
+          <span className="field-hint">{t("review.profile.ignoreHint")}</span>
+        </span>
+      </label>
+    </section>
+  );
+}
+
 export function Review({ session }: { session: Session }) {
   const { t } = useTranslation();
   const initial = session.sheet as RequirementsSheet;
@@ -57,6 +100,7 @@ export function Review({ session }: { session: Session }) {
   const [lists, setLists] = useState<Record<ListField, string>>(
     () => Object.fromEntries(LISTS.map(({ field }) => [field, toLines(initial[field])])) as Record<ListField, string>,
   );
+  const [ignoreProfile, setIgnoreProfile] = useState(session.ignoreProfile);
   // The budget's amounts are typed as text and share one currency.
   const [budget, setBudget] = useState(() => ({
     build: textOf(initial.budget.build?.amount),
@@ -84,6 +128,7 @@ export function Review({ session }: { session: Session }) {
   const debateIn = debateCurrency({
     ...session,
     currency: null,
+    ignoreProfile,
     sheet: { ...sheet, budget: { ...sheet.budget, build: currency ? { amount: 1, currency } : null, run: null } },
   });
 
@@ -114,7 +159,7 @@ export function Review({ session }: { session: Session }) {
       },
     };
     try {
-      await api.confirmSheet(session.id, final);
+      await api.confirmSheet(session.id, final, ignoreProfile);
     } catch (caught) {
       setError(failureText(t, caught));
       setSending(false);
@@ -147,6 +192,8 @@ export function Review({ session }: { session: Session }) {
           {t("review.lead")}
         </p>
       </div>
+
+      <ProfileNotice session={session} ignore={ignoreProfile} onIgnore={setIgnoreProfile} />
 
       <div className="card sheet-grid">
         <div className="field">

@@ -9,6 +9,7 @@ import type {
   Locale,
   Mode,
   ModelOption,
+  OrgProfile,
   RequirementsSheet,
   Session,
 } from "@quorumind/core";
@@ -38,7 +39,12 @@ export interface AppConfig {
   maxBudgetUsd: number | null;
   /** False when the host keeps provider costs to itself: only calls and tokens are shown. */
   providerCosts: boolean;
+  /** False when the host provides the organisation profile (a workspace's, hosted): it is not edited in Settings. */
+  profileSettings?: boolean;
 }
+
+/** An organisation profile as the settings form sends it: the server derives the role ids and the time of the save. */
+export type ProfileInput = Omit<OrgProfile, "roles" | "updatedAt"> & { roles: { name: string; dailyRate: number }[] };
 
 export interface SessionSummary {
   id: string;
@@ -166,8 +172,13 @@ export const api = {
   create: (input: NewSessionInput) => request<{ session: Session }>("/api/sessions", post(input)),
   remove: (id: string) => request<void>(`/api/sessions/${id}`, { method: "DELETE" }),
   answerInterview: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/interview`, post({ answers })),
-  confirmSheet: (id: string, sheet: RequirementsSheet) =>
-    request(`/api/sessions/${id}/sheet`, { method: "PUT", body: JSON.stringify({ sheet }) }),
+  /** `ignoreProfile` runs the debate without the organisation profile. */
+  confirmSheet: (id: string, sheet: RequirementsSheet, ignoreProfile = false) =>
+    request(`/api/sessions/${id}/sheet`, { method: "PUT", body: JSON.stringify({ sheet, ignoreProfile }) }),
+  profile: () => request<{ profile: OrgProfile | null }>("/api/profile"),
+  /** Saves the organisation profile, or removes it (null). */
+  saveProfile: (profile: ProfileInput | null) =>
+    request<{ profile: OrgProfile | null }>("/api/profile", { method: "PUT", body: JSON.stringify({ profile }) }),
   answerDebate: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/answers`, post({ answers })),
   /** Retries a failed session, with a new cost cap when `budgetUsd` is given (self-hosted only). */
   resume: (id: string, budgetUsd?: number) => request(`/api/sessions/${id}/resume`, post(budgetUsd === undefined ? {} : { budgetUsd })),

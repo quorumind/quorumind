@@ -6,7 +6,16 @@ import { z } from "zod";
 import { AdrError, adrSlug, findAdrTarget, isDirectory, writeAdr } from "./adr.ts";
 import { QuorumindClient, QuorumindError, type SessionState } from "./client.ts";
 import { ContextFileError, MAX_FILE_CHARS, MAX_FILES, readContextFiles } from "./files.ts";
-import { formatSheet, formatUsd, formatVerdictSummary, interviewQuestions, renderSnapshot, snapshot, statusOf } from "./format.ts";
+import {
+  formatSheet,
+  formatUsd,
+  formatVerdictSummary,
+  interviewQuestions,
+  profileNotice,
+  renderSnapshot,
+  snapshot,
+  statusOf,
+} from "./format.ts";
 import { checkGithubCli, createGithubIssues, GITHUB_REPO, GithubCliError, type RunCommand, runCommand } from "./github.ts";
 import { type Baseline, baselineOf, isStoppingPoint, waitForStoppingPoint } from "./wait.ts";
 import { readZip, ZipError } from "./zip.ts";
@@ -331,7 +340,8 @@ export function createMcpServer(options: McpOptions): McpServer {
         const next = confirmed
           ? "The sheet is already confirmed; the debate uses it."
           : "Next: show it to the user, then call quorumind_confirm, with `edits` (same field names) for anything they correct.";
-        return text(`${formatSheet(session.sheet)}\n\n${next}`, {
+        const profile = profileNotice(session);
+        return text(`${formatSheet(session.sheet)}\n\n${profile ? `${profile}\n\n` : ""}${next}`, {
           sessionId: session.id,
           phase: session.phase,
           confirmed,
@@ -350,9 +360,13 @@ export function createMcpServer(options: McpOptions): McpServer {
       inputSchema: z.object({
         session_id: SessionId,
         edits: SheetEdits.optional().describe("Fields to change, named as in quorumind_review. Omit to confirm the sheet as it is."),
+        ignore_profile: z
+          .boolean()
+          .optional()
+          .describe("True to debate without the organisation profile shown by quorumind_review (its rates and technology rules)."),
       }),
     },
-    ({ session_id, edits }, ctx) =>
+    ({ session_id, edits, ignore_profile }, ctx) =>
       guarded(async () => {
         const state = await client.getSession(session_id);
         const { session } = state;
@@ -360,7 +374,7 @@ export function createMcpServer(options: McpOptions): McpServer {
           return refuse(state, "There is no requirements sheet waiting for confirmation.");
         }
         const sheet = { ...session.sheet, ...(edits ?? {}) } as RequirementsSheet;
-        await client.confirmSheet(session_id, sheet);
+        await client.confirmSheet(session_id, sheet, ignore_profile);
         const changed = Object.keys(edits ?? {});
         const preface = [changed.length > 0 ? `Sheet confirmed with changes to: ${changed.join(", ")}.` : "Sheet confirmed.", ""];
         return settle(session_id, baselineOf(session), ctx, preface);

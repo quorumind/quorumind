@@ -125,8 +125,12 @@ export class QuorumindClient {
     await this.json("POST", `/api/sessions/${encodeURIComponent(id)}/interview`, { answers });
   }
 
-  async confirmSheet(id: string, sheet: RequirementsSheet) {
-    await this.json("PUT", `/api/sessions/${encodeURIComponent(id)}/sheet`, { sheet });
+  /** `ignoreProfile` debates without the organisation profile. */
+  async confirmSheet(id: string, sheet: RequirementsSheet, ignoreProfile?: boolean) {
+    await this.json("PUT", `/api/sessions/${encodeURIComponent(id)}/sheet`, {
+      sheet,
+      ...(ignoreProfile === undefined ? {} : { ignoreProfile }),
+    });
   }
 
   async answerDebate(id: string, answers: Answer[]) {

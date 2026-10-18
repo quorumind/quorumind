@@ -10,6 +10,7 @@ import {
   DebateEngine,
   deliveryChecks,
   estimateDebateCost,
+  hasProfile,
   INTERRUPTED,
   InvalidStateError,
   isLocale,
@@ -23,6 +24,7 @@ import {
   MODES,
   type ModelOption,
   makerOf,
+  type OrgProfile,
   type Participant,
   PERSONA_IDS,
   PROPOSER_SEATS,
@@ -46,6 +48,7 @@ import { contextRoutes } from "./context/routes.ts";
 import { invalidRequest } from "./errors.ts";
 import { exportRoutes } from "./exports.ts";
 import type { Notifier } from "./notifier.ts";
+import { profileRoutes } from "./profile.ts";
 import {
   AttemptLimiter,
   accessToken,
@@ -165,6 +168,12 @@ export interface AppHooks {
   canEdit?(user: User, session: Placement & { id: string }): Promise<boolean>;
   /** The authors of sessions others started, by owner id; an id left out shows as a former member. */
   authors?(owners: string[]): Promise<Record<string, Author>>;
+  /**
+   * The organisation profile a new session follows (its proposals stay within it and are priced with its day rates),
+   * e.g. the one of the workspace it is started in; null for none. Read once, when the session is created: the
+   * session keeps a copy. Without it, the profile is the one saved in the settings of this server (/api/profile).
+   */
+  profile?(user: User, session: Session): Promise<OrgProfile | null>;
 }
 
 export interface AppDeps {
@@ -177,7 +186,7 @@ export interface AppDeps {
   chat?: ChatNotifier | null;
   /** Delay between streamed chunks of the demo; 0 in tests. */
   mockDelayMs?: number;
-  /** White-label branding of the exports; kept in memory when not given. */
+  /** White-label branding of the exports and the organisation profile; kept in memory when not given. */
   brandingStore?: BrandingStore;
 }
 
@@ -276,6 +285,7 @@ const slug = (session: Session) =>
 
 export function createApp(deps: AppDeps) {
   const { store, bus, env, hooks = {} } = deps;
+  const settings = deps.brandingStore ?? new SqliteBrandingStore(":memory:");
   const busy = new Set<string>();
   /** The background work of each session that has some, to stop it. */
   const workers = new Map<string, { controller: AbortController; done: Promise<void> }>();
@@ -292,8 +302,15 @@ export function createApp(deps: AppDeps) {
   };
   const envFor = (user: User | null): Env => (user && hooks.providerEnv ? hooks.providerEnv(user) : env);
   const view = (session: Session) => (hooks.hideProviderCosts ? withoutProviderCosts(session) : session);
-  const priceOf = (user: User | null, settings: PricedSettings, sessionId: string | null) =>
-    user && hooks.quote ? hooks.quote(user, settings, sessionId) : Promise.resolve(null);
+  const priceOf = (user: User | null, priced: PricedSettings, sessionId: string | null) =>
+    user && hooks.quote ? hooks.quote(user, priced, sessionId) : Promise.resolve(null);
+
+  /** The profile a new session follows: the host's, else the one saved in the settings. The recorded demo follows none. */
+  const profileFor = async (user: User | null, session: Session): Promise<OrgProfile | null> => {
+    if (session.demo) return null;
+    const profile = hooks.profile ? (user ? await hooks.profile(user, session) : null) : await settings.profile(ownerOf(user));
+    return hasProfile(profile) ? structuredClone(profile) : null;
+  };
 
   const engineFor = (session: Session, signal?: AbortSignal) => {
     const user = users.get(session.id) ?? null;
@@ -413,7 +430,6 @@ export function createApp(deps: AppDeps) {
     c.set("user", user);
     return next();
   });
-  const ownerOf = (user: User | null) => user?.userId ?? null;
 
   app.get("/api/health", (c) => c.json({ ok: true }));
 
@@ -434,6 +450,8 @@ export function createApp(deps: AppDeps) {
       retentionDays: retentionDays(env),
       maxBudgetUsd: hooks.hideProviderCosts ? null : (hooks.maxBudgetUsd ?? null),
       providerCosts: !hooks.hideProviderCosts,
+      // False when the host provides the organisation profiles (AppHooks.profile): they are not edited in this app.
+      profileSettings: !hooks.profile,
     });
   });
 
@@ -454,6 +472,7 @@ export function createApp(deps: AppDeps) {
   });
 
   const scopeOf = (user: User | null): Promise<Scope | null> => (user && hooks.scope ? hooks.scope(user) : Promise.resolve(null));
+  const ownerOf = (user: User | null) => user?.userId ?? null;
 
   // ?mine=1 keeps the caller's own sessions, in a workspace's shared history.
   app.get("/api/sessions", async (c) => {
@@ -508,6 +527,7 @@ export function createApp(deps: AppDeps) {
       redact: input.redact,
       notify: input.notify && Boolean(deps.notifier),
     });
+    session.profile = await profileFor(user, session);
     users.set(session.id, user);
     await authorize(session);
     const workspace = (await scopeOf(user))?.workspace ?? null;
@@ -609,9 +629,11 @@ export function createApp(deps: AppDeps) {
   app.put("/api/sessions/:id/sheet", async (c) => {
     const session = await loadForEdit(c.req.param("id"), c.get("user"));
     startAction(session);
-    const { sheet } = z.object({ sheet: RequirementsSheet }).parse(await c.req.json());
+    const { sheet, ignoreProfile } = z
+      .object({ sheet: RequirementsSheet, ignoreProfile: z.boolean().optional() })
+      .parse(await c.req.json());
     await authorize(session);
-    await engineFor(session).confirmSheet(session, sheet);
+    await engineFor(session).confirmSheet(session, sheet, ignoreProfile === undefined ? {} : { ignoreProfile });
     runInBackground(session, (engine) => engine.runDebate(session));
     return c.json({ accepted: true }, 202);
   });
@@ -705,6 +727,8 @@ export function createApp(deps: AppDeps) {
     session.interview = structuredClone(source.interview);
     session.sheet = structuredClone(source.sheet);
     session.phase = "review";
+    // The new debate follows the profile in force now, not the one the earlier decision was made with.
+    session.profile = await profileFor(user, session);
     users.set(session.id, user);
     // In the caller's workspace, whoever started the original; a private session's copy stays private.
     const workspace = (await scopeOf(user))?.workspace ?? null;
@@ -851,6 +875,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.route("/", contextRoutes({ env }));
+  app.route("/", profileRoutes({ branding: settings, ownerOf, hosted: Boolean(hooks.profile) }));
   app.route(
     "/",
     exportRoutes({
@@ -860,7 +885,7 @@ export function createApp(deps: AppDeps) {
           throw error;
         }),
       ownerOf,
-      branding: deps.brandingStore ?? new SqliteBrandingStore(":memory:"),
+      branding: settings,
     }),
   );
 
