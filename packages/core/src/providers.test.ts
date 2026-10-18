@@ -97,16 +97,17 @@ describe("GeminiProvider", () => {
   });
 
   it.each([
-    [400, false, /Gemini rejected the request: Bad schema/],
-    [401, false, /The Gemini API key was rejected\./],
-    [403, false, /The Gemini API key was rejected\./],
-    [429, true, /unavailable/],
-    [503, true, /unavailable/],
-  ])("maps HTTP %i to a ProviderError (retryable: %s)", async (status, retryable, message) => {
+    [400, false, /Gemini rejected the request: Bad schema/, "provider_error"],
+    [401, false, /The Gemini API key was rejected\./, "provider_auth"],
+    [403, false, /The Gemini API key was rejected\./, "provider_auth"],
+    [429, true, /unavailable/, "provider_rate_limit"],
+    [503, true, /unavailable/, "provider_unavailable"],
+  ])("maps HTTP %i to a ProviderError (retryable: %s)", async (status, retryable, message, code) => {
     const fetchMock = fakeFetch(() => Response.json({ error: { code: status, message: "Bad schema" } }, { status }));
     const error = await rejection(new GeminiProvider({ model: "m", fetch: fetchMock }).generate(request));
     expect(error.retryable).toBe(retryable);
     expect(error.message).toMatch(message);
+    expect(error.code).toBe(code);
   });
 
   it("retries after a network failure", async () => {
@@ -128,9 +129,15 @@ describe("GeminiProvider", () => {
 
   it("does not retry a blocked answer or prompt", async () => {
     const blocked = fakeFetch(() => streamed([sse({ candidates: [{ finishReason: "SAFETY" }] })]));
-    expect((await rejection(new GeminiProvider({ model: "m", fetch: blocked }).generate(request))).retryable).toBe(false);
+    expect(await rejection(new GeminiProvider({ model: "m", fetch: blocked }).generate(request))).toMatchObject({
+      retryable: false,
+      code: "provider_refused",
+    });
     const prompt = fakeFetch(() => streamed([sse({ promptFeedback: { blockReason: "PROHIBITED_CONTENT" } })]));
-    expect((await rejection(new GeminiProvider({ model: "m", fetch: prompt }).generate(request))).retryable).toBe(false);
+    expect(await rejection(new GeminiProvider({ model: "m", fetch: prompt }).generate(request))).toMatchObject({
+      retryable: false,
+      code: "provider_refused",
+    });
   });
 });
 
@@ -179,6 +186,7 @@ describe("OllamaProvider", () => {
     });
     const error = await rejection(new OllamaProvider({ model: "m", fetch: fetchMock }).generate(request));
     expect(error.retryable).toBe(false);
+    expect(error.code).toBe("provider_unavailable");
     expect(error.message).toBe("Ollama is not reachable at http://127.0.0.1:11434. Is it running?");
   });
 
@@ -388,17 +396,18 @@ describe("OpenRouterProvider", () => {
   });
 
   it.each([
-    [400, false, /OpenRouter rejected the request: Bad schema/],
-    [401, false, /The OpenRouter API key was rejected\./],
-    [402, false, /out of credits/],
-    [404, false, /no endpoint for m that supports a strict JSON schema/],
-    [429, true, /unavailable/],
-    [502, true, /unavailable/],
-  ])("maps HTTP %i to a ProviderError (retryable: %s)", async (status, retryable, message) => {
+    [400, false, /OpenRouter rejected the request: Bad schema/, "provider_error"],
+    [401, false, /The OpenRouter API key was rejected\./, "provider_auth"],
+    [402, false, /out of credits/, "provider_quota"],
+    [404, false, /no endpoint for m that supports a strict JSON schema/, "provider_error"],
+    [429, true, /unavailable/, "provider_rate_limit"],
+    [502, true, /unavailable/, "provider_unavailable"],
+  ])("maps HTTP %i to a ProviderError (retryable: %s)", async (status, retryable, message, code) => {
     const fetchMock = fakeFetch(() => Response.json({ error: { code: status, message: "Bad schema" } }, { status }));
     const error = await rejection(new OpenRouterProvider({ model: "m", fetch: fetchMock }).generate(request));
     expect(error.retryable).toBe(retryable);
     expect(error.message).toMatch(message);
+    expect(error.code).toBe(code);
   });
 
   it("reports an error sent in the middle of the stream", async () => {
@@ -410,6 +419,7 @@ describe("OpenRouterProvider", () => {
     );
     const error = await rejection(new OpenRouterProvider({ model: "m", fetch: fetchMock }).generate(request));
     expect(error.retryable).toBe(true);
+    expect(error.code).toBe("provider_unavailable");
     expect(error.message).toMatch(/Provider disconnected/);
   });
 

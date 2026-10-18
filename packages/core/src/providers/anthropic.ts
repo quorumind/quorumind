@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError } from "./types.ts";
+import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError, providerErrorCode } from "./types.ts";
 
 export interface AnthropicOptions {
   apiKey?: string;
@@ -44,7 +44,9 @@ export class AnthropicProvider implements LlmProvider {
       }
       const message = await stream.finalMessage();
       if (message.stop_reason === "refusal") {
-        throw new ProviderError(`The model declined this request (${message.stop_details?.category ?? "no category"}).`, false);
+        throw new ProviderError(`The model declined this request (${message.stop_details?.category ?? "no category"}).`, false, {
+          code: "provider_refused",
+        });
       }
       if (message.stop_reason === "max_tokens") {
         throw new ProviderError("The answer was cut off by the token limit.", true);
@@ -61,18 +63,30 @@ export class AnthropicProvider implements LlmProvider {
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (error instanceof Anthropic.AuthenticationError) {
-        throw new ProviderError("The Anthropic API key was rejected.", false, { cause: error });
+        throw new ProviderError("The Anthropic API key was rejected.", false, { cause: error, code: "provider_auth" });
       }
       if (error instanceof Anthropic.BadRequestError) {
         throw new ProviderError(`Anthropic rejected the request: ${error.message}`, false, { cause: error });
       }
-      if (error instanceof Anthropic.RateLimitError || error instanceof Anthropic.InternalServerError) {
-        throw new ProviderError(`Anthropic is unavailable right now: ${error.message}`, true, { cause: error });
+      if (error instanceof Anthropic.RateLimitError) {
+        throw new ProviderError(`Anthropic is unavailable right now: ${error.message}`, true, {
+          cause: error,
+          code: "provider_rate_limit",
+        });
+      }
+      if (error instanceof Anthropic.InternalServerError) {
+        throw new ProviderError(`Anthropic is unavailable right now: ${error.message}`, true, {
+          cause: error,
+          code: "provider_unavailable",
+        });
       }
       if (error instanceof Anthropic.APIError) {
-        throw new ProviderError(`Anthropic API error ${error.status}: ${error.message}`, false, { cause: error });
+        throw new ProviderError(`Anthropic API error ${error.status}: ${error.message}`, false, {
+          cause: error,
+          code: typeof error.status === "number" ? providerErrorCode(error.status) : "provider_error",
+        });
       }
-      throw new ProviderError("Could not reach the Anthropic API.", true, { cause: error });
+      throw new ProviderError("Could not reach the Anthropic API.", true, { cause: error, code: "provider_unavailable" });
     }
   }
 }

@@ -43,6 +43,7 @@ import {
   type Depth,
   proposerSeats,
   type Session,
+  type SessionError,
   totalCost,
   USER_SEAT,
 } from "./session.ts";
@@ -73,18 +74,48 @@ export interface EngineHooks {
 }
 
 export class BudgetExceededError extends Error {
+  readonly code = "budget_exceeded";
+  readonly params: { spentUsd: number; budgetUsd: number };
   constructor(spentUsd: number, budgetUsd: number) {
     super(`The cost cap of $${budgetUsd.toFixed(2)} is reached ($${spentUsd.toFixed(2)} spent).`);
     this.name = "BudgetExceededError";
+    this.params = { spentUsd: roundUsd(spentUsd), budgetUsd: roundUsd(budgetUsd) };
   }
 }
 
+/**
+ * Why an action does not fit where the session stands. wrong_phase: the session is not at the step the action
+ * belongs to; the server adds its own codes (session_busy, not_running).
+ */
 export class InvalidStateError extends Error {
-  constructor(message: string) {
+  readonly code: string;
+  readonly params: SessionError["params"];
+  constructor(message: string, code = "wrong_phase", params?: SessionError["params"]) {
     super(message);
     this.name = "InvalidStateError";
+    this.code = code;
+    this.params = params;
   }
 }
+
+/** The models that made a call fail, for the interface to name them. */
+const failedCalls = new WeakMap<object, { provider: string; model: string }>();
+
+/** The failure of a session from what was thrown: a stable code, its parameters and the English message. */
+export function sessionError(error: unknown): SessionError {
+  const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof BudgetExceededError) return { code: error.code, message, params: error.params };
+  if (error instanceof InvalidStateError) return { code: error.code, message, ...(error.params ? { params: error.params } : {}) };
+  const failed = error instanceof Object ? failedCalls.get(error) : undefined;
+  // An answer that is not valid JSON even on the second try is the model's failure too.
+  if (error instanceof ProviderError || error instanceof SyntaxError) {
+    return { code: error instanceof ProviderError ? error.code : "provider_error", message, ...(failed ? { params: failed } : {}) };
+  }
+  return { code: "internal_error", message };
+}
+
+// Four decimals: a call to a small model costs a fraction of a cent.
+const roundUsd = (usd: number) => Math.round(usd * 10_000) / 10_000;
 
 const SCHEMAS = {
   interview: { zod: InterviewTurn, json: toStrictJsonSchema(InterviewTurn), name: "interview_turn", maxTokens: 8_000 },
@@ -459,13 +490,13 @@ export class DebateEngine {
   }
 
   private devil(): LlmProvider {
-    if (!this.providers.devil) throw new InvalidStateError("No model is assigned to the devil's advocate.");
+    if (!this.providers.devil) throw new InvalidStateError("No model is assigned to the devil's advocate.", "invalid_lineup");
     return this.providers.devil;
   }
 
   private proposer(seat: string): LlmProvider {
     const provider = this.providers.proposers[seat];
-    if (!provider) throw new InvalidStateError(`No model is assigned to seat ${seat}.`);
+    if (!provider) throw new InvalidStateError(`No model is assigned to seat ${seat}.`, "invalid_lineup");
     return provider;
   }
 
@@ -524,6 +555,7 @@ export class DebateEngine {
         if (!retryable) break;
       }
     }
+    if (lastError instanceof Object) failedCalls.set(lastError, { provider: provider.kind, model: provider.model });
     throw lastError;
   }
 
@@ -544,11 +576,7 @@ export class DebateEngine {
       await work();
     } catch (error) {
       session.phase = "failed";
-      session.error = {
-        code:
-          error instanceof BudgetExceededError ? "budget_exceeded" : error instanceof ProviderError ? "provider_error" : "internal_error",
-        message: error instanceof Error ? error.message : String(error),
-      };
+      session.error = sessionError(error);
       await this.persist(session);
     }
   }

@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError } from "./types.ts";
+import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError, providerErrorCode } from "./types.ts";
 
 export interface OpenAiOptions {
   apiKey?: string;
@@ -50,7 +50,10 @@ export class OpenAiProvider implements LlmProvider {
       }
       const response = await stream.finalResponse();
       if (response.status === "incomplete") {
-        throw new ProviderError(`The answer is incomplete (${response.incomplete_details?.reason ?? "unknown reason"}).`, true);
+        const reason = response.incomplete_details?.reason;
+        throw new ProviderError(`The answer is incomplete (${reason ?? "unknown reason"}).`, true, {
+          code: reason === "content_filter" ? "provider_refused" : "provider_error",
+        });
       }
       return {
         text: response.output_text,
@@ -63,18 +66,24 @@ export class OpenAiProvider implements LlmProvider {
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (error instanceof OpenAI.AuthenticationError) {
-        throw new ProviderError("The OpenAI API key was rejected.", false, { cause: error });
+        throw new ProviderError("The OpenAI API key was rejected.", false, { cause: error, code: "provider_auth" });
       }
       if (error instanceof OpenAI.BadRequestError) {
         throw new ProviderError(`OpenAI rejected the request: ${error.message}`, false, { cause: error });
       }
-      if (error instanceof OpenAI.RateLimitError || error instanceof OpenAI.InternalServerError) {
-        throw new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, { cause: error });
+      if (error instanceof OpenAI.RateLimitError) {
+        throw new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, { cause: error, code: "provider_rate_limit" });
+      }
+      if (error instanceof OpenAI.InternalServerError) {
+        throw new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, { cause: error, code: "provider_unavailable" });
       }
       if (error instanceof OpenAI.APIError) {
-        throw new ProviderError(`OpenAI API error ${error.status}: ${error.message}`, false, { cause: error });
+        throw new ProviderError(`OpenAI API error ${error.status}: ${error.message}`, false, {
+          cause: error,
+          code: typeof error.status === "number" ? providerErrorCode(error.status) : "provider_error",
+        });
       }
-      throw new ProviderError("Could not reach the OpenAI API.", true, { cause: error });
+      throw new ProviderError("Could not reach the OpenAI API.", true, { cause: error, code: "provider_unavailable" });
     }
   }
 }

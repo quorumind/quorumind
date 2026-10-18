@@ -114,7 +114,7 @@ describe("cost cap", () => {
     await engine.confirmSheet(session, session.sheet!);
     await engine.runDebate(session);
     expect(session.phase).toBe("failed");
-    expect(session.error?.code).toBe("budget_exceeded");
+    expect(session.error).toMatchObject({ code: "budget_exceeded", params: { spentUsd: 2, budgetUsd: 1.5 } });
   });
 
   it("records the cost a provider reports rather than the price table's", async () => {
@@ -159,7 +159,7 @@ describe("failures", () => {
     const { engine, session } = setup({ interviewer: mock, arbiter: flaky, proposers: { A: mock, B: mock } });
     await runToVerdict(engine, session);
     expect(session.phase).toBe("failed");
-    expect(session.error?.code).toBe("provider_error");
+    expect(session.error).toEqual({ code: "provider_error", message: "Temporary outage", params: { provider: "mock", model: "mock" } });
     const proposalsBefore = session.debate.filter((entry) => entry.kind === "proposal").length;
 
     const next = await engine.resume(session);
@@ -167,6 +167,32 @@ describe("failures", () => {
     await engine.runDebate(session);
     expect(session.phase).toBe("complete");
     expect(session.debate.filter((entry) => entry.kind === "proposal")).toHaveLength(proposalsBefore);
+  });
+
+  it("keeps the provider's reason as the error code, without retrying what cannot succeed", async () => {
+    const mock = new MockProvider({ chunkDelayMs: 0 });
+    let calls = 0;
+    const rejected: LlmProvider = {
+      kind: "anthropic",
+      model: "claude-test",
+      async generate() {
+        calls++;
+        throw new ProviderError("The Anthropic API key was rejected.", false, { code: "provider_auth" });
+      },
+    };
+    const { engine, session } = setup({ interviewer: rejected, arbiter: mock, proposers: { A: mock, B: mock } });
+    await engine.startInterview(session);
+    expect(calls).toBe(1);
+    expect(session.error).toEqual({
+      code: "provider_auth",
+      message: "The Anthropic API key was rejected.",
+      params: { provider: "anthropic", model: "claude-test" },
+    });
+  });
+
+  it("refuses an action that does not match the phase, with a code", async () => {
+    const { engine, session } = setup();
+    await expect(engine.answerDebate(session, [])).rejects.toMatchObject({ code: "wrong_phase" });
   });
 
   it("retries once when an answer is not valid JSON", async () => {

@@ -19,6 +19,7 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { User } from "./app.ts";
 import type { BrandingStore } from "./branding.ts";
+import { invalidRequest } from "./errors.ts";
 
 export interface ExportDeps {
   /** The session when it exists and this user may read it. */
@@ -70,7 +71,7 @@ export function exportRoutes(deps: ExportDeps) {
 
   type Ctx = Context<{ Variables: { user: User | null } }>;
   const notFound = (c: Ctx) => c.json({ error: "not_found", message: "This session does not exist." }, 404);
-  const noVerdict = (c: Ctx) => c.json({ error: "invalid_state", message: "The verdict is not ready yet." }, 409);
+  const noVerdict = (c: Ctx) => c.json({ error: "wrong_phase", message: "The verdict is not ready yet." }, 409);
   const load = async (c: Ctx) => {
     const session = await deps.getSession(c.req.param("id") ?? "", c.get("user"));
     return session ? normalizeSession(session) : null;
@@ -89,9 +90,9 @@ export function exportRoutes(deps: ExportDeps) {
     // ?audience=cto|executive|client: the verdict rewritten for that reader, once it was generated in the app.
     const requested = c.req.query("audience");
     const audience = requested ? Audience.safeParse(requested) : null;
-    if (audience && !audience.success) return c.json({ error: "invalid_request", message: "Unknown audience." }, 400);
+    if (audience && !audience.success) return c.json(invalidRequest(audience.error), 400);
     if (audience?.success && !session.briefs[audience.data]) {
-      return c.json({ error: "invalid_state", message: "This reader version has not been written yet." }, 409);
+      return c.json({ error: "brief_missing", message: "This reader version has not been written yet." }, 409);
     }
     c.header("Content-Security-Policy", REPORT_CSP);
     c.header("X-Content-Type-Options", "nosniff");
@@ -129,7 +130,7 @@ export function exportRoutes(deps: ExportDeps) {
     const body = await c.req.json().catch(() => undefined);
     if (body === undefined) return c.json({ error: "invalid_request", message: "The body is not valid JSON." }, 400);
     const parsed = BrandingInput.safeParse(body);
-    if (!parsed.success) return c.json({ error: "invalid_request", issues: parsed.error.issues }, 400);
+    if (!parsed.success) return c.json(invalidRequest(parsed.error), 400);
     return c.json({ branding: await deps.branding.set(deps.ownerOf(c.get("user")), parsed.data) });
   });
 

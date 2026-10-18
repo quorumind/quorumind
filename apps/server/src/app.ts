@@ -36,6 +36,7 @@ import { z } from "zod";
 import { type BrandingStore, SqliteBrandingStore } from "./branding.ts";
 import type { EventBus } from "./bus.ts";
 import { contextRoutes } from "./context/routes.ts";
+import { invalidRequest } from "./errors.ts";
 import { exportRoutes } from "./exports.ts";
 import type { Notifier } from "./notifier.ts";
 import type { Placement, SessionStore, StoredSession } from "./store.ts";
@@ -72,6 +73,11 @@ export interface SessionAccess {
   /** Who started it, when someone else did and the host names authors; null for a former member. */
   author?: Author | null;
 }
+/**
+ * Why the host refuses to spend: no credits left, a limit of the plan, the cost cap included in the debate's price,
+ * no seat left in the workspace. The web app translates each of them.
+ */
+export type SpendRefusal = "insufficient_credits" | "plan_limit" | "price_limit" | "seat_limit";
 
 /** The settings of a session its price can depend on. */
 export type PricedSettings = Pick<Session, "mode" | "depth" | "locale">;
@@ -93,12 +99,15 @@ export interface PriceQuote {
 export interface AppHooks {
   /** Who is calling. When provided, a null result means 401 and every session is scoped to its owner. */
   identify?(request: Request): Promise<User | null>;
-  /** Called before any model work starts or resumes. Refusing answers HTTP 402. */
+  /**
+   * Called before any model work starts or resumes. Refusing answers HTTP 402 with the code, which the interface
+   * explains; `reason` is the English message sent with it.
+   */
   authorizeSpend?(
     user: User,
     session: Session,
     estimateUsd: number,
-  ): Promise<{ ok: true } | { ok: false; reason: string; code: "insufficient_credits" | "plan_limit" }>;
+  ): Promise<{ ok: true } | { ok: false; reason: string; code: SpendRefusal }>;
   /** After every model call, with its real cost (null when the price is unknown). */
   onUsage?(user: User, session: Session, record: UsageRecord): void | Promise<void>;
   /** The models this user may pick. */
@@ -214,8 +223,8 @@ function withoutProviderCosts(session: Session): Session {
     ...session,
     budgetUsd: null,
     usage: session.usage.map((record) => ({ ...record, costUsd: null })),
-    // The engine's message names the cap in dollars; the error code is enough to explain it.
-    error: session.error?.code === "budget_exceeded" ? { ...session.error, message: "" } : session.error,
+    // The engine's message and parameters name the cap in dollars; the error code is enough to explain it.
+    error: session.error?.code === "budget_exceeded" ? { code: session.error.code, message: "" } : session.error,
   };
 }
 
@@ -403,9 +412,9 @@ export function createApp(deps: AppDeps) {
         }
         lineup = fallback;
       }
-      if (!input.idea) return c.json({ error: "invalid_request", message: "Describe your project idea." }, 400);
+      if (!input.idea) return c.json({ error: "idea_missing", message: "Describe your project idea." }, 400);
       if (input.mode === "challenge" && !input.challenge) {
-        return c.json({ error: "invalid_request", message: "Describe the solution you want challenged." }, 400);
+        return c.json({ error: "challenge_missing", message: "Describe the solution you want challenged." }, 400);
       }
     }
     const mode = input.demo ? "standard" : input.mode;
@@ -472,7 +481,7 @@ export function createApp(deps: AppDeps) {
   const loadForEdit = async (id: string, user: User | null) => (await editable(id, user)).session;
 
   const startAction = (session: Session) => {
-    if (busy.has(session.id)) throw new InvalidStateError("This session is already working. Wait for it to finish.");
+    if (busy.has(session.id)) throw new InvalidStateError("This session is already working. Wait for it to finish.", "session_busy");
   };
 
   app.get("/api/sessions/:id", async (c) => {
@@ -707,10 +716,14 @@ export function createApp(deps: AppDeps) {
   app.onError((error, c) => {
     if (error instanceof NotFound) return c.json({ error: "not_found", message: "This session does not exist." }, 404);
     if (error instanceof ReadOnly) return c.json({ error: "read_only", message: error.message }, 403);
-    if (error instanceof InvalidStateError) return c.json({ error: "invalid_state", message: error.message }, 409);
-    if (error instanceof InvalidLineup) return c.json({ error: "invalid_lineup", message: error.message }, 400);
+    if (error instanceof InvalidStateError) {
+      return c.json({ error: error.code, message: error.message, ...(error.params ? { params: error.params } : {}) }, 409);
+    }
+    if (error instanceof InvalidLineup) {
+      return c.json({ error: "invalid_lineup", message: error.message, ...(error.model ? { params: { model: error.model } } : {}) }, 400);
+    }
     if (error instanceof PaymentRequired) return c.json({ error: error.code, message: error.message }, 402);
-    if (error instanceof z.ZodError) return c.json({ error: "invalid_request", issues: error.issues }, 400);
+    if (error instanceof z.ZodError) return c.json(invalidRequest(error), 400);
     if (error instanceof SyntaxError) return c.json({ error: "invalid_request", message: "The body is not valid JSON." }, 400);
     console.error(error);
     return c.json({ error: "internal_error", message: "Something went wrong on the server." }, 500);
@@ -734,7 +747,11 @@ export function retentionDays(env: Env): number | null {
 function validateLineup(input: z.infer<typeof LineupInput>, catalog: ModelOption[]): Lineup {
   const known = (participant: { provider: string; model: string }): Participant => {
     const option = catalog.find((entry) => entry.provider === participant.provider && entry.model === participant.model);
-    if (!option) throw new InvalidLineup(`The model ${participant.provider}:${participant.model} is not available on this server.`);
+    if (!option)
+      throw new InvalidLineup(
+        `The model ${participant.provider}:${participant.model} is not available on this server.`,
+        `${participant.provider}:${participant.model}`,
+      );
     return { provider: option.provider, model: option.model };
   };
   const keys = Object.keys(input.seats).sort();
@@ -772,7 +789,14 @@ class ReadOnly extends Error {
     super(message);
   }
 }
-class InvalidLineup extends Error {}
+class InvalidLineup extends Error {
+  /** The model that is not available, as provider:model; null when the seats are wrong. */
+  readonly model: string | null;
+  constructor(message: string, model: string | null = null) {
+    super(message);
+    this.model = model;
+  }
+}
 class PaymentRequired extends Error {
   readonly code: string;
   constructor(code: string, message: string) {

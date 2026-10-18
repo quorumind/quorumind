@@ -113,7 +113,17 @@ export interface Session {
   /** The verdict rewritten for other readers, generated on demand. */
   briefs: Partial<Record<Audience, Brief>>;
   usage: UsageRecord[];
-  error: { code: string; message: string } | null;
+  error: SessionError | null;
+}
+
+/**
+ * Why a session stopped. The code is stable and the interface explains it in the person's language, with `params`
+ * (the provider and model that failed, the cap reached…); the message is English, for logs and API users.
+ */
+export interface SessionError {
+  code: string;
+  message: string;
+  params?: Record<string, string | number> | undefined;
 }
 
 export interface NewSessionInput {

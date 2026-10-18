@@ -91,6 +91,30 @@ describe.each(BACKENDS)("on $name", (each) => {
       await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy);
       const response = await app.request(`/api/sessions/${session.id}/answers`, json({ answers: [] }));
       expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ error: "wrong_phase", message: "No question is waiting for an answer." });
+    });
+
+    it("answers a stable code, with its parameters, for every refused request", async () => {
+      const app = await makeApp({ ANTHROPIC_API_KEY: "key" });
+      const refusal = async (body: unknown) => {
+        const response = await app.request("/api/sessions", json(body));
+        expect(response.status).toBe(400);
+        return (await response.json()) as { error: string; message: string; params?: Record<string, unknown> };
+      };
+      expect(await refusal({ locale: "en", idea: "" })).toMatchObject({ error: "idea_missing" });
+      expect(await refusal({ locale: "en", idea: "A CRM", mode: "challenge" })).toMatchObject({ error: "challenge_missing" });
+      expect(await refusal({ locale: "en", idea: "A CRM", rounds: 9 })).toMatchObject({
+        error: "invalid_request",
+        params: { field: "rounds" },
+      });
+      const claude = { provider: "anthropic", model: "claude-sonnet-5-5" };
+      const lineup = { interviewer: claude, arbiter: { provider: "anthropic", model: "unknown" }, seats: { A: claude, B: claude } };
+      expect(await refusal({ locale: "en", idea: "A CRM", lineup })).toMatchObject({
+        error: "invalid_lineup",
+        params: { model: "anthropic:unknown" },
+      });
+      const notJson = await app.request("/api/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{" });
+      expect(await notJson.json()).toMatchObject({ error: "invalid_request" });
     });
 
     it("describes the configuration without exposing keys", async () => {

@@ -1,5 +1,5 @@
 import { errorMessage, type FetchLike, isAbort, readLines } from "./http.ts";
-import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError } from "./types.ts";
+import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError, providerErrorCode } from "./types.ts";
 
 export interface GeminiOptions {
   apiKey?: string;
@@ -63,7 +63,7 @@ export class GeminiProvider implements LlmProvider {
       });
     } catch (error) {
       if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("Could not reach the Gemini API.", true, { cause: error });
+      throw new ProviderError("Could not reach the Gemini API.", true, { cause: error, code: "provider_unavailable" });
     }
     if (!response.ok || !response.body) await this.fail(response);
 
@@ -78,7 +78,9 @@ export class GeminiProvider implements LlmProvider {
         if (!data) continue;
         const chunk = JSON.parse(data) as GeminiChunk;
         if (chunk.promptFeedback?.blockReason) {
-          throw new ProviderError(`Gemini blocked this request (${chunk.promptFeedback.blockReason}).`, false);
+          throw new ProviderError(`Gemini blocked this request (${chunk.promptFeedback.blockReason}).`, false, {
+            code: "provider_refused",
+          });
         }
         if (chunk.modelVersion) model = chunk.modelVersion;
         if (chunk.usageMetadata) {
@@ -104,14 +106,15 @@ export class GeminiProvider implements LlmProvider {
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("The Gemini stream was interrupted.", true, { cause: error });
+      throw new ProviderError("The Gemini stream was interrupted.", true, { cause: error, code: "provider_unavailable" });
     }
 
     if (finishReason === "MAX_TOKENS") {
       throw new ProviderError("The answer is incomplete (max_output_tokens).", true);
     }
     if (finishReason && finishReason !== "STOP" && finishReason !== "FINISH_REASON_UNSPECIFIED") {
-      throw new ProviderError(`Gemini stopped the answer (${finishReason}).`, false);
+      // SAFETY, RECITATION, BLOCKLIST, PROHIBITED_CONTENT…: the model would not write this answer.
+      throw new ProviderError(`Gemini stopped the answer (${finishReason}).`, false, { code: "provider_refused" });
     }
     return { text, model, usage };
   }
@@ -119,9 +122,10 @@ export class GeminiProvider implements LlmProvider {
   private async fail(response: Response): Promise<never> {
     const message = await errorMessage(response);
     const status = response.status;
-    if (status === 401 || status === 403) throw new ProviderError("The Gemini API key was rejected.", false);
+    const code = providerErrorCode(status);
+    if (status === 401 || status === 403) throw new ProviderError("The Gemini API key was rejected.", false, { code });
     if (status === 400) throw new ProviderError(`Gemini rejected the request: ${message}`, false);
-    if (status === 429 || status >= 500) throw new ProviderError(`Gemini is unavailable right now: ${message}`, true);
-    throw new ProviderError(`Gemini API error ${status}: ${message}`, false);
+    if (status === 429 || status >= 500) throw new ProviderError(`Gemini is unavailable right now: ${message}`, true, { code });
+    throw new ProviderError(`Gemini API error ${status}: ${message}`, false, { code });
   }
 }

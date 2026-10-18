@@ -55,7 +55,10 @@ export class OllamaProvider implements LlmProvider {
       });
     } catch (error) {
       if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError(`Ollama is not reachable at ${this.baseUrl}. Is it running?`, false, { cause: error });
+      throw new ProviderError(`Ollama is not reachable at ${this.baseUrl}. Is it running?`, false, {
+        cause: error,
+        code: "provider_unavailable",
+      });
     }
     if (!response.ok || !response.body) await this.fail(response);
 
@@ -81,7 +84,7 @@ export class OllamaProvider implements LlmProvider {
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("The Ollama stream was interrupted.", true, { cause: error });
+      throw new ProviderError("The Ollama stream was interrupted.", true, { cause: error, code: "provider_unavailable" });
     }
 
     if (doneReason === "length") throw new ProviderError("The answer is incomplete (num_predict).", true);
@@ -95,7 +98,7 @@ export class OllamaProvider implements LlmProvider {
     if (status === 404) {
       throw new ProviderError(`Ollama does not have the model "${this.model}" (${message}). Run: ollama pull ${this.model}`, false);
     }
-    if (status >= 500) throw new ProviderError(`Ollama is unavailable right now: ${message}`, true);
+    if (status >= 500) throw new ProviderError(`Ollama is unavailable right now: ${message}`, true, { code: "provider_unavailable" });
     throw new ProviderError(`Ollama rejected the request: ${message}`, false);
   }
 }

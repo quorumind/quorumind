@@ -46,11 +46,31 @@ export interface LlmProvider {
   generate(request: GenerateRequest, onDelta?: (text: string) => void): Promise<GenerateResult>;
 }
 
+/** Why a model call failed: a stable code the interface explains. The message stays in English, for logs and API users. */
+export type ProviderErrorCode =
+  | "provider_auth"
+  | "provider_quota"
+  | "provider_rate_limit"
+  | "provider_unavailable"
+  | "provider_refused"
+  | "provider_error";
+
 export class ProviderError extends Error {
   readonly retryable: boolean;
-  constructor(message: string, retryable: boolean, options?: { cause?: unknown }) {
+  readonly code: ProviderErrorCode;
+  constructor(message: string, retryable: boolean, options?: { cause?: unknown; code?: ProviderErrorCode }) {
     super(message, options);
     this.name = "ProviderError";
     this.retryable = retryable;
+    this.code = options?.code ?? "provider_error";
   }
+}
+
+/** The code of an HTTP error status from a provider's API. */
+export function providerErrorCode(status: number): ProviderErrorCode {
+  if (status === 401 || status === 403) return "provider_auth";
+  if (status === 402) return "provider_quota";
+  if (status === 429) return "provider_rate_limit";
+  if (status === 408 || status >= 500) return "provider_unavailable";
+  return "provider_error";
 }

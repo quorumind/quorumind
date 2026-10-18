@@ -3,6 +3,7 @@ import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { User } from "../app.ts";
+import { invalidRequest } from "../errors.ts";
 import { ContextError } from "./errors.ts";
 import { extractFile, MAX_FILE_BYTES } from "./file.ts";
 import { fetchGithub, parseGithubUrl } from "./github.ts";
@@ -79,7 +80,7 @@ export function contextRoutes(options: ContextRouteOptions = {}) {
 
   app.onError((error, c) => {
     if (error instanceof ContextError) return c.json({ error: error.code, message: error.message }, error.status);
-    if (error instanceof z.ZodError) return c.json({ error: "invalid_request", issues: error.issues }, 400);
+    if (error instanceof z.ZodError) return c.json(invalidRequest(error), 400);
     if (error instanceof SyntaxError) return c.json({ error: "invalid_request", message: "The body is not valid JSON." }, 400);
     console.error(error);
     return c.json({ error: "internal_error", message: "Something went wrong on the server." }, 500);

@@ -1,6 +1,6 @@
 import type { ModelPrice } from "../pricing.ts";
 import { errorMessage, type FetchLike, isAbort, readLines } from "./http.ts";
-import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError } from "./types.ts";
+import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError, providerErrorCode } from "./types.ts";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -149,7 +149,7 @@ export class OpenRouterProvider implements LlmProvider {
       });
     } catch (error) {
       if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("Could not reach the OpenRouter API.", true, { cause: error });
+      throw new ProviderError("Could not reach the OpenRouter API.", true, { cause: error, code: "provider_unavailable" });
     }
     if (!response.ok || !response.body) await this.fail(response);
 
@@ -168,7 +168,9 @@ export class OpenRouterProvider implements LlmProvider {
         if (chunk.error) {
           // Once the stream has started, errors arrive as a chunk of their own, not as an HTTP status.
           const code = typeof chunk.error.code === "number" ? chunk.error.code : 500;
-          throw new ProviderError(`OpenRouter stopped the answer: ${chunk.error.message ?? "unknown error"}`, retryable(code));
+          throw new ProviderError(`OpenRouter stopped the answer: ${chunk.error.message ?? "unknown error"}`, retryable(code), {
+            code: providerErrorCode(code),
+          });
         }
         if (chunk.model) model = chunk.model;
         if (chunk.usage) {
@@ -187,11 +189,13 @@ export class OpenRouterProvider implements LlmProvider {
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("The OpenRouter stream was interrupted.", true, { cause: error });
+      throw new ProviderError("The OpenRouter stream was interrupted.", true, { cause: error, code: "provider_unavailable" });
     }
 
     if (finishReason === "length") throw new ProviderError("The answer is incomplete (max_tokens).", true);
-    if (finishReason === "content_filter") throw new ProviderError("The model declined this request (content filter).", false);
+    if (finishReason === "content_filter") {
+      throw new ProviderError("The model declined this request (content filter).", false, { code: "provider_refused" });
+    }
     // OpenRouter credits are US dollars.
     return { text, model, usage, ...(costUsd === undefined ? {} : { costUsd }) };
   }
@@ -199,8 +203,9 @@ export class OpenRouterProvider implements LlmProvider {
   private async fail(response: Response): Promise<never> {
     const message = await errorMessage(response);
     const status = response.status;
-    if (status === 401 || status === 403) throw new ProviderError("The OpenRouter API key was rejected.", false);
-    if (status === 402) throw new ProviderError(`The OpenRouter account is out of credits: ${message}`, false);
+    const code = providerErrorCode(status);
+    if (status === 401 || status === 403) throw new ProviderError("The OpenRouter API key was rejected.", false, { code });
+    if (status === 402) throw new ProviderError(`The OpenRouter account is out of credits: ${message}`, false, { code });
     if (status === 400) throw new ProviderError(`OpenRouter rejected the request: ${message}`, false);
     if (status === 404) {
       throw new ProviderError(
@@ -208,8 +213,8 @@ export class OpenRouterProvider implements LlmProvider {
         false,
       );
     }
-    if (retryable(status)) throw new ProviderError(`OpenRouter is unavailable right now: ${message}`, true);
-    throw new ProviderError(`OpenRouter API error ${status}: ${message}`, false);
+    if (retryable(status)) throw new ProviderError(`OpenRouter is unavailable right now: ${message}`, true, { code });
+    throw new ProviderError(`OpenRouter API error ${status}: ${message}`, false, { code });
   }
 }
 
