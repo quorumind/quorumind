@@ -13,6 +13,7 @@ import type {
   Revision,
   Verdict,
 } from "./schemas.ts";
+import type { EuropeanMode } from "./sovereignty.ts";
 import type { TemplateId } from "./templates.ts";
 
 export type Phase = "interview" | "review" | "debating" | "awaiting_answers" | "complete" | "failed";
@@ -169,6 +170,8 @@ export interface Session {
   demo: boolean;
   mode: Mode;
   template: TemplateId | null;
+  /** Set when every role is played by a European model, or one run on the premises (sovereignty.ts). */
+  european: EuropeanMode | null;
   depth: Depth;
   phase: Phase;
   /** Number of critique and revision cycles after the blind proposals. */
@@ -237,6 +240,7 @@ export interface NewSessionInput {
   demo: boolean;
   mode?: Mode;
   template?: TemplateId | null;
+  european?: EuropeanMode | null;
   depth?: Depth;
   rounds?: number;
   budgetUsd?: number | null;
@@ -276,6 +280,7 @@ export function createSession(input: NewSessionInput): Session {
     demo: input.demo,
     mode,
     template: input.template ?? null,
+    european: input.european ?? null,
     depth: input.depth ?? (mode === "express" ? "quick" : "standard"),
     phase: "interview",
     rounds: mode === "express" ? 1 : Math.min(MAX_ROUNDS, Math.max(1, input.rounds ?? 1)),
@@ -311,6 +316,7 @@ export function normalizeSession(stored: Session): Session {
   const session = { ...stored } as Session & Partial<Session>;
   session.mode ??= "standard";
   session.template ??= null;
+  session.european ??= null;
   session.depth ??= "standard";
   session.devil ??= null;
   session.challenge ??= null;

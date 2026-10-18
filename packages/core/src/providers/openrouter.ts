@@ -28,6 +28,11 @@ export interface OpenRouterOptions {
    * routing below would otherwise find no endpoint that accepts the parameter.
    */
   reasoning?: boolean;
+  /**
+   * Pins every request to these endpoints, as OpenRouter names them ("mistral/eu"), without falling back to others:
+   * European-only debates use it to keep a model on its maker's EU endpoint.
+   */
+  only?: string[];
   fetch?: FetchLike;
 }
 
@@ -113,6 +118,7 @@ export class OpenRouterProvider implements LlmProvider {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly reasoning: boolean;
+  private readonly only: string[] | null;
   private readonly fetch: FetchLike;
 
   constructor(options: OpenRouterOptions) {
@@ -120,6 +126,7 @@ export class OpenRouterProvider implements LlmProvider {
     this.apiKey = options.apiKey ?? "";
     this.baseUrl = (options.baseUrl ?? OPENROUTER_BASE_URL).replace(/\/+$/, "");
     this.reasoning = options.reasoning ?? false;
+    this.only = options.only && options.only.length > 0 ? options.only : null;
     this.fetch = options.fetch ?? globalThis.fetch;
   }
 
@@ -135,7 +142,11 @@ export class OpenRouterProvider implements LlmProvider {
         json_schema: { name: request.schemaName, schema: request.schema, strict: true },
       },
       // Only endpoints that honour every parameter here, the schema first, and that keep no data.
-      provider: { require_parameters: true, data_collection: "deny" },
+      provider: {
+        require_parameters: true,
+        data_collection: "deny",
+        ...(this.only ? { only: this.only, allow_fallbacks: false } : {}),
+      },
       ...(this.reasoning && request.effort ? { reasoning: { effort: request.effort, exclude: true } } : {}),
     };
 
@@ -209,7 +220,7 @@ export class OpenRouterProvider implements LlmProvider {
     if (status === 400) throw new ProviderError(`OpenRouter rejected the request: ${message}`, false);
     if (status === 404) {
       throw new ProviderError(
-        `OpenRouter has no endpoint for ${this.model} that supports a strict JSON schema without keeping data: ${message}`,
+        `OpenRouter has no endpoint for ${this.model} that supports a strict JSON schema without keeping data${this.only ? ` among ${this.only.join(", ")}` : ""}: ${message}`,
         false,
       );
     }

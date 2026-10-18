@@ -15,6 +15,7 @@ import {
 } from "./providers/openrouter.ts";
 import type { LlmProvider, ProviderKind } from "./providers/types.ts";
 import type { Participant, Seat } from "./session.ts";
+import { europeanEndpoint, europeanOpenRouterBaseUrl } from "./sovereignty.ts";
 
 export const SEATS = ["A", "B"] as const;
 
@@ -32,6 +33,8 @@ export interface ParticipantLineup {
   arbiter: Participant;
   seats: Record<string, Participant>;
   devil?: Participant | null;
+  /** Set for a European-only debate: OpenRouter requests are pinned to the maker's EU endpoint. */
+  european?: object | null;
 }
 
 /** A model the person can pick for a role. */
@@ -316,7 +319,7 @@ export function liveLineupFromEnv(env: Env, catalog?: ModelOption[]): Lineup | n
   return lineup;
 }
 
-export function providerFor(participant: Participant, env: Env, options: { mockDelayMs?: number } = {}): LlmProvider {
+export function providerFor(participant: Participant, env: Env, options: { mockDelayMs?: number; european?: boolean } = {}): LlmProvider {
   const kind: ProviderKind = participant.provider;
   switch (kind) {
     case "anthropic":
@@ -338,13 +341,18 @@ export function providerFor(participant: Participant, env: Env, options: { mockD
         ...(env.GEMINI_API_KEY ? { apiKey: env.GEMINI_API_KEY } : {}),
         ...(env.GEMINI_BASE_URL ? { baseUrl: env.GEMINI_BASE_URL } : {}),
       });
-    case "openrouter":
+    case "openrouter": {
+      // A European-only debate goes through OpenRouter's EU address when one is set, and stays on the maker's EU endpoint.
+      const baseUrl = options.european ? europeanOpenRouterBaseUrl(env) : env.OPENROUTER_BASE_URL;
+      const endpoint = options.european ? europeanEndpoint(participant) : null;
       return new OpenRouterProvider({
         model: participant.model,
         ...(env.OPENROUTER_API_KEY ? { apiKey: env.OPENROUTER_API_KEY } : {}),
-        ...(env.OPENROUTER_BASE_URL ? { baseUrl: env.OPENROUTER_BASE_URL } : {}),
+        ...(baseUrl ? { baseUrl } : {}),
+        ...(endpoint ? { only: [endpoint] } : {}),
         reasoning: openRouterReasoning.has(participant.model),
       });
+    }
     case "ollama":
       // Local models cost nothing, whatever their name.
       setModelPrice(participant.model, FREE);
@@ -357,7 +365,8 @@ export function providerFor(participant: Participant, env: Env, options: { mockD
   }
 }
 
-export function providersFor(lineup: ParticipantLineup, env: Env, options: { mockDelayMs?: number } = {}): ProviderSetV1 {
+export function providersFor(lineup: ParticipantLineup, env: Env, settings: { mockDelayMs?: number } = {}): ProviderSetV1 {
+  const options = { ...settings, european: Boolean(lineup.european) };
   return {
     interviewer: providerFor(lineup.interviewer, env, options),
     arbiter: providerFor(lineup.arbiter, env, options),

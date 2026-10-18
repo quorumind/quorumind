@@ -32,5 +32,6 @@ export * from "./revision-report.ts";
 export * from "./revisions.ts";
 export * from "./schemas.ts";
 export * from "./session.ts";
+export * from "./sovereignty.ts";
 export * from "./templates.ts";
 export * from "./zip.ts";
