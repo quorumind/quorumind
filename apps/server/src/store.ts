@@ -28,8 +28,9 @@ export interface Feedback {
 export type GalleryEntry = SessionSummary & { token: string; summary: string | null };
 
 /**
- * Where sessions are kept, with their share links and feedback: SqliteSessionStore, a file in the data directory.
- * Live session objects are kept in memory so the engine and the HTTP handlers always share the same instance.
+ * Where sessions are kept, with their share links and feedback. SQLite by default (SqliteSessionStore, a file in
+ * the data directory), PostgreSQL when DATABASE_URL is set (postgres/store.ts). Live session objects are kept in
+ * memory so the engine and the HTTP handlers always share the same instance.
  *
  * Self-hosted, every session belongs to the single local user (owner null). The hosted version passes an owner id
  * to every call, and a session is only visible to its owner.

@@ -54,6 +54,9 @@ export function describeUrl(url: string): string {
   }
 }
 
+/** Errors that waiting does not cure: authentication failed, unknown database. */
+const PERMANENT = new Set(["28000", "28P01", "3D000"]);
+
 export interface ConnectOptions {
   /** How many times to try reaching the server before giving up. */
   attempts?: number;
@@ -76,9 +79,10 @@ export async function connectPostgres(url: string, options: ConnectOptions = {})
       break;
     } catch (error) {
       const reason = (error as Error).message;
-      if (attempt >= attempts) {
+      // A wrong password or database name does not fix itself: no point in waiting.
+      if (attempt >= attempts || PERMANENT.has((error as { code?: string }).code ?? "")) {
         await pool.end().catch(() => {});
-        throw new Error(`PostgreSQL at ${describeUrl(url)} cannot be reached after ${attempts} attempts: ${reason}`);
+        throw new Error(`PostgreSQL at ${describeUrl(url)} cannot be used (attempt ${attempt} of ${attempts}): ${reason}`);
       }
       log(`PostgreSQL at ${describeUrl(url)} is not reachable yet (${reason}). Trying again in ${delayMs / 1000} s.`);
       await new Promise((resolve) => setTimeout(resolve, delayMs));

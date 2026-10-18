@@ -5,10 +5,9 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createApp, retentionDays } from "./app.ts";
-import { SqliteBrandingStore } from "./branding.ts";
 import { EventBus } from "./bus.ts";
 import { notifierFromEnv } from "./notifier.ts";
-import { SqliteSessionStore } from "./store.ts";
+import { openStorage } from "./storage.ts";
 
 const env = process.env;
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -17,8 +16,9 @@ const webDist = resolve(env.QUORUMIND_WEB_DIST ?? join(here, "../../web/dist"));
 const port = Number(env.PORT ?? 8787);
 const hostname = env.HOST ?? "127.0.0.1";
 
-const store = new SqliteSessionStore(join(dataDir, "quorumind.db"));
-const brandingStore = new SqliteBrandingStore(store.db);
+// SQLite in the data directory, or PostgreSQL when DATABASE_URL (or DATABASE_URL_FILE) is set.
+const storage = await openStorage(env, dataDir);
+const { store, brandingStore } = storage;
 const demoDelay = env.QUORUMIND_DEMO_DELAY_MS ? Number(env.QUORUMIND_DEMO_DELAY_MS) : undefined;
 const api = createApp({
   store,
@@ -57,11 +57,13 @@ if (existsSync(webDist)) {
 }
 
 serve({ fetch: root.fetch, port, hostname }, (info) => {
-  console.log(`Quorumind is running on http://${info.address === "::" ? "localhost" : info.address}:${info.port}`);
+  console.log(
+    `Quorumind is running on http://${info.address === "::" ? "localhost" : info.address}:${info.port} (data: ${storage.description})`,
+  );
 });
 
 const shutdown = () => {
-  Promise.all([brandingStore.close(), store.close()]).finally(() => process.exit(0));
+  storage.close().finally(() => process.exit(0));
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);

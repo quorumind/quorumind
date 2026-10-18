@@ -5,8 +5,10 @@ import { DatabaseSync } from "node:sqlite";
 import { createSession, type Session } from "@quorumind/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqliteBrandingStore } from "./branding.ts";
+import { pgliteDatabase } from "./postgres/pglite.ts";
+import { migrateSessions, PostgresSessionStore } from "./postgres/store.ts";
 import { SqliteSessionStore } from "./store.ts";
-import { BACKENDS, type TestStorage } from "./testing.ts";
+import { BACKENDS, type TestStorage, testDatabase } from "./testing.ts";
 
 const mock = { provider: "mock" as const, model: "mock" };
 
@@ -196,6 +198,50 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     await brandingStore.delete("ada");
     expect((await brandingStore.get("ada")).name).toBeNull();
     expect((await brandingStore.get()).name).toBe("Agency");
+  });
+});
+
+describe("the PostgreSQL schema", () => {
+  it("is migrated once, even by servers starting together", async () => {
+    const db = await pgliteDatabase();
+    try {
+      const runs = await Promise.all([migrateSessions(db), migrateSessions(db)]);
+      expect(runs.flat()).toEqual([1]);
+      expect(await migrateSessions(db)).toEqual([]);
+      const { rows } = await db.query("SELECT component, version, name FROM schema_migrations");
+      expect(rows).toEqual([{ component: "quorumind", version: 1, name: "sessions" }]);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("rolls back a transaction that fails", async () => {
+    const db = await testDatabase();
+    try {
+      const session = newSession("Kept");
+      await expect(
+        db.transaction(async (tx) => {
+          await tx.query("INSERT INTO sessions (id, data, created_at, updated_at) VALUES ($1, $2, $3, $3)", ["s1", "{}", day(1)]);
+          throw new Error("Interrupted");
+        }),
+      ).rejects.toThrow("Interrupted");
+      const store = new PostgresSessionStore(db);
+      await store.save(session);
+      expect((await db.query("SELECT id FROM sessions")).rows).toEqual([{ id: session.id }]);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("stores text holding a NUL character, which PostgreSQL refuses", async () => {
+    const db = await testDatabase();
+    try {
+      const session = newSession("A\0B");
+      await new PostgresSessionStore(db).save(session);
+      expect((await new PostgresSessionStore(db).get(session.id))?.idea).toBe("AB");
+    } finally {
+      await db.close();
+    }
   });
 });
 

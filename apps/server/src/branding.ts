@@ -7,7 +7,8 @@ export type { Branding };
 
 /**
  * The white-label branding of the exports. Self-hosted, there is one branding (owner null); the hosted version
- * keeps one per account.
+ * keeps one per account. SQLite by default (SqliteBrandingStore), PostgreSQL when DATABASE_URL is set
+ * (postgres/branding.ts).
  */
 export interface BrandingStore {
   get(owner?: string | null): Promise<Branding>;
