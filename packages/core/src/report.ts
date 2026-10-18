@@ -1,6 +1,7 @@
+import type { DiagramComponent, DiagramFlow } from "./diagram.ts";
 import type { Locale } from "./locales.ts";
-import type { Proposal } from "./schemas.ts";
-import { currentProposals, type Session, totalCost } from "./session.ts";
+import type { ComponentKind, Probe, Proposal } from "./schemas.ts";
+import { currentProposals, DEVIL_SEAT, type Session, totalCost, USER_SEAT } from "./session.ts";
 
 const LABEL_KEYS = [
   "title",
@@ -42,6 +43,41 @@ const LABEL_KEYS = [
   "answers",
   "cost",
   "estimate",
+  "mode",
+  "modeStandard",
+  "modeExpress",
+  "modeChallenge",
+  "yourSolution",
+  "devil",
+  "buildCost",
+  "diagram",
+  "debateMap",
+  "divided",
+  "opposed",
+  "probe",
+  "probeRationale",
+  "low",
+  "medium",
+  "high",
+  "preparedWith",
+  "date",
+  "outOfScope",
+  "priorities",
+  "components",
+  "flows",
+  "adr",
+  "status",
+  "proposed",
+  "context",
+  "consideredOptions",
+  "decisionOutcome",
+  "chosenOption",
+  "rationale",
+  "consequences",
+  "links",
+  "fullReport",
+  "session",
+  "revisits",
 ] as const;
 
 type Labels = Record<(typeof LABEL_KEYS)[number], string>;
@@ -87,6 +123,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "Your answers during the debate",
     cost: "Cost of this session",
     estimate: "estimate",
+    mode: "Mode",
+    modeStandard: "Standard debate",
+    modeExpress: "Express debate",
+    modeChallenge: "Challenge of your solution",
+    yourSolution: "Your solution",
+    devil: "Devil's advocate",
+    buildCost: "Build cost",
+    diagram: "Architecture diagram",
+    debateMap: "Debate map",
+    divided: "Divided opinions",
+    opposed: "Opposed positions",
+    probe: "The arbiter's probe",
+    probeRationale: "Why it matters",
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+    preparedWith: "Prepared with Quorumind",
+    date: "Date",
+    outOfScope: "Out of scope",
+    priorities: "Priorities",
+    components: "Components",
+    flows: "Flows",
+    adr: "Architecture decision record",
+    status: "Status",
+    proposed: "Proposed",
+    context: "Context and problem statement",
+    consideredOptions: "Considered options",
+    decisionOutcome: "Decision outcome",
+    chosenOption: "Chosen option",
+    rationale: "Rationale",
+    consequences: "Consequences",
+    links: "Links",
+    fullReport: "Full decision report",
+    session: "Quorumind session",
+    revisits: "Revisits session",
   },
   fr: {
     title: "Rapport de décision",
@@ -128,6 +199,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "Vos réponses pendant le débat",
     cost: "Coût de cette session",
     estimate: "estimation",
+    mode: "Mode",
+    modeStandard: "Débat standard",
+    modeExpress: "Débat express",
+    modeChallenge: "Mise à l'épreuve de votre solution",
+    yourSolution: "Votre solution",
+    devil: "Avocat du diable",
+    buildCost: "Coût de réalisation",
+    diagram: "Schéma d'architecture",
+    debateMap: "Carte du débat",
+    divided: "Avis partagés",
+    opposed: "Positions opposées",
+    probe: "La relance de l'arbitre",
+    probeRationale: "Pourquoi c'est important",
+    low: "Faible",
+    medium: "Moyen",
+    high: "Élevé",
+    preparedWith: "Préparé avec Quorumind",
+    date: "Date",
+    outOfScope: "Hors périmètre",
+    priorities: "Priorités",
+    components: "Composants",
+    flows: "Flux",
+    adr: "Enregistrement de décision d'architecture",
+    status: "Statut",
+    proposed: "Proposé",
+    context: "Contexte et problème",
+    consideredOptions: "Options envisagées",
+    decisionOutcome: "Décision",
+    chosenOption: "Option retenue",
+    rationale: "Justification",
+    consequences: "Conséquences",
+    links: "Liens",
+    fullReport: "Rapport de décision complet",
+    session: "Session Quorumind",
+    revisits: "Reprend la session",
   },
   es: {
     title: "Informe de decisión",
@@ -169,6 +275,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "Sus respuestas durante el debate",
     cost: "Coste de esta sesión",
     estimate: "estimación",
+    mode: "Modo",
+    modeStandard: "Debate estándar",
+    modeExpress: "Debate exprés",
+    modeChallenge: "Evaluación crítica de su solución",
+    yourSolution: "Su solución",
+    devil: "Abogado del diablo",
+    buildCost: "Coste de desarrollo",
+    diagram: "Diagrama de arquitectura",
+    debateMap: "Mapa del debate",
+    divided: "Opiniones divididas",
+    opposed: "Posiciones opuestas",
+    probe: "La pregunta del árbitro",
+    probeRationale: "Por qué importa",
+    low: "Baja",
+    medium: "Media",
+    high: "Alta",
+    preparedWith: "Preparado con Quorumind",
+    date: "Fecha",
+    outOfScope: "Fuera del alcance",
+    priorities: "Prioridades",
+    components: "Componentes",
+    flows: "Flujos",
+    adr: "Registro de decisión de arquitectura",
+    status: "Estado",
+    proposed: "Propuesto",
+    context: "Contexto y problema",
+    consideredOptions: "Opciones consideradas",
+    decisionOutcome: "Resultado de la decisión",
+    chosenOption: "Opción elegida",
+    rationale: "Justificación",
+    consequences: "Consecuencias",
+    links: "Enlaces",
+    fullReport: "Informe de decisión completo",
+    session: "Sesión de Quorumind",
+    revisits: "Revisa la sesión",
   },
   pt: {
     title: "Relatório de decisão",
@@ -210,6 +351,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "Suas respostas durante o debate",
     cost: "Custo desta sessão",
     estimate: "estimativa",
+    mode: "Modo",
+    modeStandard: "Debate padrão",
+    modeExpress: "Debate expresso",
+    modeChallenge: "Desafio da sua solução",
+    yourSolution: "Sua solução",
+    devil: "Advogado do diabo",
+    buildCost: "Custo de desenvolvimento",
+    diagram: "Diagrama de arquitetura",
+    debateMap: "Mapa do debate",
+    divided: "Opiniões divididas",
+    opposed: "Posições opostas",
+    probe: "A provocação do árbitro",
+    probeRationale: "Por que importa",
+    low: "Baixa",
+    medium: "Média",
+    high: "Alta",
+    preparedWith: "Preparado com o Quorumind",
+    date: "Data",
+    outOfScope: "Fora do escopo",
+    priorities: "Prioridades",
+    components: "Componentes",
+    flows: "Fluxos",
+    adr: "Registro de decisão de arquitetura",
+    status: "Status",
+    proposed: "Proposto",
+    context: "Contexto e problema",
+    consideredOptions: "Opções consideradas",
+    decisionOutcome: "Resultado da decisão",
+    chosenOption: "Opção escolhida",
+    rationale: "Justificativa",
+    consequences: "Consequências",
+    links: "Links",
+    fullReport: "Relatório de decisão completo",
+    session: "Sessão do Quorumind",
+    revisits: "Revisita a sessão",
   },
   it: {
     title: "Rapporto di decisione",
@@ -251,6 +427,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "Le sue risposte durante il dibattito",
     cost: "Costo di questa sessione",
     estimate: "stima",
+    mode: "Modalità",
+    modeStandard: "Dibattito standard",
+    modeExpress: "Dibattito rapido",
+    modeChallenge: "Messa alla prova della sua soluzione",
+    yourSolution: "La sua soluzione",
+    devil: "Avvocato del diavolo",
+    buildCost: "Costo di realizzazione",
+    diagram: "Diagramma dell'architettura",
+    debateMap: "Mappa del dibattito",
+    divided: "Opinioni divise",
+    opposed: "Posizioni opposte",
+    probe: "La sollecitazione dell'arbitro",
+    probeRationale: "Perché è importante",
+    low: "Bassa",
+    medium: "Media",
+    high: "Alta",
+    preparedWith: "Preparato con Quorumind",
+    date: "Data",
+    outOfScope: "Fuori ambito",
+    priorities: "Priorità",
+    components: "Componenti",
+    flows: "Flussi",
+    adr: "Registro delle decisioni architetturali",
+    status: "Stato",
+    proposed: "Proposto",
+    context: "Contesto e problema",
+    consideredOptions: "Opzioni considerate",
+    decisionOutcome: "Esito della decisione",
+    chosenOption: "Opzione scelta",
+    rationale: "Motivazione",
+    consequences: "Conseguenze",
+    links: "Collegamenti",
+    fullReport: "Rapporto di decisione completo",
+    session: "Sessione Quorumind",
+    revisits: "Riprende la sessione",
   },
   de: {
     title: "Entscheidungsbericht",
@@ -292,6 +503,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "Ihre Antworten während der Debatte",
     cost: "Kosten dieser Sitzung",
     estimate: "Schätzung",
+    mode: "Modus",
+    modeStandard: "Standarddebatte",
+    modeExpress: "Schnelldebatte",
+    modeChallenge: "Prüfung Ihrer Lösung",
+    yourSolution: "Ihre Lösung",
+    devil: "Advocatus Diaboli",
+    buildCost: "Entwicklungskosten",
+    diagram: "Architekturdiagramm",
+    debateMap: "Debattenübersicht",
+    divided: "Geteilte Meinungen",
+    opposed: "Gegensätzliche Positionen",
+    probe: "Der Einwurf des Schiedsrichters",
+    probeRationale: "Warum das wichtig ist",
+    low: "Niedrig",
+    medium: "Mittel",
+    high: "Hoch",
+    preparedWith: "Vorbereitet mit Quorumind",
+    date: "Datum",
+    outOfScope: "Nicht im Umfang",
+    priorities: "Prioritäten",
+    components: "Komponenten",
+    flows: "Datenflüsse",
+    adr: "Architekturentscheidung",
+    status: "Status",
+    proposed: "Vorgeschlagen",
+    context: "Kontext und Problemstellung",
+    consideredOptions: "Betrachtete Optionen",
+    decisionOutcome: "Entscheidung",
+    chosenOption: "Gewählte Option",
+    rationale: "Begründung",
+    consequences: "Konsequenzen",
+    links: "Links",
+    fullReport: "Vollständiger Entscheidungsbericht",
+    session: "Quorumind-Sitzung",
+    revisits: "Überarbeitet die Sitzung",
   },
   hi: {
     title: "निर्णय रिपोर्ट",
@@ -333,6 +579,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "बहस के दौरान आपके उत्तर",
     cost: "इस सत्र की लागत",
     estimate: "अनुमान",
+    mode: "मोड",
+    modeStandard: "मानक बहस",
+    modeExpress: "त्वरित बहस",
+    modeChallenge: "आपके समाधान की परख",
+    yourSolution: "आपका समाधान",
+    devil: "विरोध पक्ष का वकील",
+    buildCost: "निर्माण लागत",
+    diagram: "आर्किटेक्चर आरेख",
+    debateMap: "बहस का मानचित्र",
+    divided: "बँटी हुई राय",
+    opposed: "विरोधी मत",
+    probe: "निर्णायक का प्रश्न",
+    probeRationale: "यह क्यों महत्वपूर्ण है",
+    low: "कम",
+    medium: "मध्यम",
+    high: "उच्च",
+    preparedWith: "Quorumind के साथ तैयार",
+    date: "दिनांक",
+    outOfScope: "दायरे से बाहर",
+    priorities: "प्राथमिकताएँ",
+    components: "घटक",
+    flows: "प्रवाह",
+    adr: "आर्किटेक्चर निर्णय रिकॉर्ड",
+    status: "स्थिति",
+    proposed: "प्रस्तावित",
+    context: "संदर्भ और समस्या",
+    consideredOptions: "विचार किए गए विकल्प",
+    decisionOutcome: "निर्णय का परिणाम",
+    chosenOption: "चुना गया विकल्प",
+    rationale: "औचित्य",
+    consequences: "परिणाम",
+    links: "लिंक",
+    fullReport: "पूरी निर्णय रिपोर्ट",
+    session: "Quorumind सत्र",
+    revisits: "इस सत्र पर पुनर्विचार",
   },
   ja: {
     title: "意思決定レポート",
@@ -374,6 +655,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "議論中のあなたの回答",
     cost: "このセッションの費用",
     estimate: "推定",
+    mode: "モード",
+    modeStandard: "標準の議論",
+    modeExpress: "クイック議論",
+    modeChallenge: "あなたの解決策の検証",
+    yourSolution: "あなたの解決策",
+    devil: "悪魔の代弁者",
+    buildCost: "開発費用",
+    diagram: "アーキテクチャ図",
+    debateMap: "議論マップ",
+    divided: "意見が分かれた点",
+    opposed: "対立する立場",
+    probe: "審判からの問いかけ",
+    probeRationale: "重要な理由",
+    low: "低",
+    medium: "中",
+    high: "高",
+    preparedWith: "Quorumind で作成",
+    date: "日付",
+    outOfScope: "対象外",
+    priorities: "優先事項",
+    components: "コンポーネント",
+    flows: "フロー",
+    adr: "アーキテクチャ決定記録",
+    status: "ステータス",
+    proposed: "提案中",
+    context: "背景と課題",
+    consideredOptions: "検討した選択肢",
+    decisionOutcome: "決定事項",
+    chosenOption: "採用した選択肢",
+    rationale: "理由",
+    consequences: "影響",
+    links: "リンク",
+    fullReport: "意思決定レポート全文",
+    session: "Quorumind セッション",
+    revisits: "見直し元のセッション",
   },
   "zh-Hans": {
     title: "决策报告",
@@ -415,6 +731,41 @@ const LABELS: Record<Locale, Labels> = {
     answers: "您在辩论中的回答",
     cost: "本次会话费用",
     estimate: "估计",
+    mode: "模式",
+    modeStandard: "标准辩论",
+    modeExpress: "快速辩论",
+    modeChallenge: "检验您的方案",
+    yourSolution: "您的方案",
+    devil: "唱反调者",
+    buildCost: "开发成本",
+    diagram: "架构图",
+    debateMap: "辩论地图",
+    divided: "意见分歧",
+    opposed: "对立立场",
+    probe: "仲裁者的追问",
+    probeRationale: "为何重要",
+    low: "低",
+    medium: "中",
+    high: "高",
+    preparedWith: "使用 Quorumind 制作",
+    date: "日期",
+    outOfScope: "不在范围内",
+    priorities: "优先事项",
+    components: "组件",
+    flows: "数据流",
+    adr: "架构决策记录",
+    status: "状态",
+    proposed: "已提议",
+    context: "背景与问题",
+    consideredOptions: "考虑过的方案",
+    decisionOutcome: "决策结果",
+    chosenOption: "选定方案",
+    rationale: "理由",
+    consequences: "后果",
+    links: "链接",
+    fullReport: "完整决策报告",
+    session: "Quorumind 会话",
+    revisits: "重新审视的会话",
   },
   ar: {
     title: "تقرير القرار",
@@ -456,39 +807,178 @@ const LABELS: Record<Locale, Labels> = {
     answers: "إجاباتك أثناء النقاش",
     cost: "تكلفة هذه الجلسة",
     estimate: "تقدير",
+    mode: "الوضع",
+    modeStandard: "نقاش قياسي",
+    modeExpress: "نقاش سريع",
+    modeChallenge: "اختبار حلّك",
+    yourSolution: "حلّك",
+    devil: "محامي الشيطان",
+    buildCost: "تكلفة التطوير",
+    diagram: "مخطط البنية",
+    debateMap: "خريطة النقاش",
+    divided: "آراء منقسمة",
+    opposed: "مواقف متعارضة",
+    probe: "سؤال الحَكَم",
+    probeRationale: "لماذا يهم ذلك",
+    low: "منخفض",
+    medium: "متوسط",
+    high: "مرتفع",
+    preparedWith: "أُعدّ باستخدام Quorumind",
+    date: "التاريخ",
+    outOfScope: "خارج النطاق",
+    priorities: "الأولويات",
+    components: "المكونات",
+    flows: "التدفقات",
+    adr: "سجل قرار البنية",
+    status: "الحالة",
+    proposed: "مقترح",
+    context: "السياق والمشكلة",
+    consideredOptions: "الخيارات المدروسة",
+    decisionOutcome: "نتيجة القرار",
+    chosenOption: "الخيار المعتمد",
+    rationale: "المبررات",
+    consequences: "العواقب",
+    links: "الروابط",
+    fullReport: "تقرير القرار الكامل",
+    session: "جلسة Quorumind",
+    revisits: "يراجع الجلسة",
   },
 };
 
+export type ReportLabels = Labels;
+
 export function reportLabels(locale: Locale): Labels {
-  return LABELS[locale];
+  return LABELS[locale] ?? LABELS.en;
+}
+
+/** How a seat is named in documents: an option letter, the person's own solution, or the devil's advocate. */
+export function seatName(seat: string, t: Labels): string {
+  if (seat === USER_SEAT) return t.yourSolution;
+  if (seat === DEVIL_SEAT) return t.devil;
+  return `${t.option} ${seat}`;
+}
+
+export function modeName(session: Session, t: Labels): string {
+  return session.mode === "challenge" ? t.modeChallenge : session.mode === "express" ? t.modeExpress : t.modeStandard;
+}
+
+export function formatMoney(amount: number, currency: string, locale: Locale): string {
+  try {
+    return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+  } catch {
+    return `${new Intl.NumberFormat(locale).format(amount)} ${currency}`;
+  }
+}
+
+/** A cost range such as "€120 – €260". */
+export function formatRange(range: { low: number; high: number; currency: string }, locale: Locale): string {
+  return `${formatMoney(range.low, range.currency, locale)} – ${formatMoney(range.high, range.currency, locale)}`;
+}
+
+/** The angles the arbiter raised when the participants agreed too fast. */
+export function sessionProbes(session: Session): { round: number; data: Probe }[] {
+  return session.debate.flatMap((entry) => (entry.kind === "probe" ? [{ round: entry.round, data: entry.data }] : []));
+}
+
+/** The option the arbiter recommends, with its latest proposal, or null. */
+export function chosenOption(session: Session): { seat: string; proposal: Proposal | null } | null {
+  const seat = session.verdict?.recommendation.seat;
+  if (!seat) return null;
+  return { seat, proposal: currentProposals(session)[seat] ?? null };
+}
+
+/** A file-name-safe slug of the project name, accents folded; "quorumind" when nothing is left. */
+export function reportSlug(session: Session): string {
+  const slug = (session.sheet?.projectName ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, 60)
+    .replace(/^-+|-+$/g, "");
+  return slug || "quorumind";
 }
 
 const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
 const cell = (text: string) => text.replaceAll("|", "\\|").replaceAll("\n", " ");
 
+// Mermaid reads quoted labels literally except for its entity codes, so the characters that could
+// close a label or start a code are replaced by entities; ids are reduced to a safe alphabet.
+const mermaidText = (text: string) =>
+  text
+    .replace(/\s+/g, " ")
+    .trim()
+    .replaceAll("#", "#35;")
+    .replaceAll('"', "#quot;")
+    .replaceAll("<", "#lt;")
+    .replaceAll(">", "#gt;")
+    .replaceAll("`", "#96;")
+    .replaceAll("|", "#124;");
+
+const MERMAID_SHAPES: Record<ComponentKind, [string, string]> = {
+  client: ['(["', '"])'],
+  service: ['["', '"]'],
+  database: ['[("', '")]'],
+  storage: ['[/"', '"/]'],
+  queue: ['[["', '"]]'],
+  external: ['{{"', '"}}'],
+  infra: ['>"', '"]'],
+};
+
+/** The architecture as a Mermaid flowchart, or null for proposals stored before diagrams existed. */
+export function mermaidFlowchart(components: DiagramComponent[] | undefined, flows: DiagramFlow[] | undefined): string | null {
+  if (!components?.length) return null;
+  const ids = new Map<string, string>();
+  const used = new Set<string>();
+  const idFor = (raw: string) => {
+    const known = ids.get(raw);
+    if (known) return known;
+    const base = `n_${raw.replace(/[^A-Za-z0-9_]/g, "_")}`;
+    let id = base;
+    for (let n = 2; used.has(id); n++) id = `${base}_${n}`;
+    ids.set(raw, id);
+    used.add(id);
+    return id;
+  };
+  const lines = ["```mermaid", "flowchart LR"];
+  const external: string[] = [];
+  const declare = (raw: string, label: string, kind: string) => {
+    if (ids.has(raw)) return;
+    const shape = MERMAID_SHAPES[kind as ComponentKind] ?? MERMAID_SHAPES.service;
+    const id = idFor(raw);
+    lines.push(`  ${id}${shape[0]}${mermaidText(label || raw)}${shape[1]}`);
+    if (kind === "external") external.push(id);
+  };
+  for (const component of components) declare(component.id, component.label, component.kind);
+  for (const flow of flows ?? []) {
+    declare(flow.from, flow.from, "service");
+    declare(flow.to, flow.to, "service");
+    const label = mermaidText(flow.label);
+    lines.push(`  ${idFor(flow.from)} -->${label ? `|"${label}"|` : ""} ${idFor(flow.to)}`);
+  }
+  if (external.length > 0) lines.push("  classDef external stroke-dasharray: 5 5", `  class ${external.join(",")} external`);
+  lines.push("```");
+  return lines.join("\n");
+}
+
 /** The decision report as Markdown, readable by a person and by a coding agent. */
 export function renderReport(session: Session): string {
-  const t = LABELS[session.locale];
+  const t = reportLabels(session.locale);
   const verdict = session.verdict;
   const sheet = session.sheet;
   const proposals = currentProposals(session);
   const lines: string[] = [];
-  const number = new Intl.NumberFormat(session.locale);
-  const money = (amount: number, currency: string) => {
-    try {
-      return new Intl.NumberFormat(session.locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
-    } catch {
-      return `${number.format(amount)} ${currency}`;
-    }
-  };
+  const money = (amount: number, currency: string) => formatMoney(amount, currency, session.locale);
 
   lines.push(`# ${t.title}: ${sheet?.projectName ?? session.idea}`, "", `_${t.generated} · ${session.updatedAt.slice(0, 10)}_`, "");
+  lines.push(`**${t.mode}:** ${modeName(session, t)}`, "");
 
   if (verdict) {
     lines.push(`## ${t.recommendation}`, "");
     const recommended = verdict.recommendation.seat ? proposals[verdict.recommendation.seat] : null;
-    if (recommended) lines.push(`**${t.option} ${verdict.recommendation.seat}: ${recommended.title}**`, "");
-    else lines.push(`**${t.noRecommendation}**`, "");
+    if (recommended && verdict.recommendation.seat) {
+      lines.push(`**${seatName(verdict.recommendation.seat, t)}: ${recommended.title}**`, "");
+    } else lines.push(`**${t.noRecommendation}**`, "");
     lines.push(verdict.recommendation.rationale, "");
 
     const criteria = sheet?.priorities.map((priority) => priority.criterion) ?? [];
@@ -497,29 +987,48 @@ export function renderReport(session: Session): string {
     lines.push(`| --- | --- |${criteria.map(() => " --- |").join("")}`);
     for (const option of verdict.options) {
       const scores = criteria.map((criterion) => option.scores.find((score) => score.criterion === criterion)?.score ?? "–");
-      lines.push(`| ${option.seat}: ${cell(option.title)} | ${t[option.feasibility]} | ${scores.join(" | ")} |`);
+      lines.push(`| ${cell(seatName(option.seat, t))}: ${cell(option.title)} | ${t[option.feasibility]} | ${scores.join(" | ")} |`);
     }
     lines.push("");
     for (const option of verdict.options) {
-      lines.push(`- **${option.seat}, ${t[option.feasibility]}:** ${option.reason}`);
+      lines.push(`- **${seatName(option.seat, t)}, ${t[option.feasibility]}:** ${option.reason}`);
       if (option.conditions.length > 0) lines.push(`  - ${t.conditions}: ${option.conditions.join("; ")}`);
     }
     lines.push("");
 
-    const agreed = verdict.topics.filter((topic) => topic.status === "agreement");
-    const contested = verdict.topics.filter((topic) => topic.status !== "agreement");
-    if (agreed.length > 0) lines.push(`## ${t.consensus}`, "", list(agreed.map((topic) => topic.topic)), "");
-    if (contested.length > 0) {
-      lines.push(`## ${t.disagreements}`, "");
-      for (const topic of contested) {
-        lines.push(`- **${topic.topic}**`, ...topic.positions.map((item) => `  - ${item.seat ? `${item.seat}: ` : ""}${item.position}`));
+    const topics = verdict.topics ?? [];
+    if (topics.length > 0) {
+      lines.push(`## ${t.debateMap}`, "");
+      for (const [status, heading] of [
+        ["agreement", t.consensus],
+        ["divided", t.divided],
+        ["opposed", t.opposed],
+      ] as const) {
+        const group = topics.filter((topic) => topic.status === status);
+        if (group.length === 0) continue;
+        lines.push(`### ${heading}`, "");
+        for (const topic of group) {
+          lines.push(
+            `- **${topic.topic}**`,
+            ...topic.positions.map((item) => `  - ${item.seat ? `${seatName(item.seat, t)}: ` : ""}${item.position}`),
+          );
+        }
+        lines.push("");
       }
-      lines.push("");
     }
+  }
+
+  const probes = sessionProbes(session);
+  if (probes.length > 0) {
+    lines.push(`## ${t.probe}`, "");
+    for (const probe of probes) lines.push(`> ${probe.data.angle}`, "", `${t.probeRationale}: ${probe.data.rationale}`, "");
+  }
+
+  if (verdict) {
     if (verdict.risks.length > 0) {
       lines.push(`## ${t.risks}`, "", `| ${t.risks} | ${t.likelihood} | ${t.impact} | ${t.mitigation} |`, "| --- | --- | --- | --- |");
       for (const risk of verdict.risks) {
-        lines.push(`| ${cell(risk.risk)} | ${risk.likelihood} | ${risk.impact} | ${cell(risk.mitigation)} |`);
+        lines.push(`| ${cell(risk.risk)} | ${t[risk.likelihood]} | ${t[risk.impact]} | ${cell(risk.mitigation)} |`);
       }
       lines.push("");
     }
@@ -537,7 +1046,7 @@ export function renderReport(session: Session): string {
   }
 
   if (Object.keys(proposals).length > 0) {
-    lines.push(`## ${t.proposals}`, "");
+    lines.push(`## ${session.mode === "challenge" ? t.yourSolution : t.proposals}`, "");
     for (const [seat, proposal] of Object.entries(proposals)) lines.push(...renderProposal(seat, proposal, t, money), "");
   }
 
@@ -546,6 +1055,7 @@ export function renderReport(session: Session): string {
     lines.push(`### ${t.goals}`, "", list(sheet.goals), "");
     lines.push(`### ${t.mustHave}`, "", list(sheet.mustHave), "");
     if (sheet.hardConstraints.length > 0) lines.push(`### ${t.hardConstraints}`, "", list(sheet.hardConstraints), "");
+    if (sheet.outOfScope.length > 0) lines.push(`### ${t.outOfScope}`, "", list(sheet.outOfScope), "");
     if (sheet.assumptions.length > 0) lines.push(`### ${t.assumptions}`, "", list(sheet.assumptions), "");
   }
 
@@ -560,8 +1070,11 @@ export function renderReport(session: Session): string {
 }
 
 function renderProposal(seat: string, proposal: Proposal, t: Labels, money: (amount: number, currency: string) => string) {
+  const range = (value: { low: number; high: number; currency: string }) =>
+    `${money(value.low, value.currency)} – ${money(value.high, value.currency)}`;
+  const diagram = mermaidFlowchart(proposal.components, proposal.flows);
   return [
-    `### ${t.option} ${seat}: ${proposal.title}`,
+    `### ${seatName(seat, t)}: ${proposal.title}`,
     "",
     proposal.summary,
     "",
@@ -569,18 +1082,100 @@ function renderProposal(seat: string, proposal: Proposal, t: Labels, money: (amo
     "",
     list(proposal.architecture),
     "",
+    ...(diagram ? [`**${t.diagram}**`, "", diagram, ""] : []),
     `**${t.stack}:** ${proposal.stack.join(", ")}`,
     "",
     `**${t.infrastructure}**`,
     "",
     list(proposal.infrastructure),
     "",
-    `**${t.monthlyCost}:** ${money(proposal.monthlyCost.low, proposal.monthlyCost.currency)} – ${money(proposal.monthlyCost.high, proposal.monthlyCost.currency)} (${t.estimate}: ${proposal.monthlyCost.basis})`,
+    `**${t.monthlyCost}:** ${range(proposal.monthlyCost)} (${t.estimate}: ${proposal.monthlyCost.basis})`,
     "",
+    // Sessions stored before V1 have no build cost.
+    ...(proposal.buildCost ? [`**${t.buildCost}:** ${range(proposal.buildCost)} (${t.estimate}: ${proposal.buildCost.basis})`, ""] : []),
     `**${t.buildTime}:** ${proposal.buildTime}`,
     "",
     `**${t.risks}**`,
     "",
     list(proposal.risks),
   ];
+}
+
+/**
+ * The decision as an Architecture Decision Record in the MADR layout, to commit next to the code
+ * (for example docs/decisions/0001-<slug>.md). Written in the session's language.
+ */
+export function renderAdr(session: Session): string {
+  const t = reportLabels(session.locale);
+  const verdict = session.verdict;
+  const sheet = session.sheet;
+  const proposals = currentProposals(session);
+  const chosen = chosenOption(session);
+  const project = sheet?.projectName ?? session.idea;
+  const lines: string[] = [];
+
+  lines.push(`# ${t.adr}: ${chosen?.proposal?.title ?? project}`, "");
+  lines.push(
+    `- **${t.status}:** ${t.proposed}`,
+    `- **${t.date}:** ${session.updatedAt.slice(0, 10)}`,
+    `- **${t.mode}:** ${modeName(session, t)}`,
+    "",
+  );
+
+  lines.push(`## ${t.context}`, "", sheet?.summary ?? session.idea, "");
+  if (sheet && sheet.hardConstraints.length > 0) lines.push(`### ${t.hardConstraints}`, "", list(sheet.hardConstraints), "");
+  if (sheet && sheet.priorities.length > 0) {
+    const priorities = [...sheet.priorities].sort((a, b) => b.weight - a.weight);
+    lines.push(`### ${t.priorities}`, "", list(priorities.map((priority) => `${priority.criterion} (${priority.weight}/5)`)), "");
+  }
+
+  lines.push(`## ${t.consideredOptions}`, "");
+  const options = verdict?.options ?? [];
+  const seats = options.length > 0 ? options.map((option) => option.seat) : Object.keys(proposals);
+  seats.forEach((seat, index) => {
+    const option = options.find((item) => item.seat === seat);
+    const proposal = proposals[seat];
+    const title = proposal?.title ?? option?.title ?? "";
+    lines.push(`${index + 1}. **${seatName(seat, t)}: ${title}**${option ? `: ${t[option.feasibility]}` : ""}`);
+    if (proposal) lines.push(`   - ${proposal.summary}`);
+    if (option) lines.push(`   - ${option.reason}`);
+  });
+  lines.push("");
+
+  lines.push(`## ${t.decisionOutcome}`, "");
+  if (chosen) {
+    lines.push(`**${t.chosenOption}:** ${seatName(chosen.seat, t)}${chosen.proposal ? `: ${chosen.proposal.title}` : ""}`, "");
+  } else lines.push(`**${t.noRecommendation}**`, "");
+  if (verdict) lines.push(`**${t.rationale}:** ${verdict.recommendation.rationale}`, "");
+  if (chosen?.proposal) {
+    const proposal = chosen.proposal;
+    lines.push(`**${t.stack}:** ${proposal.stack.join(", ")}`, "");
+    const diagram = mermaidFlowchart(proposal.components, proposal.flows);
+    if (diagram) lines.push(diagram, "");
+  }
+
+  const conditions = options.find((option) => option.seat === chosen?.seat)?.conditions ?? [];
+  if (conditions.length > 0 || (verdict?.risks.length ?? 0) > 0) {
+    lines.push(`## ${t.consequences}`, "");
+    if (conditions.length > 0) lines.push(`### ${t.conditions}`, "", list(conditions), "");
+    if (verdict && verdict.risks.length > 0) {
+      lines.push(
+        `### ${t.risks}`,
+        "",
+        list(
+          verdict.risks.map(
+            (risk) =>
+              `${risk.risk} (${t.likelihood}: ${t[risk.likelihood]}, ${t.impact}: ${t[risk.impact]}). ${t.mitigation}: ${risk.mitigation}`,
+          ),
+        ),
+        "",
+      );
+    }
+  }
+
+  lines.push(`## ${t.links}`, "");
+  lines.push(`- ${t.fullReport}: ${reportSlug(session)}-report.md`, `- ${t.session}: ${session.id}`);
+  if (session.parentId) lines.push(`- ${t.revisits}: ${session.parentId}`);
+  lines.push("", `_${t.generated}_`, "");
+  return lines.join("\n");
 }

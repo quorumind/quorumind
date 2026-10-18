@@ -133,7 +133,8 @@
     "claims": "الادعاءات الرئيسية",
     "openQuestions": "أسئلة مفتوحة",
     "download": "نزّل التقرير (Markdown)",
-    "scoreOutOf": "{{score}} من 5"
+    "scoreOutOf": "{{score}} من 5",
+    "architecture": "البنية الموصى بها"
   },
   "feasibility": {
     "feasible": "قابل للتنفيذ",
@@ -195,5 +196,57 @@
     "critique": "انتقادات",
     "revision": "مراجعة",
     "verdict": "الحكم"
+  },
+  "export": {
+    "button": "تصدير",
+    "menu": "صيغ التصدير",
+    "markdown": "تقرير Markdown",
+    "markdownHint": "نص عادي يقرؤه الأشخاص ووكلاء البرمجة",
+    "pdf": "PDF",
+    "pdfHint": "يفتح التقرير القابل للطباعة: اختر «حفظ بصيغة PDF»",
+    "word": "مستند Word",
+    "wordHint": "تقرير ‎.docx قابل للتعديل",
+    "adr": "سجل قرار البنية",
+    "adrHint": "ملف ADR يُحفظ مع الشيفرة",
+    "handoff": "التسليم إلى وكيل برمجة",
+    "handoffHint": "الملفات CLAUDE.md وAGENTS.md وPLAN.md في ملف zip",
+    "needsVerdict": "متاح بعد أن يُصدر الحَكَم قراره",
+    "newTab": "يُفتح في علامة تبويب جديدة"
+  },
+  "diagram": {
+    "label": "مخطط البنية: {{title}}",
+    "components": "المكونات",
+    "flows": "التدفقات بين المكونات",
+    "flow": "من {{from}} إلى {{to}}: {{label}}",
+    "flowUnlabelled": "من {{from}} إلى {{to}}",
+    "kind": {
+      "client": "عميل",
+      "service": "خدمة",
+      "database": "قاعدة بيانات",
+      "storage": "تخزين",
+      "queue": "طابور",
+      "external": "خدمة خارجية",
+      "infra": "بنية تحتية"
+    }
+  },
+  "branding": {
+    "title": "هوية ملفات التصدير",
+    "lead": "اعرض اسم وكالتك وشعارها ولونها في التقارير بدلًا من هوية Quorumind. يبقى سطر صغير «أُعدّ باستخدام Quorumind».",
+    "name": "الاسم",
+    "namePlaceholder": "وكالتك أو شركتك",
+    "logo": "الشعار",
+    "logoHint": "PNG أو JPEG أو SVG، بحد أقصى {{size}} كيلوبايت.",
+    "logoPreview": "معاينة الشعار",
+    "removeLogo": "إزالة الشعار",
+    "logoTooLarge": "حجم هذا الملف أكبر من {{size}} كيلوبايت.",
+    "logoType": "اختر صورة PNG أو JPEG أو SVG.",
+    "accent": "اللون المميز",
+    "accentHint": "يُستخدم للعناوين والعناصر البارزة في ملفات التصدير.",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ…",
+    "reset": "استعادة هوية Quorumind",
+    "saved": "تم حفظ الهوية.",
+    "resetDone": "تمت استعادة هوية Quorumind.",
+    "error": "تعذّر حفظ الهوية."
   }
 }

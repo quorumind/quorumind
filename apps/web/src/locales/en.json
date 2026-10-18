@@ -144,7 +144,8 @@
     "openQuestions": "Open questions",
     "download": "Download the report (Markdown)",
     "scoreOutOf": "{{score}} out of 5",
-    "yourSolution": "Your solution holds"
+    "yourSolution": "Your solution holds",
+    "architecture": "Recommended architecture"
   },
   "feasibility": {
     "feasible": "Feasible",
@@ -348,5 +349,57 @@
     "retentionNone": "Sessions are kept until you delete them.",
     "export": "Export all my data (JSON)",
     "deleteHint": "To delete a session, open it and choose Delete."
+  },
+  "export": {
+    "button": "Export",
+    "menu": "Export formats",
+    "markdown": "Markdown report",
+    "markdownHint": "Plain text, readable by people and coding agents",
+    "pdf": "PDF",
+    "pdfHint": "Opens the printable report: choose “Save as PDF”",
+    "word": "Word document",
+    "wordHint": "Editable .docx report",
+    "adr": "Architecture decision record",
+    "adrHint": "ADR file to commit next to the code",
+    "handoff": "Coding-agent hand-off",
+    "handoffHint": "CLAUDE.md, AGENTS.md and PLAN.md in a zip",
+    "needsVerdict": "Available once the arbiter has ruled",
+    "newTab": "opens in a new tab"
+  },
+  "diagram": {
+    "label": "Architecture diagram: {{title}}",
+    "components": "Components",
+    "flows": "Flows between components",
+    "flow": "{{from}} to {{to}}: {{label}}",
+    "flowUnlabelled": "{{from}} to {{to}}",
+    "kind": {
+      "client": "Client",
+      "service": "Service",
+      "database": "Database",
+      "storage": "Storage",
+      "queue": "Queue",
+      "external": "External service",
+      "infra": "Infrastructure"
+    }
+  },
+  "branding": {
+    "title": "Branding of the exports",
+    "lead": "Show your agency's name, logo and color on the reports instead of Quorumind's. A discreet “Prepared with Quorumind” line remains.",
+    "name": "Name",
+    "namePlaceholder": "Your agency or company",
+    "logo": "Logo",
+    "logoHint": "PNG, JPEG or SVG, {{size}} KB at most.",
+    "logoPreview": "Logo preview",
+    "removeLogo": "Remove the logo",
+    "logoTooLarge": "This file is larger than {{size}} KB.",
+    "logoType": "Choose a PNG, JPEG or SVG image.",
+    "accent": "Accent color",
+    "accentHint": "Used for headings and highlights in the exports.",
+    "save": "Save",
+    "saving": "Saving…",
+    "reset": "Restore Quorumind's branding",
+    "saved": "Branding saved.",
+    "resetDone": "Quorumind's branding is restored.",
+    "error": "The branding could not be saved."
   }
 }

@@ -133,7 +133,8 @@
     "claims": "Afirmações principais",
     "openQuestions": "Questões em aberto",
     "download": "Baixar o relatório (Markdown)",
-    "scoreOutOf": "{{score}} de 5"
+    "scoreOutOf": "{{score}} de 5",
+    "architecture": "Arquitetura recomendada"
   },
   "feasibility": {
     "feasible": "Viável",
@@ -195,5 +196,57 @@
     "critique": "Críticas",
     "revision": "Revisão",
     "verdict": "Veredito"
+  },
+  "export": {
+    "button": "Exportar",
+    "menu": "Formatos de exportação",
+    "markdown": "Relatório Markdown",
+    "markdownHint": "Texto simples, legível por pessoas e agentes de código",
+    "pdf": "PDF",
+    "pdfHint": "Abre o relatório para impressão: escolha “Salvar como PDF”",
+    "word": "Documento Word",
+    "wordHint": "Relatório .docx editável",
+    "adr": "Registro de decisão de arquitetura",
+    "adrHint": "Arquivo ADR para versionar junto ao código",
+    "handoff": "Repasse para um agente de código",
+    "handoffHint": "CLAUDE.md, AGENTS.md e PLAN.md em um zip",
+    "needsVerdict": "Disponível depois que o árbitro decidir",
+    "newTab": "abre em uma nova aba"
+  },
+  "diagram": {
+    "label": "Diagrama de arquitetura: {{title}}",
+    "components": "Componentes",
+    "flows": "Fluxos entre componentes",
+    "flow": "De {{from}} para {{to}}: {{label}}",
+    "flowUnlabelled": "De {{from}} para {{to}}",
+    "kind": {
+      "client": "Cliente",
+      "service": "Serviço",
+      "database": "Banco de dados",
+      "storage": "Armazenamento",
+      "queue": "Fila",
+      "external": "Serviço externo",
+      "infra": "Infraestrutura"
+    }
+  },
+  "branding": {
+    "title": "Marca das exportações",
+    "lead": "Mostre o nome, o logotipo e a cor da sua agência nos relatórios no lugar dos do Quorumind. Uma discreta menção “Preparado com o Quorumind” permanece.",
+    "name": "Nome",
+    "namePlaceholder": "Sua agência ou empresa",
+    "logo": "Logotipo",
+    "logoHint": "PNG, JPEG ou SVG, no máximo {{size}} KB.",
+    "logoPreview": "Prévia do logotipo",
+    "removeLogo": "Remover o logotipo",
+    "logoTooLarge": "Este arquivo tem mais de {{size}} KB.",
+    "logoType": "Escolha uma imagem PNG, JPEG ou SVG.",
+    "accent": "Cor de destaque",
+    "accentHint": "Usada nos títulos e nos destaques.",
+    "save": "Salvar",
+    "saving": "Salvando…",
+    "reset": "Restaurar a marca Quorumind",
+    "saved": "Marca salva.",
+    "resetDone": "A marca Quorumind foi restaurada.",
+    "error": "Não foi possível salvar a marca."
   }
 }

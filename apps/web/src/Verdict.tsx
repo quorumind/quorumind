@@ -4,6 +4,8 @@ import { currentProposals } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type Feedback } from "./api.ts";
+import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
+import { ExportMenu } from "./components/ExportMenu.tsx";
 import { CheckIcon, CrossIcon, DownloadIcon, MapIcon, SparkIcon, WarningIcon } from "./components/Icons.tsx";
 import { seatName } from "./Debate.tsx";
 import { formatMoney } from "./format.ts";
@@ -415,17 +417,30 @@ export function Verdict({
         ) : null}
         <p style={{ margin: 0, maxInlineSize: "70ch" }}>{verdict.recommendation.rationale}</p>
         <div className="row">
-          {/* EXPORT_MENU */}
-          <a className="button button-secondary" href={reportUrl ?? api.reportUrl(session.id)} download>
-            <DownloadIcon />
-            {t("verdict.download")}
-          </a>
+          {readOnly ? (
+            // A shared session only offers its Markdown report: the other exports belong to its owner.
+            <a className="button button-secondary" href={reportUrl ?? api.reportUrl(session.id)} download>
+              <DownloadIcon />
+              {t("verdict.download")}
+            </a>
+          ) : (
+            <ExportMenu sessionId={session.id} hasVerdict />
+          )}
         </div>
       </section>
 
       <Briefs session={session} readOnly={readOnly} />
       <Matrix session={session} />
-      {/* VERDICT_DIAGRAM */}
+      {recommended && proposals[recommended]?.components?.length ? (
+        <section className="stack">
+          <h2 className="heading">{t("verdict.architecture")}</h2>
+          <ArchitectureDiagram
+            components={proposals[recommended].components}
+            flows={proposals[recommended].flows}
+            title={proposals[recommended].title}
+          />
+        </section>
+      ) : null}
       <DebateMap session={session} />
 
       {verdict.risks.length > 0 ? (

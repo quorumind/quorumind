@@ -133,7 +133,8 @@
     "claims": "关键论断",
     "openQuestions": "待解决问题",
     "download": "下载报告（Markdown）",
-    "scoreOutOf": "{{score}} 分（满分 5 分）"
+    "scoreOutOf": "{{score}} 分（满分 5 分）",
+    "architecture": "推荐的架构"
   },
   "feasibility": {
     "feasible": "可行",
@@ -195,5 +196,57 @@
     "critique": "批评",
     "revision": "修订",
     "verdict": "结论"
+  },
+  "export": {
+    "button": "导出",
+    "menu": "导出格式",
+    "markdown": "Markdown 报告",
+    "markdownHint": "纯文本，人和编码智能体都能读懂",
+    "pdf": "PDF",
+    "pdfHint": "打开可打印的报告：选择“另存为 PDF”",
+    "word": "Word 文档",
+    "wordHint": "可编辑的 .docx 报告",
+    "adr": "架构决策记录",
+    "adrHint": "与代码一同提交的 ADR 文件",
+    "handoff": "移交给编码智能体",
+    "handoffHint": "打包为 zip 的 CLAUDE.md、AGENTS.md 和 PLAN.md",
+    "needsVerdict": "仲裁者作出裁决后可用",
+    "newTab": "在新标签页中打开"
+  },
+  "diagram": {
+    "label": "架构图：{{title}}",
+    "components": "组件",
+    "flows": "组件之间的数据流",
+    "flow": "{{from}} 到 {{to}}：{{label}}",
+    "flowUnlabelled": "{{from}} 到 {{to}}",
+    "kind": {
+      "client": "客户端",
+      "service": "服务",
+      "database": "数据库",
+      "storage": "存储",
+      "queue": "队列",
+      "external": "外部服务",
+      "infra": "基础设施"
+    }
+  },
+  "branding": {
+    "title": "导出文件的品牌设置",
+    "lead": "在报告中显示贵机构的名称、标志和颜色，取代 Quorumind 的品牌。仍会保留一行不显眼的“使用 Quorumind 制作”。",
+    "name": "名称",
+    "namePlaceholder": "您的机构或公司",
+    "logo": "标志",
+    "logoHint": "PNG、JPEG 或 SVG，最大 {{size}} KB。",
+    "logoPreview": "标志预览",
+    "removeLogo": "移除标志",
+    "logoTooLarge": "此文件超过 {{size}} KB。",
+    "logoType": "请选择 PNG、JPEG 或 SVG 图片。",
+    "accent": "强调色",
+    "accentHint": "用于导出文件中的标题和重点内容。",
+    "save": "保存",
+    "saving": "正在保存…",
+    "reset": "恢复 Quorumind 品牌",
+    "saved": "品牌设置已保存。",
+    "resetDone": "已恢复 Quorumind 品牌。",
+    "error": "无法保存品牌设置。"
   }
 }

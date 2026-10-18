@@ -9,10 +9,14 @@
     "./locales": "./src/locales.ts",
     "./session": "./src/session.ts",
     "./templates": "./src/templates.ts",
-    "./ranking": "./src/ranking.ts"
+    "./ranking": "./src/ranking.ts",
+    "./branding": "./src/branding.ts",
+    "./diagram": "./src/diagram.ts",
+    "./docx": "./src/exports/docx.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",
+    "docx": "9.8.1",
     "openai": "7.25.0",
     "zod": "4.6.5"
   }

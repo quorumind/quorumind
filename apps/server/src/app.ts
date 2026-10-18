@@ -30,7 +30,9 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
+import { BrandingStore } from "./branding.ts";
 import type { EventBus } from "./bus.ts";
+import { exportRoutes } from "./exports.ts";
 import type { Notifier } from "./notifier.ts";
 import type { SessionStore } from "./store.ts";
 
@@ -73,6 +75,8 @@ export interface AppDeps {
   notifier?: Notifier | null;
   /** Delay between streamed chunks of the demo; 0 in tests. */
   mockDelayMs?: number;
+  /** White-label branding of the exports; kept in memory when not given. */
+  brandingStore?: BrandingStore;
 }
 
 const AnswerList = z.array(z.object({ question: z.string().max(2_000), answer: z.string().max(4_000) })).max(20);
@@ -492,6 +496,15 @@ export function createApp(deps: AppDeps) {
       unsubscribe();
     });
   });
+
+  app.route(
+    "/",
+    exportRoutes({
+      getSession: (id, user) => store.get(id, ownerOf(user)),
+      ownerOf,
+      branding: deps.brandingStore ?? new BrandingStore(":memory:"),
+    }),
+  );
 
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((error, c) => {

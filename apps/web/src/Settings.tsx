@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type AppConfig, api } from "./api.ts";
+import { BrandingSettings } from "./components/BrandingSettings.tsx";
 import { DownloadIcon } from "./components/Icons.tsx";
 
 export function Settings() {
@@ -32,7 +33,7 @@ export function Settings() {
         </ul>
       </section>
 
-      {/* BRANDING_SETTINGS */}
+      <BrandingSettings />
 
       <section className="card stack">
         <h2 className="heading">{t("settings.data")}</h2>

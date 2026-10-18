@@ -2000,27 +2000,28 @@ details.settings[open] > div {
 
 /* Verdict: the ruling arrives, scores fill, the matrix re-ranks itself. */
 
+/* No overflow: hidden, so the export menu can open past the panel: the glow is painted inside its box instead. */
 .verdict-panel {
   position: relative;
-  overflow: hidden;
   animation: verdict-in 600ms var(--ease-out) both;
 }
 
 .verdict-panel::before {
   content: "";
   position: absolute;
-  inset-block-start: -40%;
-  inset-inline-end: -10%;
-  inline-size: 360px;
-  block-size: 360px;
-  border-radius: 50%;
+  inset: 0;
+  border-radius: inherit;
   background:
-    radial-gradient(circle, color-mix(in srgb, var(--thesis) 45%, transparent), transparent 65%),
-    radial-gradient(circle at 70% 70%, color-mix(in srgb, var(--antithesis) 35%, transparent), transparent 60%);
-  filter: blur(10px);
+    radial-gradient(circle 254px at calc(100% - 140px) 60px, color-mix(in srgb, var(--thesis) 45%, transparent), transparent 65%),
+    radial-gradient(circle 356px at calc(100% - 68px) 132px, color-mix(in srgb, var(--antithesis) 35%, transparent), transparent 60%);
+  background-repeat: no-repeat;
   opacity: 0.55;
   animation: drift 12s ease-in-out infinite alternate;
   pointer-events: none;
+}
+
+[dir="rtl"] .verdict-panel::before {
+  transform: scaleX(-1);
 }
 
 .verdict-panel > * {
@@ -2040,7 +2041,9 @@ details.settings[open] > div {
 
 @keyframes drift {
   to {
-    transform: translate(-40px, 30px) scale(1.1);
+    background-position:
+      -40px 30px,
+      -40px 30px;
   }
 }
 
@@ -2542,4 +2545,253 @@ button.chip:active {
 
 .notice {
   animation: rise 300ms var(--ease-out);
+}
+
+/* ==========================================================================
+   Exports: the export menu, architecture diagrams and the branding settings.
+   ========================================================================== */
+
+/* Export menu */
+
+.export-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.export-list {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-start: 0;
+  z-index: 30;
+  inline-size: min(340px, calc(100vw - 2 * var(--space-4)));
+  display: grid;
+  gap: 2px;
+  padding: var(--space-1);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+.export-list:focus {
+  outline: none;
+}
+
+.export-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.export-item:hover,
+.export-item:focus-visible {
+  background: var(--thesis-soft);
+  outline-offset: -2px;
+}
+
+.export-item[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--ink-muted);
+}
+
+.export-item[aria-disabled="true"]:hover {
+  background: transparent;
+}
+
+.export-icon {
+  display: inline-flex;
+  padding-block-start: 2px;
+  color: var(--thesis);
+}
+
+.export-item[aria-disabled="true"] .export-icon {
+  color: var(--line);
+}
+
+.export-text {
+  display: grid;
+  gap: 2px;
+}
+
+.export-label {
+  font-weight: 600;
+}
+
+.export-hint {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ink-muted);
+}
+
+/* Diagram */
+
+.diagram {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+/* Contained so a wide diagram scrolls here instead of widening the grids around it. */
+.diagram-scroll {
+  overflow-x: auto;
+  padding: var(--space-2);
+  contain: inline-size;
+}
+
+.diagram svg {
+  display: block;
+  max-inline-size: none;
+  block-size: auto;
+  margin-inline: auto;
+  font-family: var(--font-sans);
+}
+
+.diagram-edge {
+  fill: none;
+  stroke: var(--ink-muted);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  opacity: 0.8;
+}
+
+.diagram-arrow {
+  fill: var(--ink-muted);
+}
+
+.diagram-edge-label rect {
+  fill: var(--surface-raised);
+  opacity: 0.94;
+}
+
+.diagram-edge-label text {
+  font-size: 11px;
+  fill: var(--ink-muted);
+}
+
+.diagram-node {
+  --kind: var(--ink);
+  --kind-fill: var(--surface-raised);
+}
+
+.diagram-node[data-kind="client"] {
+  --kind: var(--thesis);
+  --kind-fill: var(--thesis-soft);
+}
+.diagram-node[data-kind="database"] {
+  --kind: var(--feasible);
+  --kind-fill: var(--feasible-soft);
+}
+.diagram-node[data-kind="storage"] {
+  --kind: var(--feasible);
+}
+.diagram-node[data-kind="queue"] {
+  --kind: var(--conditional);
+  --kind-fill: var(--conditional-soft);
+}
+.diagram-node[data-kind="external"] {
+  --kind: var(--ink-muted);
+  --kind-fill: var(--surface);
+}
+.diagram-node[data-kind="infra"] {
+  --kind: var(--voice-3);
+  --kind-fill: color-mix(in srgb, var(--voice-3) 12%, var(--surface-raised));
+}
+
+.diagram-box {
+  fill: var(--kind-fill);
+  stroke: var(--kind);
+  stroke-width: 1.5;
+}
+
+.diagram-node[data-kind="external"] .diagram-box {
+  stroke-dasharray: 5 4;
+}
+
+.diagram-detail,
+.diagram-icon {
+  fill: none;
+  stroke: var(--kind);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diagram-icon {
+  stroke-width: 2.2;
+}
+
+.diagram-node text {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+
+/* Branding */
+
+.branding {
+  max-inline-size: 640px;
+}
+
+.branding-logo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.branding-logo > .stack {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+
+/* The browser's own file picker text can be long: it must not widen the page on a phone. */
+.branding-logo input[type="file"] {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.branding-preview {
+  inline-size: 160px;
+  block-size: 72px;
+  display: grid;
+  place-items: center;
+  padding: var(--space-2);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: var(--ink-muted);
+}
+
+.branding-preview img {
+  max-inline-size: 100%;
+  max-block-size: 100%;
+  object-fit: contain;
+}
+
+.branding-accent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.branding-accent input[type="color"] {
+  inline-size: 44px;
+  block-size: 44px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  cursor: pointer;
+}
+
+.branding-error {
+  font-size: 14px;
+  color: var(--infeasible);
 }

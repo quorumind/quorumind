@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "./api.ts";
+import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ArrowIcon, DevilIcon, ProbeIcon } from "./components/Icons.tsx";
 import { formatMoney } from "./format.ts";
 import type { LiveSpeech } from "./useSession.ts";
@@ -122,7 +123,7 @@ function ProposalDetails({ proposal }: { proposal: Proposal }) {
       <p className="field-hint" style={{ margin: 0 }}>
         {t("debate.estimates")}
       </p>
-      {/* PROPOSAL_DIAGRAM */}
+      <ArchitectureDiagram components={proposal.components} flows={proposal.flows} title={proposal.title} />
       <div>
         <h4>{t("debate.stack")}</h4>
         <div className="chips">

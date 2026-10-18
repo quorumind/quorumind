@@ -1,6 +1,10 @@
+export * from "./branding.ts";
 export * from "./config.ts";
 export * from "./demo.ts";
+export * from "./diagram.ts";
 export * from "./engine.ts";
+export * from "./exports/html.ts";
+export * from "./handoff.ts";
 export * from "./locales.ts";
 export * from "./partial-json.ts";
 export * from "./pricing.ts";
@@ -17,3 +21,4 @@ export * from "./report.ts";
 export * from "./schemas.ts";
 export * from "./session.ts";
 export * from "./templates.ts";
+export * from "./zip.ts";

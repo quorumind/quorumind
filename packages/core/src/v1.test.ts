@@ -141,7 +141,7 @@ describe("V1 debate features", () => {
     await run(engine, session);
     const report = renderReport(session);
     expect(report).toContain("Points of agreement");
-    expect(report).toContain("devil: ");
+    expect(report).toContain("Devil's advocate: ");
   });
 });
 

@@ -5,6 +5,7 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createApp, retentionDays } from "./app.ts";
+import { BrandingStore } from "./branding.ts";
 import { EventBus } from "./bus.ts";
 import { notifierFromEnv } from "./notifier.ts";
 import { SessionStore } from "./store.ts";
@@ -17,9 +18,11 @@ const port = Number(env.PORT ?? 8787);
 const hostname = env.HOST ?? "127.0.0.1";
 
 const store = new SessionStore(join(dataDir, "quorumind.db"));
+const brandingStore = new BrandingStore(join(dataDir, "quorumind.db"));
 const demoDelay = env.QUORUMIND_DEMO_DELAY_MS ? Number(env.QUORUMIND_DEMO_DELAY_MS) : undefined;
 const api = createApp({
   store,
+  brandingStore,
   bus: new EventBus(),
   env,
   notifier: notifierFromEnv(env),
@@ -55,6 +58,7 @@ serve({ fetch: root.fetch, port, hostname }, (info) => {
 
 const shutdown = () => {
   store.close();
+  brandingStore.close();
   process.exit(0);
 };
 process.on("SIGINT", shutdown);

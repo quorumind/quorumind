@@ -133,7 +133,8 @@
     "claims": "主な主張",
     "openQuestions": "未解決の質問",
     "download": "レポートをダウンロード（Markdown）",
-    "scoreOutOf": "5点中{{score}}点"
+    "scoreOutOf": "5点中{{score}}点",
+    "architecture": "推奨アーキテクチャ"
   },
   "feasibility": {
     "feasible": "実現可能",
@@ -195,5 +196,57 @@
     "critique": "批判",
     "revision": "修正",
     "verdict": "判定"
+  },
+  "export": {
+    "button": "エクスポート",
+    "menu": "エクスポート形式",
+    "markdown": "Markdown レポート",
+    "markdownHint": "人にもコーディングエージェントにも読めるプレーンテキスト",
+    "pdf": "PDF",
+    "pdfHint": "印刷用レポートを開きます。「PDF として保存」を選んでください",
+    "word": "Word 文書",
+    "wordHint": "編集可能な .docx レポート",
+    "adr": "アーキテクチャ決定記録",
+    "adrHint": "コードと一緒に管理する ADR ファイル",
+    "handoff": "コーディングエージェントへの引き継ぎ",
+    "handoffHint": "CLAUDE.md、AGENTS.md、PLAN.md をまとめた zip",
+    "needsVerdict": "審判の判定後に利用できます",
+    "newTab": "新しいタブで開きます"
+  },
+  "diagram": {
+    "label": "アーキテクチャ図：{{title}}",
+    "components": "コンポーネント",
+    "flows": "コンポーネント間のフロー",
+    "flow": "{{from}} から {{to}}：{{label}}",
+    "flowUnlabelled": "{{from}} から {{to}}",
+    "kind": {
+      "client": "クライアント",
+      "service": "サービス",
+      "database": "データベース",
+      "storage": "ストレージ",
+      "queue": "キュー",
+      "external": "外部サービス",
+      "infra": "インフラ"
+    }
+  },
+  "branding": {
+    "title": "エクスポートのブランド設定",
+    "lead": "レポートに Quorumind ではなく、貴社の名前・ロゴ・色を表示します。「Quorumind で作成」という控えめな一行は残ります。",
+    "name": "名前",
+    "namePlaceholder": "代理店名または会社名",
+    "logo": "ロゴ",
+    "logoHint": "PNG、JPEG、SVG（最大 {{size}} KB）",
+    "logoPreview": "ロゴのプレビュー",
+    "removeLogo": "ロゴを削除",
+    "logoTooLarge": "このファイルは {{size}} KB を超えています。",
+    "logoType": "PNG、JPEG、SVG のいずれかの画像を選んでください。",
+    "accent": "アクセントカラー",
+    "accentHint": "エクスポートの見出しや強調に使われます。",
+    "save": "保存",
+    "saving": "保存中…",
+    "reset": "Quorumind のブランドに戻す",
+    "saved": "ブランド設定を保存しました。",
+    "resetDone": "Quorumind のブランドに戻しました。",
+    "error": "ブランド設定を保存できませんでした。"
   }
 }
