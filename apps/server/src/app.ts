@@ -46,6 +46,19 @@ export interface User {
   userId: string;
 }
 
+/** The settings of a session its price can depend on. */
+export type PricedSettings = Pick<Session, "mode" | "depth" | "locale">;
+
+/** What a debate costs the person, as the host sells it. */
+export interface PriceQuote {
+  /** In `currency`; 0 when the person's plan covers it. */
+  amount: number;
+  /** ISO 4217 code, e.g. "EUR". */
+  currency: string;
+  /** What is bought, in the session's language, e.g. "Standard debate". */
+  label: string;
+}
+
 /**
  * Extension points used by the hosted version. Self-hosted, none is set: there is a single
  * local user, every configured model is available and nothing is metered.
@@ -69,6 +82,21 @@ export interface AppHooks {
   notifyRecipient?(user: User): Promise<string | null>;
   /** Forces a cost cap on every session, in US dollars. */
   maxBudgetUsd?: number;
+  /**
+   * The provider cost cap of a new session from its settings, in US dollars (e.g. one cap per price
+   * tier). The lowest of this, maxBudgetUsd and the person's own cap applies.
+   */
+  sessionBudgetUsd?(settings: Pick<Session, "mode" | "depth">): number | null;
+  /**
+   * The price of a debate for this user, shown before launch instead of the provider cost estimate
+   * and in the session header. `sessionId` is set once the session exists. Null shows no price.
+   */
+  quote?(user: User, settings: PricedSettings, sessionId: string | null): Promise<PriceQuote | null>;
+  /**
+   * Keeps provider costs, in US dollars, away from the people using the app: sessions are sent
+   * without the cost of each call or the cost cap, and the interface shows calls and tokens only.
+   */
+  hideProviderCosts?: boolean;
 }
 
 export interface AppDeps {
@@ -138,6 +166,23 @@ function publicView(session: Session): Session {
   };
 }
 
+/** A session as sent to someone who must not see what the providers charge (AppHooks.hideProviderCosts). */
+function withoutProviderCosts(session: Session): Session {
+  return {
+    ...session,
+    budgetUsd: null,
+    usage: session.usage.map((record) => ({ ...record, costUsd: null })),
+    // The engine's message names the cap in dollars; the error code is enough to explain it.
+    error: session.error?.code === "budget_exceeded" ? { ...session.error, message: "" } : session.error,
+  };
+}
+
+/** The lowest of the cost caps that apply, or null when none does. */
+function lowestCap(...caps: (number | null | undefined)[]): number | null {
+  const set = caps.filter((cap): cap is number => typeof cap === "number");
+  return set.length > 0 ? Math.min(...set) : null;
+}
+
 const slug = (session: Session) =>
   (session.sheet?.projectName ?? "quorumind")
     .toLowerCase()
@@ -158,6 +203,9 @@ export function createApp(deps: AppDeps) {
     return catalogCache;
   };
   const envFor = (user: User | null): Env => (user && hooks.providerEnv ? hooks.providerEnv(user) : env);
+  const view = (session: Session) => (hooks.hideProviderCosts ? withoutProviderCosts(session) : session);
+  const priceOf = (user: User | null, settings: PricedSettings, sessionId: string | null) =>
+    user && hooks.quote ? hooks.quote(user, settings, sessionId) : Promise.resolve(null);
 
   const engineFor = (session: Session) => {
     const user = users.get(session.id) ?? null;
@@ -247,7 +295,7 @@ export function createApp(deps: AppDeps) {
     const user = c.get("user");
     const catalog = await catalogFor(user);
     const lineup = hooks.catalog && user ? defaultLineup(catalog) : liveLineupFromEnv(envFor(user), catalog);
-    const estimate = (value: Lineup) => estimateFor({ ...value, rounds: 1, mode: "standard" });
+    const estimate = (value: Lineup) => (hooks.hideProviderCosts ? null : estimateFor({ ...value, rounds: 1, mode: "standard" }));
     return c.json({
       locales: LOCALES,
       catalog,
@@ -258,13 +306,25 @@ export function createApp(deps: AppDeps) {
       localOnly: isLocalOnly(env),
       notifications: Boolean(deps.notifier),
       retentionDays: retentionDays(env),
-      maxBudgetUsd: hooks.maxBudgetUsd ?? null,
+      maxBudgetUsd: hooks.hideProviderCosts ? null : (hooks.maxBudgetUsd ?? null),
+      providerCosts: !hooks.hideProviderCosts,
     });
   });
 
   app.post("/api/estimate", async (c) => {
-    const input = z.object({ lineup: LineupInput, rounds: NewSession.shape.rounds, mode: NewSession.shape.mode }).parse(await c.req.json());
-    return c.json({ estimateUsd: estimateFor({ ...input.lineup, rounds: input.rounds, mode: input.mode }) });
+    const input = z
+      .object({
+        lineup: LineupInput,
+        rounds: NewSession.shape.rounds,
+        mode: NewSession.shape.mode,
+        depth: NewSession.shape.depth,
+        locale: NewSession.shape.locale.default("en"),
+      })
+      .parse(await c.req.json());
+    return c.json({
+      estimateUsd: hooks.hideProviderCosts ? null : estimateFor({ ...input.lineup, rounds: input.rounds, mode: input.mode }),
+      price: await priceOf(c.get("user"), { mode: input.mode, depth: input.depth, locale: input.locale as Session["locale"] }, null),
+    });
   });
 
   app.get("/api/sessions", (c) => c.json({ sessions: store.list(50, ownerOf(c.get("user"))) }));
@@ -291,16 +351,16 @@ export function createApp(deps: AppDeps) {
         return c.json({ error: "invalid_request", message: "Describe the solution you want challenged." }, 400);
       }
     }
-    const cap = hooks.maxBudgetUsd;
+    const mode = input.demo ? "standard" : input.mode;
     const session = createSession({
       locale: input.locale as Session["locale"],
       idea: input.demo ? input.idea || DEMO_IDEA : input.idea,
       demo: input.demo,
-      mode: input.demo ? "standard" : input.mode,
+      mode,
       template: input.template,
       depth: input.depth,
       rounds: input.rounds,
-      budgetUsd: cap === undefined ? input.budgetUsd : Math.min(input.budgetUsd ?? cap, cap),
+      budgetUsd: lowestCap(input.budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.({ mode, depth: input.depth })),
       ...lineup,
       challenge: input.challenge,
       context: input.context,
@@ -311,7 +371,7 @@ export function createApp(deps: AppDeps) {
     await authorize(session);
     store.save(session, ownerOf(user));
     runInBackground(session, (engine) => engine.startInterview(session));
-    return c.json({ session }, 201);
+    return c.json({ session: view(session) }, 201);
   });
 
   const load = (id: string, user: User | null) => {
@@ -325,10 +385,18 @@ export function createApp(deps: AppDeps) {
     if (busy.has(session.id)) throw new InvalidStateError("This session is already working. Wait for it to finish.");
   };
 
-  app.get("/api/sessions/:id", (c) => {
+  app.get("/api/sessions/:id", async (c) => {
     const id = c.req.param("id");
-    const session = load(id, c.get("user"));
-    return c.json({ session, busy: busy.has(id), share: store.shareOf(id), feedback: store.feedbackOf(id) });
+    const user = c.get("user");
+    const session = load(id, user);
+    return c.json({
+      session: view(session),
+      busy: busy.has(id),
+      share: store.shareOf(id),
+      feedback: store.feedbackOf(id),
+      price: session.demo ? null : await priceOf(user, session, session.id),
+      providerCosts: !hooks.hideProviderCosts,
+    });
   });
 
   app.delete("/api/sessions/:id", (c) => {
@@ -427,7 +495,7 @@ export function createApp(deps: AppDeps) {
     session.phase = "review";
     users.set(session.id, user);
     store.save(session, ownerOf(user));
-    return c.json({ session }, 201);
+    return c.json({ session: view(session) }, 201);
   });
 
   app.post("/api/sessions/:id/share", async (c) => {
@@ -475,7 +543,7 @@ export function createApp(deps: AppDeps) {
     c.header("Content-Disposition", `attachment; filename="quorumind-export-${new Date().toISOString().slice(0, 10)}.json"`);
     return c.json({
       exportedAt: new Date().toISOString(),
-      sessions: sessions.map((session) => ({ ...session, share: store.shareOf(session.id), feedback: store.feedbackOf(session.id) })),
+      sessions: sessions.map((session) => ({ ...view(session), share: store.shareOf(session.id), feedback: store.feedbackOf(session.id) })),
     });
   });
 
@@ -488,14 +556,14 @@ export function createApp(deps: AppDeps) {
       const queue: string[] = [];
       let wake: (() => void) | null = null;
       const unsubscribe = bus.subscribe(session.id, (event) => {
-        queue.push(JSON.stringify(event));
+        queue.push(JSON.stringify(event.type === "session" ? { ...event, session: view(event.session) } : event));
         wake?.();
       });
       stream.onAbort(() => {
         unsubscribe();
         wake?.();
       });
-      await stream.writeSSE({ id: String(id++), event: "message", data: JSON.stringify({ type: "session", session }) });
+      await stream.writeSSE({ id: String(id++), event: "message", data: JSON.stringify({ type: "session", session: view(session) }) });
       while (!stream.aborted) {
         const next = queue.shift();
         if (next !== undefined) {

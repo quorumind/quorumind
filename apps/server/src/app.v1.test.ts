@@ -197,6 +197,72 @@ describe("hosted hooks", () => {
     expect(refused.status).toBe(402);
     expect(((await refused.json()) as { error: string }).error).toBe("insufficient_credits");
   });
+
+  it("caps each session by its settings, quotes a price and hides the provider costs", async () => {
+    const quoted: { settings: unknown; sessionId: string | null }[] = [];
+    const app = makeApp(
+      {},
+      {
+        identify,
+        maxBudgetUsd: 5,
+        sessionBudgetUsd: ({ mode, depth }) => (mode === "express" ? 1 : depth === "deep" ? 5 : 2.5),
+        quote: async (_user, settings, sessionId) => {
+          quoted.push({ settings, sessionId });
+          return { amount: settings.depth === "deep" ? 15 : 7, currency: "EUR", label: `Debate (${settings.locale})` };
+        },
+        hideProviderCosts: true,
+        catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
+      },
+    );
+    const config = (await (await app.request("/api/config", { headers: as("ada") })).json()) as {
+      providerCosts: boolean;
+      maxBudgetUsd: number | null;
+      live: { lineup: unknown; estimateUsd: unknown };
+    };
+    expect(config).toMatchObject({ providerCosts: false, maxBudgetUsd: null, live: { estimateUsd: null } });
+
+    const estimate = await app.request(
+      "/api/estimate",
+      json({ lineup: config.live.lineup, rounds: 1, mode: "standard", depth: "deep", locale: "fr" }, "POST", as("ada")),
+    );
+    expect(await estimate.json()).toEqual({ estimateUsd: null, price: { amount: 15, currency: "EUR", label: "Debate (fr)" } });
+    expect(quoted[0]).toEqual({ settings: { mode: "standard", depth: "deep", locale: "fr" }, sessionId: null });
+
+    const express = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", mode: "express" }, "POST", as("ada")));
+    const created = (await express.json()) as { session: Session };
+    // The cap is kept on the server, never sent.
+    expect(created.session.budgetUsd).toBeNull();
+    expect(store.get(created.session.id, "ada")?.budgetUsd).toBe(1);
+    const own = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", budgetUsd: 0.5 }, "POST", as("ada")));
+    expect(store.get(((await own.json()) as { session: Session }).session.id, "ada")?.budgetUsd).toBe(0.5);
+
+    await waitFor(app, created.session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
+    const detail = (await (await app.request(`/api/sessions/${created.session.id}`, { headers: as("ada") })).json()) as {
+      session: Session;
+      price: unknown;
+      providerCosts: boolean;
+    };
+    expect(detail.providerCosts).toBe(false);
+    expect(detail.price).toEqual({ amount: 7, currency: "EUR", label: "Debate (en)" });
+    expect(quoted.at(-1)?.sessionId).toBe(created.session.id);
+    expect(detail.session.usage.length).toBeGreaterThan(0);
+    expect(detail.session.usage.every((record) => record.costUsd === null)).toBe(true);
+  });
+
+  it("keeps the provider costs and the user's cap without the pricing hooks", async () => {
+    const app = makeApp({}, { identify, catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }] });
+    const created = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", budgetUsd: 3 }, "POST", as("ada")));
+    const { session } = (await created.json()) as { session: Session };
+    expect(session.budgetUsd).toBe(3);
+    await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
+    const detail = (await (await app.request(`/api/sessions/${session.id}`, { headers: as("ada") })).json()) as {
+      session: Session;
+      price: unknown;
+      providerCosts: boolean;
+    };
+    expect(detail).toMatchObject({ price: null, providerCosts: true });
+    expect(detail.session.usage[0]?.costUsd).toBe(0);
+  });
 });
 
 describe("retention", () => {
