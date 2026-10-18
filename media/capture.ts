@@ -104,14 +104,6 @@ async function stills(browser: Browser, sessionUrl: string) {
   await dark.screenshot({ path: join(OUT, "verdict-dark.png") });
   await dark.close();
 
-  const arabic = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 2 });
-  await arabic.addInitScript(() => localStorage.setItem("quorumind.locale", "ar"));
-  await arabic.goto(sessionUrl);
-  await arabic.getByRole("heading", { name: "مصفوفة القرار" }).waitFor();
-  await pause(arabic, 1200);
-  await arabic.screenshot({ path: join(OUT, "verdict-ar.png") });
-  await arabic.close();
-
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "en-US" });
   await phone.goto(sessionUrl);
   await phone.getByRole("heading", { name: "Decision matrix" }).waitFor();
@@ -165,7 +157,7 @@ async function main() {
       mkdirSync(SITE, { recursive: true });
       copyFileSync(clip, join(SITE, "quorumind-promo.mp4"));
       copyFileSync(join(OUT, "verdict.png"), join(SITE, "poster.png"));
-      for (const name of ["interview.png", "debate.png", "verdict.png", "verdict-dark.png", "verdict-ar.png", "mobile.png"]) {
+      for (const name of ["interview.png", "debate.png", "verdict.png", "verdict-dark.png", "mobile.png"]) {
         copyFileSync(join(OUT, name), join(SITE, name));
       }
     }

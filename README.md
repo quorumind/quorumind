@@ -23,9 +23,9 @@ infrastructure, risks and a roadmap.
 
 ![The verdict of a debate: the recommended option and the decision matrix](docs/media/verdict.png)
 
-| Interview | Debate | Arabic, right to left |
+| Interview | Requirements sheet | Debate |
 | --- | --- | --- |
-| ![The interview](docs/media/interview.png) | ![The debate asks the user a question](docs/media/debate.png) | ![The verdict in Arabic](docs/media/verdict-ar.png) |
+| ![The interview](docs/media/interview.png) | ![The requirements sheet, editable before the debate](docs/media/requirements.png) | ![The debate asks the user a question](docs/media/debate.png) |
 
 ## Quick start
 
@@ -157,9 +157,8 @@ flowchart TB
 ## Languages
 
 The interface ships in ten languages from the start: English (source), French, Spanish,
-Portuguese, Italian, German, Hindi, Japanese, Simplified Chinese and Arabic, with full
-right-to-left support for Arabic. The interview, the debate and the report follow the user's
-language.
+Portuguese, Italian, German, Hindi, Japanese, Simplified Chinese and Arabic. The interview,
+the debate and the report follow the user's language.
 
 ## Contributing
 
@@ -183,7 +182,7 @@ npm run media       # screenshots and demo video in docs/media, filmed on the re
 | `packages/core` | Debate engine, role prompts, schemas, provider adapters (Claude, OpenAI, Gemini, Ollama, demo), pricing, report and exports |
 | `apps/server` | HTTP API, live event stream (SSE), SQLite or PostgreSQL storage, serves the interface |
 | `apps/mcp` | MCP server for coding agents: runs a debate through the HTTP API and writes the hand-off files |
-| `apps/web` | React interface, ten languages, right-to-left support, light and dark themes |
+| `apps/web` | React interface, ten languages, light and dark themes |
 | `bench` | Reference projects replayed end to end, with checks every verdict must pass |
 | `media` | Films the recorded demo with Playwright for the README and the website |
 
