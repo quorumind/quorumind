@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
 import { type AppConfig, api } from "./api.ts";
+import { ContextPicker } from "./components/ContextPicker.tsx";
 import { ArrowIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
 import { Skeleton } from "./components/Logo.tsx";
 import { formatUsd, groupLabel } from "./format.ts";
@@ -247,7 +248,7 @@ export function NewSession() {
   const [idea, setIdea] = useState("");
   const [solution, setSolution] = useState("");
   const [template, setTemplate] = useState<TemplateId | null>(null);
-  const [context] = useState<ContextDocument[]>([]);
+  const [context, setContext] = useState<ContextDocument[]>([]);
   const [lineup, setLineup] = useState<Lineup | null>(null);
   const [depth, setDepth] = useState<Depth>("standard");
   const [rounds, setRounds] = useState(1);
@@ -407,7 +408,7 @@ export function NewSession() {
           </fieldset>
         ) : null}
 
-        {/* CONTEXT_PICKER */}
+        <ContextPicker value={context} onChange={setContext} disabled={!live} />
 
         {live && config && lineup ? (
           <details className="settings">
