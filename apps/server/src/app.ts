@@ -1,6 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import {
   Audience,
+  COMPLIANCE_TEMPLATE_IDS,
   catalogFromEnv,
   clientDeliverable,
   createSession,
@@ -9,8 +10,10 @@ import {
   DEPTHS,
   DebateEngine,
   deliveryChecks,
+  type EuropeanPolicy,
   estimateDebateCost,
   estimateRevisionCost,
+  europeanPolicyFromEnv,
   hasProfile,
   INTERRUPTED,
   InvalidStateError,
@@ -51,6 +54,7 @@ import type { EventBus } from "./bus.ts";
 import type { ChatNotifier } from "./chat.ts";
 import { contextRoutes } from "./context/routes.ts";
 import { invalidRequest } from "./errors.ts";
+import { EuropeanUnavailable, europeanConfig, europeanSession, NonEuropeanModel, wantsEuropean } from "./european.ts";
 import { exportRoutes } from "./exports.ts";
 import type { Notifier } from "./notifier.ts";
 import { profileRoutes } from "./profile.ts";
@@ -220,6 +224,11 @@ export interface AppHooks {
    * session keeps a copy. Without it, the profile is the one saved in the settings of this server (/api/profile).
    */
   profile?(user: User, session: Session): Promise<OrgProfile | null>;
+  /**
+   * Whether new sessions of this user use European models only (sovereignty.ts): "default" ticks the option, "required"
+   * imposes it, e.g. a workspace setting. Without it, QUORUMIND_EUROPEAN_ONLY decides.
+   */
+  europeanPolicy?(user: User): Promise<EuropeanPolicy>;
 }
 
 export interface AppDeps {
@@ -271,6 +280,10 @@ const NewSession = z.object({
   demo: z.boolean().default(false),
   mode: z.enum(MODES).default("standard"),
   template: z.enum(TEMPLATE_IDS).nullable().default(null),
+  /** Compliance templates, combined with the domain template. */
+  complianceTemplates: z.array(z.enum(COMPLIANCE_TEMPLATE_IDS)).max(COMPLIANCE_TEMPLATE_IDS.length).default([]),
+  /** Every role played by a European model; left out, the server's or the workspace's default applies. */
+  europeanOnly: z.boolean().optional(),
   depth: z.enum(DEPTHS).default("standard"),
   rounds: z.number().int().min(1).max(MAX_ROUNDS).default(1),
   budgetUsd: z.number().positive().max(1_000).nullable().default(null),
@@ -379,6 +392,8 @@ export function createApp(deps: AppDeps) {
     return catalogCache;
   };
   const envFor = (user: User | null): Env => (user && hooks.providerEnv ? hooks.providerEnv(user) : env);
+  const europeanPolicyOf = (user: User | null): Promise<EuropeanPolicy> =>
+    user && hooks.europeanPolicy ? hooks.europeanPolicy(user) : Promise.resolve(europeanPolicyFromEnv(env));
   const view = (session: Session) => (hooks.hideProviderCosts ? withoutProviderCosts(session) : session);
   const priceOf = (user: User | null, priced: PricedSettings, sessionId: string | null, item: PricedItem = "debate") =>
     user && hooks.quote ? hooks.quote(user, priced, sessionId, item) : Promise.resolve(null);
@@ -530,6 +545,8 @@ export function createApp(deps: AppDeps) {
       live: lineup ? { lineup, estimateUsd: estimate(lineup) } : null,
       demo: { lineup: DEMO_LINEUP, idea: DEMO_IDEA },
       templates: TEMPLATE_IDS,
+      complianceTemplates: COMPLIANCE_TEMPLATE_IDS,
+      european: europeanConfig(await europeanPolicyOf(user), catalog, envFor(user)),
       personas: PERSONA_IDS,
       localOnly: isLocalOnly(env),
       notifications: Boolean(deps.notifier),
@@ -579,11 +596,14 @@ export function createApp(deps: AppDeps) {
     const user = c.get("user");
     const input = NewSession.parse(await c.req.json());
     let lineup: Lineup;
+    let european: Session["european"] = null;
     if (input.demo) {
       lineup = DEMO_LINEUP;
     } else {
       const catalog = await catalogFor(user);
-      if (input.lineup) {
+      if (wantsEuropean(await europeanPolicyOf(user), input.europeanOnly)) {
+        ({ lineup, european } = europeanSession(input.lineup ? validateLineup(input.lineup, catalog) : null, catalog, envFor(user)));
+      } else if (input.lineup) {
         lineup = validateLineup(input.lineup, catalog);
       } else {
         const fallback = hooks.catalog && user ? defaultLineup(catalog) : liveLineupFromEnv(envFor(user), catalog);
@@ -604,6 +624,8 @@ export function createApp(deps: AppDeps) {
       demo: input.demo,
       mode,
       template: input.template,
+      complianceTemplates: input.demo ? [] : input.complianceTemplates,
+      european,
       depth: input.depth,
       rounds: input.rounds,
       budgetUsd: lowestCap(input.budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.({ mode, depth: input.depth })),
@@ -847,6 +869,7 @@ export function createApp(deps: AppDeps) {
       demo: source.demo,
       mode: source.mode,
       template: source.template,
+      complianceTemplates: source.complianceTemplates,
       depth: source.depth,
       rounds: Math.min(source.rounds, MAX_ROUNDS),
       budgetUsd: source.budgetUsd,
@@ -860,6 +883,10 @@ export function createApp(deps: AppDeps) {
       notify: source.notify,
       parentId: source.id,
     });
+    // A European-only decision stays so, and a workspace that now requires it applies it to the new debate.
+    if (!source.demo && (source.european || (await europeanPolicyOf(user)) === "required")) {
+      session.european = europeanSession(source, await catalogFor(user), envFor(user)).european;
+    }
     session.interview = structuredClone(source.interview);
     session.sheet = structuredClone(source.sheet);
     session.phase = "review";
@@ -1070,6 +1097,10 @@ export function createApp(deps: AppDeps) {
     if (error instanceof InvalidLineup) {
       return c.json({ error: "invalid_lineup", message: error.message, ...(error.model ? { params: { model: error.model } } : {}) }, 400);
     }
+    if (error instanceof NonEuropeanModel) {
+      return c.json({ error: error.code, message: error.message, params: { model: error.model } }, 400);
+    }
+    if (error instanceof EuropeanUnavailable) return c.json({ error: error.code, message: error.message }, 400);
     if (error instanceof PaymentRequired) return c.json({ error: error.code, message: error.message }, 402);
     if (error instanceof ShareRefused) return c.json({ error: error.code, message: error.message }, error.status);
     if (error instanceof z.ZodError) return c.json(invalidRequest(error), 400);
