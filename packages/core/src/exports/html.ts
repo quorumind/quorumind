@@ -1,4 +1,5 @@
 import { type Branding, isAccent, parseLogo, QUORUMIND_ACCENT } from "../branding.ts";
+import { complianceHtml } from "../compliance-report.ts";
 import { type Costing, deliveryChecks, type OptionChecks, proposalCosting, sessionProfile, threeYearCost } from "../costing.ts";
 import { DIAGRAM_THEME, diagramSvg, layoutDiagram } from "../diagram.ts";
 import { type Locale, localeInfo } from "../locales.ts";
@@ -498,6 +499,9 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
           );
         }
       }
+
+      const compliance = complianceHtml(session, (seat) => seatName(seat, t), esc);
+      if (compliance) body.push(compliance);
 
       const topics = verdict.topics ?? [];
       if (topics.length > 0) {

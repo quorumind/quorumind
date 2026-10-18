@@ -1,3 +1,4 @@
+import { COMPLIANCE_VERDICT, DEMO_COMPLIANCE } from "../compliance-verdict.ts";
 import { DEMO_DONE, DEMO_QUESTIONS, DEMO_SCRIPT } from "../demo.ts";
 import type { GenerateRequest, GenerateResult, LlmProvider } from "./types.ts";
 
@@ -46,7 +47,10 @@ export class MockProvider implements LlmProvider {
       case "probe":
         return DEMO_SCRIPT.probe;
       case "verdict":
-        return DEMO_SCRIPT.verdict;
+        // With compliance requirements, the verdict carries the demo's assessment; the engine keeps the checks that apply.
+        return request.schemaName === COMPLIANCE_VERDICT.name
+          ? { ...DEMO_SCRIPT.verdict, compliance: DEMO_COMPLIANCE }
+          : DEMO_SCRIPT.verdict;
       case "reassess":
         return DEMO_SCRIPT.reassessment;
       case "brief": {

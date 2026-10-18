@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type ModelOption, providerFor, providersFor } from "./config.ts";
+import { DEMO_LINEUP, type ModelOption, providerFor, providersFor } from "./config.ts";
+import { renderReport } from "./report.ts";
+import { createSession } from "./session.ts";
 import {
   EUROPEAN_SOURCES,
   europeanCatalog,
@@ -93,6 +95,17 @@ describe("European models only", () => {
     expect(europeanGateway(local, {})).toBeNull();
     expect(europeanEndpoint({ provider: "openrouter", model: "mistralai/mistral-large-4-0" })).toBe("mistral/eu");
     expect(europeanEndpoint({ provider: "ollama", model: "llama-x" })).toBeNull();
+  });
+
+  it("says so in the report's method box, with how OpenRouter was reached", () => {
+    const session = createSession({ locale: "fr", idea: "Idée", demo: false, ...DEMO_LINEUP, european: { gateway: "global" } });
+    const report = renderReport(session);
+    expect(report).toContain("Modèles européens uniquement : chaque rôle");
+    expect(report).toContain("serveurs mondiaux");
+    const english = renderReport({ ...session, locale: "en", european: { gateway: "eu" } });
+    expect(english).toContain("European models only: every role was played");
+    expect(english).toContain("through its EU region");
+    expect(renderReport({ ...session, european: null })).not.toContain("Modèles européens uniquement");
   });
 });
 

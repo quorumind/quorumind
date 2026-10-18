@@ -1,4 +1,7 @@
 import type { z } from "zod";
+import { PRICE_REFERENCE, priceReferenceRule } from "./cloud-prices.ts";
+import { activeRequirements, complianceInterviewRule, complianceRule, withTemplateFlags } from "./compliance.ts";
+import { COMPLIANCE_VERDICT, settleCompliance, type VerdictWithCompliance } from "./compliance-verdict.ts";
 import { checkFacts, debateCurrency, sessionCostings, sessionProfile } from "./costing.ts";
 import { partialStringField } from "./partial-json.ts";
 import { costOf, TASK_PROFILE, typicalCallCost } from "./pricing.ts";
@@ -209,6 +212,7 @@ export class DebateEngine {
     session.currency = null;
     session.currency = debateCurrency(session);
     session.sheetConfirmedAt = new Date().toISOString();
+    session.priceReference = { asOf: PRICE_REFERENCE.asOf };
     session.phase = "debating";
     await this.persist(session);
   }
@@ -451,18 +455,19 @@ export class DebateEngine {
     const userTurns = session.interview.filter((entry) => entry.kind === "user").length;
     const express = session.mode === "express";
     const turn = await this.call(session, "interview", null, this.providers.interviewer, {
-      system: interviewerSystem(session.locale, {
-        forceDone: userTurns >= (express ? 1 : MAX_INTERVIEW_TURNS),
-        express,
-        template: session.template,
-        challenge: session.mode === "challenge",
-        today: new Date().toISOString().slice(0, 10),
-      }),
+      system:
+        interviewerSystem(session.locale, {
+          forceDone: userTurns >= (express ? 1 : MAX_INTERVIEW_TURNS),
+          express,
+          template: session.template,
+          challenge: session.mode === "challenge",
+          today: new Date().toISOString().slice(0, 10),
+        }) + complianceInterviewRule(session.complianceTemplates),
       messages,
     });
     session.interview.push({ kind: "interviewer", data: turn });
     if (turn.status === "done" && turn.sheet) {
-      session.sheet = turn.sheet;
+      session.sheet = withTemplateFlags(turn.sheet, session.complianceTemplates);
       session.phase = "review";
     }
     await this.persist(session);
@@ -562,7 +567,7 @@ export class DebateEngine {
   private async formalize(session: Session) {
     const sheet = requireSheet(session);
     const proposal = await this.call(session, "proposal", USER_SEAT, this.providers.interviewer, {
-      system: formalizerSystem(session.locale),
+      system: formalizerSystem(session.locale) + designRules(session),
       messages: [
         {
           role: "user",
@@ -582,7 +587,7 @@ export class DebateEngine {
   private async propose(session: Session, seat: string) {
     const sheet = requireSheet(session);
     const proposal = await this.call(session, "proposal", seat, this.proposer(seat), {
-      system: proposerSystem(session.locale, seat, session.seats[seat]?.persona ?? null),
+      system: proposerSystem(session.locale, seat, session.seats[seat]?.persona ?? null) + designRules(session),
       messages: [
         {
           role: "user",
@@ -619,7 +624,7 @@ export class DebateEngine {
     );
     const probe = latestProbe(session.debate, round);
     const critiques = await this.call(session, "critique", seat, devil ? this.devil() : this.proposer(seat), {
-      system,
+      system: system + complianceRule(activeRequirements(session), "critique"),
       messages: [
         {
           role: "user",
@@ -683,7 +688,7 @@ export class DebateEngine {
         : [],
     );
     const revision = await this.call(session, "revision", seat, this.proposer(seat), {
-      system: reviserSystem(session.locale, seat, session.seats[seat]?.persona ?? null),
+      system: reviserSystem(session.locale, seat, session.seats[seat]?.persona ?? null) + designRules(session),
       messages: [
         {
           role: "user",
@@ -713,8 +718,15 @@ export class DebateEngine {
       const spent = totalCost(session).usd;
       if (spent + this.verdictEstimate(session) > session.budgetUsd) throw new BudgetExceededError(spent, session.budgetUsd);
     }
-    const verdict = await this.call(session, "verdict", null, this.providers.arbiter, this.verdictPrompt(session));
+    const requirements = activeRequirements(session);
+    const prompt = this.verdictPrompt(session);
+    // With compliance requirements, the arbiter also assesses every option against each of them.
+    const verdict =
+      requirements.length > 0
+        ? await this.call(session, "verdict", null, this.providers.arbiter, prompt, COMPLIANCE_VERDICT)
+        : await this.call(session, "verdict", null, this.providers.arbiter, prompt);
     settleVerdict(session, verdict);
+    if ("compliance" in verdict) settleCompliance(verdict as VerdictWithCompliance, requirements);
     session.debate.push({ kind: "verdict", data: verdict });
     session.verdict = verdict;
     session.revisions = [firstRevision(verdict, new Date().toISOString())];
@@ -741,7 +753,7 @@ export class DebateEngine {
       return [];
     });
     return {
-      system: arbiterSystem(session.locale, session.mode === "challenge"),
+      system: arbiterSystem(session.locale, session.mode === "challenge") + complianceRule(activeRequirements(session), "arbiter"),
       messages: [
         {
           role: "user",
@@ -779,8 +791,10 @@ export class DebateEngine {
     seat: string | null,
     provider: LlmProvider,
     prompt: { system: string; messages: ChatMessage[] },
+    // Another schema for the task, whose answer extends the usual one (the verdict with its compliance assessment).
+    override?: OutputSpec,
   ): Promise<z.infer<(typeof SCHEMAS)[K]["zod"]>> {
-    const spec = SCHEMAS[task];
+    const spec: OutputSpec = override ?? SCHEMAS[task];
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt++) {
       this.checkStopped();
@@ -930,6 +944,19 @@ function validRange<T extends { low: number; high: number }>(range: T | null): T
   if (!range || !Number.isFinite(range.low) || !Number.isFinite(range.high)) return null;
   if (range.low < 0 || range.high < 0) return null;
   return range.low <= range.high ? range : { ...range, low: range.high, high: range.low };
+}
+
+/** What a call answers with: the schema in both forms, its name and the room the answer gets. */
+interface OutputSpec {
+  zod: z.ZodType;
+  json: { [key: string]: unknown };
+  name: string;
+  maxTokens: number;
+}
+
+/** What the roles that design an option also follow: the compliance requirements and the reference cloud prices. */
+function designRules(session: Session): string {
+  return complianceRule(activeRequirements(session), "design") + priceReferenceRule();
 }
 
 function requireSheet(session: Session) {

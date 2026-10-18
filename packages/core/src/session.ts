@@ -1,3 +1,4 @@
+import type { ComplianceTemplateId } from "./compliance.ts";
 import type { Locale } from "./locales.ts";
 import type { OrgProfile } from "./profile.ts";
 import type { ProviderKind, Task } from "./providers/types.ts";
@@ -170,8 +171,12 @@ export interface Session {
   demo: boolean;
   mode: Mode;
   template: TemplateId | null;
+  /** Compliance templates (health data, public sector…), on top of the domain template. */
+  complianceTemplates: ComplianceTemplateId[];
   /** Set when every role is played by a European model, or one run on the premises (sovereignty.ts). */
   european: EuropeanMode | null;
+  /** The date of the reference cloud prices the proposers read, set when the debate starts; null before or without them. */
+  priceReference: { asOf: string } | null;
   depth: Depth;
   phase: Phase;
   /** Number of critique and revision cycles after the blind proposals. */
@@ -240,6 +245,7 @@ export interface NewSessionInput {
   demo: boolean;
   mode?: Mode;
   template?: TemplateId | null;
+  complianceTemplates?: ComplianceTemplateId[];
   european?: EuropeanMode | null;
   depth?: Depth;
   rounds?: number;
@@ -280,7 +286,9 @@ export function createSession(input: NewSessionInput): Session {
     demo: input.demo,
     mode,
     template: input.template ?? null,
+    complianceTemplates: input.complianceTemplates ?? [],
     european: input.european ?? null,
+    priceReference: null,
     depth: input.depth ?? (mode === "express" ? "quick" : "standard"),
     phase: "interview",
     rounds: mode === "express" ? 1 : Math.min(MAX_ROUNDS, Math.max(1, input.rounds ?? 1)),
@@ -316,7 +324,9 @@ export function normalizeSession(stored: Session): Session {
   const session = { ...stored } as Session & Partial<Session>;
   session.mode ??= "standard";
   session.template ??= null;
+  session.complianceTemplates ??= [];
   session.european ??= null;
+  session.priceReference ??= null;
   session.depth ??= "standard";
   session.devil ??= null;
   session.challenge ??= null;

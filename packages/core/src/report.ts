@@ -1,3 +1,4 @@
+import { complianceMarkdown, sovereigntyNotes } from "./compliance-report.ts";
 import {
   type CheckStatus,
   type Costing,
@@ -329,6 +330,7 @@ export function participants(session: Session, t: Labels): { role: string; model
 export function methodNotes(session: Session, t: Labels): string[] {
   const notes = [fill(t.methodText, { rounds: session.rounds })];
   if (session.shortened) notes.push(fill(t.shortened, { done: session.shortened.rounds, planned: session.rounds }));
+  notes.push(...sovereigntyNotes(session));
   return notes;
 }
 
@@ -553,6 +555,8 @@ export function renderReport(session: Session): string {
         }
       }
     }
+
+    lines.push(...complianceMarkdown(session, (seat) => seatName(seat, t)));
 
     const topics = verdict.topics ?? [];
     if (topics.length > 0) {
