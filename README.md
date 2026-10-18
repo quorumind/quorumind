@@ -126,6 +126,9 @@ flowchart LR
    If a choice depends on information you did not give, the debate pauses and asks you.
 5. **Verdict.** The arbiter marks each option feasible or not, scores it on your weighted
    priorities, and shows where the models still disagree.
+6. **Revisions.** Send the open questions to your client as a questionnaire (a link that needs
+   no account, or a Word file), then update the recommendation with the answers: only the
+   arbiter rules again, and every report says which revision it shows and what changed.
 
 ## Roles
 
@@ -205,7 +208,8 @@ Available today: the full debate with up to four proposers and a devil's advocat
 in any role (Claude, OpenAI, Gemini, Ollama), a cost cap, an interactive decision matrix, a
 debate map, reports rewritten for a CTO, an executive or a client, exports (Markdown, PDF,
 Word, ADR, coding-agent hand-off, Jira, Linear and GitHub issues), resumable and shareable sessions, context import (PDF or
-Word specifications, web pages, GitHub repositories) and the MCP server.
+Word specifications, web pages, GitHub repositories), client questionnaires, revisions of the
+verdict, an editable client proposal (Word, PDF) and the MCP server.
 
 Next:
 
