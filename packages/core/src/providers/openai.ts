@@ -36,6 +36,8 @@ export class OpenAiProvider implements LlmProvider {
           instructions: request.system,
           input: request.messages.map((message) => ({ role: message.role, content: message.content })),
           max_output_tokens: request.maxTokens,
+          // The Responses API stores each response by default, for later turns to chain to: nothing here needs that.
+          store: false,
           ...(this.reasoning && request.effort ? { reasoning: { effort: request.effort } } : {}),
           text: {
             format: { type: "json_schema", name: request.schemaName, schema: request.schema, strict: true },
