@@ -464,5 +464,18 @@
     "saved": "Personalizzazione salvata.",
     "resetDone": "Il marchio Quorumind è stato ripristinato.",
     "error": "Impossibile salvare la personalizzazione."
+  },
+  "workspace": {
+    "filter": "Sessioni da mostrare",
+    "everyone": "Tutti",
+    "mine": "Le mie",
+    "private": "Privata",
+    "formerMember": "Ex membro",
+    "startedBy": "Avviata da {{name}}",
+    "sharedHint": "I membri del tuo spazio di lavoro possono leggere questa sessione.",
+    "privateHint": "Solo tu puoi vedere questa sessione.",
+    "makePrivate": "Rendi privata",
+    "makeShared": "Condividi con lo spazio di lavoro",
+    "readOnly": "Puoi leggere questa sessione e ripartire da qui. Solo il suo autore o un amministratore dello spazio di lavoro può modificarla."
   }
 }

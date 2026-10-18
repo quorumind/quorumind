@@ -3,6 +3,7 @@ import { PERSONA_IDS } from "@quorumind/core/templates";
 import type { TFunction } from "i18next";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useCanEdit } from "./access.tsx";
 import { api } from "./api.ts";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ArrowIcon, DevilIcon, ProbeIcon } from "./components/Icons.tsx";
@@ -295,6 +296,7 @@ function dividerFor(entry: DebateEntry, t: TFunction): string | null {
 
 export function Debate({ session, live }: { session: Session; live: LiveSpeech }) {
   const { t } = useTranslation();
+  const canEdit = useCanEdit();
   const items: ReactNode[] = [];
   let lastDivider: string | null = null;
   const pushDivider = (label: string | null) => {
@@ -352,7 +354,7 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
         break;
       case "questions": {
         const answered = session.debate.some((other) => other.kind === "answers" && other.round === entry.round);
-        if (!answered && session.phase === "awaiting_answers")
+        if (!answered && session.phase === "awaiting_answers" && canEdit)
           items.push(<QuestionsCard key={key} session={session} questions={entry.questions} />);
         break;
       }

@@ -1,6 +1,7 @@
 import type { InterviewTurn, Session } from "@quorumind/core";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useCanEdit } from "./access.tsx";
 import { api } from "./api.ts";
 import { ArrowIcon } from "./components/Icons.tsx";
 import { type LiveSpeech, speechKey } from "./useSession.ts";
@@ -92,6 +93,7 @@ function QuestionsForm({ session, turn }: { session: Session; turn: InterviewTur
 
 export function Interview({ session, live }: { session: Session; live: LiveSpeech }) {
   const { t } = useTranslation();
+  const canEdit = useCanEdit();
   const streaming = live[speechKey("interview", null)];
   const last = session.interview.at(-1);
   const waitingForPerson = session.phase === "interview" && last?.kind === "interviewer" && last.data.status === "ask" && !streaming;
@@ -111,7 +113,7 @@ export function Interview({ session, live }: { session: Session; live: LiveSpeec
         entry.kind === "interviewer" ? (
           <div className="stack" key={`i-${entry.data.status}-${entry.data.questions.map((question) => question.id).join(",")}`}>
             <InterviewerMessage text={entry.data.speech} />
-            {entry === last && waitingForPerson ? <QuestionsForm session={session} turn={entry.data} /> : null}
+            {entry === last && waitingForPerson && canEdit ? <QuestionsForm session={session} turn={entry.data} /> : null}
           </div>
         ) : (
           <div className="message voice-you" key={`u-${entry.answers.map((answer) => answer.question).join("|")}`}>

@@ -464,5 +464,18 @@
     "saved": "Personnalisation enregistrée.",
     "resetDone": "L'identité Quorumind est rétablie.",
     "error": "La personnalisation n'a pas pu être enregistrée."
+  },
+  "workspace": {
+    "filter": "Sessions à afficher",
+    "everyone": "Tout le monde",
+    "mine": "Les miennes",
+    "private": "Privée",
+    "formerMember": "Ancien membre",
+    "startedBy": "Lancée par {{name}}",
+    "sharedHint": "Les membres de votre espace de travail peuvent lire cette session.",
+    "privateHint": "Cette session n'est visible que par vous.",
+    "makePrivate": "Rendre privée",
+    "makeShared": "Partager avec l'espace de travail",
+    "readOnly": "Vous pouvez lire cette session et repartir de celle-ci. Seuls son auteur et les administrateurs de l'espace de travail peuvent la modifier."
   }
 }

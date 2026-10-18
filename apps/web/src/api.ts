@@ -45,6 +45,26 @@ export interface SessionSummary {
   phase: Session["phase"];
   mode?: Mode;
   updatedAt: string;
+  /** In a workspace's shared history (hosted version): whether the caller started it, and who did otherwise. */
+  mine?: boolean;
+  private?: boolean;
+  author?: Author | null;
+}
+
+/** Who started a session someone else did; null for a former member of the workspace. */
+export interface Author {
+  name: string | null;
+  email: string | null;
+}
+
+/** What the caller may do with a session: everything when it is theirs, read and start again from it otherwise. */
+export interface SessionAccess {
+  mine: boolean;
+  canEdit: boolean;
+  /** It belongs to a workspace whose members can read it. */
+  shared: boolean;
+  private: boolean;
+  author?: Author | null;
 }
 
 export interface Share {
@@ -108,7 +128,7 @@ export const api = {
   config: () => request<AppConfig>("/api/config"),
   estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale) =>
     request<{ estimateUsd: Estimate; price: PriceQuote | null }>("/api/estimate", post({ lineup, rounds, mode, depth, locale })),
-  sessions: () => request<{ sessions: SessionSummary[] }>("/api/sessions"),
+  sessions: (mine = false) => request<{ sessions: SessionSummary[]; shared?: boolean }>(`/api/sessions${mine ? "?mine=1" : ""}`),
   session: (id: string) =>
     request<{
       session: Session;
@@ -117,7 +137,10 @@ export const api = {
       feedback: Feedback[];
       price: PriceQuote | null;
       providerCosts: boolean;
+      access?: SessionAccess;
     }>(`/api/sessions/${id}`),
+  setPrivate: (id: string, isPrivate: boolean) =>
+    request<{ access: SessionAccess }>(`/api/sessions/${id}/visibility`, { method: "PUT", body: JSON.stringify({ private: isPrivate }) }),
   create: (input: NewSessionInput) => request<{ session: Session }>("/api/sessions", post(input)),
   remove: (id: string) => request<void>(`/api/sessions/${id}`, { method: "DELETE" }),
   answerInterview: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/interview`, post({ answers })),

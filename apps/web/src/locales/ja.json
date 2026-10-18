@@ -464,5 +464,18 @@
     "saved": "ブランド設定を保存しました。",
     "resetDone": "Quorumind のブランドに戻しました。",
     "error": "ブランド設定を保存できませんでした。"
+  },
+  "workspace": {
+    "filter": "表示するセッション",
+    "everyone": "全員",
+    "mine": "自分",
+    "private": "非公開",
+    "formerMember": "元メンバー",
+    "startedBy": "{{name}} が開始",
+    "sharedHint": "ワークスペースのメンバーはこのセッションを閲覧できます。",
+    "privateHint": "このセッションはあなただけが閲覧できます。",
+    "makePrivate": "非公開にする",
+    "makeShared": "ワークスペースと共有",
+    "readOnly": "このセッションの閲覧と、ここからのやり直しができます。変更できるのは作成者とワークスペースの管理者だけです。"
   }
 }

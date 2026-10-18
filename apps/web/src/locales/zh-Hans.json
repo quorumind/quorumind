@@ -464,5 +464,18 @@
     "saved": "品牌设置已保存。",
     "resetDone": "已恢复 Quorumind 品牌。",
     "error": "无法保存品牌设置。"
+  },
+  "workspace": {
+    "filter": "显示哪些会话",
+    "everyone": "全部",
+    "mine": "我的",
+    "private": "私密",
+    "formerMember": "前成员",
+    "startedBy": "由 {{name}} 发起",
+    "sharedHint": "您工作区的成员可以查看此会话。",
+    "privateHint": "只有您能看到此会话。",
+    "makePrivate": "设为私密",
+    "makeShared": "与工作区共享",
+    "readOnly": "您可以查看此会话并从这里重新开始。只有其作者或工作区管理员可以修改它。"
   }
 }

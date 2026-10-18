@@ -1,9 +1,10 @@
 import type { Session } from "@quorumind/core";
 import { totalCost } from "@quorumind/core/session";
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { type KeyboardEvent, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
-import { api, type Feedback, type PriceQuote, type Share } from "./api.ts";
+import { AccessContext, AccessLine, FULL_ACCESS } from "./access.tsx";
+import { api, type Feedback, type PriceQuote, type SessionAccess, type Share } from "./api.ts";
 import { Costs } from "./Costs.tsx";
 import { RetryIcon } from "./components/Icons.tsx";
 import { Loader, Skeleton } from "./components/Logo.tsx";
@@ -58,12 +59,19 @@ function defaultTab(session: Session): Tab {
 export function SessionView({ id }: { id: string }) {
   const { session, live, connected, missing } = useSession(id);
   const { upsert } = useSessions();
-  const [extras, setExtras] = useState<{ share: Share | null; feedback: Feedback[]; price: PriceQuote | null; providerCosts: boolean }>({
+  const [extras, setExtras] = useState<{
+    share: Share | null;
+    feedback: Feedback[];
+    price: PriceQuote | null;
+    providerCosts: boolean;
+    access: SessionAccess | null;
+  }>({
     share: null,
     feedback: [],
     price: null,
     // Known once the session is loaded: a hosted session never shows a provider cost, even briefly.
     providerCosts: false,
+    access: null,
   });
   const title = session ? (session.sheet?.projectName ?? session.idea) : "";
   useEffect(() => {
@@ -71,22 +79,33 @@ export function SessionView({ id }: { id: string }) {
   }, [session, title, upsert]);
   useEffect(() => {
     api.session(id).then(
-      (body) => setExtras({ share: body.share, feedback: body.feedback, price: body.price, providerCosts: body.providerCosts }),
+      (body) =>
+        setExtras({
+          share: body.share,
+          feedback: body.feedback,
+          price: body.price,
+          providerCosts: body.providerCosts,
+          access: body.access ?? FULL_ACCESS,
+        }),
       () => undefined,
     );
   }, [id]);
+  // Read-only until the server says what this person may do with the session.
   return (
-    <SessionBody
-      session={session}
-      live={live}
-      connected={connected}
-      missing={missing}
-      share={extras.share}
-      onShare={(share) => setExtras((current) => ({ ...current, share }))}
-      feedback={extras.feedback}
-      price={extras.price}
-      providerCosts={extras.providerCosts}
-    />
+    <AccessContext.Provider value={extras.access ?? { ...FULL_ACCESS, canEdit: false }}>
+      <SessionBody
+        session={session}
+        live={live}
+        connected={connected}
+        missing={missing}
+        share={extras.share}
+        onShare={(share) => setExtras((current) => ({ ...current, share }))}
+        onAccess={(access) => setExtras((current) => ({ ...current, access }))}
+        feedback={extras.feedback}
+        price={extras.price}
+        providerCosts={extras.providerCosts}
+      />
+    </AccessContext.Provider>
   );
 }
 
@@ -117,6 +136,7 @@ function SessionBody({
   readOnly = false,
   share = null,
   onShare,
+  onAccess,
   feedback = [],
   reportUrl,
   price = null,
@@ -129,6 +149,8 @@ function SessionBody({
   readOnly?: boolean;
   share?: Share | null;
   onShare?: (share: Share | null) => void;
+  /** The author made the session private, or shared it with their workspace again. */
+  onAccess?: (access: SessionAccess) => void;
   feedback?: Feedback[];
   reportUrl?: string;
   /** The price the host sells this debate at, shown instead of its provider cost. */
@@ -137,6 +159,7 @@ function SessionBody({
   providerCosts?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const access = useContext(AccessContext);
   const [retrying, setRetrying] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
 
@@ -224,6 +247,7 @@ function SessionBody({
           <h1 className="display">{title}</h1>
           {readOnly ? null : <SessionActions session={session} share={share} onShare={onShare ?? (() => undefined)} />}
         </div>
+        {readOnly || !onAccess ? null : <AccessLine id={session.id} access={access} onChange={onAccess} />}
         {session.parentId && !readOnly ? (
           <p className="field-hint" style={{ margin: 0 }}>
             <a href={`#/s/${session.parentId}`} onClick={() => navigate(`s/${session.parentId}`)}>
@@ -247,12 +271,14 @@ function SessionBody({
               )}{" "}
               <span className="muted">{session.error?.message}</span>
             </span>
-            <div>
-              <button type="button" className="button button-secondary" onClick={retry} disabled={retrying}>
-                <RetryIcon />
-                {t("error.retry")}
-              </button>
-            </div>
+            {access.canEdit ? (
+              <div>
+                <button type="button" className="button button-secondary" onClick={retry} disabled={retrying}>
+                  <RetryIcon />
+                  {t("error.retry")}
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -284,7 +310,7 @@ function SessionBody({
         ) : null}
         {active === "debate" ? <Debate session={session} live={live} /> : null}
         {active === "requirements" && session.sheet ? (
-          session.phase === "review" && !readOnly ? (
+          session.phase === "review" && !readOnly && access.canEdit ? (
             <Review session={session} />
           ) : (
             <SheetView sheet={session.sheet} />

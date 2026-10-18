@@ -464,5 +464,18 @@
     "saved": "Branding gespeichert.",
     "resetDone": "Das Quorumind-Branding ist wiederhergestellt.",
     "error": "Das Branding konnte nicht gespeichert werden."
+  },
+  "workspace": {
+    "filter": "Angezeigte Sitzungen",
+    "everyone": "Alle",
+    "mine": "Meine",
+    "private": "Privat",
+    "formerMember": "Ehemaliges Mitglied",
+    "startedBy": "Gestartet von {{name}}",
+    "sharedHint": "Die Mitglieder Ihres Arbeitsbereichs können diese Sitzung lesen.",
+    "privateHint": "Nur Sie können diese Sitzung sehen.",
+    "makePrivate": "Privat machen",
+    "makeShared": "Mit dem Arbeitsbereich teilen",
+    "readOnly": "Sie können diese Sitzung lesen und von hier neu starten. Nur ihr Autor oder ein Admin des Arbeitsbereichs kann sie ändern."
   }
 }

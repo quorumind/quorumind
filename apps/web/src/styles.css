@@ -3078,3 +3078,32 @@ button.chip:active {
   font-size: 14px;
   color: var(--infeasible);
 }
+
+/* Sessions shared within a workspace (hosted version): who started them, and who sees them */
+
+.history-filter {
+  justify-self: start;
+}
+
+.history-filter button {
+  font-size: 13px;
+  padding: 4px 12px;
+}
+
+.session-private {
+  display: inline-flex;
+  vertical-align: -4px;
+  margin-inline-end: var(--space-1);
+  color: var(--ink-muted);
+}
+
+.session-author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.access {
+  gap: var(--space-2);
+}

@@ -2,6 +2,7 @@ import type { Session } from "@quorumind/core";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
+import { useCanEdit } from "./access.tsx";
 import { api, type Share } from "./api.ts";
 import { BranchIcon, CheckIcon, ShareIcon, TrashIcon } from "./components/Icons.tsx";
 
@@ -17,6 +18,8 @@ export function SessionActions({
 }) {
   const { t } = useTranslation();
   const { refresh } = useSessions();
+  // A member who may only read the session can still start again from it.
+  const canEdit = useCanEdit();
   const shareDialog = useRef<HTMLDialogElement>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
   const [pending, setPending] = useState(false);
@@ -46,20 +49,24 @@ export function SessionActions({
 
   return (
     <div className="session-actions">
-      <button type="button" className="button button-secondary" onClick={() => shareDialog.current?.showModal()}>
-        <ShareIcon />
-        {share ? t("share.shared") : t("share.button")}
-      </button>
+      {canEdit ? (
+        <button type="button" className="button button-secondary" onClick={() => shareDialog.current?.showModal()}>
+          <ShareIcon />
+          {share ? t("share.shared") : t("share.button")}
+        </button>
+      ) : null}
       {session.sheet ? (
         <button type="button" className="button button-quiet" onClick={fork} disabled={pending} title={t("session.forkHint")}>
           <BranchIcon />
           {t("session.fork")}
         </button>
       ) : null}
-      <button type="button" className="button button-quiet danger" onClick={() => deleteDialog.current?.showModal()} disabled={working}>
-        <TrashIcon />
-        <span className="visually-hidden-mobile">{t("session.delete")}</span>
-      </button>
+      {canEdit ? (
+        <button type="button" className="button button-quiet danger" onClick={() => deleteDialog.current?.showModal()} disabled={working}>
+          <TrashIcon />
+          <span className="visually-hidden-mobile">{t("session.delete")}</span>
+        </button>
+      ) : null}
 
       <dialog ref={shareDialog} className="dialog" aria-labelledby="share-title">
         <form method="dialog" className="stack">

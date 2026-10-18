@@ -3,6 +3,7 @@ import { rankOptions } from "@quorumind/core/ranking";
 import { currentProposals } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useCanEdit } from "./access.tsx";
 import { api, type Feedback } from "./api.ts";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ExportMenu } from "./components/ExportMenu.tsx";
@@ -45,7 +46,9 @@ function Briefs({ session, readOnly }: { session: Session; readOnly: boolean }) 
   const [audience, setAudience] = useState<Audience | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const available = readOnly ? AUDIENCES.filter((value) => session.briefs[value]) : AUDIENCES;
+  // Writing a new version calls a model: for those who may change the session.
+  const canEdit = useCanEdit();
+  const available = readOnly || !canEdit ? AUDIENCES.filter((value) => session.briefs[value]) : AUDIENCES;
   if (available.length === 0) return null;
   const brief = audience ? session.briefs[audience] : undefined;
 

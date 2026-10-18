@@ -464,5 +464,18 @@
     "saved": "Marca salva.",
     "resetDone": "A marca Quorumind foi restaurada.",
     "error": "Não foi possível salvar a marca."
+  },
+  "workspace": {
+    "filter": "Sessões a mostrar",
+    "everyone": "Todos",
+    "mine": "Minhas",
+    "private": "Privada",
+    "formerMember": "Ex-membro",
+    "startedBy": "Iniciada por {{name}}",
+    "sharedHint": "Os membros do seu espaço de trabalho podem ler esta sessão.",
+    "privateHint": "Só você pode ver esta sessão.",
+    "makePrivate": "Tornar privada",
+    "makeShared": "Compartilhar com o espaço de trabalho",
+    "readOnly": "Você pode ler esta sessão e recomeçar a partir dela. Só o autor ou um administrador do espaço de trabalho pode alterá-la."
   }
 }

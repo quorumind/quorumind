@@ -225,3 +225,10 @@ export const ChatIcon = () => (
     <path d="M19.5 9.5v8.5l-2.5-2" />
   </Icon>
 );
+
+export const LockIcon = () => (
+  <Icon>
+    <rect x="5.5" y="10.5" width="13" height="9.5" rx="2" />
+    <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+  </Icon>
+);

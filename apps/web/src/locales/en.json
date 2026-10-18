@@ -464,5 +464,18 @@
     "saved": "Branding saved.",
     "resetDone": "Quorumind's branding is restored.",
     "error": "The branding could not be saved."
+  },
+  "workspace": {
+    "filter": "Whose sessions to show",
+    "everyone": "Everyone",
+    "mine": "Mine",
+    "private": "Private",
+    "formerMember": "Former member",
+    "startedBy": "Started by {{name}}",
+    "sharedHint": "The members of your workspace can read this session.",
+    "privateHint": "Only you can see this session.",
+    "makePrivate": "Make private",
+    "makeShared": "Share with the workspace",
+    "readOnly": "You can read this session and start again from it. Only its author or an admin of the workspace can change it."
   }
 }
