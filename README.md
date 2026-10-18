@@ -63,6 +63,8 @@ reverse proxy, never directly on the internet.
 | `OPENAI_PRICE_*`, `GEMINI_PRICE_*` (`_INPUT`, `_OUTPUT`) | USD per million tokens, applied to every listed model of that vendor, for cost tracking and the cost cap. |
 | `OLLAMA_BASE_URL`, `OLLAMA_MODELS` | Enables local models through Ollama (free). Without `OLLAMA_MODELS`, the models Ollama has pulled are listed. |
 | `QUORUMIND_LOCAL_ONLY=1` | 100 % local: only Ollama models are used, no data leaves the machine. |
+| `QUORUMIND_EUROPEAN_ONLY` | `1` ticks "European models only" for new sessions, `required` imposes it: Mistral AI models on Mistral's EU endpoint, or local models. See [docs/compliance.md](docs/compliance.md). |
+| `OPENROUTER_EU_BASE_URL` | Where European-only sessions reach OpenRouter, e.g. `https://eu.openrouter.ai/api/v1` (OpenRouter's EU region, Business plan). Without it, they use the usual address, whose servers may be outside the EU. |
 | `QUORUMIND_INTERVIEWER`, `QUORUMIND_ARBITER`, `QUORUMIND_SEAT_A` to `QUORUMIND_SEAT_D`, `QUORUMIND_DEVIL` | Assign any model to any role, as `anthropic:<model>`, `openai:<model>`, `gemini:<model>`, `openrouter:<model>`, `ollama:<model>` or `mock`. Seats C, D and the devil's advocate are off unless set (`QUORUMIND_DEVIL=none`). |
 | `PORT`, `HOST`, `QUORUMIND_DATA_DIR` | Server address and where sessions are stored (a SQLite file, created on first start). |
 | `DATABASE_URL` or `DATABASE_URL_FILE` | Stores the sessions in PostgreSQL instead of SQLite, as `postgres://user:password@host:5432/database` (`DATABASE_URL_FILE`: the path of a file holding it, such as a Docker secret). The server waits for the database to answer at start-up and creates or updates its tables itself. Existing SQLite data is not copied over. |
@@ -80,6 +82,13 @@ at most 3 redirects. The interviewer and proposers read the documents, critics a
 an excerpt; they are always treated as data and masked like the rest when PII masking is on.
 API request bodies are capped at 512 KB, except session creation (4 MB, to carry the
 documents) and file uploads (10 MB).
+
+### European models and compliance
+
+A session can use European models only, and combine its project type with compliance templates (personal data, health
+data, public sector, finance, consumer law) whose requirements the arbiter checks for each option; the report then has a
+Compliance section. The proposers also get reference cloud prices of OVHcloud, Scaleway, AWS, Azure and Google Cloud in
+Europe, dated in the report. What each one guarantees, and what it does not: [docs/compliance.md](docs/compliance.md).
 
 ### Integrations
 
@@ -186,6 +195,7 @@ npm test            # unit and API tests
 npm run typecheck
 npm run lint
 npm run bench       # quality bench on the recorded demo
+npm run prices:check  # warns when the reference cloud prices are older than 90 days
 QUORUMIND_BENCH=live npm run bench   # the same bench on real models (costs money)
 npm run media       # screenshots and demo video in docs/media, filmed on the recorded demo (needs ffmpeg)
 ```
