@@ -16,6 +16,7 @@ import {
   MAX_ROUNDS,
   MODES,
   type ModelOption,
+  makerOf,
   type Participant,
   PERSONA_IDS,
   PROPOSER_SEATS,
@@ -553,11 +554,11 @@ function validateLineup(input: z.infer<typeof LineupInput>, catalog: ModelOption
   };
 }
 
-/** The hosted catalog's default: the first two vendors face each other, the first model rules. */
+/** The hosted catalog's default: the first two makers face each other, the first model rules. */
 function defaultLineup(catalog: ModelOption[]): Lineup | null {
   const first = catalog[0];
   if (!first) return null;
-  const second = catalog.find((entry) => entry.provider !== first.provider) ?? first;
+  const second = catalog.find((entry) => makerOf(entry) !== makerOf(first)) ?? first;
   const pick = (option: ModelOption): Participant => ({ provider: option.provider, model: option.model });
   return {
     interviewer: pick(first),

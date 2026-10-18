@@ -236,6 +236,7 @@
     },
     "role": "الدور",
     "model": "النموذج",
+    "viaGateway": "{{maker}} عبر {{gateway}}",
     "persona": "دور الخبير",
     "personaNone": "بلا دور محدد",
     "personaCustom": "دور آخر…",

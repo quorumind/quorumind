@@ -236,6 +236,7 @@
     },
     "role": "角色",
     "model": "模型",
+    "viaGateway": "{{maker}}（经由 {{gateway}}）",
     "persona": "专家角色",
     "personaNone": "无特定角色",
     "personaCustom": "其他角色…",

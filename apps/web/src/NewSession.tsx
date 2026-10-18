@@ -7,7 +7,7 @@ import { navigate, useSessions } from "./App.tsx";
 import { type AppConfig, api } from "./api.ts";
 import { ArrowIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
 import { Skeleton } from "./components/Logo.tsx";
-import { formatUsd } from "./format.ts";
+import { formatUsd, groupLabel } from "./format.ts";
 
 const MODES: Mode[] = ["standard", "express", "challenge"];
 const MODE_ICONS = { standard: CompareIcon, express: BoltIcon, challenge: TargetIcon } as const;
@@ -28,7 +28,10 @@ function ModelSelect({
   value: Participant;
   onChange: (next: Participant) => void;
 }) {
-  const vendors = [...new Set(catalog.map((option) => option.provider))];
+  const { t } = useTranslation();
+  // Models reached through a gateway are grouped by who made them.
+  const groupOf = (option: ModelOption) => (option.maker ? `${option.provider}:${option.maker}` : option.provider);
+  const groups = [...new Set(catalog.map(groupOf))];
   return (
     <select
       id={id}
@@ -39,17 +42,20 @@ function ModelSelect({
         if (option) onChange({ provider: option.provider, model: option.model });
       }}
     >
-      {vendors.map((vendor) => (
-        <optgroup key={vendor} label={catalog.find((option) => option.provider === vendor)?.label.split(" · ")[0] ?? vendor}>
-          {catalog
-            .filter((option) => option.provider === vendor)
-            .map((option) => (
-              <option key={keyOf(option)} value={keyOf(option)}>
-                {option.model}
-              </option>
-            ))}
-        </optgroup>
-      ))}
+      {groups.map((group) => {
+        const first = catalog.find((option) => groupOf(option) === group);
+        return (
+          <optgroup key={group} label={first ? groupLabel(first, t) : group}>
+            {catalog
+              .filter((option) => groupOf(option) === group)
+              .map((option) => (
+                <option key={keyOf(option)} value={keyOf(option)}>
+                  {option.maker ? option.label : option.model}
+                </option>
+              ))}
+          </optgroup>
+        );
+      })}
     </select>
   );
 }

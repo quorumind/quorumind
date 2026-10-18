@@ -236,6 +236,7 @@
     },
     "role": "Papel",
     "model": "Modelo",
+    "viaGateway": "{{maker}} via {{gateway}}",
     "persona": "Papel de especialista",
     "personaNone": "Nenhum papel específico",
     "personaCustom": "Outro papel…",

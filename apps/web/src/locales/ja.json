@@ -236,6 +236,7 @@
     },
     "role": "役割",
     "model": "モデル",
+    "viaGateway": "{{maker}}（{{gateway}} 経由）",
     "persona": "専門家の役割",
     "personaNone": "特定の役割なし",
     "personaCustom": "その他の役割…",

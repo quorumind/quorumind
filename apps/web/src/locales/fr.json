@@ -236,6 +236,7 @@
     },
     "role": "Rôle",
     "model": "Modèle",
+    "viaGateway": "{{maker}} via {{gateway}}",
     "persona": "Rôle d'expert",
     "personaNone": "Aucun rôle particulier",
     "personaCustom": "Autre rôle…",

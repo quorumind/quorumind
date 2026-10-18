@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { type AppConfig, api } from "./api.ts";
 import { BrandingSettings } from "./components/BrandingSettings.tsx";
 import { DownloadIcon } from "./components/Icons.tsx";
+import { groupLabel } from "./format.ts";
 
 export function Settings() {
   const { t } = useTranslation();
@@ -26,7 +27,7 @@ export function Settings() {
           {config?.catalog.map((option) => (
             <li key={`${option.provider}:${option.model}`}>
               <span className="mono">{option.model}</span>
-              <span className="muted">{option.label.split(" · ")[0]}</span>
+              <span className="muted">{option.maker ? `${option.label} · ${groupLabel(option, t)}` : option.label.split(" · ")[0]}</span>
               {option.local ? <span className="chip local-chip">{t("settings.local")}</span> : null}
             </li>
           ))}

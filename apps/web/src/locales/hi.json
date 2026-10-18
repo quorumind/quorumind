@@ -236,6 +236,7 @@
     },
     "role": "भूमिका",
     "model": "मॉडल",
+    "viaGateway": "{{gateway}} के ज़रिए {{maker}}",
     "persona": "विशेषज्ञ भूमिका",
     "personaNone": "कोई ख़ास भूमिका नहीं",
     "personaCustom": "अन्य भूमिका…",

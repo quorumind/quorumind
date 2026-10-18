@@ -15,6 +15,7 @@ export type { FetchLike } from "./providers/http.ts";
 export * from "./providers/mock.ts";
 export * from "./providers/ollama.ts";
 export * from "./providers/openai.ts";
+export * from "./providers/openrouter.ts";
 export * from "./providers/types.ts";
 export * from "./ranking.ts";
 export * from "./report.ts";

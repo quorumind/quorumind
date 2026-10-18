@@ -506,7 +506,7 @@ export class DebateEngine {
           model: result.model,
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
-          costUsd: costOf(result.model, result.usage) ?? costOf(provider.model, result.usage),
+          costUsd: result.costUsd ?? costOf(result.model, result.usage) ?? costOf(provider.model, result.usage),
         });
         const parsed = spec.zod.safeParse(JSON.parse(result.text));
         if (!parsed.success) throw new ProviderError(`The ${task} answer does not match its schema.`, true);

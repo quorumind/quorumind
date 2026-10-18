@@ -116,6 +116,19 @@ describe("cost cap", () => {
     expect(session.phase).toBe("failed");
     expect(session.error?.code).toBe("budget_exceeded");
   });
+
+  it("records the cost a provider reports rather than the price table's", async () => {
+    setModelPrice("priced-test-model", { input: 1, output: 0 });
+    const inner = new PricedProvider();
+    const reporting: LlmProvider = {
+      kind: "openrouter",
+      model: inner.model,
+      generate: async (request, onDelta) => ({ ...(await inner.generate(request, onDelta)), costUsd: 0.25 }),
+    };
+    const { engine, session } = setup({ interviewer: reporting, arbiter: reporting, proposers: { A: reporting, B: reporting } });
+    await engine.startInterview(session);
+    expect(session.usage.map((record) => record.costUsd)).toEqual([0.25]);
+  });
 });
 
 class FlakyProvider implements LlmProvider {

@@ -1,4 +1,4 @@
-export type ProviderKind = "anthropic" | "openai" | "gemini" | "ollama" | "mock";
+export type ProviderKind = "anthropic" | "openai" | "gemini" | "openrouter" | "ollama" | "mock";
 
 /** How hard a model thinks before answering: the debate "depth". */
 export type Effort = "low" | "medium" | "high";
@@ -36,6 +36,8 @@ export interface GenerateResult {
   usage: Usage;
   /** Model that actually served the request (may differ after a server-side fallback). */
   model: string;
+  /** What the provider charged for this call in US dollars, when it says so. Wins over the price table. */
+  costUsd?: number;
 }
 
 export interface LlmProvider {

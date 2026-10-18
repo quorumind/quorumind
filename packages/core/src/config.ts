@@ -6,6 +6,13 @@ import type { FetchLike } from "./providers/http.ts";
 import { MockProvider } from "./providers/mock.ts";
 import { DEFAULT_OLLAMA_BASE_URL, OllamaProvider } from "./providers/ollama.ts";
 import { OpenAiProvider } from "./providers/openai.ts";
+import {
+  listOpenRouterModels,
+  OPENROUTER_BASE_URL,
+  type OpenRouterModel,
+  OpenRouterProvider,
+  openRouterMaker,
+} from "./providers/openrouter.ts";
 import type { LlmProvider, ProviderKind } from "./providers/types.ts";
 import type { Participant, Seat } from "./session.ts";
 
@@ -32,6 +39,8 @@ export interface ModelOption {
   provider: ProviderKind;
   model: string;
   label: string;
+  /** Who made the model, when a gateway (OpenRouter) serves it: "Mistral". */
+  maker?: string;
   /** True when the model runs on this machine: nothing leaves it. */
   local: boolean;
 }
@@ -52,15 +61,33 @@ export const DEMO_LINEUP: Lineup = {
 };
 
 const DEFAULT_ANTHROPIC_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
-const PROVIDERS: readonly ProviderKind[] = ["anthropic", "openai", "gemini", "ollama", "mock"];
+// The flagship and mid-tier models of each maker, Mistral as the European option, and a cheap,
+// fast one. Within a maker, the model a seat defaults to comes first.
+const DEFAULT_OPENROUTER_MODELS = [
+  "anthropic/claude-opus-5.5",
+  "anthropic/claude-sonnet-5.5",
+  "anthropic/claude-haiku-5.5",
+  "openai/gpt-6.1-sol",
+  "openai/gpt-6-astra",
+  "google/gemini-4-argon",
+  "google/gemini-3.8-flash",
+  "mistralai/mistral-large-4-0",
+  "mistralai/mistral-medium-3-5",
+];
+const PROVIDERS: readonly ProviderKind[] = ["anthropic", "openai", "gemini", "openrouter", "ollama", "mock"];
 const VENDOR_NAMES: Record<ProviderKind, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
   gemini: "Gemini",
+  openrouter: "OpenRouter",
   ollama: "Ollama",
   mock: "Demo",
 };
 const OLLAMA_DISCOVERY_TIMEOUT_MS = 1_500;
+const OPENROUTER_LIST_TIMEOUT_MS = 5_000;
+// Prices rarely change: the list is read again after a few hours, or a minute after a failure.
+const OPENROUTER_LIST_TTL_MS = 6 * 60 * 60_000;
+const OPENROUTER_RETRY_MS = 60_000;
 const FREE = { input: 0, output: 0 };
 
 /** QUORUMIND_LOCAL_ONLY=1: only Ollama models, so no data leaves the machine. */
@@ -84,6 +111,26 @@ function labelFor(provider: ProviderKind, model: string): string {
 
 function option(provider: ProviderKind, model: string): ModelOption {
   return { provider, model, label: labelFor(provider, model), local: provider === "ollama" || provider === "mock" };
+}
+
+/** An OpenRouter model, named as OpenRouter lists it when known, else after its id. */
+function openRouterOption(model: string, listed?: OpenRouterModel): ModelOption {
+  return {
+    provider: "openrouter",
+    model,
+    label: listed?.name ?? model.slice(model.indexOf("/") + 1),
+    maker: listed?.maker ?? openRouterMaker(model),
+    local: false,
+  };
+}
+
+/**
+ * Who made a model, so that a debate can seat two different makers: OpenRouter serves
+ * several of them, and Gemini models are Google's.
+ */
+export function makerOf(participant: { provider: ProviderKind; model: string }): string {
+  if (participant.provider === "openrouter") return participant.model.split("/")[0] ?? participant.model;
+  return participant.provider === "gemini" ? "google" : participant.provider;
 }
 
 function registerPrices(models: string[], input: string | undefined, output: string | undefined) {
@@ -110,6 +157,10 @@ function staticCatalog(env: Env): ModelOption[] {
     if (env.GEMINI_API_KEY && gemini.length > 0) {
       registerPrices(gemini, env.GEMINI_PRICE_INPUT, env.GEMINI_PRICE_OUTPUT);
       options.push(...gemini.map((model) => option("gemini", model)));
+    }
+    if (env.OPENROUTER_API_KEY) {
+      const models = list(env.OPENROUTER_MODELS || DEFAULT_OPENROUTER_MODELS.join(","));
+      options.push(...models.map((model) => openRouterOption(model)));
     }
   }
   for (const model of list(env.OLLAMA_MODELS)) {
@@ -139,12 +190,61 @@ async function discoverOllamaModels(baseUrl: string, fetchImpl: FetchLike): Prom
   }
 }
 
+interface OpenRouterList {
+  baseUrl: string;
+  fetch: FetchLike;
+  /** When it was asked for. */
+  at: number;
+  models: Promise<Map<string, OpenRouterModel> | null>;
+}
+
+let openRouterList: OpenRouterList | null = null;
+/** OpenRouter models that accept a reasoning effort, as its list last said. */
+const openRouterReasoning = new Set<string>();
+
+/** OpenRouter's model list, kept for a few hours. Null while it cannot be read. */
+function openRouterModels(baseUrl: string, fetchImpl: FetchLike): Promise<Map<string, OpenRouterModel> | null> {
+  const now = Date.now();
+  const cached = openRouterList?.baseUrl === baseUrl && openRouterList.fetch === fetchImpl ? openRouterList : null;
+  if (cached && now - cached.at < OPENROUTER_LIST_TTL_MS) return cached.models;
+  const models = listOpenRouterModels({ baseUrl, fetch: fetchImpl, timeoutMs: OPENROUTER_LIST_TIMEOUT_MS }).then(
+    (listed) => new Map(listed.map((model) => [model.id, model])),
+    () => {
+      // Tolerated: the models stay offered without a price, and the list is asked again soon.
+      if (openRouterList?.models === models) openRouterList.at = Date.now() - OPENROUTER_LIST_TTL_MS + OPENROUTER_RETRY_MS;
+      return null;
+    },
+  );
+  openRouterList = { baseUrl, fetch: fetchImpl, at: now, models };
+  return models;
+}
+
+/**
+ * Names, prices and capabilities of the configured OpenRouter models, from OpenRouter's list.
+ * A model the list does not have, or that cannot answer in a strict JSON schema, is left out.
+ */
+async function refineOpenRouter(options: ModelOption[], env: Env, fetchImpl: FetchLike): Promise<ModelOption[]> {
+  if (!options.some((entry) => entry.provider === "openrouter")) return options;
+  const listed = await openRouterModels(env.OPENROUTER_BASE_URL || OPENROUTER_BASE_URL, fetchImpl);
+  if (!listed) return options;
+  return options.flatMap((entry) => {
+    if (entry.provider !== "openrouter") return [entry];
+    const model = listed.get(entry.model);
+    if (!model?.structuredOutputs) return [];
+    if (model.price) setModelPrice(model.id, model.price);
+    if (model.reasoning) openRouterReasoning.add(model.id);
+    else openRouterReasoning.delete(model.id);
+    return [openRouterOption(model.id, model)];
+  });
+}
+
 /**
  * Lists every model the configured providers offer, in vendor order: Anthropic, OpenAI,
- * Gemini, then local Ollama models. Without OLLAMA_MODELS, asks Ollama what it has pulled.
+ * Gemini, OpenRouter, then local Ollama models. OpenRouter models get their names and prices
+ * from OpenRouter's list. Without OLLAMA_MODELS, asks Ollama what it has pulled.
  */
 export async function catalogFromEnv(env: Env, fetchImpl: FetchLike = fetch): Promise<ModelOption[]> {
-  const options = staticCatalog(env);
+  const options = await refineOpenRouter(staticCatalog(env), env, fetchImpl);
   if (ollamaEnabled(env) && !env.OLLAMA_MODELS) {
     for (const model of await discoverOllamaModels(env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL, fetchImpl)) {
       setModelPrice(model, FREE);
@@ -159,7 +259,7 @@ function parseParticipant(spec: string): Participant {
   const model = rest.join(":");
   if (!PROVIDERS.includes(provider as ProviderKind)) {
     throw new Error(
-      `Unknown provider "${provider}" in "${spec}". Use anthropic:<model>, openai:<model>, gemini:<model>, ollama:<model> or mock.`,
+      `Unknown provider "${provider}" in "${spec}". Use anthropic:<model>, openai:<model>, gemini:<model>, openrouter:<model>, ollama:<model> or mock.`,
     );
   }
   const kind = provider as ProviderKind;
@@ -180,10 +280,10 @@ export function liveLineupFromEnv(env: Env, catalog?: ModelOption[]): Lineup | n
   if (!primaryOption) return null;
 
   const primary: Participant = { provider: primaryOption.provider, model: primaryOption.model };
-  // Two different vendors debate best: they do not share the same blind spots. Local models
+  // Two different makers debate best: they do not share the same blind spots. Local models
   // all come from Ollama, so there a different model family is the next best thing.
   const secondOption =
-    options.find((entry) => entry.provider !== primary.provider) ??
+    options.find((entry) => makerOf(entry) !== makerOf(primary)) ??
     (primary.provider === "ollama" ? options.find((entry) => entry.model !== primary.model) : undefined) ??
     primaryOption;
   const second: Participant = { provider: secondOption.provider, model: secondOption.model };
@@ -237,6 +337,13 @@ export function providerFor(participant: Participant, env: Env, options: { mockD
         model: participant.model,
         ...(env.GEMINI_API_KEY ? { apiKey: env.GEMINI_API_KEY } : {}),
         ...(env.GEMINI_BASE_URL ? { baseUrl: env.GEMINI_BASE_URL } : {}),
+      });
+    case "openrouter":
+      return new OpenRouterProvider({
+        model: participant.model,
+        ...(env.OPENROUTER_API_KEY ? { apiKey: env.OPENROUTER_API_KEY } : {}),
+        ...(env.OPENROUTER_BASE_URL ? { baseUrl: env.OPENROUTER_BASE_URL } : {}),
+        reasoning: openRouterReasoning.has(participant.model),
       });
     case "ollama":
       // Local models cost nothing, whatever their name.
