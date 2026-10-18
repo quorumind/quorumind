@@ -364,7 +364,9 @@
     "handoff": "Passation à un agent de code",
     "handoffHint": "CLAUDE.md, AGENTS.md et PLAN.md dans un zip",
     "needsVerdict": "Disponible une fois que l'arbitre a tranché",
-    "newTab": "s'ouvre dans un nouvel onglet"
+    "newTab": "s'ouvre dans un nouvel onglet",
+    "briefPdf": "PDF pour {{audience}}",
+    "briefPdfHint": "Le verdict réécrit pour ce lecteur, prêt à envoyer"
   },
   "diagram": {
     "label": "Schéma d'architecture : {{title}}",

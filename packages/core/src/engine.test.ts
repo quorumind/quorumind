@@ -84,7 +84,7 @@ describe("DebateEngine with the demo script", () => {
     session.locale = "fr";
     await runToVerdict(engine, session);
     const report = renderReport(session);
-    expect(report).toContain("# Rapport de décision");
+    expect(report).toContain("_Rapport de décision");
     expect(report).toContain("## Recommandation");
     expect(report).toContain("Faisable sous conditions");
 

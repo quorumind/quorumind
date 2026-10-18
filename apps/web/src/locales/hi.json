@@ -364,7 +364,9 @@
     "handoff": "कोडिंग एजेंट को सौंपने का पैकेज",
     "handoffHint": "CLAUDE.md, AGENTS.md और PLAN.md एक zip में",
     "needsVerdict": "निर्णायक के फ़ैसले के बाद उपलब्ध",
-    "newTab": "नए टैब में खुलता है"
+    "newTab": "नए टैब में खुलता है",
+    "briefPdf": "{{audience}} के लिए PDF",
+    "briefPdfHint": "इस पाठक के लिए दोबारा लिखा गया निर्णय, भेजने के लिए तैयार"
   },
   "diagram": {
     "label": "आर्किटेक्चर आरेख: {{title}}",

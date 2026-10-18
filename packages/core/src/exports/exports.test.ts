@@ -61,9 +61,17 @@ function unzip(archive: Uint8Array, entry: string): string | null {
 }
 
 describe("Markdown report", () => {
-  it("covers build costs, diagrams, the debate map and the mode", async () => {
+  it("leads with the decision, then covers costs, diagrams, the debate map and the method", async () => {
     const report = renderReport(await demo());
-    expect(report).toContain("**Mode:** Standard debate");
+    expect(report).toContain("### In short");
+    expect(report).toContain("- Total over 3 years: ");
+    expect(report).toContain("- Main risk: ");
+    expect(report).toContain("- Why not Option B: ");
+    expect(report).toMatch(/- Weighted score: (Close call|Clear lead): \d\.\d against \d\.\d/);
+    expect(report.indexOf("## Context and goals")).toBeLessThan(report.indexOf("## Options"));
+    expect(report).toContain("## Cost comparison");
+    expect(report).toContain("## How this report was produced");
+    expect(report).not.toContain("Cost of this session");
     expect(report).toContain("**Build cost:** €12,000 – €15,000 (estimate:");
     expect(report).toContain("```mermaid\nflowchart LR");
     expect(report).toContain('n_db[("Postgres (EU)")]');
@@ -84,8 +92,7 @@ describe("Markdown report", () => {
 
   it("names the person's solution in challenge mode", () => {
     const report = renderReport(challenge());
-    expect(report).toContain("**Mode:** Challenge of your solution");
-    expect(report).toContain("**Your solution: Custom React app with managed EU hosting**");
+    expect(report).toContain("**Custom React app with managed EU hosting** (Your solution");
     expect(report).toContain("## Your solution");
     expect(report).not.toContain("Option U");
   });
@@ -177,6 +184,8 @@ describe("HTML report", () => {
     );
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("<img src=x");
+    // The printed footer carries the project name inside the stylesheet, escaped as CSS.
+    expect(html).toContain('@bottom-left { content: "\\3C img src=x onerror=\\"alert(1)\\"\\3E  · ');
     expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
     expect(html).toContain("&lt;b&gt;Agency&lt;/b&gt;");
     expect(html).toContain("--accent: #2b44c4");

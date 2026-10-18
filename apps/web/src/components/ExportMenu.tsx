@@ -3,9 +3,13 @@ import { useTranslation } from "react-i18next";
 import { DownloadIcon } from "./Icons.tsx";
 
 type ExportKey = "markdown" | "pdf" | "word" | "adr" | "handoff";
+type Audience = "cto" | "executive" | "client";
 
 interface ExportItem {
-  key: ExportKey;
+  key: ExportKey | `brief-${Audience}`;
+  /** Set for reader versions, whose label names the reader. */
+  label?: string;
+  hint?: string;
   path: string;
   /** Opens in a new tab instead of downloading: the PDF goes through the browser's print dialog. */
   newTab?: boolean;
@@ -45,7 +49,7 @@ const NewTabIcon = () => (
  * The "Export" disclosure of a session: a menu button following the WAI-ARIA pattern (arrow keys,
  * Home and End move between items, Escape closes and returns focus to the button, Tab leaves).
  */
-export function ExportMenu({ sessionId, hasVerdict }: { sessionId: string; hasVerdict: boolean }) {
+export function ExportMenu({ sessionId, hasVerdict, briefs = [] }: { sessionId: string; hasVerdict: boolean; briefs?: Audience[] }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [initial, setInitial] = useState<"first" | "last">("first");
@@ -54,6 +58,17 @@ export function ExportMenu({ sessionId, hasVerdict }: { sessionId: string; hasVe
   const menu = useRef<HTMLDivElement>(null);
   const id = useId();
   const base = `/api/sessions/${encodeURIComponent(sessionId)}`;
+  // The reader versions already written in the app, as printable documents.
+  const entries: ExportItem[] = [
+    ...ITEMS,
+    ...briefs.map((audience) => ({
+      key: `brief-${audience}` as const,
+      path: `report.html?print=1&audience=${audience}`,
+      newTab: true,
+      label: t("export.briefPdf", { audience: t(`brief.audience.${audience}`) }),
+      hint: t("export.briefPdfHint"),
+    })),
+  ];
 
   const items = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
   const focusAt = (index: number) => {
@@ -130,7 +145,7 @@ export function ExportMenu({ sessionId, hasVerdict }: { sessionId: string; hasVe
           onKeyDown={onMenuKey}
           tabIndex={-1}
         >
-          {ITEMS.map((item) => {
+          {entries.map((item) => {
             const disabled = Boolean(item.needsVerdict && !hasVerdict);
             const hintId = `${id}-${item.key}-hint`;
             const content = (
@@ -138,11 +153,11 @@ export function ExportMenu({ sessionId, hasVerdict }: { sessionId: string; hasVe
                 <span className="export-icon">{item.newTab ? <NewTabIcon /> : <DownloadIcon />}</span>
                 <span className="export-text">
                   <span className="export-label">
-                    {t(`export.${item.key}`)}
+                    {item.label ?? t(`export.${item.key}`)}
                     {item.newTab ? <span className="visually-hidden"> ({t("export.newTab")})</span> : null}
                   </span>
                   <span className="export-hint" id={hintId}>
-                    {disabled ? t("export.needsVerdict") : t(`export.${item.key}Hint`)}
+                    {disabled ? t("export.needsVerdict") : (item.hint ?? t(`export.${item.key}Hint`))}
                   </span>
                 </span>
               </>

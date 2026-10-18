@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  Audience,
   BRAND_NAME_MAX,
   isAccent,
   LOGO_MAX_DATA_URL,
@@ -85,10 +86,17 @@ export function exportRoutes(deps: ExportDeps) {
     const session = load(c);
     if (!session) return notFound(c);
     const print = c.req.query("print") === "1";
+    // ?audience=cto|executive|client: the verdict rewritten for that reader, once it was generated in the app.
+    const requested = c.req.query("audience");
+    const audience = requested ? Audience.safeParse(requested) : null;
+    if (audience && !audience.success) return c.json({ error: "invalid_request", message: "Unknown audience." }, 400);
+    if (audience?.success && !session.briefs[audience.data]) {
+      return c.json({ error: "invalid_state", message: "This reader version has not been written yet." }, 409);
+    }
     c.header("Content-Security-Policy", REPORT_CSP);
     c.header("X-Content-Type-Options", "nosniff");
     c.header("Cache-Control", "no-store");
-    return c.html(renderHtml(session, branding(c), { print }));
+    return c.html(renderHtml(session, branding(c), { print, audience: audience?.success ? audience.data : null }));
   });
 
   app.get("/api/sessions/:id/report.docx", async (c) => {

@@ -1,8 +1,21 @@
 import { type Branding, isAccent, parseLogo, QUORUMIND_ACCENT } from "../branding.ts";
 import { DIAGRAM_THEME, diagramSvg, layoutDiagram } from "../diagram.ts";
 import { localeInfo } from "../locales.ts";
-import { chosenOption, formatRange, modeName, type ReportLabels, reportLabels, seatName, sessionProbes } from "../report.ts";
-import type { Proposal, TopicStatus } from "../schemas.ts";
+import {
+  chosenOption,
+  decisionSummary,
+  fill,
+  formatRange,
+  formatScore,
+  labelled,
+  participants,
+  type ReportLabels,
+  reportLabels,
+  seatName,
+  sessionProbes,
+  threeYearCost,
+} from "../report.ts";
+import type { Audience, Proposal, TopicStatus } from "../schemas.ts";
 import { currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "../session.ts";
 
 // The printable report: one self-contained HTML page (inline CSS and SVG, no request to anything),
@@ -127,10 +140,33 @@ p, li, td, th, blockquote, h1, h3, .note, .title, .chip { unicode-bidi: plaintex
 .label { font-size: 12px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; }
 .hard { border-inline-start: 3px solid var(--infeasible); padding-inline-start: 14px; }
 .foot { margin-block-start: 48px; padding-block-start: 14px; border-block-start: 1px solid var(--line); font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 12px; font-size: 13px; color: #b9bdd3; }
+.verdict .tags .chip { border-color: transparent; }
+.brief .speech { font-size: 16px; max-width: 72ch; }
+.points { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; margin-block-start: 14px; }
+.point { border-inline-start: 3px solid var(--accent); padding-inline-start: 12px; }
+.point .label { margin-block-start: 0; }
+.point p { margin: 0; }
+dl { margin: 0; }
+.context, .roles, .clarifications { display: grid; gap: 10px; }
+.context div, .roles div { display: grid; grid-template-columns: minmax(120px, 34%) 1fr; gap: 12px; }
+dt { font-size: 12px; font-weight: 600; color: var(--muted); }
+dd { margin: 0; }
+.clarifications dt { font-size: 14px; color: var(--ink); }
+.clarifications dd { color: var(--muted); }
+.weight { display: block; font-weight: 500; font-size: 11px; color: var(--muted); }
+.matrix .total, .matrix thead th:last-child { font: 600 14px var(--mono); text-align: end; white-space: nowrap; }
+.costs .chosen th, .costs .chosen td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.method { margin-block-start: 44px; padding: 20px 22px; border-radius: 10px; background: var(--surface); }
+.method h2 { border: 0; padding: 0; margin-block-end: 8px; font-size: 17px; }
+.method p { font-size: 13px; color: var(--muted); max-width: 80ch; }
+.method .roles { margin-block-start: 12px; font-size: 13px; }
+.steps { display: grid; gap: 8px; }
+.appendix { break-before: auto; }
 @media screen and (max-width: 720px) {
   .doc { padding: 24px 16px 40px; }
   h1 { font-size: 27px; }
-  .two { grid-template-columns: 1fr; }
+  .two, .points { grid-template-columns: 1fr; }
   .table-wrap, .diagram { overflow-x: auto; }
   .diagram svg { max-width: none; }
   .masthead { flex-wrap: wrap; }
@@ -142,9 +178,9 @@ p, li, td, th, blockquote, h1, h3, .note, .title, .chip { unicode-bidi: plaintex
   section { margin-block-start: 22px; }
   h2, h3, .label { break-after: avoid; }
   tr, .topic, .probe, .verdict, .diagram, .roadmap li, .claims li, .fact { break-inside: avoid; }
-  .proposals { break-before: page; }
   .proposal { break-inside: auto; }
-  .proposal + .proposal { break-before: page; }
+  .proposal header, .proposal .facts { break-inside: avoid; break-after: avoid; }
+  .point, .method, .context div, .roles div, .clarifications div { break-inside: avoid; }
 }
 `;
 
@@ -193,7 +229,19 @@ ${proposal.risks.length > 0 ? `<p class="label">${esc(t.risks)}</p>${list(propos
 export interface HtmlOptions {
   /** Open the browser's print dialog as soon as the page is loaded: the PDF export. */
   print: boolean;
+  /** Render the verdict rewritten for this reader (a brief generated in the app) instead of the full report. */
+  audience?: Audience | null;
 }
+
+/** A short, stable reference for the document: the start of the session id. */
+export function documentReference(session: Session): string {
+  return session.id.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
+
+// A CSS string from model or user text: quotes and backslashes escaped, and < > as CSS escapes so the
+// text can never close the <style> element it sits in.
+const cssString = (value: string) =>
+  `"${value.replace(/\s+/g, " ").replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("<", "\\3C ").replaceAll(">", "\\3E ")}"`;
 
 export function renderHtml(session: Session, branding: Branding, options: HtmlOptions): string {
   const t = reportLabels(session.locale);
@@ -202,7 +250,9 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
   const sheet = session.sheet;
   const proposals = currentProposals(session);
   const chosen = chosenOption(session);
+  const summary = decisionSummary(session);
   const project = sheet?.projectName ?? session.idea;
+  const reference = documentReference(session);
   const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long" }).format(new Date(session.updatedAt));
   const accent = branding.accent && isAccent(branding.accent) ? branding.accent : QUORUMIND_ACCENT;
   const logo = branding.logoDataUrl && parseLogo(branding.logoDataUrl) ? branding.logoDataUrl : null;
@@ -210,152 +260,265 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
   const brand = branded
     ? `${logo ? `<img src="${esc(logo)}" alt="${esc(branding.name ?? "")}">` : ""}${branding.name ? `<span>${esc(branding.name)}</span>` : ""}`
     : `${MARK}<span>Quorumind</span>`;
+  const say = (label: string, value: string) => esc(labelled(label, value, session.locale));
+  const audienceName = { cto: t.audienceCto, executive: t.audienceExecutive, client: t.audienceClient };
+  const brief = options.audience ? (session.briefs[options.audience] ?? null) : null;
   const body: string[] = [];
 
   body.push(
-    `<header class="masthead"><div class="brand">${brand}</div><div class="meta">${esc(date)}<br>${esc(t.mode)}: ${esc(modeName(session, t))}</div></header>`,
-  );
-  body.push(
-    `<section class="cover"><p class="eyebrow">${esc(t.title)}</p><h1>${esc(project)}</h1>${sheet ? `<p class="lead prose">${esc(sheet.summary)}</p>` : ""}</section>`,
+    `<header class="masthead"><div class="brand">${brand}</div><div class="meta">${esc(date)}<br>${say(t.reference, reference)}</div></header>`,
   );
 
-  if (verdict) {
+  // The recommendation box: the option's own name, its verdict, and the figures someone who pays asks first.
+  const recommendationBox = () => {
+    if (!verdict) return "";
     const proposal = chosen?.proposal;
-    const facts = proposal
-      ? `<div class="facts"><div class="fact"><span>${esc(t.monthlyCost)} (${esc(t.estimate)})</span><strong>${esc(formatRange(proposal.monthlyCost, session.locale))}</strong></div>${
-          proposal.buildCost
-            ? `<div class="fact"><span>${esc(t.buildCost)} (${esc(t.estimate)})</span><strong>${esc(formatRange(proposal.buildCost, session.locale))}</strong></div>`
-            : ""
-        }<div class="fact"><span>${esc(t.buildTime)}</span><strong>${esc(proposal.buildTime)}</strong></div></div>`
-      : "";
-    body.push(
-      `<section class="verdict"><p class="eyebrow">${esc(t.recommendation)}</p>${
-        chosen
-          ? `<h2>${esc(seatName(chosen.seat, t))}</h2>${proposal ? `<p class="title">${esc(proposal.title)}</p>` : ""}`
-          : `<h2>${esc(t.noRecommendation)}</h2>`
-      }<p class="prose">${esc(verdict.recommendation.rationale)}</p>${facts}</section>`,
-    );
-
-    const criteria = sheet?.priorities.map((priority) => priority.criterion) ?? [];
-    const rows = verdict.options.map((option) => {
-      const scores = criteria.map((criterion) => {
-        const value = option.scores.find((item) => item.criterion === criterion)?.score;
-        return `<td>${value ? score(value, `${criterion}: ${value}/5`) : "–"}</td>`;
-      });
-      const conditions =
-        option.conditions.length > 0 ? `<span class="note">${esc(t.conditions)}: ${esc(option.conditions.join(" · "))}</span>` : "";
-      return `<tr><th scope="row"><span class="seat ${seatClass(option.seat)}">${esc(option.seat)}</span> ${esc(option.title)}</th><td><span class="chip ${option.feasibility}">${esc(t[option.feasibility])}</span><span class="note">${esc(option.reason)}</span>${conditions}</td>${scores.join("")}</tr>`;
-    });
-    body.push(
-      `<section><h2>${esc(t.options)}</h2><div class="table-wrap"><table class="table matrix"><thead><tr><th scope="col">${esc(t.option)}</th><th scope="col">${esc(t.feasibility)}</th>${criteria.map((criterion) => `<th scope="col">${esc(criterion)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div></section>`,
-    );
-
-    const topics = verdict.topics ?? [];
-    if (topics.length > 0) {
-      const groups = (
-        [
-          ["agreement", t.consensus],
-          ["divided", t.divided],
-          ["opposed", t.opposed],
-        ] as [TopicStatus, string][]
-      )
-        .map(([status, heading]) => {
-          const group = topics.filter((topic) => topic.status === status);
-          if (group.length === 0) return "";
-          const cards = group.map(
-            (topic) =>
-              `<div class="topic"><strong>${esc(topic.topic)}</strong><ul class="positions">${topic.positions
-                .map(
-                  (item) =>
-                    `<li><span class="who">${item.seat ? `${item.seat === DEVIL_SEAT ? "" : `<span class="seat ${seatClass(item.seat)}">${esc(item.seat)}</span> `}${esc(seatName(item.seat, t))}` : ""}</span><span>${esc(item.position)}</span></li>`,
-                )
-                .join("")}</ul></div>`,
-          );
-          return `<h3><span class="dot ${status}"></span>${esc(heading)}</h3>${cards.join("")}`;
-        })
-        .join("");
-      body.push(`<section><h2>${esc(t.debateMap)}</h2><div class="map">${groups}</div></section>`);
+    const option = chosen ? verdict.options.find((item) => item.seat === chosen.seat) : null;
+    const facts: [string, string][] = [];
+    if (proposal) {
+      facts.push([`${t.monthlyCost} (${t.estimate})`, formatRange(proposal.monthlyCost, session.locale)]);
+      if (proposal.buildCost) facts.push([`${t.buildCost} (${t.estimate})`, formatRange(proposal.buildCost, session.locale)]);
+      const total = threeYearCost(proposal);
+      if (total) facts.push([t.total3y, formatRange(total, session.locale)]);
+      facts.push([t.buildTime, proposal.buildTime]);
     }
-  }
+    if (sheet?.budget) facts.push([t.budget, sheet.budget]);
+    return `<section class="verdict"><p class="eyebrow">${esc(t.recommendation)}</p>${
+      chosen
+        ? `<h2>${esc(proposal?.title ?? seatName(chosen.seat, t))}</h2><p class="tags"><span class="seat ${seatClass(chosen.seat)}">${esc(chosen.seat)}</span> ${esc(seatName(chosen.seat, t))}${option ? ` <span class="chip ${option.feasibility}">${esc(t[option.feasibility])}</span>` : ""}</p>`
+        : `<h2>${esc(t.noRecommendation)}</h2>`
+    }<p class="prose">${esc(verdict.recommendation.rationale)}</p>${
+      facts.length > 0
+        ? `<div class="facts">${facts.map(([label, value]) => `<div class="fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("")}</div>`
+        : ""
+    }</section>`;
+  };
 
-  const probes = sessionProbes(session);
-  if (probes.length > 0) {
+  const methodBox = () =>
+    `<section class="method"><h2>${esc(t.method)}</h2><p>${esc(fill(t.methodText, { rounds: session.rounds }))}</p><dl class="roles">${participants(
+      session,
+      t,
+    )
+      .map((item) => `<div><dt>${esc(item.role)}</dt><dd>${esc(item.model)}</dd></div>`)
+      .join("")}</dl></section>`;
+
+  if (brief && options.audience) {
+    // The verdict rewritten for one reader: their summary first, the key figures, then how it was produced.
     body.push(
-      `<section><h2>${esc(t.probe)}</h2>${probes
-        .map(
-          (probe) =>
-            `<div class="probe"><blockquote>${esc(probe.data.angle)}</blockquote><p class="muted">${esc(t.probeRationale)}: ${esc(probe.data.rationale)}</p></div>`,
-        )
-        .join("")}</section>`,
+      `<section class="cover"><p class="eyebrow">${esc(fill(t.briefFor, { audience: audienceName[options.audience] }))}</p><h1>${esc(brief.headline)}</h1><p class="lead prose">${esc(brief.summary)}</p></section>`,
     );
-  }
-
-  if (verdict) {
-    if (verdict.risks.length > 0) {
-      const level = (value: "low" | "medium" | "high") => `<span class="chip level-${value}">${esc(t[value])}</span>`;
+    body.push(recommendationBox());
+    for (const section of brief.sections)
+      body.push(`<section><h2>${esc(section.title)}</h2><p class="prose">${esc(section.body)}</p></section>`);
+    if (brief.nextSteps.length > 0)
       body.push(
-        `<section><h2>${esc(t.risks)}</h2><div class="table-wrap"><table class="table"><thead><tr><th scope="col">${esc(t.risks)}</th><th scope="col">${esc(t.likelihood)}</th><th scope="col">${esc(t.impact)}</th><th scope="col">${esc(t.mitigation)}</th></tr></thead><tbody>${verdict.risks
-          .map(
-            (risk) =>
-              `<tr><td>${esc(risk.risk)}</td><td>${level(risk.likelihood)}</td><td>${level(risk.impact)}</td><td>${esc(risk.mitigation)}</td></tr>`,
-          )
-          .join("")}</tbody></table></div></section>`,
+        `<section><h2>${esc(t.nextStep)}</h2><ol class="steps">${brief.nextSteps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol></section>`,
+      );
+    body.push(methodBox());
+  } else {
+    body.push(
+      `<section class="cover"><p class="eyebrow">${esc(t.title)}</p><h1>${esc(project)}</h1>${sheet ? `<p class="lead prose">${esc(sheet.summary)}</p>` : ""}</section>`,
+    );
+    if (verdict) {
+      body.push(recommendationBox());
+      // In short: the arbiter's own summary and the four answers a decision maker looks for.
+      const points: [string, string][] = [];
+      if (summary?.mainRisk) points.push([t.mainRisk, `${summary.mainRisk.risk}. ${t.mitigation}: ${summary.mainRisk.mitigation}`]);
+      if (summary?.alternative)
+        points.push([fill(t.whyNot, { option: seatName(summary.alternative.seat, t) }), summary.alternative.reason]);
+      if (summary?.nextStep) points.push([t.nextStep, `${summary.nextStep.phase}: ${summary.nextStep.content}`]);
+      if (summary?.margin) {
+        const values = {
+          first: formatScore(summary.margin.first, session.locale),
+          second: formatScore(summary.margin.second, session.locale),
+        };
+        points.push([t.weightedScore, fill(summary.margin.close ? t.closeCall : t.clearLead, values)]);
+      }
+      if (verdict.speech.trim() || points.length > 0) {
+        body.push(
+          `<section class="brief"><h2>${esc(t.summary)}</h2>${verdict.speech.trim() ? `<p class="prose speech">${esc(verdict.speech)}</p>` : ""}<div class="points">${points
+            .map(([label, text]) => `<div class="point"><p class="label">${esc(label)}</p><p>${esc(text)}</p></div>`)
+            .join("")}</div></section>`,
+        );
+      }
+    }
+
+    if (sheet) {
+      const facts = (
+        [
+          [t.users, sheet.users],
+          [t.budget, sheet.budget],
+          [t.team, sheet.team],
+          [t.deadline, sheet.deadline ?? ""],
+          [t.existingInfrastructure, sheet.existingInfrastructure.join(" · ")],
+        ] as [string, string][]
+      ).filter(([, value]) => value);
+      body.push(
+        `<section><h2>${esc(t.contextGoals)}</h2><div class="two"><div><p class="label">${esc(t.goals)}</p>${list(sheet.goals)}${
+          sheet.successCriteria.length > 0 ? `<p class="label">${esc(t.successCriteria)}</p>${list(sheet.successCriteria)}` : ""
+        }</div><div><dl class="context">${facts.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join("")}</dl>${
+          sheet.hardConstraints.length > 0
+            ? `<div class="hard"><p class="label">${esc(t.hardConstraints)}</p>${list(sheet.hardConstraints)}</div>`
+            : ""
+        }</div></div></section>`,
       );
     }
-    const roadmap =
-      verdict.roadmap.length > 0
-        ? `<div><h2>${esc(t.roadmap)}</h2><ol class="roadmap">${verdict.roadmap
-            .map(
-              (phase) =>
-                `<li><div><strong>${esc(phase.phase)}</strong><div>${esc(phase.content)}</div><span class="note">${esc(t.exitCriterion)}: ${esc(phase.exitCriterion)}</span></div></li>`,
-            )
-            .join("")}</ol></div>`
-        : "";
-    const claims =
-      verdict.claims.length > 0 || verdict.openQuestions.length > 0
-        ? `<div>${
-            verdict.claims.length > 0
-              ? `<h2>${esc(t.claims)}</h2><ul class="claims">${verdict.claims
+
+    if (verdict) {
+      const priorities = sheet?.priorities ?? [];
+      const weighted = new Map((summary?.ranking ?? []).map((option) => [option.seat, option.score]));
+      const rows = verdict.options.map((option) => {
+        const scores = priorities.map((priority) => {
+          const value = option.scores.find((item) => item.criterion === priority.criterion)?.score;
+          return `<td>${value ? score(value, `${priority.criterion}: ${value}/5`) : "–"}</td>`;
+        });
+        const total = weighted.get(option.seat);
+        const conditions =
+          option.conditions.length > 0 ? `<span class="note">${say(t.conditions, option.conditions.join(" · "))}</span>` : "";
+        return `<tr><th scope="row"><span class="seat ${seatClass(option.seat)}">${esc(option.seat)}</span> ${esc(option.title)}</th><td><span class="chip ${option.feasibility}">${esc(t[option.feasibility])}</span><span class="note">${esc(option.reason)}</span>${conditions}</td>${scores.join("")}<td class="total">${total == null ? "–" : esc(formatScore(total, session.locale))}</td></tr>`;
+      });
+      body.push(
+        `<section><h2>${esc(t.options)}</h2><div class="table-wrap"><table class="table matrix"><thead><tr><th scope="col">${esc(t.option)}</th><th scope="col">${esc(t.feasibility)}</th>${priorities
+          .map(
+            (priority) =>
+              `<th scope="col">${esc(priority.criterion)}<span class="weight">${esc(fill(t.weight, { weight: priority.weight }))}</span></th>`,
+          )
+          .join(
+            "",
+          )}<th scope="col">${esc(t.weightedScore)}</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><p class="note">${esc(t.scoreLegend)}</p></section>`,
+      );
+
+      const costed = Object.entries(proposals).filter(([seat]) => verdict.options.some((option) => option.seat === seat));
+      if (costed.length > 0) {
+        body.push(
+          `<section><h2>${esc(t.costComparison)}</h2><div class="table-wrap"><table class="table costs"><thead><tr><th scope="col">${esc(t.option)}</th><th scope="col">${esc(t.buildCost)}</th><th scope="col">${esc(t.monthlyCost)}</th><th scope="col">${esc(t.total3y)}</th></tr></thead><tbody>${costed
+            .map(([seat, proposal]) => {
+              const total = threeYearCost(proposal);
+              return `<tr${seat === chosen?.seat ? ' class="chosen"' : ""}><th scope="row"><span class="seat ${seatClass(seat)}">${esc(seat)}</span> ${esc(proposal.title)}</th><td>${proposal.buildCost ? esc(formatRange(proposal.buildCost, session.locale)) : "–"}</td><td>${esc(formatRange(proposal.monthlyCost, session.locale))}</td><td><strong>${total ? esc(formatRange(total, session.locale)) : "–"}</strong></td></tr>`;
+            })
+            .join(
+              "",
+            )}</tbody></table></div><p class="note">${esc(t.costNote)}${sheet?.budget ? ` ${say(t.budget, sheet.budget)}` : ""}</p></section>`,
+        );
+      }
+
+      const topics = verdict.topics ?? [];
+      if (topics.length > 0) {
+        const groups = (
+          [
+            ["agreement", t.consensus],
+            ["divided", t.divided],
+            ["opposed", t.opposed],
+          ] as [TopicStatus, string][]
+        )
+          .map(([status, heading]) => {
+            const group = topics.filter((topic) => topic.status === status);
+            if (group.length === 0) return "";
+            const cards = group.map(
+              (topic) =>
+                `<div class="topic"><strong>${esc(topic.topic)}</strong><ul class="positions">${topic.positions
                   .map(
-                    (claim) =>
-                      `<li><span>${esc(claim.claim)}</span><span class="chip${claim.confidence === "verified" ? " feasible" : claim.confidence === "estimated" ? " conditional" : ""}">${esc(t[claim.confidence])}</span></li>`,
+                    (item) =>
+                      `<li><span class="who">${item.seat ? `${item.seat === DEVIL_SEAT ? "" : `<span class="seat ${seatClass(item.seat)}">${esc(item.seat)}</span> `}${esc(seatName(item.seat, t))}` : ""}</span><span>${esc(item.position)}</span></li>`,
                   )
-                  .join("")}</ul>`
-              : ""
-          }${verdict.openQuestions.length > 0 ? `<p class="label">${esc(t.openQuestions)}</p>${list(verdict.openQuestions)}` : ""}</div>`
-        : "";
-    if (roadmap || claims) body.push(`<section class="two">${roadmap}${claims}</section>`);
-  }
+                  .join("")}</ul></div>`,
+            );
+            return `<h3><span class="dot ${status}"></span>${esc(heading)}</h3>${cards.join("")}`;
+          })
+          .join("");
+        body.push(`<section><h2>${esc(t.debateMap)}</h2><div class="map">${groups}</div></section>`);
+      }
+    }
 
-  const seats = Object.keys(proposals);
-  if (seats.length > 0) {
-    body.push(
-      `<section class="proposals"><h2>${esc(session.mode === "challenge" ? t.yourSolution : t.proposals)}</h2>${seats
-        .map((seat, index) => proposalCard(seat, proposals[seat] as Proposal, t, session, seat === chosen?.seat, index))
-        .join("")}</section>`,
-    );
-  }
+    const probes = sessionProbes(session);
+    if (probes.length > 0) {
+      body.push(
+        `<section><h2>${esc(t.probe)}</h2>${probes
+          .map(
+            (probe) =>
+              `<div class="probe"><blockquote>${esc(probe.data.angle)}</blockquote><p class="muted">${say(t.probeRationale, probe.data.rationale)}</p></div>`,
+          )
+          .join("")}</section>`,
+      );
+    }
 
-  if (sheet) {
-    const block = (title: string, items: string[], className = "") =>
-      items.length > 0 ? `<div${className ? ` class="${className}"` : ""}><p class="label">${esc(title)}</p>${list(items)}</div>` : "";
-    body.push(
-      `<section><h2>${esc(t.requirements)}</h2><div class="two">${block(t.goals, sheet.goals)}${block(t.mustHave, sheet.mustHave)}${block(t.hardConstraints, sheet.hardConstraints, "hard")}${block(t.outOfScope, sheet.outOfScope)}${block(
-        t.priorities,
-        sheet.priorities.map((priority) => `${priority.criterion} (${priority.weight}/5)`),
-      )}${block(t.assumptions, sheet.assumptions)}</div></section>`,
-    );
-  }
+    if (verdict) {
+      if (verdict.risks.length > 0) {
+        const level = (value: "low" | "medium" | "high") => `<span class="chip level-${value}">${esc(t[value])}</span>`;
+        body.push(
+          `<section><h2>${esc(t.risks)}</h2><div class="table-wrap"><table class="table"><thead><tr><th scope="col">${esc(t.risks)}</th><th scope="col">${esc(t.likelihood)}</th><th scope="col">${esc(t.impact)}</th><th scope="col">${esc(t.mitigation)}</th></tr></thead><tbody>${verdict.risks
+            .map(
+              (risk) =>
+                `<tr><td>${esc(risk.risk)}</td><td>${level(risk.likelihood)}</td><td>${level(risk.impact)}</td><td>${esc(risk.mitigation)}</td></tr>`,
+            )
+            .join("")}</tbody></table></div></section>`,
+        );
+      }
+      const roadmap =
+        verdict.roadmap.length > 0
+          ? `<div><h2>${esc(t.roadmap)}</h2><ol class="roadmap">${verdict.roadmap
+              .map(
+                (phase) =>
+                  `<li><div><strong>${esc(phase.phase)}</strong><div>${esc(phase.content)}</div><span class="note">${say(t.exitCriterion, phase.exitCriterion)}</span></div></li>`,
+              )
+              .join("")}</ol></div>`
+          : "";
+      const claims =
+        verdict.claims.length > 0 || verdict.openQuestions.length > 0
+          ? `<div>${
+              verdict.claims.length > 0
+                ? `<h2>${esc(t.claims)}</h2><ul class="claims">${verdict.claims
+                    .map(
+                      (claim) =>
+                        `<li><span>${esc(claim.claim)}</span><span class="chip${claim.confidence === "verified" ? " feasible" : claim.confidence === "estimated" ? " conditional" : ""}">${esc(t[claim.confidence])}</span></li>`,
+                    )
+                    .join("")}</ul>`
+                : ""
+            }${verdict.openQuestions.length > 0 ? `<p class="label">${esc(t.openQuestions)}</p>${list(verdict.openQuestions)}` : ""}</div>`
+          : "";
+      if (roadmap || claims) body.push(`<section class="two">${roadmap}${claims}</section>`);
+    }
 
-  const answers = session.debate.flatMap((entry) => (entry.kind === "answers" ? entry.answers : []));
-  if (answers.length > 0) {
-    body.push(`<section><h2>${esc(t.answers)}</h2>${list(answers.map((entry) => `${entry.question} → ${entry.answer}`))}</section>`);
+    const seats = Object.keys(proposals);
+    if (seats.length > 0) {
+      body.push(
+        `<section class="proposals"><h2>${esc(session.mode === "challenge" ? t.yourSolution : t.proposals)}</h2>${seats
+          .map((seat, index) => proposalCard(seat, proposals[seat] as Proposal, t, session, seat === chosen?.seat, index))
+          .join("")}</section>`,
+      );
+    }
+
+    if (sheet) {
+      const block = (title: string, items: string[], className = "") =>
+        items.length > 0 ? `<div${className ? ` class="${className}"` : ""}><p class="label">${esc(title)}</p>${list(items)}</div>` : "";
+      body.push(
+        `<section class="appendix"><h2>${esc(t.appendix)}: ${esc(t.detailedRequirements)}</h2><div class="two">${block(t.mustHave, sheet.mustHave)}${block(t.niceToHave, sheet.niceToHave)}${block(t.outOfScope, sheet.outOfScope)}${block(t.softConstraints, sheet.softConstraints)}${block(
+          t.priorities,
+          sheet.priorities.map((priority) => `${priority.criterion} (${fill(t.weight, { weight: priority.weight })})`),
+        )}${block(t.assumptions, sheet.assumptions)}</div></section>`,
+      );
+    }
+
+    const answers = session.debate.flatMap((entry) => (entry.kind === "answers" ? entry.answers : []));
+    if (answers.length > 0) {
+      body.push(
+        `<section><h2>${esc(t.answers)}</h2><dl class="clarifications">${answers
+          .map((entry) => `<div><dt>${esc(entry.question)}</dt><dd>${esc(entry.answer)}</dd></div>`)
+          .join("")}</dl></section>`,
+      );
+    }
+
+    body.push(methodBox());
   }
 
   // Branded or not, the attribution stays: Quorumind is AGPL software.
   body.push(
-    `<footer class="foot"><span>${branded && branding.name ? `${esc(branding.name)} · ` : ""}${esc(t.preparedWith)}</span><span>${esc(date)}</span></footer>`,
+    `<footer class="foot"><span>${branded && branding.name ? `${esc(branding.name)} · ` : ""}${esc(t.preparedWith)}</span><span>${esc(date)} · ${say(t.reference, reference)}</span></footer>`,
   );
+
+  // Printed pages carry the project and reference on the left and the page number on the right.
+  const pageBoxes = `@page { @bottom-left { content: ${cssString(`${project} · ${reference}`)}; font-size: 8pt; color: #535a78; } @bottom-right { content: ${cssString(`${t.page} `)} counter(page) " / " counter(pages); font-size: 8pt; color: #535a78; } }`;
+  const title = brief && options.audience ? `${brief.headline}` : `${t.title}: ${project}`;
 
   return `<!doctype html>
 <html lang="${esc(session.locale)}" dir="${info.dir}">
@@ -363,8 +526,8 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="Quorumind">
-<title>${esc(`${t.title}: ${project}`)}</title>
-<style>${STYLES.replace(":root {", `:root {\n  --accent: ${accent};`)}</style>
+<title>${esc(title)}</title>
+<style>${STYLES.replace(":root {", `:root {\n  --accent: ${accent};`)}${pageBoxes}</style>
 </head>
 <body>
 <main class="doc">

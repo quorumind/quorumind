@@ -364,7 +364,9 @@
     "handoff": "コーディングエージェントへの引き継ぎ",
     "handoffHint": "CLAUDE.md、AGENTS.md、PLAN.md をまとめた zip",
     "needsVerdict": "審判の判定後に利用できます",
-    "newTab": "新しいタブで開きます"
+    "newTab": "新しいタブで開きます",
+    "briefPdf": "{{audience}}向けPDF",
+    "briefPdfHint": "この読み手向けに書き直した判定。そのまま送れます"
   },
   "diagram": {
     "label": "アーキテクチャ図：{{title}}",

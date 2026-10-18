@@ -424,7 +424,11 @@ export function Verdict({
               {t("verdict.download")}
             </a>
           ) : (
-            <ExportMenu sessionId={session.id} hasVerdict />
+            <ExportMenu
+              sessionId={session.id}
+              hasVerdict
+              briefs={(Object.keys(session.briefs ?? {}) as ("cto" | "executive" | "client")[]).sort()}
+            />
           )}
         </div>
       </section>

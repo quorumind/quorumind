@@ -114,6 +114,28 @@ describe("exports", () => {
     expect((await app.request(`/api/sessions/${session.id}/report.html`)).status).toBe(200);
   });
 
+  it("serves a reader version only once it was written, and refuses unknown readers", async () => {
+    const app = makeApp();
+    const session = await demoSession(app);
+    expect((await app.request(`/api/sessions/${session.id}/report.html?audience=board`)).status).toBe(400);
+    expect((await app.request(`/api/sessions/${session.id}/report.html?audience=executive`)).status).toBe(409);
+    const stored = store?.get(session.id);
+    if (!stored) throw new Error("The session is not stored.");
+    stored.briefs.executive = {
+      speech: "",
+      headline: "Build the custom app",
+      summary: "It fits the budget.",
+      sections: [],
+      nextSteps: ["Sign off"],
+    };
+    store?.save(stored);
+    const page = await app.request(`/api/sessions/${session.id}/report.html?audience=executive`);
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).toContain("Version for an executive");
+    expect(html).toContain("<h1>Build the custom app</h1>");
+  });
+
   it("keeps each account's exports and branding to itself in the hosted version", async () => {
     const app = makeApp({
       identify: async (request) => (request.headers.has("x-user") ? { userId: request.headers.get("x-user") ?? "" } : null),

@@ -207,9 +207,9 @@ describe("MCP server on the recorded demo", () => {
     const summary = await call(mcp, "quorumind_verdict", { session_id: sessionId, format: "summary" });
     expect(textOf(summary)).toContain("**Recommended: option A");
     const report = await call(mcp, "quorumind_verdict", { session_id: sessionId, format: "markdown" });
-    expect(textOf(report)).toContain("# Decision report");
+    expect(textOf(report)).toContain("_Decision report");
     const resource = await mcp.client.readResource({ uri: `quorumind://sessions/${sessionId}/report` });
-    expect(resource.contents[0] && "text" in resource.contents[0] ? resource.contents[0].text : "").toContain("# Decision report");
+    expect(resource.contents[0] && "text" in resource.contents[0] ? resource.contents[0].text : "").toContain("_Decision report");
     const { resources } = await mcp.client.listResources();
     expect(resources.map((item) => item.uri)).toContain(`quorumind://sessions/${sessionId}/report`);
   });

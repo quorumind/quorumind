@@ -364,7 +364,9 @@
     "handoff": "移交给编码智能体",
     "handoffHint": "打包为 zip 的 CLAUDE.md、AGENTS.md 和 PLAN.md",
     "needsVerdict": "仲裁者作出裁决后可用",
-    "newTab": "在新标签页中打开"
+    "newTab": "在新标签页中打开",
+    "briefPdf": "面向{{audience}}的 PDF",
+    "briefPdfHint": "为该读者重写的结论，可直接发送"
   },
   "diagram": {
     "label": "架构图：{{title}}",

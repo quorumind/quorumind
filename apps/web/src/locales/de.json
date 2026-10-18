@@ -364,7 +364,9 @@
     "handoff": "Übergabe an einen Coding-Agenten",
     "handoffHint": "CLAUDE.md, AGENTS.md und PLAN.md als ZIP",
     "needsVerdict": "Verfügbar, sobald der Schiedsrichter entschieden hat",
-    "newTab": "öffnet sich in einem neuen Tab"
+    "newTab": "öffnet sich in einem neuen Tab",
+    "briefPdf": "PDF für {{audience}}",
+    "briefPdfHint": "Das Urteil für diese Leserschaft umgeschrieben, bereit zum Versand"
   },
   "diagram": {
     "label": "Architekturdiagramm: {{title}}",

@@ -364,7 +364,9 @@
     "handoff": "Coding-agent hand-off",
     "handoffHint": "CLAUDE.md, AGENTS.md and PLAN.md in a zip",
     "needsVerdict": "Available once the arbiter has ruled",
-    "newTab": "opens in a new tab"
+    "newTab": "opens in a new tab",
+    "briefPdf": "PDF for {{audience}}",
+    "briefPdfHint": "The verdict rewritten for this reader, ready to send"
   },
   "diagram": {
     "label": "Architecture diagram: {{title}}",

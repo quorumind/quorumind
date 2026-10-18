@@ -364,7 +364,9 @@
     "handoff": "التسليم إلى وكيل برمجة",
     "handoffHint": "الملفات CLAUDE.md وAGENTS.md وPLAN.md في ملف zip",
     "needsVerdict": "متاح بعد أن يُصدر المُحكِّم قراره",
-    "newTab": "يُفتح في علامة تبويب جديدة"
+    "newTab": "يُفتح في علامة تبويب جديدة",
+    "briefPdf": "PDF لـ{{audience}}",
+    "briefPdfHint": "الحكم مُعاد صياغته لهذا القارئ، جاهز للإرسال"
   },
   "diagram": {
     "label": "مخطط البنية: {{title}}",

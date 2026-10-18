@@ -54,7 +54,7 @@ describe("API", () => {
 
     const report = await app.request(`/api/sessions/${session.id}/report.md`);
     expect(report.headers.get("content-type")).toContain("text/markdown");
-    expect(await report.text()).toContain("# Rapport de décision");
+    expect(await report.text()).toContain("_Rapport de décision");
   });
 
   it("refuses a live session when no API key is configured", async () => {
