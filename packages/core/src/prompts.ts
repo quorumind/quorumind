@@ -21,6 +21,10 @@ function personaRule(persona: string | null) {
   return description ? `\nYou also speak as ${description}. Look at the project through that lens first, without ignoring the rest.` : "";
 }
 
+/** For the roles that judge options: the documents are there to check claims against, not to be summarised. */
+const CONTEXT_CHECK_RULE = `If documents are attached in <context>, they are excerpts of what the person provided: check the options against them
+and point out where an option contradicts them.`;
+
 const STYLE_RULE = `Be concrete: name technologies, quantities, prices and durations. Mark every figure you cannot verify as an estimate.
 Never invent facts about the person's situation: when something is unknown, state the assumption you make.
 Answer with JSON only, following the schema. Start with "speech": two to four plain sentences that a person can read while the rest is written.`;
@@ -85,6 +89,7 @@ Tie each critique to the point of the requirements sheet it relies on. Be fair: 
 and do not criticise your own proposal here.
 Add a question for the person only when its answer would change which option wins; otherwise leave questionsForUser empty.
 If the arbiter raised an angle in <probe>, examine every option from that angle first.${personaRule(persona)}
+${CONTEXT_CHECK_RULE}
 
 ${DATA_RULE}
 ${STYLE_RULE}
@@ -113,6 +118,7 @@ Tie each critique to the point of the requirements sheet it relies on. Hard but 
 Do not repeat a critique already made in <debate>; find new ones.
 Add a question for the person only when its answer would change which option wins.
 If the arbiter raised an angle in <probe>, examine every option from that angle first.${personaRule(persona)}
+${CONTEXT_CHECK_RULE}
 
 ${DATA_RULE}
 ${STYLE_RULE}
@@ -128,6 +134,7 @@ you look for the flaws of option U before the person commits to it. For each fla
 Tie each critique to the point of the requirements sheet it relies on, and say in the argument what would fix it.
 Do not repeat a critique already made in <debate>; dig deeper instead. Acknowledge in your speech what is sound.
 Add a question for the person only when its answer would change your judgement.${personaRule(persona)}
+${CONTEXT_CHECK_RULE}
 
 ${DATA_RULE}
 ${STYLE_RULE}
@@ -154,6 +161,7 @@ You are the arbiter. The participants have agreed too quickly: their critiques f
 Fast agreement often means a blind spot shared by every model. Find the one angle none of them has examined
 and that could change the outcome: a load or cost scenario, a failure, a legal or security issue, a hidden dependency,
 a change in the person's situation. Return it as one precise question or scenario in "angle", and why it matters in "rationale".
+${CONTEXT_CHECK_RULE}
 
 ${DATA_RULE}
 ${STYLE_RULE}
@@ -193,6 +201,7 @@ Map the debate in "topics": every important topic discussed, with status "agreem
 by seat (A, B…, "devil" for the devil's advocate). Do not smooth disagreements over.
 Give the main risks with a mitigation, a phased roadmap with an exit criterion per phase,
 and the key factual claims of your verdict, each marked verified, estimated or assumed.
+${CONTEXT_CHECK_RULE}
 
 ${DATA_RULE}
 ${STYLE_RULE}
@@ -203,14 +212,47 @@ export function requirementsBlock(sheet: RequirementsSheet) {
   return fence("requirements", JSON.stringify(sheet, null, 2));
 }
 
-/** Attached documents, each cut to a fair share of the space. */
-export function contextBlock(documents: ContextDocument[], maxChars = 60_000) {
+/**
+ * Characters of the attached documents each role reads. Those who frame the project and design options get
+ * the most; critics and the arbiter get an excerpt, enough to check a claim against the source.
+ */
+export const CONTEXT_BUDGET = {
+  interview: 60_000,
+  proposal: 30_000,
+  critique: 12_000,
+  verdict: 20_000,
+} as const;
+
+/**
+ * Shares the budget between documents: a short document takes only what it needs and leaves
+ * the rest to the longer ones.
+ */
+export function contextShares(lengths: number[], maxChars: number): number[] {
+  const shares = lengths.map(() => 0);
+  let left = maxChars;
+  const order = lengths.map((length, index) => ({ length, index })).sort((a, b) => a.length - b.length);
+  order.forEach(({ length, index }, position) => {
+    const share = Math.min(length, Math.floor(left / (order.length - position)));
+    shares[index] = share;
+    left -= share;
+  });
+  return shares;
+}
+
+/** Attached documents, each cut to its share of the budget. */
+export function contextBlock(documents: ContextDocument[], maxChars: number = CONTEXT_BUDGET.interview) {
   if (documents.length === 0) return "";
-  const share = Math.floor(maxChars / documents.length);
+  const shares = contextShares(
+    documents.map((doc) => doc.text.length),
+    maxChars,
+  );
   const body = documents
-    .map((doc) => {
-      const text = doc.text.length > share ? `${doc.text.slice(0, share)}\n[…cut]` : doc.text;
-      return `Document "${doc.name}" (${doc.kind}):\n${text}`;
+    .map((doc, index) => {
+      const share = shares[index] ?? 0;
+      const text =
+        doc.text.length > share ? `${doc.text.slice(0, share)}\n[…cut: the first ${share} of ${doc.text.length} characters]` : doc.text;
+      const source = doc.source && doc.source !== doc.name ? `, from ${doc.source}` : "";
+      return `Document "${doc.name}" (${doc.kind}${source}${doc.truncated ? ", cut on import" : ""}):\n${text}`;
     })
     .join("\n\n");
   return fence("context", body);

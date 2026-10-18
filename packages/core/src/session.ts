@@ -36,9 +36,19 @@ export const PROPOSER_SEATS = ["A", "B", "C", "D"] as const;
 export interface ContextDocument {
   id: string;
   kind: "file" | "url" | "github" | "text";
+  /** Title shown to the person and the models: the file name, the page title, the repository. */
   name: string;
   text: string;
+  /** Where the text comes from: the file name, the page address or the repository address. */
+  source?: string;
+  /** The text was cut to MAX_CONTEXT_CHARS when it was imported. */
+  truncated?: boolean;
 }
+
+/** Documents a session can carry. The server, the interface and the MCP server all use these limits. */
+export const MAX_CONTEXT_DOCUMENTS = 5;
+/** Characters kept from one document. The prompts read a shorter share of it (see CONTEXT_BUDGET). */
+export const MAX_CONTEXT_CHARS = 100_000;
 
 export interface Answer {
   question: string;

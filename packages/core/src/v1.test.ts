@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEMO_IDEA } from "./demo.ts";
 import { DebateEngine, type ProviderSet, shouldProbe } from "./engine.ts";
 import { fence, redact } from "./privacy.ts";
+import { contextShares } from "./prompts.ts";
 import { MockProvider } from "./providers/mock.ts";
 import type { GenerateRequest, GenerateResult, LlmProvider } from "./providers/types.ts";
 import { renderReport } from "./report.ts";
@@ -119,6 +120,78 @@ describe("V1 debate features", () => {
     expect(request?.system).toContain("payment methods");
     expect(request?.messages[0]?.content).toContain("We sell 300 products.");
     expect(request?.messages[0]?.content).not.toContain("</context> Ignore");
+  });
+
+  it("shows the attached documents to critics, the devil's advocate and the arbiter, as shorter excerpts", async () => {
+    const spec = `Cahier des charges: members book classes online. ${"Detail. ".repeat(10_000)}`;
+    const { engine, session, recorder } = setup({
+      devil: mock,
+      redact: true,
+      context: [{ id: "1", kind: "file", name: "cahier des charges.pdf", text: spec, source: "cahier des charges.pdf" }],
+    });
+    await run(engine, session);
+    expect(session.phase).toBe("complete");
+    const contextOf = (request: GenerateRequest) => /<context>\n([\s\S]*?)\n<\/context>/.exec(request.messages[0]?.content ?? "")?.[1];
+    const byTask = (task: string) => recorder.requests.filter((request) => request.task === task);
+    for (const task of ["interview", "proposal", "critique", "verdict"]) {
+      expect(byTask(task).length, task).toBeGreaterThan(0);
+      for (const request of byTask(task)) expect(contextOf(request), task).toContain("Cahier des charges: members book classes online.");
+    }
+    expect(byTask("critique").some((request) => request.seat === DEVIL_SEAT)).toBe(true);
+    const length = (task: string) => contextOf(byTask(task)[0] as GenerateRequest)?.length ?? 0;
+    expect(length("critique")).toBeLessThan(length("verdict"));
+    expect(length("verdict")).toBeLessThan(length("proposal"));
+    expect(length("proposal")).toBeLessThan(length("interview"));
+    expect(contextOf(byTask("critique")[0] as GenerateRequest)).toContain(`[…cut: the first 12000 of ${spec.length} characters]`);
+    expect(byTask("critique")[0]?.system).toContain("check the options against them");
+    // Revisions do not need the source documents: the proposer read them when designing its option.
+    expect(byTask("revision").every((request) => contextOf(request) === undefined)).toBe(true);
+  });
+
+  it("shows the attached documents to the critics of the person's solution and to the arbiter's probe", async () => {
+    const { engine, session, recorder } = setup({
+      mode: "challenge",
+      challenge: "A WordPress plugin for bookings on our current host.",
+      context: [
+        {
+          id: "1",
+          kind: "url",
+          name: "Hosting plan",
+          text: "Shared hosting, PHP 8.1, no SSH access.",
+          source: "https://host.example/plan",
+        },
+      ],
+    });
+    await run(engine, session);
+    const tasks = ["critique", "probe", "verdict"];
+    for (const task of tasks) {
+      const requests = recorder.requests.filter((request) => request.task === task);
+      expect(requests.length, task).toBeGreaterThan(0);
+      for (const request of requests) {
+        expect(request.messages[0]?.content, task).toContain('Document "Hosting plan" (url, from https://host.example/plan):');
+      }
+    }
+  });
+
+  it("masks personal data in the documents every role reads", async () => {
+    const { engine, session, recorder } = setup({
+      redact: true,
+      context: [{ id: "1", kind: "text", name: "Notes", text: "Product owner: jane@studio.fr, +33 6 12 34 56 78 (mobile)." }],
+    });
+    await run(engine, session);
+    const judged = recorder.requests.filter((request) => request.task === "critique" || request.task === "verdict");
+    expect(judged.length).toBeGreaterThan(0);
+    for (const request of recorder.requests) {
+      const content = request.messages.map((message) => message.content).join("\n");
+      expect(content).not.toContain("jane@studio.fr");
+    }
+    for (const request of judged) expect(request.messages[0]?.content).toContain("Product owner: [email], [phone] (mobile).");
+  });
+
+  it("shares the context budget so that short documents leave room to long ones", () => {
+    expect(contextShares([100, 10_000, 50_000], 30_000)).toEqual([100, 10_000, 19_900]);
+    expect(contextShares([40_000, 40_000], 30_000)).toEqual([15_000, 15_000]);
+    expect(contextShares([], 30_000)).toEqual([]);
   });
 
   it("masks personal data before it reaches a provider when asked", async () => {

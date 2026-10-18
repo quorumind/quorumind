@@ -6,6 +6,7 @@ import {
   answersBlock,
   arbiterSystem,
   briefSystem,
+  CONTEXT_BUDGET,
   challengerSystem,
   contextBlock,
   criticSystem,
@@ -199,7 +200,7 @@ export class DebateEngine {
     const opening = [
       `Project idea:\n${fence("answers", session.idea)}`,
       session.challenge ? fence("solution", session.challenge) : "",
-      contextBlock(session.context),
+      contextBlock(session.context, CONTEXT_BUDGET.interview),
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -297,7 +298,9 @@ export class DebateEngine {
       messages: [
         {
           role: "user",
-          content: [requirementsBlock(sheet), contextBlock(session.context, 30_000), "Design your solution."].filter(Boolean).join("\n\n"),
+          content: [requirementsBlock(sheet), contextBlock(session.context, CONTEXT_BUDGET.proposal), "Design your solution."]
+            .filter(Boolean)
+            .join("\n\n"),
         },
       ],
     });
@@ -330,6 +333,7 @@ export class DebateEngine {
             requirementsBlock(sheet),
             answersBlock(allAnswers(session)),
             proposalsBlock(targets),
+            contextBlock(session.context, CONTEXT_BUDGET.critique),
             earlier.length > 0 ? fence("debate", JSON.stringify(earlier, null, 2)) : "",
             probe ? fence("probe", probe.angle) : "",
             `Criticise these proposals. Valid targets: ${Object.keys(targets).join(", ")}.`,
@@ -358,6 +362,7 @@ export class DebateEngine {
             requirementsBlock(sheet),
             answersBlock(allAnswers(session)),
             proposalsBlock(currentProposals(session)),
+            contextBlock(session.context, CONTEXT_BUDGET.critique),
             fence("debate", JSON.stringify(critiques, null, 2)),
             "Find the angle nobody examined.",
           ]
@@ -432,6 +437,7 @@ export class DebateEngine {
             requirementsBlock(sheet),
             answersBlock(allAnswers(session)),
             proposalsBlock(currentProposals(session)),
+            contextBlock(session.context, CONTEXT_BUDGET.verdict),
             fence("debate", JSON.stringify(transcript, null, 2)),
             "Rule on these options.",
           ]
