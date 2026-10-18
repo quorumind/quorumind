@@ -426,9 +426,9 @@ export const LABELS: Record<Locale, Labels> = {
     weightedScore: "Note pondérée",
     weight: "poids {weight}/5",
     scoreLegend:
-      "Les notes vont de 1 (la moins bonne) à 5 (la meilleure au regard de vos priorités). Les poids vont de 1 (faible) à 5 (critique) ; la note pondérée est la moyenne des notes selon ces poids.",
-    closeCall: "Écart serré : {first} face à {second}",
-    clearLead: "Avance nette : {first} sur {second}",
+      "Les notes vont de 1 (la moins bonne) à 5 (la meilleure au regard de vos priorités). Les poids vont de 1 (faible) à 5 (critique) ; la note pondérée est la moyenne des notes selon ces poids.",
+    closeCall: "Écart serré : {first} face à {second}",
+    clearLead: "Avance nette : {first} sur {second}",
     costComparison: "Comparaison des coûts",
     total3y: "Total sur 3 ans",
     costNote:
@@ -446,7 +446,7 @@ export const LABELS: Record<Locale, Labels> = {
     detailedRequirements: "Besoin détaillé",
     method: "Comment ce rapport a été établi",
     methodText:
-      "Plusieurs modèles d'IA ont conçu des solutions séparément, se sont critiqués les uns les autres et les ont révisées en {rounds} tour(s). Un arbitre indépendant a ensuite confronté chaque option à votre besoin. Les coûts et les délais sont des estimations à confirmer par des devis, et chaque affirmation clé porte la mention vérifié, estimé ou supposé : lisez ce rapport comme un second avis solidement argumenté, et non comme une garantie.",
+      "Plusieurs modèles d'IA ont conçu des solutions séparément, se sont critiqués les uns les autres et les ont révisées en {rounds} tour(s). Un arbitre indépendant a ensuite confronté chaque option à votre besoin. Les coûts et les délais sont des estimations à confirmer par des devis, et chaque affirmation clé porte la mention vérifié, estimé ou supposé : lisez ce rapport comme un second avis solidement argumenté, et non comme une garantie.",
     shortened: "Le débat a été écourté pour rester dans son budget : {done} des {planned} tour(s) prévu(s) ont eu lieu avant le verdict.",
     interviewer: "Intervieweur",
     proposer: "Proposant {seat}",

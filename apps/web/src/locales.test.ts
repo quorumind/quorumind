@@ -77,6 +77,16 @@ describe("interface translations", () => {
     expect(keys(load(code)).sort()).toEqual(englishKeys);
   });
 
+  it("follows French typography: a no-break space before : ; ? ! » and after «", () => {
+    const french = load("fr");
+    for (const key of englishKeys) {
+      const text = value(french, key);
+      expect(text, key).not.toMatch(/ [:;?!»]|« /);
+      // A word glued to the punctuation mark, as in "Note:" (a URL or a time such as 10:30 is not followed by a space).
+      expect(text, key).not.toMatch(/[\p{L}\p{N}})][:;?!](\s|$)/u);
+    }
+  });
+
   it.each(LOCALES.map((locale) => locale.code))("%s keeps every placeholder", (code) => {
     const translated = load(code);
     for (const key of englishKeys) {

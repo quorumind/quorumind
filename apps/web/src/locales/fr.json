@@ -1,7 +1,7 @@
 {
   "app": {
     "tagline": "Plusieurs IA débattent de votre projet avant que vous le construisiez.",
-    "footer": "Open source sous licence AGPL v3. Les réponses des modèles peuvent être fausses : vérifiez les affirmations marquées estimées ou supposées."
+    "footer": "Open source sous licence AGPL v3. Les réponses des modèles peuvent être fausses : vérifiez les affirmations marquées estimées ou supposées."
   },
   "nav": {
     "home": "Accueil",
@@ -26,12 +26,12 @@
     "start": "Commencer l'entretien",
     "demo": "Rejouer la démo enregistrée",
     "demoHint": "Un débat enregistré, en anglais. Aucune clé API nécessaire.",
-    "noKey": "Aucune clé API n'est configurée sur ce serveur : seule la démo est disponible.",
+    "noKey": "Aucune clé API n'est configurée sur ce serveur : seule la démo est disponible.",
     "rounds": "Tours de débat",
     "budget": "Plafond de coût (USD)",
     "budgetNone": "Sans plafond",
     "estimate": "Un débat coûte environ {{low}} à {{high}}.",
-    "lineup": "Débattent aujourd'hui : {{seats}}. Arbitre : {{arbiter}}.",
+    "lineup": "Débattent aujourd'hui : {{seats}}. Arbitre : {{arbiter}}.",
     "newTitle": "Nouvelle session",
     "newLead": "Décrivez le projet à préparer. Quorumind vous interroge, puis les modèles débattent et un arbitre tranche."
   },
@@ -53,8 +53,8 @@
   },
   "interview": {
     "thinking": "L'intervieweur prépare ses questions…",
-    "why": "Pourquoi c'est important :",
-    "answerPlaceholder": "Votre réponse, ou « je ne sais pas »",
+    "why": "Pourquoi c'est important :",
+    "answerPlaceholder": "Votre réponse, ou « je ne sais pas »",
     "unknown": "Je ne sais pas",
     "send": "Envoyer les réponses",
     "sending": "Envoi…"
@@ -149,8 +149,8 @@
   },
   "debate": {
     "blind": "Propositions à l'aveugle",
-    "critiques": "Tour {{round}} : critiques",
-    "revisions": "Tour {{round}} : révisions",
+    "critiques": "Tour {{round}} : critiques",
+    "revisions": "Tour {{round}} : révisions",
     "verdict": "Verdict",
     "writing": "écrit…",
     "showDetails": "Voir le détail",
@@ -188,7 +188,7 @@
     "rejected": "Rejetée"
   },
   "verdict": {
-    "recommended": "Recommandée : option {{seat}}",
+    "recommended": "Recommandée : option {{seat}}",
     "none": "Aucune option n'est faisable en l'état.",
     "matrix": "Matrice de décision",
     "option": "Option",
@@ -229,7 +229,7 @@
     "label": "Coût jusqu'ici",
     "cap": "plafond {{cap}}",
     "quote": "{{label}} : {{price}}",
-    "partial": "Le prix de certains modèles est inconnu : le total est partiel."
+    "partial": "Le prix de certains modèles est inconnu : le total est partiel."
   },
   "error": {
     "title": "La session s'est arrêtée",
@@ -274,7 +274,7 @@
     "verdict": "Verdict"
   },
   "setup": {
-    "modeLabel": "De quoi avez-vous besoin ?",
+    "modeLabel": "De quoi avez-vous besoin ?",
     "mode": {
       "standard": "Comparer des solutions",
       "express": "Avis rapide",
@@ -282,11 +282,11 @@
     },
     "modeHint": {
       "standard": "Les modèles conçoivent des options concurrentes, se critiquent mutuellement et l'arbitre tranche.",
-      "express": "Cinq questions, un tour court : un premier avis rapide sur une idée.",
-      "challenge": "Apportez votre propre solution : les modèles ne font qu'en traquer les failles avant que vous vous engagiez."
+      "express": "Cinq questions, un tour court : un premier avis rapide sur une idée.",
+      "challenge": "Apportez votre propre solution : les modèles ne font qu'en traquer les failles avant que vous vous engagiez."
     },
     "solutionLabel": "Votre solution",
-    "solutionPlaceholder": "Décrivez ce que vous prévoyez de construire et comment : technologies, hébergement, équipe, calendrier…",
+    "solutionPlaceholder": "Décrivez ce que vous prévoyez de construire et comment : technologies, hébergement, équipe, calendrier…",
     "templateLabel": "Type de projet",
     "templateNone": "Autre",
     "contextLabel": "Documents (facultatif)",
@@ -309,11 +309,11 @@
     "removeSeat": "Retirer le proposant {{seat}}",
     "addDevil": "Ajouter un avocat du diable",
     "removeDevil": "Retirer l'avocat du diable",
-    "devilHint": "L'avocat du diable ne propose rien : il attaque chaque option pour révéler les coûts et les risques cachés.",
+    "devilHint": "L'avocat du diable ne propose rien : il attaque chaque option pour révéler les coûts et les risques cachés.",
     "redact": "Masquer les données personnelles",
     "redactHint": "Les e-mails, numéros de téléphone, numéros de carte, IBAN et clés sont remplacés avant tout envoi aux modèles.",
     "notify": "M'avertir par e-mail quand le débat se termine ou attend ma réponse",
-    "estimateUnknown": "L'estimation du coût n'est pas disponible pour certains de ces modèles ; le coût réel s'affiche pendant le débat.",
+    "estimateUnknown": "L'estimation du coût n'est pas disponible pour certains de ces modèles ; le coût réel s'affiche pendant le débat.",
     "local": "Rien ne quitte cette machine",
     "startChallenge": "Challenger ma solution",
     "importing": "Attendez la fin de l'import des documents avant de commencer."
@@ -392,16 +392,16 @@
   "brief": {
     "title": "Version pour",
     "full": "Verdict complet",
-    "hint": "Le même verdict, réécrit pour un autre lecteur : le vocabulaire et le niveau de détail changent, jamais le fond.",
+    "hint": "Le même verdict, réécrit pour un autre lecteur : le vocabulaire et le niveau de détail changent, jamais le fond.",
     "audience": {
       "cto": "CTO",
       "executive": "Direction",
       "client": "Client"
     },
     "describe": {
-      "cto": "Une version pour un CTO ou un lead développeur : architecture, compromis et risques techniques.",
-      "executive": "Une version pour qui décide et paie : résultat, coût, délai, risque, et ce qu'on attend de lui.",
-      "client": "Une version pour un client non technique : ce qu'il obtient, quand, pour combien, en termes simples."
+      "cto": "Une version pour un CTO ou un lead développeur : architecture, compromis et risques techniques.",
+      "executive": "Une version pour qui décide et paie : résultat, coût, délai, risque, et ce qu'on attend de lui.",
+      "client": "Une version pour un client non technique : ce qu'il obtient, quand, pour combien, en termes simples."
     },
     "write": "Rédiger cette version",
     "writing": "Rédaction…",
@@ -420,15 +420,15 @@
     "opposed": "Opposition"
   },
   "feedback": {
-    "question": "Ce verdict vous a-t-il aidé ?",
+    "question": "Ce verdict vous a-t-il aidé ?",
     "yes": "Oui",
     "no": "Pas vraiment",
-    "commentLabel": "Qu'est-ce qui l'aurait rendu plus utile ? (facultatif)",
+    "commentLabel": "Qu'est-ce qui l'aurait rendu plus utile ? (facultatif)",
     "send": "Envoyer",
     "thanks": "Merci. Votre réponse nous aide à améliorer les débats.",
     "reportError": "Signaler une erreur dans ce rapport",
     "errorTitle": "Signaler une erreur",
-    "errorLabel": "Qu'est-ce qui ne va pas ?",
+    "errorLabel": "Qu'est-ce qui ne va pas ?",
     "errorThanks": "Merci. Nous allons l'examiner."
   },
   "share": {
@@ -443,7 +443,7 @@
     "public": "L'afficher dans la galerie publique",
     "publicHint": "D'autres personnes pourront la consulter comme exemple. Seules les sessions terminées peuvent y figurer.",
     "stop": "Arrêter le partage",
-    "privacy": "Vous pouvez arrêter le partage à tout moment : le lien cesse aussitôt de fonctionner.",
+    "privacy": "Vous pouvez arrêter le partage à tout moment : le lien cesse aussitôt de fonctionner.",
     "readOnly": "Vous consultez une session partagée. Elle ne peut pas être modifiée.",
     "modeLabel": "Ce que le lien montre",
     "mode": {
@@ -479,7 +479,7 @@
     "forkHint": "Une nouvelle session avec le même besoin, pour modifier ce qui a changé et relancer le débat",
     "fromEarlier": "Issue d'une session précédente",
     "delete": "Supprimer",
-    "deleteTitle": "Supprimer cette session ?",
+    "deleteTitle": "Supprimer cette session ?",
     "deleteLead": "L'entretien, le débat et le rapport sont supprimés définitivement, et tout lien partagé cesse de fonctionner.",
     "deleteConfirm": "Supprimer définitivement",
     "stop": "Arrêter",
@@ -498,7 +498,7 @@
     "title": "Paramètres",
     "models": "Modèles",
     "modelsLead": "Les modèles que ce serveur peut utiliser. Choisissez-les pour chaque rôle en lançant une session.",
-    "localOnly": "Mode local uniquement : seuls les modèles qui tournent sur cette machine sont disponibles.",
+    "localOnly": "Mode local uniquement : seuls les modèles qui tournent sur cette machine sont disponibles.",
     "local": "Local",
     "data": "Vos données",
     "retention": "Les sessions inactives depuis {{days}} jours sont supprimées automatiquement.",
@@ -512,7 +512,7 @@
     "markdown": "Rapport Markdown",
     "markdownHint": "Texte brut, lisible par les personnes et les agents de code",
     "pdf": "PDF",
-    "pdfHint": "Ouvre le rapport imprimable : choisissez « Enregistrer au format PDF »",
+    "pdfHint": "Ouvre le rapport imprimable : choisissez « Enregistrer au format PDF »",
     "word": "Document Word",
     "wordHint": "Rapport .docx modifiable",
     "adr": "Enregistrement de décision d'architecture",
@@ -531,10 +531,10 @@
     "briefPdfHint": "Le verdict réécrit pour ce lecteur, prêt à envoyer"
   },
   "diagram": {
-    "label": "Schéma d'architecture : {{title}}",
+    "label": "Schéma d'architecture : {{title}}",
     "components": "Composants",
     "flows": "Flux entre composants",
-    "flow": "{{from}} vers {{to}} : {{label}}",
+    "flow": "{{from}} vers {{to}} : {{label}}",
     "flowUnlabelled": "{{from}} vers {{to}}",
     "kind": {
       "client": "Client",
@@ -548,7 +548,7 @@
   },
   "branding": {
     "title": "Personnalisation des exports",
-    "lead": "Affichez le nom, le logo et la couleur de votre agence sur les rapports à la place de ceux de Quorumind. Une mention discrète « Préparé avec Quorumind » subsiste.",
+    "lead": "Affichez le nom, le logo et la couleur de votre agence sur les rapports à la place de ceux de Quorumind. Une mention discrète « Préparé avec Quorumind » subsiste.",
     "name": "Nom",
     "namePlaceholder": "Votre agence ou entreprise",
     "logo": "Logo",
