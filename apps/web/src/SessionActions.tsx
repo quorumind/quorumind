@@ -5,6 +5,7 @@ import { navigate, useSessions } from "./App.tsx";
 import { useCanEdit } from "./access.tsx";
 import { api, type Share } from "./api.ts";
 import { BranchIcon, CheckIcon, ShareIcon, TrashIcon } from "./components/Icons.tsx";
+import { failureText } from "./errors.ts";
 
 /** Share, start again from this session, delete: the actions on a session's header. */
 export function SessionActions({
@@ -34,7 +35,7 @@ export function SessionActions({
     try {
       await work();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error.request"));
+      setError(failureText(t, caught));
     } finally {
       setPending(false);
     }

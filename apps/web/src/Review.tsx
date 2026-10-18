@@ -3,6 +3,7 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "./api.ts";
 import { ArrowIcon, CrossIcon } from "./components/Icons.tsx";
+import { failureText } from "./errors.ts";
 
 type ListField =
   | "goals"
@@ -62,8 +63,8 @@ export function Review({ session }: { session: Session }) {
     };
     try {
       await api.confirmSheet(session.id, final);
-    } catch {
-      setError(t("error.request"));
+    } catch (caught) {
+      setError(failureText(t, caught));
       setSending(false);
     }
   };

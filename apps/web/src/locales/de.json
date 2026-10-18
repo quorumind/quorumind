@@ -170,10 +170,6 @@
   },
   "error": {
     "title": "Die Sitzung wurde angehalten",
-    "budget_exceeded": "Die Kostengrenze ist erreicht.",
-    "priceLimit": "Die Debatte hat die gesamte im Preis enthaltene Modellkapazität verbraucht.",
-    "provider_error": "Ein Modell konnte nicht antworten.",
-    "internal_error": "Ein unerwarteter Fehler ist aufgetreten.",
     "retry": "Dort fortsetzen, wo sie angehalten hat",
     "network": "Verbindung verloren. Neu verbinden…",
     "request": "Die Anfrage ist fehlgeschlagen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
@@ -477,5 +473,32 @@
     "makePrivate": "Privat machen",
     "makeShared": "Mit dem Arbeitsbereich teilen",
     "readOnly": "Sie können diese Sitzung lesen und von hier neu starten. Nur ihr Autor oder ein Admin des Arbeitsbereichs kann sie ändern."
+  },
+  "errors": {
+    "budget_exceeded": "Die Kostengrenze ist erreicht.",
+    "price_limit": "Die Debatte hat die gesamte im Preis enthaltene Modellkapazität verbraucht.",
+    "provider_error": "Ein Modell konnte nicht antworten.",
+    "internal_error": "Ein unerwarteter Fehler ist aufgetreten.",
+    "generic": "Etwas ist schiefgelaufen. Versuchen Sie es erneut.",
+    "invalid_request": "Einige der gesendeten Angaben sind ungültig. Prüfen Sie sie und versuchen Sie es erneut.",
+    "too_large": "Das ist zu groß zum Senden.",
+    "unauthorized": "Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.",
+    "not_found": "Diese Sitzung existiert nicht oder wurde gelöscht.",
+    "live_unavailable": "Auf diesem Server ist kein KI-Modell eingerichtet. Fügen Sie einen API-Schlüssel hinzu oder probieren Sie die Demo aus.",
+    "idea_missing": "Beschreiben Sie zuerst Ihre Projektidee.",
+    "challenge_missing": "Beschreiben Sie die Lösung, die auf den Prüfstand soll.",
+    "invalid_lineup": "Eines der gewählten Modelle ist auf diesem Server nicht verfügbar. Prüfen Sie die Modelle in den Debatteneinstellungen.",
+    "session_busy": "Diese Sitzung arbeitet bereits. Warten Sie, bis sie fertig ist.",
+    "wrong_phase": "Diese Aktion passt nicht mehr zum Stand der Sitzung. Laden Sie die Seite neu.",
+    "brief_missing": "Diese Fassung für einen Leser wurde noch nicht geschrieben.",
+    "provider_auth": "Der Modellanbieter hat den API-Schlüssel abgelehnt. Prüfen Sie den auf dem Server eingerichteten Schlüssel.",
+    "provider_quota": "Das Konto beim Modellanbieter hat kein Guthaben mehr.",
+    "provider_rate_limit": "Der Modellanbieter begrenzt gerade die Anfragen. Warten Sie eine Minute und versuchen Sie es dann erneut.",
+    "provider_unavailable": "Der Modellanbieter ist nicht erreichbar oder überlastet. Versuchen Sie es gleich noch einmal.",
+    "provider_refused": "Das Modell hat die Antwort auf diese Anfrage verweigert. Formulieren Sie den heiklen Teil um oder wählen Sie ein anderes Modell.",
+    "insufficient_credits": "Sie haben kein Guthaben mehr. Kaufen Sie Guthaben oder schließen Sie einen Tarif ab, um fortzufahren.",
+    "plan_limit": "Ihr Tarif erlaubt das nicht. Wählen Sie andere Einstellungen oder einen anderen Tarif.",
+    "seat_limit": "Der Tarif dieses Arbeitsbereichs hat keinen freien Platz mehr. Wählen Sie einen Tarif mit mehr Plätzen.",
+    "read_only": "Nur der Autor dieser Sitzung oder ein Admin ihres Arbeitsbereichs kann sie ändern."
   }
 }

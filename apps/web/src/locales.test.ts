@@ -19,9 +19,44 @@ function value(node: Record<string, unknown>, path: string): string {
   return path.split(".").reduce<unknown>((current, key) => (current as Record<string, unknown>)[key], node) as string;
 }
 
+// The codes the API answers with, or stores on a failed session: the interface explains each one (errors.ts). The
+// hosted version relies on the codes of its own refusals (insufficient_credits…) being translated here.
+const ERROR_CODES = [
+  "generic",
+  "internal_error",
+  "invalid_request",
+  "too_large",
+  "unauthorized",
+  "not_found",
+  "live_unavailable",
+  "idea_missing",
+  "challenge_missing",
+  "invalid_lineup",
+  "session_busy",
+  "wrong_phase",
+  "read_only",
+  "brief_missing",
+  "budget_exceeded",
+  "provider_error",
+  "provider_auth",
+  "provider_quota",
+  "provider_rate_limit",
+  "provider_unavailable",
+  "provider_refused",
+  "insufficient_credits",
+  "plan_limit",
+  "price_limit",
+  "seat_limit",
+];
+
 describe("interface translations", () => {
   const english = load("en");
   const englishKeys = keys(english).sort();
+
+  it("explains every error code of the API", () => {
+    const explained = Object.keys(english.errors as Record<string, string>);
+    expect(ERROR_CODES.filter((code) => !explained.includes(code))).toEqual([]);
+  });
 
   it("has one file per supported language", () => {
     const files = readdirSync(dir)

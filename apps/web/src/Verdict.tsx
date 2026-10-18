@@ -9,6 +9,7 @@ import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ExportMenu } from "./components/ExportMenu.tsx";
 import { CheckIcon, CrossIcon, DownloadIcon, MapIcon, SparkIcon, WarningIcon } from "./components/Icons.tsx";
 import { seatName } from "./Debate.tsx";
+import { failureText } from "./errors.ts";
 import { formatMoney } from "./format.ts";
 import { useFlip } from "./useFlip.ts";
 
@@ -58,7 +59,7 @@ function Briefs({ session, readOnly }: { session: Session; readOnly: boolean }) 
     try {
       await api.brief(session.id, value);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error.request"));
+      setError(failureText(t, caught));
     } finally {
       setPending(false);
     }

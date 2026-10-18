@@ -101,13 +101,16 @@ export interface NewSessionInput {
   notify: boolean;
 }
 
+/** An error answered by the server: a stable code the interface translates (errors.ts), with its parameters. */
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
-  constructor(status: number, code: string, message: string) {
+  readonly params: Record<string, string | number>;
+  constructor(status: number, code: string, message: string, params: Record<string, string | number> = {}) {
     super(message);
     this.status = status;
     this.code = code;
+    this.params = params;
   }
 }
 
@@ -117,8 +120,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: init?.body ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
   });
   if (response.status === 204) return undefined as T;
-  const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
-  if (!response.ok) throw new ApiError(response.status, body.error ?? "error", body.message ?? response.statusText);
+  const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string; params?: Record<string, string | number> };
+  if (!response.ok) throw new ApiError(response.status, body.error ?? "error", body.message ?? response.statusText, body.params);
   return body as T;
 }
 

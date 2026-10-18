@@ -170,10 +170,6 @@
   },
   "error": {
     "title": "会话已停止",
-    "budget_exceeded": "已达到费用上限。",
-    "priceLimit": "本次辩论已用完其价格所含的全部模型额度。",
-    "provider_error": "某个模型未能作答。",
-    "internal_error": "发生了意外错误。",
     "retry": "从中断处继续",
     "network": "连接已断开，正在重新连接…",
     "request": "请求失败。请检查网络连接后重试。"
@@ -477,5 +473,32 @@
     "makePrivate": "设为私密",
     "makeShared": "与工作区共享",
     "readOnly": "您可以查看此会话并从这里重新开始。只有其作者或工作区管理员可以修改它。"
+  },
+  "errors": {
+    "budget_exceeded": "已达到费用上限。",
+    "price_limit": "本次辩论已用完其价格所含的全部模型额度。",
+    "provider_error": "某个模型未能作答。",
+    "internal_error": "发生了意外错误。",
+    "generic": "出了点问题。请重试。",
+    "invalid_request": "发送的部分信息无效。请检查后重试。",
+    "too_large": "内容太大，无法发送。",
+    "unauthorized": "您的会话已结束。请重新登录。",
+    "not_found": "此会话不存在或已被删除。",
+    "live_unavailable": "此服务器未配置任何 AI 模型。请添加 API 密钥，或试用演示。",
+    "idea_missing": "请先描述您的项目想法。",
+    "challenge_missing": "请描述您希望接受检验的方案。",
+    "invalid_lineup": "所选的某个模型在此服务器上不可用。请在辩论设置中检查模型。",
+    "session_busy": "此会话正在运行。请等待其完成。",
+    "wrong_phase": "此操作已不符合会话当前所处的阶段。请重新加载页面。",
+    "brief_missing": "面向该读者的版本尚未撰写。",
+    "provider_auth": "模型提供商拒绝了 API 密钥。请检查服务器上配置的密钥。",
+    "provider_quota": "模型提供商的账户已无余额。",
+    "provider_rate_limit": "模型提供商目前正在限制请求。请等待一分钟后重试。",
+    "provider_unavailable": "无法连接模型提供商，或其负载过高。请稍后重试。",
+    "provider_refused": "模型拒绝回答此请求。请改写其中的敏感部分，或选择其他模型。",
+    "insufficient_credits": "您的额度已用完。请购买额度或订阅套餐以继续。",
+    "plan_limit": "您的套餐不允许此操作。请选择其他设置或其他套餐。",
+    "seat_limit": "此工作区的套餐已无空余席位。请选择席位更多的套餐。",
+    "read_only": "只有此会话的作者或其工作区管理员可以修改它。"
   }
 }

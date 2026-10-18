@@ -170,10 +170,6 @@
   },
   "error": {
     "title": "The session stopped",
-    "budget_exceeded": "The cost cap is reached.",
-    "priceLimit": "The debate used all the model capacity its price includes.",
-    "provider_error": "A model could not answer.",
-    "internal_error": "An unexpected error occurred.",
     "retry": "Retry from where it stopped",
     "network": "Connection lost. Reconnecting…",
     "request": "The request failed. Check your connection and try again."
@@ -477,5 +473,32 @@
     "makePrivate": "Make private",
     "makeShared": "Share with the workspace",
     "readOnly": "You can read this session and start again from it. Only its author or an admin of the workspace can change it."
+  },
+  "errors": {
+    "budget_exceeded": "The cost cap is reached.",
+    "price_limit": "The debate used all the model capacity its price includes.",
+    "provider_error": "A model could not answer.",
+    "internal_error": "An unexpected error occurred.",
+    "generic": "Something went wrong. Try again.",
+    "invalid_request": "Some of the information sent is not valid. Check it and try again.",
+    "too_large": "This is too large to send.",
+    "unauthorized": "Your session has ended. Sign in again.",
+    "not_found": "This session does not exist or was deleted.",
+    "live_unavailable": "No AI model is configured on this server. Add an API key, or try the demo.",
+    "idea_missing": "Describe your project idea first.",
+    "challenge_missing": "Describe the solution you want challenged.",
+    "invalid_lineup": "One of the chosen models is not available on this server. Check the models in the debate settings.",
+    "session_busy": "This session is already working. Wait for it to finish.",
+    "wrong_phase": "This action no longer matches where the session stands. Reload the page.",
+    "brief_missing": "This reader version has not been written yet.",
+    "provider_auth": "The model provider rejected the API key. Check the key configured on the server.",
+    "provider_quota": "The model provider's account has no credit left.",
+    "provider_rate_limit": "The model provider is limiting requests right now. Wait a minute, then retry.",
+    "provider_unavailable": "The model provider cannot be reached or is overloaded. Retry in a moment.",
+    "provider_refused": "The model declined to answer this request. Rephrase the sensitive part, or choose another model.",
+    "insufficient_credits": "You have no credits left. Buy credits or subscribe to a plan to continue.",
+    "plan_limit": "Your plan does not allow this. Choose other settings or another plan.",
+    "seat_limit": "This workspace has no seat left in its plan. Choose a plan with more seats.",
+    "read_only": "Only the author of this session or an admin of its workspace can change it."
   }
 }

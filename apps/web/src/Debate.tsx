@@ -7,6 +7,7 @@ import { useCanEdit } from "./access.tsx";
 import { api } from "./api.ts";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ArrowIcon, DevilIcon, ProbeIcon } from "./components/Icons.tsx";
+import { failureText } from "./errors.ts";
 import { formatMoney } from "./format.ts";
 import type { LiveSpeech } from "./useSession.ts";
 
@@ -234,8 +235,8 @@ function QuestionsCard({ session, questions }: { session: Session; questions: st
         session.id,
         questions.map((question, index) => ({ question, answer: answers[index]?.trim() || t("interview.unknown") })),
       );
-    } catch {
-      setError(t("error.request"));
+    } catch (caught) {
+      setError(failureText(t, caught));
       setSending(false);
     }
   };

@@ -170,10 +170,6 @@
   },
   "error": {
     "title": "La session s'est arrêtée",
-    "budget_exceeded": "Le plafond de coût est atteint.",
-    "priceLimit": "Le débat a utilisé toute la capacité de calcul comprise dans son prix.",
-    "provider_error": "Un modèle n'a pas pu répondre.",
-    "internal_error": "Une erreur inattendue s'est produite.",
     "retry": "Reprendre là où elle s'est arrêtée",
     "network": "Connexion perdue. Reconnexion…",
     "request": "La requête a échoué. Vérifiez votre connexion et réessayez."
@@ -477,5 +473,32 @@
     "makePrivate": "Rendre privée",
     "makeShared": "Partager avec l'espace de travail",
     "readOnly": "Vous pouvez lire cette session et repartir de celle-ci. Seuls son auteur et les administrateurs de l'espace de travail peuvent la modifier."
+  },
+  "errors": {
+    "budget_exceeded": "Le plafond de coût est atteint.",
+    "price_limit": "Le débat a utilisé toute la capacité de calcul comprise dans son prix.",
+    "provider_error": "Un modèle n'a pas pu répondre.",
+    "internal_error": "Une erreur inattendue s'est produite.",
+    "generic": "Quelque chose n'a pas fonctionné. Réessayez.",
+    "invalid_request": "Certaines informations envoyées ne sont pas valides. Vérifiez-les et réessayez.",
+    "too_large": "C'est trop volumineux pour être envoyé.",
+    "unauthorized": "Votre session a pris fin. Reconnectez-vous.",
+    "not_found": "Cette session n'existe pas ou a été supprimée.",
+    "live_unavailable": "Aucun modèle d'IA n'est configuré sur ce serveur. Ajoutez une clé API, ou essayez la démo.",
+    "idea_missing": "Décrivez d'abord votre idée de projet.",
+    "challenge_missing": "Décrivez la solution que vous voulez mettre à l'épreuve.",
+    "invalid_lineup": "L'un des modèles choisis n'est pas disponible sur ce serveur. Vérifiez les modèles dans les paramètres du débat.",
+    "session_busy": "Cette session est déjà au travail. Attendez qu'elle ait terminé.",
+    "wrong_phase": "Cette action ne correspond plus à l'étape de la session. Rechargez la page.",
+    "brief_missing": "Cette version pour un lecteur n'a pas encore été rédigée.",
+    "provider_auth": "Le fournisseur du modèle a refusé la clé API. Vérifiez la clé configurée sur le serveur.",
+    "provider_quota": "Le compte du fournisseur du modèle n'a plus de crédit.",
+    "provider_rate_limit": "Le fournisseur du modèle limite les requêtes en ce moment. Patientez une minute, puis réessayez.",
+    "provider_unavailable": "Le fournisseur du modèle est injoignable ou surchargé. Réessayez dans un instant.",
+    "provider_refused": "Le modèle a refusé de répondre à cette demande. Reformulez la partie sensible, ou choisissez un autre modèle.",
+    "insufficient_credits": "Vous n'avez plus de crédits. Achetez des crédits ou souscrivez un forfait pour continuer.",
+    "plan_limit": "Votre forfait ne le permet pas. Choisissez d'autres paramètres ou un autre forfait.",
+    "seat_limit": "Le forfait de cet espace n'a plus de place libre. Choisissez un forfait avec plus de places.",
+    "read_only": "Seuls l'auteur de cette session et les administrateurs de son espace de travail peuvent la modifier."
   }
 }

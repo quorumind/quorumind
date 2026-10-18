@@ -8,6 +8,7 @@ import { type AppConfig, api, type PriceQuote } from "./api.ts";
 import { ContextPicker } from "./components/ContextPicker.tsx";
 import { ArrowIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
 import { Skeleton } from "./components/Logo.tsx";
+import { failureText } from "./errors.ts";
 import { formatPrice, formatUsd, groupLabel } from "./format.ts";
 
 const MODES: Mode[] = ["standard", "express", "challenge"];
@@ -318,7 +319,7 @@ export function NewSession() {
       refresh();
       navigate(`s/${session.id}`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error.request"));
+      setError(failureText(t, caught));
       setPending(null);
     }
   };

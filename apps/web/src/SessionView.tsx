@@ -9,6 +9,7 @@ import { Costs } from "./Costs.tsx";
 import { RetryIcon } from "./components/Icons.tsx";
 import { Loader, Skeleton } from "./components/Logo.tsx";
 import { Debate } from "./Debate.tsx";
+import { failureText, sessionErrorText } from "./errors.ts";
 import { formatPrice, formatUsd } from "./format.ts";
 import { Interview } from "./Interview.tsx";
 import { Review } from "./Review.tsx";
@@ -161,6 +162,7 @@ function SessionBody({
   const { t, i18n } = useTranslation();
   const access = useContext(AccessContext);
   const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab | null>(null);
 
   const phase = session?.phase;
@@ -195,8 +197,11 @@ function SessionBody({
 
   const retry = async () => {
     setRetrying(true);
+    setRetryError(null);
     try {
       await api.resume(session.id);
+    } catch (caught) {
+      setRetryError(failureText(t, caught));
     } finally {
       setRetrying(false);
     }
@@ -264,13 +269,17 @@ function SessionBody({
           <div className="notice notice-error stack" role="alert">
             <strong>{t("error.title")}</strong>
             <span>
-              {t(
-                session.error?.code === "budget_exceeded" && !providerCosts
-                  ? "error.priceLimit"
-                  : `error.${session.error?.code ?? "internal_error"}`,
-              )}{" "}
-              <span className="muted">{session.error?.message}</span>
+              {sessionErrorText(t, session.error, providerCosts, i18n.language)}
+              {session.error?.params?.model ? (
+                <>
+                  {" "}
+                  <span className="muted mono">
+                    ({session.error.params.provider} · {session.error.params.model})
+                  </span>
+                </>
+              ) : null}
             </span>
+            {retryError ? <span>{retryError}</span> : null}
             {access.canEdit ? (
               <div>
                 <button type="button" className="button button-secondary" onClick={retry} disabled={retrying}>

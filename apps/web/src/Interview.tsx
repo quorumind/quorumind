@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AccessContext, authorName } from "./access.tsx";
 import { api } from "./api.ts";
 import { ArrowIcon } from "./components/Icons.tsx";
+import { failureText } from "./errors.ts";
 import { type LiveSpeech, speechKey } from "./useSession.ts";
 
 function InterviewerMessage({ text, typing }: { text: string; typing?: boolean }) {
@@ -37,8 +38,8 @@ function QuestionsForm({ session, turn }: { session: Session; turn: InterviewTur
         session.id,
         turn.questions.map((question) => ({ question: question.text, answer: answers[question.id]?.trim() || t("interview.unknown") })),
       );
-    } catch {
-      setError(t("error.request"));
+    } catch (caught) {
+      setError(failureText(t, caught));
       setSending(false);
     }
   };

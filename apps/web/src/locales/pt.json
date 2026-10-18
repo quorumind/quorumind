@@ -170,10 +170,6 @@
   },
   "error": {
     "title": "A sessão foi interrompida",
-    "budget_exceeded": "O limite de custo foi atingido.",
-    "priceLimit": "O debate usou toda a capacidade dos modelos incluída no seu preço.",
-    "provider_error": "Um modelo não conseguiu responder.",
-    "internal_error": "Ocorreu um erro inesperado.",
     "retry": "Retomar de onde parou",
     "network": "Conexão perdida. Reconectando…",
     "request": "A solicitação falhou. Verifique sua conexão e tente novamente."
@@ -477,5 +473,32 @@
     "makePrivate": "Tornar privada",
     "makeShared": "Compartilhar com o espaço de trabalho",
     "readOnly": "Você pode ler esta sessão e recomeçar a partir dela. Só o autor ou um administrador do espaço de trabalho pode alterá-la."
+  },
+  "errors": {
+    "budget_exceeded": "O limite de custo foi atingido.",
+    "price_limit": "O debate usou toda a capacidade dos modelos incluída no seu preço.",
+    "provider_error": "Um modelo não conseguiu responder.",
+    "internal_error": "Ocorreu um erro inesperado.",
+    "generic": "Algo deu errado. Tente de novo.",
+    "invalid_request": "Parte das informações enviadas não é válida. Confira e tente de novo.",
+    "too_large": "Isto é grande demais para enviar.",
+    "unauthorized": "Sua sessão terminou. Entre de novo.",
+    "not_found": "Esta sessão não existe ou foi excluída.",
+    "live_unavailable": "Nenhum modelo de IA está configurado neste servidor. Adicione uma chave de API ou experimente a demo.",
+    "idea_missing": "Descreva primeiro a ideia do seu projeto.",
+    "challenge_missing": "Descreva a solução que você quer pôr à prova.",
+    "invalid_lineup": "Um dos modelos escolhidos não está disponível neste servidor. Confira os modelos nas configurações do debate.",
+    "session_busy": "Esta sessão já está trabalhando. Espere ela terminar.",
+    "wrong_phase": "Esta ação não corresponde mais à etapa da sessão. Recarregue a página.",
+    "brief_missing": "Esta versão para um leitor ainda não foi escrita.",
+    "provider_auth": "O provedor do modelo recusou a chave de API. Confira a chave configurada no servidor.",
+    "provider_quota": "A conta do provedor do modelo está sem crédito.",
+    "provider_rate_limit": "O provedor do modelo está limitando as solicitações agora. Espere um minuto e tente de novo.",
+    "provider_unavailable": "O provedor do modelo está inacessível ou sobrecarregado. Tente de novo em instantes.",
+    "provider_refused": "O modelo se recusou a responder a esta solicitação. Reformule a parte sensível ou escolha outro modelo.",
+    "insufficient_credits": "Você não tem mais créditos. Compre créditos ou assine um plano para continuar.",
+    "plan_limit": "Seu plano não permite isso. Escolha outras configurações ou outro plano.",
+    "seat_limit": "O plano deste espaço não tem mais lugares livres. Escolha um plano com mais lugares.",
+    "read_only": "Só o autor desta sessão ou um administrador do seu espaço de trabalho pode alterá-la."
   }
 }

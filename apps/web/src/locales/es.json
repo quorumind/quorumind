@@ -170,10 +170,6 @@
   },
   "error": {
     "title": "La sesión se ha detenido",
-    "budget_exceeded": "Se ha alcanzado el límite de coste.",
-    "priceLimit": "El debate ha usado toda la capacidad de los modelos que incluye su precio.",
-    "provider_error": "Un modelo no ha podido responder.",
-    "internal_error": "Se ha producido un error inesperado.",
     "retry": "Reanudar desde donde se detuvo",
     "network": "Conexión perdida. Reconectando…",
     "request": "La solicitud ha fallado. Compruebe su conexión e inténtelo de nuevo."
@@ -477,5 +473,32 @@
     "makePrivate": "Hacerla privada",
     "makeShared": "Compartir con el espacio de trabajo",
     "readOnly": "Puede leer esta sesión y volver a empezar desde ella. Solo su autor o un administrador del espacio de trabajo pueden modificarla."
+  },
+  "errors": {
+    "budget_exceeded": "Se ha alcanzado el límite de coste.",
+    "price_limit": "El debate ha usado toda la capacidad de los modelos que incluye su precio.",
+    "provider_error": "Un modelo no ha podido responder.",
+    "internal_error": "Se ha producido un error inesperado.",
+    "generic": "Algo ha fallado. Inténtelo de nuevo.",
+    "invalid_request": "Parte de la información enviada no es válida. Revísela e inténtelo de nuevo.",
+    "too_large": "Es demasiado grande para enviarlo.",
+    "unauthorized": "Su sesión ha terminado. Inicie sesión de nuevo.",
+    "not_found": "Esta sesión no existe o se ha eliminado.",
+    "live_unavailable": "Este servidor no tiene ningún modelo de IA configurado. Añada una clave API o pruebe la demo.",
+    "idea_missing": "Describa primero la idea de su proyecto.",
+    "challenge_missing": "Describa la solución que quiere poner a prueba.",
+    "invalid_lineup": "Uno de los modelos elegidos no está disponible en este servidor. Revise los modelos en los ajustes del debate.",
+    "session_busy": "Esta sesión ya está trabajando. Espere a que termine.",
+    "wrong_phase": "Esta acción ya no corresponde a la etapa de la sesión. Vuelva a cargar la página.",
+    "brief_missing": "Esta versión para un lector aún no se ha redactado.",
+    "provider_auth": "El proveedor del modelo ha rechazado la clave API. Revise la clave configurada en el servidor.",
+    "provider_quota": "La cuenta del proveedor del modelo no tiene saldo.",
+    "provider_rate_limit": "El proveedor del modelo está limitando las solicitudes en este momento. Espere un minuto y vuelva a intentarlo.",
+    "provider_unavailable": "No se puede contactar con el proveedor del modelo o está saturado. Vuelva a intentarlo en un momento.",
+    "provider_refused": "El modelo se ha negado a responder a esta solicitud. Reformule la parte delicada o elija otro modelo.",
+    "insufficient_credits": "No le quedan créditos. Compre créditos o suscríbase a un plan para continuar.",
+    "plan_limit": "Su plan no lo permite. Elija otros ajustes u otro plan.",
+    "seat_limit": "El plan de este espacio no tiene puestos libres. Elija un plan con más puestos.",
+    "read_only": "Solo el autor de esta sesión o un administrador de su espacio de trabajo pueden modificarla."
   }
 }
