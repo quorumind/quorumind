@@ -7,6 +7,7 @@
 //
 // Needs ffmpeg on the PATH, and Chromium for Playwright (`npx playwright install chromium` once).
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
+import { once } from "node:events";
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -96,7 +97,7 @@ async function playDemo(page: Page, shots: boolean): Promise<string> {
 }
 
 async function stills(browser: Browser, sessionUrl: string) {
-  const dark = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 2, colorScheme: "dark" });
+  const dark = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 2, colorScheme: "dark", locale: "en-US" });
   await dark.goto(sessionUrl);
   await dark.getByRole("heading", { name: "Decision matrix" }).waitFor();
   await pause(dark, 800);
@@ -111,7 +112,7 @@ async function stills(browser: Browser, sessionUrl: string) {
   await arabic.screenshot({ path: join(OUT, "verdict-ar.png") });
   await arabic.close();
 
-  const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "en-US" });
   await phone.goto(sessionUrl);
   await phone.getByRole("heading", { name: "Decision matrix" }).waitFor();
   await pause(phone, 800);
@@ -171,8 +172,11 @@ async function main() {
     console.log(`Media written to ${OUT}${SITE ? ` and ${SITE}` : ""}.`);
   } finally {
     await browser.close();
+    // The server must have exited before its database can be removed (Windows keeps open files locked).
+    const exited = once(server, "exit");
     server.kill();
-    rmSync(work, { recursive: true, force: true });
+    await exited;
+    rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 }
 
