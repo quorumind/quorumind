@@ -8,7 +8,7 @@ import { serve } from "@hono/node-server";
 import { Client } from "@modelcontextprotocol/client";
 import { type CallToolResult, InMemoryTransport } from "@modelcontextprotocol/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../../server/src/app.ts";
+import { type AppHooks, createApp } from "../../server/src/app.ts";
 import { EventBus } from "../../server/src/bus.ts";
 import { SqliteSessionStore } from "../../server/src/store.ts";
 import { QuorumindClient } from "./client.ts";
@@ -24,9 +24,9 @@ interface Running {
   close: () => Promise<void>;
 }
 
-async function startQuorumind(mockDelayMs: number): Promise<Running> {
+async function startQuorumind(mockDelayMs: number, hooks?: AppHooks): Promise<Running> {
   const store = new SqliteSessionStore(":memory:");
-  const app = createApp({ store, bus: new EventBus(), env: {}, mockDelayMs });
+  const app = createApp({ store, bus: new EventBus(), env: {}, mockDelayMs, ...(hooks ? { hooks } : {}) });
   const server = await new Promise<ReturnType<typeof serve>>((resolve) => {
     const started = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, () => resolve(started));
   });
@@ -261,6 +261,60 @@ describe("MCP server on the recorded demo", () => {
     const unreachable = await call(offline, "quorumind_sessions", {});
     expect(textOf(unreachable)).toContain("Cannot reach Quorumind");
     await offline.close();
+  });
+});
+
+describe("on a hosted server, with a token", () => {
+  const TOKEN = "qmd_test-token";
+  let quorumind: Running;
+  let allow = true;
+
+  beforeAll(async () => {
+    // As the hosted version runs it: a bearer token, a price per debate, no provider costs.
+    quorumind = await startQuorumind(0, {
+      identify: async (request) => (request.headers.get("authorization") === `Bearer ${TOKEN}` ? { userId: "ada" } : null),
+      catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
+      authorizeSpend: async () =>
+        allow ? { ok: true } : { ok: false, code: "insufficient_credits", reason: "Your workspace has no credits left." },
+      quote: async () => ({ amount: 7, currency: "EUR", label: "Standard debate" }),
+      hideProviderCosts: true,
+    });
+  });
+
+  afterAll(async () => {
+    await quorumind?.close();
+  });
+
+  it("shows the debate's price instead of a provider cost", async () => {
+    const mcp = await connect({ client: new QuorumindClient({ baseUrl: `${quorumind.url}/`, token: TOKEN }), demo: false });
+    const started = await call(mcp, "quorumind_start", { idea: "A booking app for 12 yoga studios" });
+    expect(started.isError).toBeFalsy();
+    expect(snapOf(started)).toMatchObject({ status: "interview_questions", price: { amount: 7, currency: "EUR" } });
+    expect(snapOf(started).costUsd).toBeUndefined();
+    expect(textOf(started)).toContain("Price: Standard debate, 7.00 EUR.");
+    expect(textOf(started)).toContain("fixed price");
+    expect(textOf(started)).not.toContain("Cost so far");
+    expect(snapOf(started).url).toBe(`${quorumind.url}/#/s/${snapOf(started).sessionId}`);
+    await mcp.close();
+  });
+
+  it("says when the token is missing or wrong, and when the account cannot pay", async () => {
+    for (const token of [null, "qmd_revoked"]) {
+      const mcp = await connect({ client: new QuorumindClient({ baseUrl: quorumind.url, token }) });
+      const refused = await call(mcp, "quorumind_sessions", {});
+      expect(refused.isError).toBe(true);
+      expect(textOf(refused)).toContain("QUORUMIND_TOKEN");
+      await mcp.close();
+    }
+
+    allow = false;
+    const mcp = await connect({ client: new QuorumindClient({ baseUrl: quorumind.url, token: TOKEN }), demo: false });
+    const unpaid = await call(mcp, "quorumind_start", { idea: "A CRM" });
+    allow = true;
+    expect(unpaid.isError).toBe(true);
+    expect(textOf(unpaid)).toContain("no credits left");
+    expect(textOf(unpaid)).toContain("credits or a plan");
+    await mcp.close();
   });
 });
 

@@ -83,7 +83,14 @@ async function guarded(work: () => Promise<CallToolResult>): Promise<CallToolRes
     return await work();
   } catch (error) {
     if (error instanceof QuorumindError) {
-      const hint = error.status === 404 && error.code === "not_found" ? " Call quorumind_sessions to list the sessions." : "";
+      const hint =
+        error.status === 404 && error.code === "not_found"
+          ? " Call quorumind_sessions to list the sessions."
+          : error.status === 402
+            ? " This is the billing of the user's Quorumind account, not a problem with the project: ask them to add credits or a plan to their workspace, then try again."
+            : error.code === "read_only"
+              ? " Another member of the workspace started this session: start a new one, or ask its author."
+              : "";
       return failure(`${error.message}${hint}`, { error: error.code, status: error.status });
     }
     if (error instanceof ContextFileError || error instanceof ZipError) return failure(error.message);
@@ -153,7 +160,7 @@ export function createMcpServer(options: McpOptions): McpServer {
         "Start a Quorumind session on a software project, before writing code: several AI models will debate how to build it and an arbiter will rule. " +
         "It first runs a scoping interview: this call waits for the interviewer's first questions and returns them with the session id. " +
         "Relay the questions to the user, then call quorumind_answer. Runs on the Quorumind server configured for this MCP server (QUORUMIND_URL); " +
-        "real debates call paid models through that server, so mention the estimated cost to the user.",
+        "real debates call paid models through that server, so mention the estimated cost (or, on the hosted version, the price of the debate) to the user.",
       inputSchema: z.object({
         idea: z
           .string()
@@ -221,7 +228,9 @@ export function createMcpServer(options: McpOptions): McpServer {
         });
         const preface: string[] = [];
         if (options.demo) preface.push("Demo mode: a recorded debate is replayed, no model is called and nothing is billed.");
-        else if (config?.live?.estimateUsd) {
+        else if (config?.providerCosts === false) {
+          preface.push("This Quorumind server sells each debate at a fixed price, charged once when the debate starts (shown below).");
+        } else if (config?.live?.estimateUsd) {
           const { low, high } = config.live.estimateUsd;
           preface.push(
             `Estimated cost of the debate: ${formatUsd(low)} to ${formatUsd(high)} for one round, billed to the server's API keys.`,
@@ -455,8 +464,10 @@ export function createMcpServer(options: McpOptions): McpServer {
       guarded(async () => {
         const sessions = (await client.listSessions()).slice(0, limit);
         if (sessions.length === 0) return text("No session yet. Start one with quorumind_start.", { sessions });
+        const by = (item: (typeof sessions)[number]) =>
+          item.mine === false ? ` (by ${item.author?.name ?? item.author?.email ?? "a former member"})` : "";
         const lines = sessions.map(
-          (item) => `- \`${item.id}\` ${item.phase}, ${item.updatedAt.slice(0, 16).replace("T", " ")}: ${item.idea}`,
+          (item) => `- \`${item.id}\` ${item.phase}, ${item.updatedAt.slice(0, 16).replace("T", " ")}: ${item.idea}${by(item)}`,
         );
         return text(lines.join("\n"), { sessions });
       }),

@@ -1,5 +1,5 @@
 import type { InterviewQuestion, RequirementsSheet, Session } from "@quorumind/core";
-import type { SessionState } from "./client.ts";
+import type { PriceQuote, SessionState } from "./client.ts";
 
 // Everything here is read by a coding agent: plain Markdown, short, and always ending on what to do next.
 
@@ -10,9 +10,12 @@ export interface Snapshot {
   phase: Session["phase"];
   busy: boolean;
   status: Status;
-  costUsd: number;
+  /** What the providers charged so far, in US dollars; left out when the host does not show it. */
+  costUsd?: number;
   /** False when a model's price is unknown, so the cost is a lower bound. */
-  costComplete: boolean;
+  costComplete?: boolean;
+  /** The host's price of the debate (hosted version), when it sets one. */
+  price?: PriceQuote;
   url: string;
   next: string;
   questions?: InterviewQuestion[];
@@ -75,7 +78,8 @@ const NEXT: Record<Status, string> = {
     "The debate is paused on these questions. Ask the user, then call quorumind_answer with their answers; the debate resumes.",
   complete:
     "Read the verdict with quorumind_verdict (format summary, markdown or adr), and write the hand-off files for coding agents with quorumind_handoff.",
-  failed: "Call quorumind_resume to retry the step that failed (raise the budget first if the cost cap was reached).",
+  failed:
+    "Call quorumind_resume to retry the step that failed (raise the budget first if the cost cap was reached; on a hosted server, the debate's price includes its cap).",
   running: "The models are still working. Call quorumind_status with wait: true to keep waiting.",
   stalled:
     "The server is not working on this session any more (it may have restarted). Open the session in the Quorumind interface to see where it stands.",
@@ -83,17 +87,21 @@ const NEXT: Record<Status, string> = {
 
 export function snapshot(client: { sessionUrl(id: string): string }, state: SessionState, status: Status): Snapshot {
   const { session, busy } = state;
-  const spent = cost(session);
   const result: Snapshot = {
     sessionId: session.id,
     phase: session.phase,
     busy,
     status,
-    costUsd: Math.round(spent.usd * 10_000) / 10_000,
-    costComplete: spent.complete,
     url: client.sessionUrl(session.id),
     next: NEXT[status],
   };
+  // A host that sells debates at a price sends no provider cost: a total of zero would be wrong.
+  if (state.providerCosts !== false) {
+    const spent = cost(session);
+    result.costUsd = Math.round(spent.usd * 10_000) / 10_000;
+    result.costComplete = spent.complete;
+  }
+  if (state.price) result.price = state.price;
   if (status === "interview_questions") result.questions = interviewQuestions(session);
   if (status === "debate_questions") result.debateQuestions = debateQuestions(session);
   if (status === "sheet_review" && session.sheet) result.sheet = session.sheet;
@@ -123,10 +131,12 @@ export function renderSnapshot(snap: Snapshot, session: Session): string {
     stalled: "The session is not progressing.",
   };
   lines.push(`**${header[snap.status]}** Session \`${snap.sessionId}\`, phase ${snap.phase}${snap.busy ? " (a model is working)" : ""}.`);
-  lines.push(
-    `Cost so far: ${formatUsd(snap.costUsd)}${snap.costComplete ? "" : " (at least; a model's price is unknown)"}. Follow live: ${snap.url}`,
-    "",
-  );
+  const spending = snap.price
+    ? `Price: ${formatPrice(snap.price)}. `
+    : snap.costUsd !== undefined
+      ? `Cost so far: ${formatUsd(snap.costUsd)}${snap.costComplete ? "" : " (at least; a model's price is unknown)"}. `
+      : "";
+  lines.push(`${spending}Follow live: ${snap.url}`, "");
 
   if (snap.questions) lines.push(formatInterviewQuestions(snap.questions), "");
   if (snap.debateQuestions) lines.push(snap.debateQuestions.map((question, i) => `${i + 1}. ${question}`).join("\n"), "");
@@ -197,3 +207,7 @@ export function formatVerdictSummary(session: Session): string {
 }
 
 export const formatUsd = (usd: number) => `$${usd < 1 ? usd.toFixed(4) : usd.toFixed(2)}`;
+
+/** A host's price, e.g. "Standard debate, 7.00 EUR", or its label alone when the plan covers it. */
+export const formatPrice = (price: PriceQuote) =>
+  price.amount > 0 ? `${price.label}, ${price.amount.toFixed(2)} ${price.currency}` : price.label;

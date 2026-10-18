@@ -1,9 +1,21 @@
 import type { Answer, ContextDocument, Depth, EngineEvent, Mode, RequirementsSheet, Session, TemplateId } from "@quorumind/core";
 
+/** The price the host sells a debate at (hosted version), instead of what the providers charge. */
+export interface PriceQuote {
+  /** In `currency`; 0 when the person's plan covers it. */
+  amount: number;
+  currency: string;
+  label: string;
+}
+
 export interface SessionState {
   session: Session;
   /** True while a model is working on the session. */
   busy: boolean;
+  /** The host's price of the debate, when it sets one. */
+  price?: PriceQuote | null;
+  /** False when the host keeps provider costs to itself: the session's calls then carry no cost. */
+  providerCosts?: boolean;
 }
 
 export interface SessionSummary {
@@ -11,6 +23,9 @@ export interface SessionSummary {
   idea: string;
   phase: string;
   updatedAt: string;
+  /** In a workspace's shared history (hosted version): whether the caller started it, and who did otherwise. */
+  mine?: boolean;
+  author?: { name: string | null; email: string | null } | null;
 }
 
 export interface QuorumindConfig {
@@ -18,6 +33,8 @@ export interface QuorumindConfig {
   live: { lineup: unknown; estimateUsd?: { low: number; high: number } | null } | null;
   templates?: string[];
   personas?: string[];
+  /** False on the hosted version: debates have a price, provider costs are not shown. */
+  providerCosts?: boolean;
 }
 
 export interface NewSession {
@@ -188,5 +205,8 @@ async function toError(response: Response): Promise<QuorumindError> {
     response.status === 401 || response.status === 403
       ? "Quorumind refused the request: check QUORUMIND_TOKEN."
       : `Quorumind answered HTTP ${response.status}.`;
-  return new QuorumindError(response.status, body.error ?? `http_${response.status}`, body.message ?? (issues || fallback));
+  // Signed out, or a token that is wrong, expired or revoked: the server's words, and where to look.
+  const message = body.message ?? (issues || fallback);
+  const withHint = response.status === 401 && !message.includes("QUORUMIND_TOKEN") ? `${message} Check QUORUMIND_TOKEN.` : message;
+  return new QuorumindError(response.status, body.error ?? `http_${response.status}`, withHint);
 }

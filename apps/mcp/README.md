@@ -12,7 +12,7 @@ costs stay on the Quorumind server.
 - Node.js 22.18 or later (it runs the TypeScript sources directly).
 - A clone of this repository with `npm install` done.
 - A running Quorumind server (`npm start` at the repository root, http://127.0.0.1:8787 by
-  default), or the hosted version and its token.
+  default), or the hosted version and a personal API token (see [The hosted version](#the-hosted-version)).
 
 The examples below use `/path/to/quorumind`: replace it with the absolute path of your clone.
 
@@ -21,12 +21,40 @@ The examples below use `/path/to/quorumind`: replace it with the absolute path o
 | Variable | Purpose |
 | --- | --- |
 | `QUORUMIND_URL` | Quorumind server, default `http://127.0.0.1:8787`. |
-| `QUORUMIND_TOKEN` | Sent as `Authorization: Bearer <token>`, for the hosted version. |
+| `QUORUMIND_TOKEN` | A personal API token of the hosted version (`qmd_...`), sent as `Authorization: Bearer <token>`. |
 | `QUORUMIND_MCP_WAIT_SECONDS` | Longest a single tool call waits for the models, default `600`. After that the tool answers "still running" and the agent calls `quorumind_status` with `wait: true`. |
 | `QUORUMIND_MCP_DEMO=1` | Replays the recorded demo debate instead of calling models: no key, no cost. To try the tools. |
 
 A debate takes several minutes. Make sure your client's tool timeout is longer than
 `QUORUMIND_MCP_WAIT_SECONDS`, or lower that value.
+
+## The hosted version
+
+To run the debates on [app.quorumind.com](https://app.quorumind.com) instead of your own
+server, create a personal API token: in the account page (Account, API tokens), give it a
+name and, if you like, an expiry. It starts with `qmd_` and is shown once: copy it into your
+client's configuration, never into a file you commit. Then set:
+
+| Variable | Value |
+| --- | --- |
+| `QUORUMIND_URL` | `https://app.quorumind.com` |
+| `QUORUMIND_TOKEN` | `qmd_...`, your token |
+
+With Claude Code, for instance:
+
+```bash
+claude mcp add --env QUORUMIND_URL=https://app.quorumind.com --env QUORUMIND_TOKEN=qmd_... \
+  --transport stdio quorumind -- node /path/to/quorumind/apps/mcp/src/main.ts
+```
+
+The token acts as you, in the workspace it was created for (or your first workspace): the
+debates it starts are that workspace's, billed to it like the ones you start in the browser,
+and `quorumind_sessions` lists the workspace's shared history with each session's author. It
+reaches the debates only, never your account, members or billing. The hosted version sells
+each debate at a fixed price: the tools show that price instead of a provider cost, and a
+debate the workspace cannot pay for is refused with what to do about it. Revoke a token from
+the same page as soon as you no longer need it; a revoked or expired token gets an error that
+names `QUORUMIND_TOKEN`.
 
 ## Claude Code
 
@@ -90,11 +118,11 @@ In `.cursor/mcp.json` at the project root (or `~/.cursor/mcp.json` for every pro
 | `quorumind_answer` | Sends the user's answers, to the interview or to the questions the debate paused on, and waits for the next stopping point. |
 | `quorumind_review` | Shows the requirements sheet the interview produced. |
 | `quorumind_confirm` | Confirms the sheet, with optional edits, and runs the debate until it needs the user or reaches the verdict. |
-| `quorumind_status` | Phase, whether a model is working, cost so far and what is expected next; `wait: true` waits for the next stopping point. |
+| `quorumind_status` | Phase, whether a model is working, cost so far (the price of the debate on the hosted version) and what is expected next; `wait: true` waits for the next stopping point. |
 | `quorumind_resume` | Retries the step a failed session stopped on. |
 | `quorumind_verdict` | The verdict as a short summary, the full Markdown report, or an ADR. |
 | `quorumind_handoff` | Writes `CLAUDE.md`, `AGENTS.md` and `PLAN.md` into a directory; never replaces an existing file unless `overwrite` is true. |
-| `quorumind_sessions` | Recent sessions. |
+| `quorumind_sessions` | Recent sessions (on the hosted version, the workspace's, with their author). |
 
 Every tool answers in short Markdown that ends on what to do next, plus the same facts as
 structured content. Long waits follow the session's live event stream (and poll every two
