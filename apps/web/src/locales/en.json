@@ -333,6 +333,26 @@
     "migration": "Infrastructure migration",
     "ecommerce": "E-commerce"
   },
+  "compliance": {
+    "label": "Compliance",
+    "hint": "Adds the rules of these frameworks to the interview, and the arbiter checks each option against them. You can combine them with a project type. This is not legal advice.",
+    "template": {
+      "personal_data": "Personal data (GDPR)",
+      "health_data": "Health data",
+      "public_sector": "Public sector",
+      "finance": "Finance",
+      "consumer": "Consumer law (online sales)"
+    }
+  },
+  "european": {
+    "label": "European models only",
+    "hint": "Every role is played by a model of a European provider served from the EU (Mistral AI), or by a model run on this server (Ollama).",
+    "gatewayEu": "Requests to OpenRouter go through its EU region: questions and answers are processed in Europe.",
+    "gatewayGlobal": "Requests to OpenRouter go through its global servers, which may be outside the EU, before reaching Mistral AI's EU endpoint. For a path entirely in Europe, the administrator can switch to OpenRouter's EU region (Business plan).",
+    "required": "Your administrator requires it.",
+    "unavailable": "No European model is available on this server.",
+    "badge": "European models"
+  },
   "context": {
     "title": "Context documents",
     "lead": "Attach a specification, a web page or a GitHub repository. The interviewer reads them to pre-fill your requirements, and the critics and the arbiter check the options against them.",
@@ -623,7 +643,9 @@
     "rate_limited": "Too many requests. Try again in a few minutes.",
     "not_submitted": "The client has not answered yet.",
     "no_answers": "None of the questions has an answer yet.",
-    "no_questions": "Add at least one question."
+    "no_questions": "Add at least one question.",
+    "non_european_model": "{{model}} is not a European model. With European models only, choose a Mistral AI model or a local model.",
+    "european_unavailable": "No European model is available here. Add Mistral AI models (through OpenRouter) or local models (Ollama), or turn off European models only."
   },
   "costing": {
     "title": "Costing by work package",

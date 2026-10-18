@@ -18,6 +18,8 @@ import type {
   RequirementsSheet,
   Session,
 } from "@quorumind/core";
+import type { ComplianceTemplateId } from "@quorumind/core/compliance";
+import type { EuropeanGateway, EuropeanPolicy } from "@quorumind/core/sovereignty";
 import type { TemplateId } from "@quorumind/core/templates";
 
 export type { Answer, Lineup, PublicQuestionnaire, Questionnaire, Session };
@@ -37,6 +39,10 @@ export interface AppConfig {
   live: { lineup: Lineup; estimateUsd: Estimate } | null;
   demo: { lineup: Lineup; idea: string };
   templates: TemplateId[];
+  /** Compliance templates, combined with the project type. */
+  complianceTemplates?: ComplianceTemplateId[];
+  /** European models only: the policy of the server or workspace, its default lineup, and how OpenRouter is reached. */
+  european?: { policy: EuropeanPolicy; lineup: Lineup | null; gateway: EuropeanGateway };
   personas: string[];
   localOnly: boolean;
   notifications: boolean;
@@ -121,6 +127,8 @@ export interface NewSessionInput {
   demo: boolean;
   mode: Mode;
   template: TemplateId | null;
+  complianceTemplates: ComplianceTemplateId[];
+  europeanOnly: boolean;
   depth: Depth;
   rounds: number;
   budgetUsd: number | null;

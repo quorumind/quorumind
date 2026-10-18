@@ -333,6 +333,26 @@
     "migration": "インフラ移行",
     "ecommerce": "EC サイト"
   },
+  "compliance": {
+    "label": "コンプライアンス",
+    "hint": "これらの枠組みのルールをヒアリングに加え、審判が各選択肢をそれに照らして確認します。プロジェクトの種類と組み合わせられます。法的助言ではありません。",
+    "template": {
+      "personal_data": "個人データ（GDPR）",
+      "health_data": "医療データ",
+      "public_sector": "公共部門",
+      "finance": "金融",
+      "consumer": "消費者法（オンライン販売）"
+    }
+  },
+  "european": {
+    "label": "欧州のモデルのみ",
+    "hint": "すべての役割を、EU から提供される欧州企業のモデル（Mistral AI）、またはこのサーバーで動くモデル（Ollama）が担当します。",
+    "gatewayEu": "OpenRouter へのリクエストは同社の EU リージョンを経由します。質問と回答は欧州内で処理されます。",
+    "gatewayGlobal": "OpenRouter へのリクエストは、Mistral AI の EU エンドポイントに届く前に、EU 外にある可能性のある同社のグローバルサーバーを経由します。すべてを欧州内で完結させるには、管理者が OpenRouter の EU リージョン（Business プラン）に切り替えられます。",
+    "required": "管理者により必須に設定されています。",
+    "unavailable": "このサーバーでは欧州のモデルを利用できません。",
+    "badge": "欧州のモデル"
+  },
   "context": {
     "title": "参考資料",
     "lead": "要件定義書、Web ページ、GitHub リポジトリを添付できます。インタビュアーはそれを読んで要件を下書きし、批評者と審判は選択肢をそれと照らし合わせます。",
@@ -623,7 +643,9 @@
     "rate_limited": "リクエストが多すぎます。数分後にもう一度お試しください。",
     "not_submitted": "クライアントはまだ回答していません。",
     "no_answers": "まだどの質問にも回答がありません。",
-    "no_questions": "質問を 1 つ以上追加してください。"
+    "no_questions": "質問を 1 つ以上追加してください。",
+    "non_european_model": "{{model}} は欧州のモデルではありません。「欧州のモデルのみ」では、Mistral AI のモデルかローカルモデルを選んでください。",
+    "european_unavailable": "ここでは欧州のモデルを利用できません。Mistral AI のモデル（OpenRouter 経由）かローカルモデル（Ollama）を追加するか、「欧州のモデルのみ」をオフにしてください。"
   },
   "costing": {
     "title": "作業パッケージ別の費用",

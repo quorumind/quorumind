@@ -333,6 +333,26 @@
     "migration": "Migration d'infrastructure",
     "ecommerce": "E-commerce"
   },
+  "compliance": {
+    "label": "Conformité",
+    "hint": "Ajoute les règles de ces cadres à l'entretien, et l'arbitre vérifie chaque option au regard de ces règles. Vous pouvez les combiner avec un type de projet. Ce n'est pas un avis juridique.",
+    "template": {
+      "personal_data": "Données personnelles (RGPD)",
+      "health_data": "Données de santé",
+      "public_sector": "Secteur public",
+      "finance": "Finance",
+      "consumer": "Droit de la consommation (vente en ligne)"
+    }
+  },
+  "european": {
+    "label": "Modèles européens uniquement",
+    "hint": "Chaque rôle est tenu par un modèle d'un fournisseur européen servi depuis l'UE (Mistral AI), ou par un modèle exécuté sur ce serveur (Ollama).",
+    "gatewayEu": "Les requêtes vers OpenRouter passent par sa région UE : les questions et les réponses sont traitées en Europe.",
+    "gatewayGlobal": "Les requêtes vers OpenRouter passent par ses serveurs mondiaux, qui peuvent se trouver hors de l'UE, avant d'atteindre le point d'accès européen de Mistral AI. Pour un parcours entièrement en Europe, l'administrateur peut passer à la région UE d'OpenRouter (offre Business).",
+    "required": "Votre administrateur l'impose.",
+    "unavailable": "Aucun modèle européen n'est disponible sur ce serveur.",
+    "badge": "Modèles européens"
+  },
   "context": {
     "title": "Documents de contexte",
     "lead": "Joignez un cahier des charges, une page web ou un dépôt GitHub. L'intervieweur s'en sert pour pré-remplir votre besoin, puis les critiques et l'arbitre y confrontent les options.",
@@ -623,7 +643,9 @@
     "rate_limited": "Trop de requêtes. Réessayez dans quelques minutes.",
     "not_submitted": "Le client n'a pas encore répondu.",
     "no_answers": "Aucune question n'a encore de réponse.",
-    "no_questions": "Ajoutez au moins une question."
+    "no_questions": "Ajoutez au moins une question.",
+    "non_european_model": "{{model}} n'est pas un modèle européen. Avec « Modèles européens uniquement », choisissez un modèle Mistral AI ou un modèle local.",
+    "european_unavailable": "Aucun modèle européen n'est disponible ici. Ajoutez des modèles Mistral AI (via OpenRouter) ou des modèles locaux (Ollama), ou désactivez « Modèles européens uniquement »."
   },
   "costing": {
     "title": "Chiffrage par lot",

@@ -61,6 +61,8 @@ const ERROR_CODES = [
   "plan_limit",
   "price_limit",
   "seat_limit",
+  "non_european_model",
+  "european_unavailable",
 ];
 
 describe("interface translations", () => {

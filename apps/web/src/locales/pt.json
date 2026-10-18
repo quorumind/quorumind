@@ -333,6 +333,26 @@
     "migration": "Migração de infraestrutura",
     "ecommerce": "E-commerce"
   },
+  "compliance": {
+    "label": "Conformidade",
+    "hint": "Acrescenta as regras desses marcos à entrevista, e o árbitro verifica cada opção em relação a elas. Você pode combiná-los com um tipo de projeto. Isto não é aconselhamento jurídico.",
+    "template": {
+      "personal_data": "Dados pessoais (RGPD)",
+      "health_data": "Dados de saúde",
+      "public_sector": "Setor público",
+      "finance": "Finanças",
+      "consumer": "Direito do consumidor (vendas on-line)"
+    }
+  },
+  "european": {
+    "label": "Somente modelos europeus",
+    "hint": "Cada papel é desempenhado por um modelo de um fornecedor europeu servido a partir da UE (Mistral AI), ou por um modelo executado neste servidor (Ollama).",
+    "gatewayEu": "As solicitações ao OpenRouter passam pela região UE do serviço: perguntas e respostas são processadas na Europa.",
+    "gatewayGlobal": "As solicitações ao OpenRouter passam pelos servidores globais do serviço, que podem estar fora da UE, antes de chegar ao ponto de acesso europeu da Mistral AI. Para um caminho inteiramente na Europa, o administrador pode passar para a região UE do OpenRouter (plano Business).",
+    "required": "Exigido pelo seu administrador.",
+    "unavailable": "Nenhum modelo europeu está disponível neste servidor.",
+    "badge": "Modelos europeus"
+  },
   "context": {
     "title": "Documentos de contexto",
     "lead": "Anexe um caderno de requisitos, uma página web ou um repositório do GitHub. O entrevistador os usa para preencher seus requisitos, e os críticos e o árbitro confrontam as opções com eles.",
@@ -623,7 +643,9 @@
     "rate_limited": "Muitas solicitações. Tente novamente em alguns minutos.",
     "not_submitted": "O cliente ainda não respondeu.",
     "no_answers": "Nenhuma pergunta tem resposta ainda.",
-    "no_questions": "Adicione pelo menos uma pergunta."
+    "no_questions": "Adicione pelo menos uma pergunta.",
+    "non_european_model": "{{model}} não é um modelo europeu. Com “Somente modelos europeus”, escolha um modelo da Mistral AI ou um modelo local.",
+    "european_unavailable": "Nenhum modelo europeu está disponível aqui. Adicione modelos da Mistral AI (pelo OpenRouter) ou modelos locais (Ollama), ou desative “Somente modelos europeus”."
   },
   "costing": {
     "title": "Orçamento por pacote de trabalho",

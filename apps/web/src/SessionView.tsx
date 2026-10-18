@@ -338,6 +338,11 @@ function SessionBody({
         <div className="row session-meta-row">
           {session.demo ? <span className="chip label">{t("demo.badge")}</span> : null}
           {session.mode !== "standard" ? <span className="chip label">{t(`setup.mode.${session.mode}`)}</span> : null}
+          {session.european ? (
+            <span className="chip label" title={t("european.hint")}>
+              {t("european.badge")}
+            </span>
+          ) : null}
           <ol className="progress">
             {STEPS.map((step, index) => (
               <li

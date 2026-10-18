@@ -8,6 +8,7 @@ import { useCanEdit } from "./access.tsx";
 import { api, type Feedback, type PriceQuote } from "./api.ts";
 import { ClientLoop } from "./ClientLoop.tsx";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
+import { ComplianceSection } from "./components/ComplianceOptions.tsx";
 import { ExportMenu } from "./components/ExportMenu.tsx";
 import { CheckIcon, CrossIcon, DownloadIcon, MapIcon, SparkIcon, WarningIcon } from "./components/Icons.tsx";
 import { CheckBadges, CostingTable, moneyRange, monthlyCurrency } from "./costing.tsx";
@@ -509,6 +510,7 @@ export function Verdict({
       <Briefs session={session} readOnly={readOnly} />
       <Matrix session={session} />
       <CostingSection session={session} />
+      <ComplianceSection session={session} />
       {recommended && proposals[recommended]?.components?.length ? (
         <section className="stack">
           <h2 className="heading">{t("verdict.architecture")}</h2>

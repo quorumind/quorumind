@@ -1,10 +1,13 @@
 import type { ContextDocument, Depth, Lineup, Mode, ModelOption, Participant, Seat } from "@quorumind/core";
+import type { ComplianceTemplateId } from "@quorumind/core/compliance";
 import type { Locale } from "@quorumind/core/locales";
+import { europeanCatalog } from "@quorumind/core/sovereignty";
 import type { TemplateId } from "@quorumind/core/templates";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
 import { type AppConfig, api, type PriceQuote } from "./api.ts";
+import { CompliancePicker, EuropeanToggle } from "./components/ComplianceOptions.tsx";
 import { ContextPicker } from "./components/ContextPicker.tsx";
 import { ArrowIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
 import { Skeleton } from "./components/Logo.tsx";
@@ -249,6 +252,8 @@ export function NewSession() {
   const [idea, setIdea] = useState("");
   const [solution, setSolution] = useState("");
   const [template, setTemplate] = useState<TemplateId | null>(null);
+  const [complianceTemplates, setComplianceTemplates] = useState<ComplianceTemplateId[]>([]);
+  const [europeanOnly, setEuropeanOnly] = useState(false);
   const [context, setContext] = useState<ContextDocument[]>([]);
   const [lineup, setLineup] = useState<Lineup | null>(null);
   const [depth, setDepth] = useState<Depth>("standard");
@@ -267,7 +272,9 @@ export function NewSession() {
     api.config().then(
       (loaded) => {
         setConfig(loaded);
-        setLineup(loaded.live?.lineup ?? null);
+        const european = Boolean(loaded.european?.policy && loaded.european.lineup);
+        setEuropeanOnly(european || loaded.european?.policy === "required");
+        setLineup((european ? loaded.european?.lineup : null) ?? loaded.live?.lineup ?? null);
       },
       () => setError(t("error.request")),
     );
@@ -309,6 +316,8 @@ export function NewSession() {
         demo,
         mode,
         template,
+        complianceTemplates: demo ? [] : complianceTemplates,
+        europeanOnly: !demo && europeanOnly,
         depth,
         rounds: effectiveRounds,
         budgetUsd: budgetUsd && budgetUsd > 0 ? budgetUsd : null,
@@ -324,6 +333,16 @@ export function NewSession() {
       setError(failureText(t, caught));
       setPending(null);
     }
+  };
+
+  // European models only: the lineup editor offers the European models, and the lineup starts from their default.
+  const editorConfig = useMemo(
+    () => (config && europeanOnly ? { ...config, catalog: europeanCatalog(config.catalog) } : config),
+    [config, europeanOnly],
+  );
+  const chooseEuropean = (next: boolean) => {
+    setEuropeanOnly(next);
+    setLineup((next ? config?.european?.lineup : config?.live?.lineup) ?? config?.live?.lineup ?? null);
   };
 
   const live = config?.live ?? null;
@@ -419,7 +438,26 @@ export function NewSession() {
           </fieldset>
         ) : null}
 
+        {config?.complianceTemplates ? (
+          <CompliancePicker
+            templates={config.complianceTemplates}
+            value={complianceTemplates}
+            onChange={setComplianceTemplates}
+            disabled={!live}
+          />
+        ) : null}
+
         <ContextPicker value={context} onChange={setContext} disabled={!live} onBusyChange={setImporting} />
+
+        {live && config?.european ? (
+          <EuropeanToggle
+            policy={config.european.policy}
+            available={config.european.lineup !== null}
+            gateway={config.european.gateway}
+            checked={europeanOnly}
+            onChange={chooseEuropean}
+          />
+        ) : null}
 
         {live && config && lineup ? (
           <details className="settings">
@@ -471,7 +509,7 @@ export function NewSession() {
                   </div>
                 ) : null}
               </div>
-              <LineupEditor config={config} lineup={lineup} onChange={setLineup} />
+              <LineupEditor config={editorConfig ?? config} lineup={lineup} onChange={setLineup} />
               <label className="check">
                 <input type="checkbox" checked={redact} onChange={(event) => setRedact(event.target.checked)} />
                 <span>

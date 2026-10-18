@@ -333,6 +333,26 @@
     "migration": "基础设施迁移",
     "ecommerce": "电子商务"
   },
+  "compliance": {
+    "label": "合规",
+    "hint": "将这些框架的规则加入访谈，仲裁者会据此检查每个方案。可与项目类型组合使用。这不是法律意见。",
+    "template": {
+      "personal_data": "个人数据（GDPR）",
+      "health_data": "健康数据",
+      "public_sector": "公共部门",
+      "finance": "金融",
+      "consumer": "消费者法（在线销售）"
+    }
+  },
+  "european": {
+    "label": "仅限欧洲模型",
+    "hint": "每个角色都由欧洲提供商从欧盟提供的模型（Mistral AI）担任，或由在此服务器上运行的模型（Ollama）担任。",
+    "gatewayEu": "发往 OpenRouter 的请求经过其欧盟区域：问题和回答都在欧洲处理。",
+    "gatewayGlobal": "发往 OpenRouter 的请求在到达 Mistral AI 的欧盟端点之前，会经过其全球服务器，这些服务器可能位于欧盟之外。如需全程在欧洲内处理，管理员可以切换到 OpenRouter 的欧盟区域（Business 套餐）。",
+    "required": "管理员要求启用此项。",
+    "unavailable": "此服务器上没有可用的欧洲模型。",
+    "badge": "欧洲模型"
+  },
   "context": {
     "title": "背景资料",
     "lead": "可附加需求规格说明书、网页或 GitHub 仓库。访谈者会据此预先填写您的需求，评审者和仲裁者也会据此检验各个方案。",
@@ -623,7 +643,9 @@
     "rate_limited": "请求过多。请几分钟后再试。",
     "not_submitted": "客户尚未回答。",
     "no_answers": "还没有任何问题得到回答。",
-    "no_questions": "请至少添加一个问题。"
+    "no_questions": "请至少添加一个问题。",
+    "non_european_model": "{{model}} 不是欧洲模型。启用“仅限欧洲模型”时，请选择 Mistral AI 的模型或本地模型。",
+    "european_unavailable": "此处没有可用的欧洲模型。请添加 Mistral AI 的模型（通过 OpenRouter）或本地模型（Ollama），或关闭“仅限欧洲模型”。"
   },
   "costing": {
     "title": "按工作包测算成本",
