@@ -1,5 +1,6 @@
 export * from "./agency-labels.ts";
 export * from "./branding.ts";
+export * from "./cloud-prices.ts";
 export * from "./config.ts";
 export * from "./costing.ts";
 export * from "./deliverable.ts";

@@ -21,6 +21,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "bench": "node --disable-warning=ExperimentalWarning bench/run.ts",
+    "prices:check": "node --disable-warning=ExperimentalWarning bench/prices.ts",
     "media": "npm run build && node --disable-warning=ExperimentalWarning media/capture.ts"
   },
   "devDependencies": {

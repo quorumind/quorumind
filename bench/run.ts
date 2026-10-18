@@ -10,10 +10,12 @@ import {
   DEMO_LINEUP,
   DebateEngine,
   EMPTY_PROFILE,
+  isPriceReferenceStale,
   type Lineup,
   type Locale,
   liveLineupFromEnv,
   type OrgProfile,
+  PRICE_REFERENCE,
   type ProfileRole,
   proposalCosting,
   providersFor,
@@ -180,6 +182,10 @@ function check(session: Session, fixture: Fixture): Check[] {
   add("records the cost of every call", session.usage.length > 0 && session.usage.every((record) => record.inputTokens >= 0));
   return checks;
 }
+
+// The proposers read the reference cloud prices: say when they are out of date (npm run prices:check).
+if (isPriceReferenceStale())
+  console.warn(`Warning: the reference cloud prices date from ${PRICE_REFERENCE.asOf}; run npm run prices:check.`);
 
 const fixtures = readdirSync(join(here, "fixtures"))
   .filter((file) => file.endsWith(".json"))

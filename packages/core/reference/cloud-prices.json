@@ -1,0 +1,226 @@
+{
+  "asOf": "2026-10-19",
+  "note": "Public list prices, on demand, excluding VAT, before any discount or commitment, read from each provider's price page or public price API on the date above. Re-check with `npm run prices:check`; update every figure from its source when the file is older than 90 days.",
+  "items": [
+    {
+      "provider": "ovhcloud",
+      "item": "vm_small",
+      "offer": "Public Cloud instance b3-8 (2 vCore, 8 GB RAM)",
+      "region": "Europe (FR price list)",
+      "price": 0.0512,
+      "currency": "EUR",
+      "unit": "hour",
+      "note": "Local NVMe storage billed separately; outbound traffic included in Europe.",
+      "source": "https://www.ovhcloud.com/fr/public-cloud/prices/"
+    },
+    {
+      "provider": "ovhcloud",
+      "item": "managed_postgresql",
+      "offer": "Public Cloud Databases for PostgreSQL, Essential DB1-4 (1 node, 2 vCore, 4 GB RAM, 80 GiB storage)",
+      "region": "Europe (FR price list)",
+      "price": 0.0746,
+      "currency": "EUR",
+      "unit": "hour",
+      "note": "Single node, no high availability; storage of the plan included.",
+      "source": "https://www.ovhcloud.com/fr/public-cloud/prices/"
+    },
+    {
+      "provider": "ovhcloud",
+      "item": "object_storage",
+      "offer": "Object Storage Standard, multi-zone (3-AZ)",
+      "region": "Europe (FR price list)",
+      "price": 0.014,
+      "currency": "EUR",
+      "unit": "GiB-month",
+      "note": "0.00001917 EUR per GiB-hour over 730 hours; requests and traffic free.",
+      "source": "https://www.ovhcloud.com/fr/public-cloud/prices/"
+    },
+    {
+      "provider": "ovhcloud",
+      "item": "egress",
+      "offer": "Outbound public traffic of instances and Object Storage",
+      "region": "Europe",
+      "price": 0,
+      "currency": "EUR",
+      "unit": "GB",
+      "note": "Included in the instance price outside Asia-Pacific.",
+      "source": "https://www.ovhcloud.com/fr/public-cloud/prices/"
+    },
+    {
+      "provider": "scaleway",
+      "item": "vm_small",
+      "offer": "Instance POP2-2C-8G (2 dedicated vCPU, 8 GB RAM)",
+      "region": "Paris (fr-par-1)",
+      "price": 0.0735,
+      "currency": "EUR",
+      "unit": "hour",
+      "note": "Storage and public IPv4 extra; egress included.",
+      "source": "https://www.scaleway.com/en/pricing/virtual-instances/"
+    },
+    {
+      "provider": "scaleway",
+      "item": "managed_postgresql",
+      "offer": "Managed Database for PostgreSQL DB-PRO2-XXS (2 vCPU, 8 GB RAM)",
+      "region": "Paris (fr-par)",
+      "price": 0.11,
+      "currency": "EUR",
+      "unit": "hour",
+      "note": "Single node, no high availability; storage extra (Block Storage 5K, 0.0993 EUR per GB-month).",
+      "source": "https://www.scaleway.com/en/pricing/managed-databases/"
+    },
+    {
+      "provider": "scaleway",
+      "item": "object_storage",
+      "offer": "Object Storage Standard, multi-AZ",
+      "region": "Paris (fr-par)",
+      "price": 0.01606,
+      "currency": "EUR",
+      "unit": "GB-month",
+      "note": "0.000022 EUR per GB-hour over 730 hours; requests included.",
+      "source": "https://www.scaleway.com/en/pricing/storage/"
+    },
+    {
+      "provider": "scaleway",
+      "item": "egress",
+      "offer": "Object Storage traffic to the internet",
+      "region": "Paris (fr-par)",
+      "price": 0.01,
+      "currency": "EUR",
+      "unit": "GB",
+      "note": "75 GB free every month; instance egress has no fee.",
+      "source": "https://www.scaleway.com/en/pricing/storage/"
+    },
+    {
+      "provider": "aws",
+      "item": "vm_small",
+      "offer": "EC2 t3.large (2 vCPU, 8 GiB), on-demand Linux",
+      "region": "Europe (Paris), eu-west-3",
+      "price": 0.0944,
+      "currency": "USD",
+      "unit": "hour",
+      "note": "EBS storage extra; burstable instance.",
+      "source": "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/EU%20(Paris)/Linux/index.json"
+    },
+    {
+      "provider": "aws",
+      "item": "managed_postgresql",
+      "offer": "RDS for PostgreSQL db.t4g.medium (2 vCPU, 4 GiB), Single-AZ",
+      "region": "Europe (Paris), eu-west-3",
+      "price": 0.072,
+      "currency": "USD",
+      "unit": "hour",
+      "note": "No high availability; gp3 storage extra (0.133 USD per GB-month).",
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/eu-west-3/index.json"
+    },
+    {
+      "provider": "aws",
+      "item": "object_storage",
+      "offer": "S3 Standard, first 50 TB per month",
+      "region": "Europe (Paris), eu-west-3",
+      "price": 0.024,
+      "currency": "USD",
+      "unit": "GB-month",
+      "note": "Requests extra.",
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/eu-west-3/index.json"
+    },
+    {
+      "provider": "aws",
+      "item": "egress",
+      "offer": "Data transfer out to the internet, first 10 TB per month",
+      "region": "Europe (Paris), eu-west-3",
+      "price": 0.09,
+      "currency": "USD",
+      "unit": "GB",
+      "note": "After 100 GB free per month across all AWS services.",
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/eu-west-3/index.json"
+    },
+    {
+      "provider": "azure",
+      "item": "vm_small",
+      "offer": "Virtual Machines B2s, Linux, pay as you go",
+      "region": "France Central",
+      "price": 0.0472,
+      "currency": "USD",
+      "unit": "hour",
+      "note": "Burstable; disks extra.",
+      "source": "https://prices.azure.com/api/retail/prices?$filter=armRegionName eq 'francecentral' and serviceName eq 'Virtual Machines' and armSkuName eq 'Standard_B2s' and priceType eq 'Consumption'"
+    },
+    {
+      "provider": "azure",
+      "item": "managed_postgresql",
+      "offer": "Azure Database for PostgreSQL Flexible Server, Burstable B2ms",
+      "region": "France Central",
+      "price": 0.152,
+      "currency": "USD",
+      "unit": "hour",
+      "note": "Compute only, no high availability; storage extra (0.133 USD per GB-month).",
+      "source": "https://prices.azure.com/api/retail/prices?$filter=armRegionName eq 'francecentral' and serviceName eq 'Azure Database for PostgreSQL' and priceType eq 'Consumption' and contains(productName,'Burstable')"
+    },
+    {
+      "provider": "azure",
+      "item": "object_storage",
+      "offer": "Blob Storage Hot LRS, first 50 TB",
+      "region": "France Central",
+      "price": 0.0192,
+      "currency": "USD",
+      "unit": "GB-month",
+      "note": "Operations extra.",
+      "source": "https://prices.azure.com/api/retail/prices?$filter=armRegionName eq 'francecentral' and serviceName eq 'Storage' and priceType eq 'Consumption' and productName eq 'Blob Storage' and skuName eq 'Hot LRS'"
+    },
+    {
+      "provider": "azure",
+      "item": "egress",
+      "offer": "Data transfer out over the Microsoft network, first paid tier",
+      "region": "France Central",
+      "price": 0.087,
+      "currency": "USD",
+      "unit": "GB",
+      "note": "After 100 GB free per month.",
+      "source": "https://prices.azure.com/api/retail/prices?$filter=serviceName eq 'Bandwidth' and priceType eq 'Consumption' and contains(meterName,'Data Transfer Out') and armRegionName eq 'francecentral'"
+    },
+    {
+      "provider": "gcp",
+      "item": "vm_small",
+      "offer": "Compute Engine e2-standard-2 (2 vCPU, 8 GiB), on demand",
+      "region": "Paris, europe-west9",
+      "price": 0.077732,
+      "currency": "USD",
+      "unit": "hour",
+      "note": "Disk extra.",
+      "source": "https://cloud.google.com/products/compute/pricing/general-purpose"
+    },
+    {
+      "provider": "gcp",
+      "item": "managed_postgresql",
+      "offer": "Cloud SQL for PostgreSQL Enterprise, 2 vCPU and 8 GiB, zonal",
+      "region": "Paris, europe-west9",
+      "price": 0.1606,
+      "currency": "USD",
+      "unit": "hour",
+      "note": "2 x 0.0479 USD per vCPU-hour plus 8 x 0.0081 USD per GiB-hour; no high availability; SSD storage extra (0.1972 USD per GiB-month).",
+      "source": "https://cloud.google.com/sql/pricing"
+    },
+    {
+      "provider": "gcp",
+      "item": "object_storage",
+      "offer": "Cloud Storage Standard, regional",
+      "region": "Paris, europe-west9",
+      "price": 0.023,
+      "currency": "USD",
+      "unit": "GiB-month",
+      "note": "Operations extra.",
+      "source": "https://cloud.google.com/storage/pricing"
+    },
+    {
+      "provider": "gcp",
+      "item": "egress",
+      "offer": "Premium Tier data transfer out to Europe or North America, first 1 TiB",
+      "region": "Paris, europe-west9",
+      "price": 0.12,
+      "currency": "USD",
+      "unit": "GiB",
+      "note": "Per month and account; the Standard Tier gives 200 GiB free, then 0.085 USD per GiB.",
+      "source": "https://cloud.google.com/vpc/network-pricing"
+    }
+  ]
+}
