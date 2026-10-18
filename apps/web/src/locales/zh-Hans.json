@@ -165,11 +165,13 @@
   "cost": {
     "label": "目前费用",
     "cap": "上限 {{cap}}",
+    "quote": "{{label}}：{{price}}",
     "partial": "部分模型价格未知：总额不完整。"
   },
   "error": {
     "title": "会话已停止",
     "budget_exceeded": "已达到费用上限。",
+    "priceLimit": "本次辩论已用完其价格所含的全部模型额度。",
     "provider_error": "某个模型未能作答。",
     "internal_error": "发生了意外错误。",
     "retry": "从中断处继续",
@@ -201,7 +203,8 @@
     "output": "输出 token",
     "cost": "费用",
     "total": "合计",
-    "unknown": "价格未知"
+    "unknown": "价格未知",
+    "included": "已包含在辩论价格中。表格列出每次模型调用及其 token 数。"
   },
   "task": {
     "interview": "访谈",

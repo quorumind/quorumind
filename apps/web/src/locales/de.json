@@ -165,11 +165,13 @@
   "cost": {
     "label": "Bisherige Kosten",
     "cap": "Grenze {{cap}}",
+    "quote": "{{label}}: {{price}}",
     "partial": "Einige Modellpreise sind unbekannt: Die Summe ist unvollständig."
   },
   "error": {
     "title": "Die Sitzung wurde angehalten",
     "budget_exceeded": "Die Kostengrenze ist erreicht.",
+    "priceLimit": "Die Debatte hat die gesamte im Preis enthaltene Modellkapazität verbraucht.",
     "provider_error": "Ein Modell konnte nicht antworten.",
     "internal_error": "Ein unerwarteter Fehler ist aufgetreten.",
     "retry": "Dort fortsetzen, wo sie angehalten hat",
@@ -201,7 +203,8 @@
     "output": "Ausgabe-Tokens",
     "cost": "Kosten",
     "total": "Summe",
-    "unknown": "Preis unbekannt"
+    "unknown": "Preis unbekannt",
+    "included": "Im Preis der Debatte enthalten. Die Tabelle listet jeden Modellaufruf mit seinen Tokens."
   },
   "task": {
     "interview": "Befragung",

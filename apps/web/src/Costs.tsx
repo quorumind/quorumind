@@ -3,14 +3,21 @@ import { totalCost } from "@quorumind/core/session";
 import { useTranslation } from "react-i18next";
 import { formatUsd } from "./format.ts";
 
-/** Every model call of the session with its tokens and cost. */
-export function Costs({ session }: { session: Session }) {
+/**
+ * Every model call of the session with its tokens and cost. Without `providerCosts`, the host sells
+ * the debate at a price of its own: calls and tokens only.
+ */
+export function Costs({ session, providerCosts = true }: { session: Session; providerCosts?: boolean }) {
   const { t, i18n } = useTranslation();
   const number = new Intl.NumberFormat(i18n.language);
   const total = totalCost(session);
   return (
     <div className="stack">
-      {!total.complete ? <p className="field-hint">{t("cost.partial")}</p> : null}
+      {!providerCosts ? (
+        <p className="field-hint">{t("costs.included")}</p>
+      ) : !total.complete ? (
+        <p className="field-hint">{t("cost.partial")}</p>
+      ) : null}
       <div className="table-wrap">
         <table>
           <thead>
@@ -24,9 +31,11 @@ export function Costs({ session }: { session: Session }) {
               <th scope="col" className="num">
                 {t("costs.output")}
               </th>
-              <th scope="col" className="num">
-                {t("costs.cost")}
-              </th>
+              {providerCosts ? (
+                <th scope="col" className="num">
+                  {t("costs.cost")}
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
@@ -44,7 +53,9 @@ export function Costs({ session }: { session: Session }) {
                 <td className="mono">{record.model}</td>
                 <td className="num mono">{number.format(record.inputTokens)}</td>
                 <td className="num mono">{number.format(record.outputTokens)}</td>
-                <td className="num mono">{record.costUsd === null ? t("costs.unknown") : formatUsd(record.costUsd, i18n.language)}</td>
+                {providerCosts ? (
+                  <td className="num mono">{record.costUsd === null ? t("costs.unknown") : formatUsd(record.costUsd, i18n.language)}</td>
+                ) : null}
               </tr>
             ))}
           </tbody>
@@ -55,7 +66,7 @@ export function Costs({ session }: { session: Session }) {
               </th>
               <td className="num mono">{number.format(session.usage.reduce((sum, record) => sum + record.inputTokens, 0))}</td>
               <td className="num mono">{number.format(session.usage.reduce((sum, record) => sum + record.outputTokens, 0))}</td>
-              <td className="num mono">{formatUsd(total.usd, i18n.language)}</td>
+              {providerCosts ? <td className="num mono">{formatUsd(total.usd, i18n.language)}</td> : null}
             </tr>
           </tfoot>
         </table>

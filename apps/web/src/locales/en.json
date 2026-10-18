@@ -165,11 +165,13 @@
   "cost": {
     "label": "Cost so far",
     "cap": "cap {{cap}}",
+    "quote": "{{label}}: {{price}}",
     "partial": "Some model prices are unknown: the total is partial."
   },
   "error": {
     "title": "The session stopped",
     "budget_exceeded": "The cost cap is reached.",
+    "priceLimit": "The debate used all the model capacity its price includes.",
     "provider_error": "A model could not answer.",
     "internal_error": "An unexpected error occurred.",
     "retry": "Retry from where it stopped",
@@ -201,7 +203,8 @@
     "output": "Output tokens",
     "cost": "Cost",
     "total": "Total",
-    "unknown": "Unknown price"
+    "unknown": "Unknown price",
+    "included": "Included in the debate price. The table lists each model call and its tokens."
   },
   "task": {
     "interview": "Interview",

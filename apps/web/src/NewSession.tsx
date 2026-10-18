@@ -4,11 +4,11 @@ import type { TemplateId } from "@quorumind/core/templates";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
-import { type AppConfig, api } from "./api.ts";
+import { type AppConfig, api, type PriceQuote } from "./api.ts";
 import { ContextPicker } from "./components/ContextPicker.tsx";
 import { ArrowIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
 import { Skeleton } from "./components/Logo.tsx";
-import { formatUsd, groupLabel } from "./format.ts";
+import { formatPrice, formatUsd, groupLabel } from "./format.ts";
 
 const MODES: Mode[] = ["standard", "express", "challenge"];
 const MODE_ICONS = { standard: CompareIcon, express: BoltIcon, challenge: TargetIcon } as const;
@@ -256,6 +256,7 @@ export function NewSession() {
   const [redact, setRedact] = useState(false);
   const [notify, setNotify] = useState(false);
   const [estimate, setEstimate] = useState<{ low: number; high: number } | null>(null);
+  const [price, setPrice] = useState<PriceQuote | null>(null);
   const [pending, setPending] = useState<"live" | "demo" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -270,16 +271,23 @@ export function NewSession() {
   }, [t]);
 
   const effectiveRounds = mode === "express" ? 1 : rounds;
+  const language = i18n.language as Locale;
   useEffect(() => {
     if (!lineup) return;
     const timer = setTimeout(() => {
-      api.estimate(lineup, effectiveRounds, mode).then(
-        (body) => setEstimate(body.estimateUsd),
-        () => setEstimate(null),
+      api.estimate(lineup, effectiveRounds, mode, depth, language).then(
+        (body) => {
+          setEstimate(body.estimateUsd);
+          setPrice(body.price);
+        },
+        () => {
+          setEstimate(null);
+          setPrice(null);
+        },
       );
     }, 250);
     return () => clearTimeout(timer);
-  }, [lineup, effectiveRounds, mode]);
+  }, [lineup, effectiveRounds, mode, depth, language]);
 
   const allLocal = useMemo(() => {
     if (!config || !lineup) return false;
@@ -441,22 +449,24 @@ export function NewSession() {
                     ))}
                   </select>
                 </div>
-                <div className="field">
-                  <label className="field-hint" htmlFor="budget">
-                    {t("home.budget")}
-                  </label>
-                  <input
-                    id="budget"
-                    className="input"
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    inputMode="decimal"
-                    placeholder={config.maxBudgetUsd ? formatUsd(config.maxBudgetUsd, i18n.language) : t("home.budgetNone")}
-                    value={budget}
-                    onChange={(event) => setBudget(event.target.value)}
-                  />
-                </div>
+                {config.providerCosts ? (
+                  <div className="field">
+                    <label className="field-hint" htmlFor="budget">
+                      {t("home.budget")}
+                    </label>
+                    <input
+                      id="budget"
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      inputMode="decimal"
+                      placeholder={config.maxBudgetUsd ? formatUsd(config.maxBudgetUsd, i18n.language) : t("home.budgetNone")}
+                      value={budget}
+                      onChange={(event) => setBudget(event.target.value)}
+                    />
+                  </div>
+                ) : null}
               </div>
               <LineupEditor config={config} lineup={lineup} onChange={setLineup} />
               <label className="check">
@@ -478,9 +488,15 @@ export function NewSession() {
 
         {live ? (
           <p className="field-hint" style={{ margin: 0 }}>
-            {estimate
-              ? t("home.estimate", { low: formatUsd(estimate.low, i18n.language), high: formatUsd(estimate.high, i18n.language) })
-              : t("setup.estimateUnknown")}
+            {price
+              ? price.amount > 0
+                ? t("cost.quote", { label: price.label, price: formatPrice(price.amount, price.currency, i18n.language) })
+                : price.label
+              : !config?.providerCosts
+                ? null
+                : estimate
+                  ? t("home.estimate", { low: formatUsd(estimate.low, i18n.language), high: formatUsd(estimate.high, i18n.language) })
+                  : t("setup.estimateUnknown")}
             {allLocal ? (
               <span className="chip local-chip">
                 <LocalIcon />

@@ -165,11 +165,13 @@
   "cost": {
     "label": "Costo finora",
     "cap": "tetto {{cap}}",
+    "quote": "{{label}}: {{price}}",
     "partial": "Il prezzo di alcuni modelli è sconosciuto: il totale è parziale."
   },
   "error": {
     "title": "La sessione si è interrotta",
     "budget_exceeded": "Il tetto di spesa è stato raggiunto.",
+    "priceLimit": "Il dibattito ha usato tutta la capacità dei modelli inclusa nel suo prezzo.",
     "provider_error": "Un modello non è riuscito a rispondere.",
     "internal_error": "Si è verificato un errore imprevisto.",
     "retry": "Riprendi da dove si è fermata",
@@ -201,7 +203,8 @@
     "output": "Token in uscita",
     "cost": "Costo",
     "total": "Totale",
-    "unknown": "Prezzo sconosciuto"
+    "unknown": "Prezzo sconosciuto",
+    "included": "Incluso nel prezzo del dibattito. La tabella elenca ogni chiamata a un modello e i suoi token."
   },
   "task": {
     "interview": "Intervista",

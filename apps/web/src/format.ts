@@ -11,6 +11,21 @@ export function formatUsd(amount: number, locale: string) {
   }).format(amount);
 }
 
+/** A price set by the host: without cents when it is a round amount (7 €), with them otherwise (7,50 €). */
+export function formatPrice(amount: number, currency: string, locale: string) {
+  const digits = Number.isInteger(amount) ? 0 : 2;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(amount);
+  } catch {
+    return `${new Intl.NumberFormat(locale, { minimumFractionDigits: digits }).format(amount)} ${currency}`;
+  }
+}
+
 export function formatMoney(amount: number, currency: string, locale: string) {
   try {
     return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);

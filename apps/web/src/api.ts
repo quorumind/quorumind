@@ -17,6 +17,14 @@ export type { Answer, Lineup, Session };
 
 type Estimate = { low: number; high: number } | null;
 
+/** The price the host sells a debate at, when it sets one (hosted version). */
+export interface PriceQuote {
+  /** In `currency`; 0 when the person's plan covers it. */
+  amount: number;
+  currency: string;
+  label: string;
+}
+
 export interface AppConfig {
   catalog: ModelOption[];
   live: { lineup: Lineup; estimateUsd: Estimate } | null;
@@ -27,6 +35,8 @@ export interface AppConfig {
   notifications: boolean;
   retentionDays: number | null;
   maxBudgetUsd: number | null;
+  /** False when the host keeps provider costs to itself: only calls and tokens are shown. */
+  providerCosts: boolean;
 }
 
 export interface SessionSummary {
@@ -96,10 +106,18 @@ const post = (body: unknown = {}) => ({ method: "POST", body: JSON.stringify(bod
 
 export const api = {
   config: () => request<AppConfig>("/api/config"),
-  estimate: (lineup: Lineup, rounds: number, mode: Mode) =>
-    request<{ estimateUsd: Estimate }>("/api/estimate", post({ lineup, rounds, mode })),
+  estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale) =>
+    request<{ estimateUsd: Estimate; price: PriceQuote | null }>("/api/estimate", post({ lineup, rounds, mode, depth, locale })),
   sessions: () => request<{ sessions: SessionSummary[] }>("/api/sessions"),
-  session: (id: string) => request<{ session: Session; busy: boolean; share: Share | null; feedback: Feedback[] }>(`/api/sessions/${id}`),
+  session: (id: string) =>
+    request<{
+      session: Session;
+      busy: boolean;
+      share: Share | null;
+      feedback: Feedback[];
+      price: PriceQuote | null;
+      providerCosts: boolean;
+    }>(`/api/sessions/${id}`),
   create: (input: NewSessionInput) => request<{ session: Session }>("/api/sessions", post(input)),
   remove: (id: string) => request<void>(`/api/sessions/${id}`, { method: "DELETE" }),
   answerInterview: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/interview`, post({ answers })),

@@ -165,11 +165,13 @@
   "cost": {
     "label": "Coût jusqu'ici",
     "cap": "plafond {{cap}}",
+    "quote": "{{label}} : {{price}}",
     "partial": "Le prix de certains modèles est inconnu : le total est partiel."
   },
   "error": {
     "title": "La session s'est arrêtée",
     "budget_exceeded": "Le plafond de coût est atteint.",
+    "priceLimit": "Le débat a utilisé toute la capacité de calcul comprise dans son prix.",
     "provider_error": "Un modèle n'a pas pu répondre.",
     "internal_error": "Une erreur inattendue s'est produite.",
     "retry": "Reprendre là où elle s'est arrêtée",
@@ -201,7 +203,8 @@
     "output": "Jetons en sortie",
     "cost": "Coût",
     "total": "Total",
-    "unknown": "Prix inconnu"
+    "unknown": "Prix inconnu",
+    "included": "Inclus dans le prix du débat. Le tableau liste chaque appel de modèle et ses jetons."
   },
   "task": {
     "interview": "Entretien",

@@ -3,12 +3,12 @@ import { totalCost } from "@quorumind/core/session";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
-import { api, type Feedback, type Share } from "./api.ts";
+import { api, type Feedback, type PriceQuote, type Share } from "./api.ts";
 import { Costs } from "./Costs.tsx";
 import { RetryIcon } from "./components/Icons.tsx";
 import { Loader, Skeleton } from "./components/Logo.tsx";
 import { Debate } from "./Debate.tsx";
-import { formatUsd } from "./format.ts";
+import { formatPrice, formatUsd } from "./format.ts";
 import { Interview } from "./Interview.tsx";
 import { Review } from "./Review.tsx";
 import { SessionActions } from "./SessionActions.tsx";
@@ -58,14 +58,20 @@ function defaultTab(session: Session): Tab {
 export function SessionView({ id }: { id: string }) {
   const { session, live, connected, missing } = useSession(id);
   const { upsert } = useSessions();
-  const [extras, setExtras] = useState<{ share: Share | null; feedback: Feedback[] }>({ share: null, feedback: [] });
+  const [extras, setExtras] = useState<{ share: Share | null; feedback: Feedback[]; price: PriceQuote | null; providerCosts: boolean }>({
+    share: null,
+    feedback: [],
+    price: null,
+    // Known once the session is loaded: a hosted session never shows a provider cost, even briefly.
+    providerCosts: false,
+  });
   const title = session ? (session.sheet?.projectName ?? session.idea) : "";
   useEffect(() => {
     if (session) upsert({ id: session.id, idea: title, phase: session.phase, updatedAt: session.updatedAt });
   }, [session, title, upsert]);
   useEffect(() => {
     api.session(id).then(
-      (body) => setExtras({ share: body.share, feedback: body.feedback }),
+      (body) => setExtras({ share: body.share, feedback: body.feedback, price: body.price, providerCosts: body.providerCosts }),
       () => undefined,
     );
   }, [id]);
@@ -78,6 +84,8 @@ export function SessionView({ id }: { id: string }) {
       share={extras.share}
       onShare={(share) => setExtras((current) => ({ ...current, share }))}
       feedback={extras.feedback}
+      price={extras.price}
+      providerCosts={extras.providerCosts}
     />
   );
 }
@@ -111,6 +119,8 @@ function SessionBody({
   onShare,
   feedback = [],
   reportUrl,
+  price = null,
+  providerCosts = true,
 }: {
   session: Session | null;
   live: LiveSpeech;
@@ -121,6 +131,10 @@ function SessionBody({
   onShare?: (share: Share | null) => void;
   feedback?: Feedback[];
   reportUrl?: string;
+  /** The price the host sells this debate at, shown instead of its provider cost. */
+  price?: PriceQuote | null;
+  /** False when provider costs are not shown (the host sets a price of its own). */
+  providerCosts?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [retrying, setRetrying] = useState(false);
@@ -193,13 +207,18 @@ function SessionBody({
               </li>
             ))}
           </ol>
-          {readOnly ? null : (
+          {readOnly ? null : price ? (
+            <span className="cost muted">
+              <span>{price.label}</span>
+              {price.amount > 0 ? <span className="mono">{formatPrice(price.amount, price.currency, i18n.language)}</span> : null}
+            </span>
+          ) : providerCosts ? (
             <span className="cost muted">
               <span>{t("cost.label")}</span>
               <span className="mono">{formatUsd(cost.usd, i18n.language)}</span>
               {session.budgetUsd !== null ? <span>({t("cost.cap", { cap: formatUsd(session.budgetUsd, i18n.language) })})</span> : null}
             </span>
-          )}
+          ) : null}
         </div>
         <div className="session-title-row">
           <h1 className="display">{title}</h1>
@@ -221,7 +240,12 @@ function SessionBody({
           <div className="notice notice-error stack" role="alert">
             <strong>{t("error.title")}</strong>
             <span>
-              {t(`error.${session.error?.code ?? "internal_error"}`)} <span className="muted">{session.error?.message}</span>
+              {t(
+                session.error?.code === "budget_exceeded" && !providerCosts
+                  ? "error.priceLimit"
+                  : `error.${session.error?.code ?? "internal_error"}`,
+              )}{" "}
+              <span className="muted">{session.error?.message}</span>
             </span>
             <div>
               <button type="button" className="button button-secondary" onClick={retry} disabled={retrying}>
@@ -267,7 +291,7 @@ function SessionBody({
           )
         ) : null}
         {active === "interview" ? <Interview session={session} live={live} /> : null}
-        {active === "costs" ? <Costs session={session} /> : null}
+        {active === "costs" ? <Costs session={session} providerCosts={providerCosts} /> : null}
       </div>
     </div>
   );
