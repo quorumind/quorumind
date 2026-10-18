@@ -87,6 +87,75 @@ export interface UsageRecord {
   inputTokens: number;
   outputTokens: number;
   costUsd: number | null;
+  /** The verdict revision the call was made for; absent for the debate itself. */
+  revision?: number;
+}
+
+/**
+ * Why a verdict revision exists. debate: the debate's own verdict, always revision 1. client_answers: the client
+ * answered a questionnaire. edit: the person stated new facts or corrections. scenario: a "what if" variant.
+ */
+export type RevisionReason = "debate" | "client_answers" | "edit" | "scenario";
+
+/** One new fact a revision is made from: the answer to a question, or something the person states on its own. */
+export interface RevisionFact {
+  /** The question it answers; null for a fact stated on its own. */
+  question: string | null;
+  answer: string;
+  /** A remark that comes with the answer. */
+  comment: string | null;
+}
+
+/** What a revision is made from. Other kinds of revision add their own fields. */
+export interface RevisionInputs {
+  facts: RevisionFact[];
+  /** What changed, in the person's own words. */
+  note: string | null;
+  /** The questionnaire the answers come from, for a revision from client answers. */
+  questionnaireId: string | null;
+}
+
+export type CostEstimate = Proposal["monthlyCost"];
+
+/**
+ * The running cost of one option as a revision changed it, in the debate's currency. The build cost is not revised
+ * here: it is priced from the option's work packages.
+ */
+export interface CostRevision {
+  seat: string;
+  monthlyCost: CostEstimate;
+}
+
+/**
+ * One version of the verdict. The debate's verdict is revision 1; each later one re-runs the arbiter (and, when the
+ * facts call for it, a short critique of the options) with new facts, instead of the whole debate.
+ */
+export interface VerdictRevision {
+  number: number;
+  createdAt: string;
+  reason: RevisionReason;
+  inputs: RevisionInputs;
+  /** The revision this one starts from; null for the first. */
+  basedOn: number | null;
+  verdict: Verdict;
+  /** The cost estimates the new facts changed. */
+  costs: CostRevision[];
+  /** The short critique of the options run with the new facts: internal, never in a client document. */
+  critiques: { seat: string; data: CritiqueRound }[];
+  /** Who asked for it: the user id on a hosted server; null for the local user and for the debate's own verdict. */
+  by: string | null;
+}
+
+/** A revision on its way: the arbiter works on it, or it stopped on `error` and can be asked again. */
+export interface PendingRevision {
+  number: number;
+  reason: Exclude<RevisionReason, "debate">;
+  inputs: RevisionInputs;
+  basedOn: number;
+  by: string | null;
+  startedAt: string;
+  /** Null while it runs. A failed revision changes nothing: the current verdict stays. */
+  error: SessionError | null;
 }
 
 export interface Session {
@@ -138,8 +207,13 @@ export interface Session {
   /** Set when the person validates the requirements sheet and the debate may start. */
   sheetConfirmedAt: string | null;
   debate: DebateEntry[];
+  /** The current verdict: that of the latest revision. */
   verdict: Verdict | null;
-  /** The verdict rewritten for other readers, generated on demand. */
+  /** Every version of the verdict, oldest first; empty until the arbiter has ruled. */
+  revisions: VerdictRevision[];
+  /** The revision being made, or the last one that failed. */
+  revising: PendingRevision | null;
+  /** The current verdict rewritten for other readers, generated on demand. */
   briefs: Partial<Record<Audience, Brief>>;
   usage: UsageRecord[];
   error: SessionError | null;
@@ -222,6 +296,8 @@ export function createSession(input: NewSessionInput): Session {
     sheetConfirmedAt: null,
     debate: [],
     verdict: null,
+    revisions: [],
+    revising: null,
     briefs: {},
     usage: [],
     error: null,
@@ -254,6 +330,7 @@ export function normalizeSession(stored: Session): Session {
   }
   // Proposals made before the single currency each named theirs: the debate keeps the first one's.
   session.currency ??= session.sheetConfirmedAt ? legacyCurrency(session) : null;
+  session.revising ??= null;
   // Verdicts stored before the debate map listed consensus and disagreements separately.
   const legacy = session.verdict as (Verdict & { consensus?: string[]; disagreements?: { topic: string; positions: string[] }[] }) | null;
   if (legacy && !legacy.topics) {
@@ -266,6 +343,8 @@ export function normalizeSession(stored: Session): Session {
       })),
     ];
   }
+  // Sessions ruled on before revisions existed: their verdict is revision 1.
+  session.revisions ??= session.verdict ? [firstRevision(session.verdict, session.updatedAt)] : [];
   session.seats = Object.fromEntries(
     Object.entries(session.seats).map(([seat, value]) => [seat, { ...value, persona: value.persona ?? null }]),
   );
@@ -330,14 +409,21 @@ function legacyCurrency(session: Session): string | null {
  */
 export function isWorking(session: Session): boolean {
   if (session.phase === "debating") return true;
+  if (session.revising && !session.revising.error) return true;
   return session.phase === "interview" && session.interview.at(-1)?.kind !== "interviewer";
 }
 
 /** Fails a session whose worker is gone, the server having stopped in the middle: it can be resumed from there. */
 export function markInterrupted(session: Session, now = new Date()): void {
-  session.phase = "failed";
-  session.error = { code: "interrupted", message: "The server stopped while this session was working." };
+  const error = { code: "interrupted", message: "The server stopped while this session was working." };
   session.updatedAt = now.toISOString();
+  // A revision that did not finish leaves the current verdict as it was.
+  if (session.revising && !session.revising.error) {
+    session.revising.error = error;
+    return;
+  }
+  session.phase = "failed";
+  session.error = error;
 }
 
 /** Seats that design an option: none in challenge mode, where the person's solution is the only option. */
@@ -360,14 +446,57 @@ export function totalCost(session: Session): { usd: number; complete: boolean } 
   return { usd, complete };
 }
 
-/** Latest version of each proposal: the revised one when a revision exists. */
+/**
+ * Latest version of each proposal: the revised one when a revision exists, with the running costs the verdict
+ * revisions changed since.
+ */
 export function currentProposals(session: Session): Record<string, Proposal> {
   const proposals: Record<string, Proposal> = {};
   for (const entry of session.debate) {
     if (entry.kind === "proposal") proposals[entry.seat] = entry.data;
     if (entry.kind === "revision") proposals[entry.seat] = entry.data.proposal;
   }
+  for (const revision of session.revisions ?? []) {
+    for (const cost of revision.costs) {
+      const proposal = proposals[cost.seat];
+      if (!proposal) continue;
+      proposals[cost.seat] = { ...proposal, monthlyCost: cost.monthlyCost };
+    }
+  }
   return proposals;
+}
+
+/** The first revision: the debate's own verdict. */
+export function firstRevision(verdict: Verdict, createdAt: string): VerdictRevision {
+  return {
+    number: 1,
+    createdAt,
+    reason: "debate",
+    inputs: { facts: [], note: null, questionnaireId: null },
+    basedOn: null,
+    verdict,
+    costs: [],
+    critiques: [],
+    by: null,
+  };
+}
+
+/** The revision the session shows: the latest. */
+export function currentRevision(session: Session): VerdictRevision | null {
+  return session.revisions.at(-1) ?? null;
+}
+
+/**
+ * The session as it stood at one revision of its verdict, for the report of an earlier version: that verdict and the
+ * revisions up to it (so the costs are those of that time), with no reader brief unless it is the latest. Null when
+ * there is no such revision.
+ */
+export function sessionAtRevision(session: Session, number: number): Session | null {
+  const index = session.revisions.findIndex((revision) => revision.number === number);
+  const revision = session.revisions[index];
+  if (!revision) return null;
+  if (index === session.revisions.length - 1) return session;
+  return { ...session, verdict: revision.verdict, revisions: session.revisions.slice(0, index + 1), revising: null, briefs: {} };
 }
 
 export function allAnswers(session: Session): Answer[] {

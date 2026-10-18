@@ -3,7 +3,8 @@ export type ProviderKind = "anthropic" | "openai" | "gemini" | "openrouter" | "o
 /** How hard a model thinks before answering: the debate "depth". */
 export type Effort = "low" | "medium" | "high";
 
-export type Task = "interview" | "proposal" | "critique" | "revision" | "probe" | "verdict" | "brief";
+/** reassess: the arbiter rules again on new facts, for a verdict revision. */
+export type Task = "interview" | "proposal" | "critique" | "revision" | "probe" | "verdict" | "reassess" | "brief";
 
 export interface ChatMessage {
   role: "user" | "assistant";

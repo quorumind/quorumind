@@ -24,6 +24,7 @@ export * from "./providers/openrouter.ts";
 export * from "./providers/types.ts";
 export * from "./ranking.ts";
 export * from "./report.ts";
+export * from "./revisions.ts";
 export * from "./schemas.ts";
 export * from "./session.ts";
 export * from "./templates.ts";

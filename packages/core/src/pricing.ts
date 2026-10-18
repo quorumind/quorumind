@@ -40,6 +40,8 @@ export const TASK_PROFILE = {
   revision: { input: 9_000, output: 3_000 },
   probe: { input: 9_000, output: 1_500 },
   verdict: { input: 14_000, output: 4_000 },
+  // A verdict revision: the arbiter reads the verdict and the new facts again, not the transcript.
+  reassess: { input: 10_000, output: 4_000 },
 } as const;
 
 /** The typical cost of one call of a debate task, or null when the model's price is unknown. */
@@ -75,4 +77,15 @@ export function estimateDebateCost(plan: DebatePlan): { low: number; high: numbe
   if (verdict === null) return null;
   total += verdict;
   return { low: total * 0.6, high: total * 1.8 };
+}
+
+/**
+ * Estimated cost of a verdict revision in US dollars: the arbiter's new ruling and, at most, one short critique of the
+ * options. Null if a model's price is unknown.
+ */
+export function estimateRevisionCost(plan: { arbiterModel: string; criticModel: string | null }): { low: number; high: number } | null {
+  const ruling = typicalCallCost(plan.arbiterModel, "reassess");
+  const critique = plan.criticModel ? typicalCallCost(plan.criticModel, "critique") : 0;
+  if (ruling === null || critique === null) return null;
+  return { low: ruling * 0.6, high: (ruling + critique) * 1.8 };
 }

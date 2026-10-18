@@ -1,6 +1,18 @@
 // Two protections applied to everything the person provides before it reaches a model.
 
-const DATA_TAGS = ["requirements", "proposals", "debate", "answers", "context", "solution", "probe", "profile", "rates", "checks"];
+const DATA_TAGS = [
+  "requirements",
+  "proposals",
+  "debate",
+  "answers",
+  "context",
+  "solution",
+  "probe",
+  "profile",
+  "rates",
+  "checks",
+  "verdict",
+];
 const TAG_PATTERN = new RegExp(`<(/?)(${DATA_TAGS.join("|")})\\b`, "gi");
 
 /**

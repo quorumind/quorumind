@@ -1,4 +1,15 @@
-import type { Audience, Brief, CritiqueRound, InterviewTurn, Probe, Proposal, RequirementsSheet, Revision, Verdict } from "./schemas.ts";
+import type {
+  Audience,
+  Brief,
+  CritiqueRound,
+  InterviewTurn,
+  Probe,
+  Proposal,
+  RequirementsSheet,
+  Revision,
+  Verdict,
+  VerdictUpdate,
+} from "./schemas.ts";
 
 // A complete scripted debate, replayed by the mock provider so people can try Quorumind
 // without an API key, and used by the tests and the quality bench.
@@ -464,6 +475,41 @@ const BRIEFS: Record<Audience, Brief> = {
   },
 };
 
+/** The verdict ruled again once the open question is answered: a verdict revision of the demo. */
+const REASSESSMENT: VerdictUpdate = {
+  ...VERDICT,
+  speech:
+    "The SMS answer confirms option A's running cost, now lower than estimated. Option A stays the recommendation; option B still depends on a vendor nobody has named.",
+  options: VERDICT.options.map((option) =>
+    option.seat === "A"
+      ? {
+          ...option,
+          scores: option.scores.map((score) => (score.criterion === "Ease of maintenance" ? { ...score, score: 4 } : score)),
+        }
+      : option,
+  ),
+  risks: [
+    ...VERDICT.risks,
+    {
+      risk: "SMS volume grows faster than the members",
+      likelihood: "low",
+      impact: "medium",
+      mitigation: "Send reminders by e-mail first and by SMS only to members who ask for it.",
+    },
+  ],
+  claims: [
+    { claim: "Option A runs at €140 to €220 per month", confidence: "estimated" },
+    ...VERDICT.claims.filter((claim) => !claim.claim.startsWith("Option A runs")),
+  ],
+  openQuestions: [],
+  costs: [
+    {
+      seat: "A",
+      monthlyCost: { low: 140, high: 220, basis: "Hosting, database and SMS at the confirmed provider's rate; estimate." },
+    },
+  ],
+};
+
 export const DEMO_SCRIPT = {
   proposals: { A: PROPOSAL_A, B: PROPOSAL_B } as Record<string, Proposal>,
   critiques: { A: CRITIQUES_A, B: CRITIQUES_B, devil: CRITIQUES_DEVIL } as Record<string, CritiqueRound>,
@@ -471,4 +517,5 @@ export const DEMO_SCRIPT = {
   briefs: BRIEFS,
   revisions: { A: REVISION_A, B: REVISION_B } as Record<string, Revision>,
   verdict: VERDICT,
+  reassessment: REASSESSMENT,
 };

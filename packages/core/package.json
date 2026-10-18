@@ -10,6 +10,7 @@
     "./session": "./src/session.ts",
     "./templates": "./src/templates.ts",
     "./ranking": "./src/ranking.ts",
+    "./revisions": "./src/revisions.ts",
     "./branding": "./src/branding.ts",
     "./profile": "./src/profile.ts",
     "./costing": "./src/costing.ts",

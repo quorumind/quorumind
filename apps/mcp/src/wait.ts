@@ -117,6 +117,7 @@ const TASKS: Record<Task, string> = {
   revision: "revising its proposal",
   probe: "probing the consensus",
   verdict: "writing the verdict",
+  reassess: "updating the verdict with new facts",
   brief: "writing a brief",
 };
 
@@ -125,7 +126,7 @@ export function describeEvent(event: EngineEvent): string | null {
   const who =
     event.task === "interview"
       ? "The interviewer"
-      : event.task === "verdict" || event.task === "probe" || event.task === "brief"
+      : event.task === "verdict" || event.task === "reassess" || event.task === "probe" || event.task === "brief"
         ? "The arbiter"
         : event.seat === "devil"
           ? "The devil's advocate"

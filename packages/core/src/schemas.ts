@@ -236,6 +236,14 @@ export const Verdict = z.object({
 });
 export type Verdict = z.infer<typeof Verdict>;
 
+/** The verdict ruled again on new facts (a verdict revision), with the running costs those facts change. */
+export const VerdictUpdate = Verdict.extend({
+  costs: z
+    .array(z.object({ seat: z.string(), monthlyCost: z.object({ low: z.number(), high: z.number(), basis: z.string() }) }))
+    .describe("Only the options whose monthly running cost the new facts change, with the new estimate in the debate's currency."),
+});
+export type VerdictUpdate = z.infer<typeof VerdictUpdate>;
+
 /** Raised by the arbiter when the participants agree too fast: an angle nobody has examined yet. */
 export const Probe = z.object({
   speech: z.string(),

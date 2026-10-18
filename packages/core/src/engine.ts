@@ -14,6 +14,7 @@ import {
   contextBlock,
   criticSystem,
   devilSystem,
+  factsBlock,
   formalizerSystem,
   interviewerSystem,
   probeSystem,
@@ -21,8 +22,10 @@ import {
   proposalsBlock,
   proposerSystem,
   ratesBlock,
+  reassessSystem,
   requirementsBlock,
   reviserSystem,
+  revisionCriticSystem,
 } from "./prompts.ts";
 import { type ChatMessage, type LlmProvider, ProviderError, type Task } from "./providers/types.ts";
 import {
@@ -37,6 +40,7 @@ import {
   Revision,
   toStrictJsonSchema,
   Verdict,
+  VerdictUpdate,
 } from "./schemas.ts";
 import {
   type Answer,
@@ -46,11 +50,15 @@ import {
   DEVIL_SEAT,
   type DebateEntry,
   type Depth,
+  firstRevision,
+  type PendingRevision,
   proposerSeats,
+  type RevisionInputs,
   type Session,
   type SessionError,
   totalCost,
   USER_SEAT,
+  type VerdictRevision,
 } from "./session.ts";
 
 /** After this many answered turns the interviewer must produce the requirements sheet. */
@@ -76,6 +84,14 @@ export type EngineEvent =
 export interface EngineHooks {
   emit(sessionId: string, event: EngineEvent): void;
   save(session: Session): void | Promise<void>;
+}
+
+/** What a new verdict revision is made from, and who asks for it. */
+export interface RevisionRequest {
+  reason: PendingRevision["reason"];
+  inputs: RevisionInputs;
+  /** The user id on a hosted server; null for the local user. */
+  by: string | null;
 }
 
 export class BudgetExceededError extends Error {
@@ -146,6 +162,7 @@ const SCHEMAS = {
   revision: { zod: Revision, json: toStrictJsonSchema(Revision), name: "revision", maxTokens: 14_000 },
   probe: { zod: Probe, json: toStrictJsonSchema(Probe), name: "probe", maxTokens: 4_000 },
   verdict: { zod: Verdict, json: toStrictJsonSchema(Verdict), name: "verdict", maxTokens: 20_000 },
+  reassess: { zod: VerdictUpdate, json: toStrictJsonSchema(VerdictUpdate), name: "verdict_update", maxTokens: 20_000 },
   brief: { zod: Brief, json: toStrictJsonSchema(Brief), name: "brief", maxTokens: 8_000 },
 } as const;
 
@@ -153,6 +170,8 @@ export class DebateEngine {
   private readonly providers: ProviderSet;
   private readonly hooks: EngineHooks;
   private readonly signal: AbortSignal | undefined;
+  /** The verdict revision being made: its calls are recorded under its number and capped by its own budget. */
+  private scope: { revision: number; budgetUsd: number | null } | null = null;
 
   /**
    * @param options.signal stops the work: the calls in flight are cancelled and the session fails with the code
@@ -267,6 +286,153 @@ export class DebateEngine {
     await this.persist(session);
   }
 
+  /**
+   * Records a new revision of the verdict as pending, from new facts: answers to the open questions or corrections.
+   * runRevision then makes it. A revision that failed is replaced.
+   */
+  async beginRevision(session: Session, request: RevisionRequest): Promise<PendingRevision> {
+    if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
+    if (session.revising && !session.revising.error) {
+      throw new InvalidStateError("The verdict is already being revised. Wait for it to finish.", "session_busy");
+    }
+    if (session.revisions.length === 0) session.revisions.push(firstRevision(session.verdict, session.updatedAt));
+    const latest = session.revisions.at(-1) as VerdictRevision;
+    session.revising = {
+      number: latest.number + 1,
+      reason: request.reason,
+      inputs: structuredClone(request.inputs),
+      basedOn: latest.number,
+      by: request.by,
+      startedAt: new Date().toISOString(),
+      error: null,
+    };
+    await this.persist(session);
+    return session.revising;
+  }
+
+  /**
+   * Makes the pending revision: a short critique of the options with the new facts when there is room for it, then
+   * the arbiter rules again. Only these calls are made, never the debate. `budgetUsd` caps what they may cost
+   * together. A failure leaves the current verdict as it is, the pending revision carrying the error. Returns true
+   * when the new verdict was produced.
+   */
+  async runRevision(session: Session, options: { budgetUsd?: number | null } = {}): Promise<boolean> {
+    const pending = session.revising;
+    if (!pending || pending.error || !session.verdict) throw new InvalidStateError("No revision is waiting to be made.");
+    this.scope = { revision: pending.number, budgetUsd: options.budgetUsd ?? null };
+    try {
+      const critiques = await this.reviewFacts(session, pending);
+      const prompt = this.reassessPrompt(session, pending, critiques);
+      if (this.scope.budgetUsd !== null) {
+        const spent = this.spent(session);
+        if (spent + this.promptEstimate(prompt, "reassess") > this.scope.budgetUsd)
+          throw new BudgetExceededError(spent, this.scope.budgetUsd);
+      }
+      const { costs, ...verdict } = await this.call(session, "reassess", null, this.providers.arbiter, prompt);
+      settleVerdict(session, verdict);
+      const seats = new Set(verdict.options.map((option) => option.seat));
+      session.revisions.push({
+        number: pending.number,
+        createdAt: new Date().toISOString(),
+        reason: pending.reason,
+        inputs: pending.inputs,
+        basedOn: pending.basedOn,
+        verdict,
+        costs: costs.flatMap((cost) => {
+          const monthlyCost = validRange(cost.monthlyCost);
+          return seats.has(cost.seat) && monthlyCost ? [{ seat: cost.seat, monthlyCost }] : [];
+        }),
+        critiques,
+        by: pending.by,
+      });
+      session.verdict = verdict;
+      session.revising = null;
+      // The reader versions were written for the previous verdict.
+      session.briefs = {};
+      await this.persist(session);
+      return true;
+    } catch (error) {
+      pending.error = sessionError(this.signal?.aborted ? this.stopped() : error);
+      await this.persist(session);
+      return false;
+    } finally {
+      this.scope = null;
+    }
+  }
+
+  /**
+   * The short critique of a revision: one critic (the devil's advocate, or the first seat) reads the options with the
+   * new facts, when there are facts and the budget leaves room for the arbiter after it.
+   */
+  private async reviewFacts(session: Session, pending: PendingRevision): Promise<VerdictRevision["critiques"]> {
+    const verdict = session.verdict;
+    const facts = pending.inputs.facts.filter((fact) => fact.answer.trim() || fact.comment?.trim());
+    if (!verdict || facts.length === 0) return [];
+    const seat =
+      session.devil && this.providers.devil ? DEVIL_SEAT : Object.keys(session.seats).find((key) => this.providers.proposers[key]);
+    if (!seat) return [];
+    const provider = seat === DEVIL_SEAT ? this.devil() : this.proposer(seat);
+    const proposals = currentProposals(session);
+    const targets = Object.fromEntries(Object.entries(proposals).filter(([key]) => verdict.options.some((option) => option.seat === key)));
+    if (Object.keys(targets).length === 0) return [];
+    if (this.scope?.budgetUsd != null) {
+      const reserve = this.promptEstimate(this.reassessPrompt(session, pending, []), "reassess");
+      if (this.spent(session) + callEstimate(session, "critique", provider.model) + reserve > this.scope.budgetUsd) return [];
+    }
+    const persona = seat === DEVIL_SEAT ? (session.devil?.persona ?? null) : (session.seats[seat]?.persona ?? null);
+    const data = await this.call(session, "critique", seat, provider, {
+      system: revisionCriticSystem(session.locale, persona),
+      messages: [
+        {
+          role: "user",
+          content: [
+            requirementsBlock(requireSheet(session)),
+            profileBlock(sessionProfile(session)),
+            proposalsBlock(targets, computedCosts(session)),
+            fence("verdict", JSON.stringify(stripSpeech(verdict), null, 2)),
+            factsBlock(facts, pending.inputs.note),
+            `Criticise these options in the light of the new facts only. Valid targets: ${Object.keys(targets).join(", ")}.`,
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        },
+      ],
+    });
+    data.critiques = data.critiques.filter((critique) => critique.target in targets);
+    data.questionsForUser = [];
+    return [{ seat, data }];
+  }
+
+  private reassessPrompt(
+    session: Session,
+    pending: PendingRevision,
+    critiques: VerdictRevision["critiques"],
+  ): { system: string; messages: ChatMessage[] } {
+    const verdict = session.verdict as Verdict;
+    const said = critiques.flatMap((entry) => entry.data.critiques.map((critique) => ({ from: entry.seat, ...critique })));
+    return {
+      system: reassessSystem(session.locale, session.mode === "challenge"),
+      messages: [
+        {
+          role: "user",
+          content: [
+            requirementsBlock(requireSheet(session)),
+            profileBlock(sessionProfile(session)),
+            ratesBlock(sessionProfile(session), debateCurrency(session)),
+            proposalsBlock(currentProposals(session), computedCosts(session)),
+            fence("verdict", JSON.stringify(stripSpeech(verdict), null, 2)),
+            factsBlock(pending.inputs.facts, pending.inputs.note),
+            contextBlock(session.context, CONTEXT_BUDGET.critique),
+            said.length > 0 ? fence("debate", JSON.stringify(said, null, 2)) : "",
+            "Rule again on these options with the new facts.",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        },
+      ],
+    };
+  }
+
   private async interviewStep(session: Session) {
     const opening = [
       `Project idea:\n${fence("answers", session.idea)}`,
@@ -372,13 +538,24 @@ export class DebateEngine {
 
   /** What the verdict should cost: its prompt as it stands, and the typical length of a verdict. */
   private verdictEstimate(session: Session): number {
-    const prompt = this.verdictPrompt(session);
+    return this.promptEstimate(this.verdictPrompt(session), "verdict");
+  }
+
+  /** What an arbiter's call should cost: its prompt as it stands, and the typical length of its answer. */
+  private promptEstimate(prompt: { system: string; messages: ChatMessage[] }, task: "verdict" | "reassess"): number {
     const chars = prompt.system.length + prompt.messages.reduce((sum, message) => sum + message.content.length, 0);
     const cost = costOf(this.providers.arbiter.model, {
       inputTokens: Math.ceil(chars / CHARS_PER_TOKEN),
-      outputTokens: TASK_PROFILE.verdict.output,
+      outputTokens: TASK_PROFILE[task].output,
     });
     return cost ?? 0;
+  }
+
+  /** What was spent under the cap that applies: the revision's calls during a revision, the whole session otherwise. */
+  private spent(session: Session): number {
+    if (!this.scope) return totalCost(session).usd;
+    const revision = this.scope.revision;
+    return session.usage.reduce((sum, record) => sum + (record.revision === revision ? (record.costUsd ?? 0) : 0), 0);
   }
 
   private async formalize(session: Session) {
@@ -536,14 +713,10 @@ export class DebateEngine {
       if (spent + this.verdictEstimate(session) > session.budgetUsd) throw new BudgetExceededError(spent, session.budgetUsd);
     }
     const verdict = await this.call(session, "verdict", null, this.providers.arbiter, this.verdictPrompt(session));
-    const seats = new Set(Object.keys(currentProposals(session)));
-    verdict.options = verdict.options.filter((option) => seats.has(option.seat));
-    for (const option of verdict.options) {
-      for (const score of option.scores) score.score = clampScore(score.score);
-    }
-    if (verdict.recommendation.seat !== null && !seats.has(verdict.recommendation.seat)) verdict.recommendation.seat = null;
+    settleVerdict(session, verdict);
     session.debate.push({ kind: "verdict", data: verdict });
     session.verdict = verdict;
+    session.revisions = [firstRevision(verdict, new Date().toISOString())];
     session.phase = "complete";
     await this.persist(session);
   }
@@ -645,6 +818,7 @@ export class DebateEngine {
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           costUsd: result.costUsd ?? costOf(result.model, result.usage) ?? costOf(provider.model, result.usage),
+          ...(this.scope ? { revision: this.scope.revision } : {}),
         });
         const parsed = spec.zod.safeParse(JSON.parse(result.text));
         if (!parsed.success) throw new ProviderError(`The ${task} answer does not match its schema.`, true);
@@ -671,9 +845,10 @@ export class DebateEngine {
   }
 
   private checkBudget(session: Session) {
-    if (session.budgetUsd === null) return;
-    const spent = totalCost(session).usd;
-    if (spent >= session.budgetUsd) throw new BudgetExceededError(spent, session.budgetUsd);
+    const cap = this.scope ? this.scope.budgetUsd : session.budgetUsd;
+    if (cap === null) return;
+    const spent = this.spent(session);
+    if (spent >= cap) throw new BudgetExceededError(spent, cap);
   }
 
   private async persist(session: Session) {
@@ -737,6 +912,23 @@ function computedCosts(session: Session): Record<string, ComputedCost> {
       { currency: costing.currency, low: costing.total.low, high: costing.total.high, personDays: costing.days },
     ]),
   );
+}
+
+/** Keeps a ruling to the options of the debate: unknown seats dropped, scores within 1 to 5. */
+function settleVerdict(session: Session, verdict: Verdict) {
+  const seats = new Set(Object.keys(currentProposals(session)));
+  verdict.options = verdict.options.filter((option) => seats.has(option.seat));
+  for (const option of verdict.options) {
+    for (const score of option.scores) score.score = clampScore(score.score);
+  }
+  if (verdict.recommendation.seat !== null && !seats.has(verdict.recommendation.seat)) verdict.recommendation.seat = null;
+}
+
+/** A cost range a model gave, or null when it is not one: negative or not a number. */
+function validRange<T extends { low: number; high: number }>(range: T | null): T | null {
+  if (!range || !Number.isFinite(range.low) || !Number.isFinite(range.high)) return null;
+  if (range.low < 0 || range.high < 0) return null;
+  return range.low <= range.high ? range : { ...range, low: range.high, high: range.low };
 }
 
 function requireSheet(session: Session) {
