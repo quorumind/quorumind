@@ -84,7 +84,53 @@
       "hardConstraints": "Hard constraints",
       "softConstraints": "Soft constraints",
       "priorities": "Priorities",
-      "assumptions": "Assumptions"
+      "assumptions": "Assumptions",
+      "buildBudget": "Build budget",
+      "runBudget": "Running budget",
+      "period": "Period of the running budget",
+      "currency": "Currency",
+      "note": "Notes",
+      "usersLaunch": "Users at launch",
+      "usersYear": "Users after a year",
+      "usersNote": "Peaks and load",
+      "people": "People",
+      "skills": "Skills",
+      "deadlineDate": "Launch date",
+      "duration": "Or time available",
+      "unit": "Unit of the time available",
+      "compliance": "Compliance"
+    },
+    "period": {
+      "month": "a month",
+      "year": "a year"
+    },
+    "unit": {
+      "week": "weeks",
+      "month": "months"
+    },
+    "per": {
+      "month": "{{amount}} a month",
+      "year": "{{amount}} a year"
+    },
+    "duration": {
+      "week": "{{count}} week(s)",
+      "month": "{{count}} month(s)"
+    },
+    "usersLaunch": "{{count}} users at launch",
+    "usersYear": "{{count}} after a year",
+    "teamSize": "Team of {{count}}",
+    "unknown": "Unknown",
+    "commas": "Separate them with commas.",
+    "currencyHint": "ISO code, such as EUR or USD.",
+    "currencyInvalid": "Enter the budget's currency as an ISO code, such as EUR.",
+    "currencyNote": "Every amount of this debate will be in {{currency}}.",
+    "complianceHint": "Each box checked is a hard constraint for every option.",
+    "compliance": {
+      "gdpr": "Personal data of people in the EU (GDPR)",
+      "healthData": "Health data",
+      "paymentCards": "Payment card data",
+      "accessibility": "An accessibility standard to meet",
+      "publicSector": "A public-sector client"
     }
   },
   "debate": {
@@ -113,7 +159,9 @@
     "estimates": "Costs and durations are estimates.",
     "probe": "The arbiter steps in",
     "probeTag": "Angle nobody examined",
-    "yourSolution": "Your solution"
+    "yourSolution": "Your solution",
+    "personDays": "{{days}} person-days",
+    "weeks": "{{range}} weeks"
   },
   "severity": {
     "blocking": "Blocking",
@@ -349,7 +397,7 @@
     "hint": "Move a weight and the ranking updates. An infeasible option stays last whatever its scores.",
     "reset": "Reset weights",
     "score": "Weighted score",
-    "estimates": "Costs are the proposers' estimates."
+    "estimates": "Build costs are priced from each option's work packages; running costs are the proposers' estimates."
   },
   "map": {
     "title": "Map of the debate",
@@ -551,5 +599,40 @@
     "password_required": "This link asks for a password.",
     "wrong_password": "The password is not right.",
     "too_many_attempts": "Too many wrong passwords. Wait a few minutes, then try again."
+  },
+  "costing": {
+    "title": "Costing by work package",
+    "workPackage": "Work package",
+    "role": "Role",
+    "days": "Person-days",
+    "dayRate": "Day rate",
+    "amount": "Amount",
+    "total": "Total",
+    "exclusions": "Exclusions",
+    "ratesProfile": "Priced with the day rates of your organisation profile.",
+    "ratesEstimated": "Day rates estimated by the proposer. Set up your organisation profile in Settings to price with your own.",
+    "ratesLegacy": "Build cost given as a whole by the proposer.",
+    "unpriced": "No day rate for {{roles}}: their days are counted, not their cost."
+  },
+  "checks": {
+    "title": "Budget and deadline",
+    "overBudget": "Over budget by {{amount}}",
+    "budgetAtRisk": "May exceed the budget by {{amount}}",
+    "withinBudget": "Within budget",
+    "overRunBudget": "Over the running budget by {{amount}} a month",
+    "runBudgetAtRisk": "May exceed the running budget by {{amount}} a month",
+    "withinRunBudget": "Within the running budget",
+    "late": "Late by {{count}} week(s)",
+    "lateAtRisk": "May be late by {{count}} week(s)",
+    "onTime": "On time"
+  },
+  "roles": {
+    "project_manager": "Project manager",
+    "architect": "Architect",
+    "senior_developer": "Senior developer",
+    "developer": "Developer",
+    "designer": "Designer",
+    "tester": "Tester",
+    "devops": "DevOps engineer"
   }
 }

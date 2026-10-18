@@ -1,4 +1,5 @@
 import type { Audience, Feasibility, Session, TopicStatus } from "@quorumind/core";
+import { deliveryChecks, proposalCosting } from "@quorumind/core/costing";
 import { rankOptions } from "@quorumind/core/ranking";
 import { currentProposals } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
@@ -8,9 +9,9 @@ import { api, type Feedback } from "./api.ts";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ExportMenu } from "./components/ExportMenu.tsx";
 import { CheckIcon, CrossIcon, DownloadIcon, MapIcon, SparkIcon, WarningIcon } from "./components/Icons.tsx";
+import { CheckBadges, CostingTable, moneyRange, monthlyCurrency } from "./costing.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText } from "./errors.ts";
-import { formatMoney } from "./format.ts";
 import { useFlip } from "./useFlip.ts";
 
 export function FeasibilityChip({ value }: { value: Feasibility }) {
@@ -138,10 +139,9 @@ function Matrix({ session }: { session: Session }) {
   const body = useFlip<HTMLTableSectionElement>(ranked.map((option) => option.seat).join());
   if (!verdict) return null;
   const proposals = currentProposals(session);
+  const checks = deliveryChecks(session);
   const criteria = priorities.map((priority) => priority.criterion);
   const changed = criteria.some((criterion) => weights[criterion] !== initial[criterion]);
-  const range = (low: number, high: number, currency: string) =>
-    `${formatMoney(low, currency, i18n.language)} – ${formatMoney(high, currency, i18n.language)}`;
 
   return (
     <section className="stack">
@@ -189,6 +189,7 @@ function Matrix({ session }: { session: Session }) {
               ))}
               <th scope="col">{t("debate.monthlyCost")}</th>
               <th scope="col">{t("debate.buildCost")}</th>
+              <th scope="col">{t("checks.title")}</th>
             </tr>
           </thead>
           <tbody aria-live="polite" ref={body}>
@@ -196,6 +197,7 @@ function Matrix({ session }: { session: Session }) {
               const option = verdict.options.find((item) => item.seat === rankedOption.seat);
               const proposal = proposals[rankedOption.seat];
               if (!option) return null;
+              const costing = proposal ? proposalCosting(session, proposal) : null;
               return (
                 <tr key={option.seat} data-rank={index + 1} data-flip={option.seat}>
                   <th scope="row" className="option-cell">
@@ -232,10 +234,11 @@ function Matrix({ session }: { session: Session }) {
                     return <td key={criterion}>{score ? <Score value={score} /> : "–"}</td>;
                   })}
                   <td className="mono nowrap">
-                    {proposal ? range(proposal.monthlyCost.low, proposal.monthlyCost.high, proposal.monthlyCost.currency) : "–"}
+                    {proposal ? moneyRange(proposal.monthlyCost, monthlyCurrency(session, proposal.monthlyCost), i18n.language) : "–"}
                   </td>
-                  <td className="mono nowrap">
-                    {proposal?.buildCost ? range(proposal.buildCost.low, proposal.buildCost.high, proposal.buildCost.currency) : "–"}
+                  <td className="mono nowrap">{costing ? moneyRange(costing.total, costing.currency, i18n.language) : "–"}</td>
+                  <td>
+                    <CheckBadges checks={checks[option.seat]} />
                   </td>
                 </tr>
               );
@@ -246,6 +249,41 @@ function Matrix({ session }: { session: Session }) {
       <p className="field-hint" style={{ margin: 0 }}>
         {t("matrix.estimates")}
       </p>
+    </section>
+  );
+}
+
+/** Each option's costing by work package, in the order of the verdict, with its budget and deadline checks. */
+function CostingSection({ session }: { session: Session }) {
+  const { t, i18n } = useTranslation();
+  const verdict = session.verdict;
+  if (!verdict) return null;
+  const proposals = currentProposals(session);
+  const checks = deliveryChecks(session);
+  const costed = verdict.options.flatMap((option) => {
+    const proposal = proposals[option.seat];
+    const costing = proposal ? proposalCosting(session, proposal) : null;
+    return proposal && costing ? [{ seat: option.seat, title: proposal.title, costing }] : [];
+  });
+  if (costed.length === 0) return null;
+  return (
+    <section className="stack">
+      <h2 className="heading">{t("costing.title")}</h2>
+      {costed.map(({ seat, title, costing }) => (
+        <article className="card stack" key={seat}>
+          <div className="row costing-head">
+            <h3 className="title" style={{ margin: 0 }}>
+              <span className={VOICES[seat] ?? ""}>
+                <span className="voice-name">{seat}</span>
+              </span>{" "}
+              {title}
+            </h3>
+            <span className="mono">{moneyRange(costing.total, costing.currency, i18n.language)}</span>
+          </div>
+          <CheckBadges checks={checks[seat]} />
+          <CostingTable costing={costing} caption={`${t("costing.title")}: ${title}`} />
+        </article>
+      ))}
     </section>
   );
 }
@@ -444,6 +482,7 @@ export function Verdict({
 
       <Briefs session={session} readOnly={readOnly} />
       <Matrix session={session} />
+      <CostingSection session={session} />
       {recommended && proposals[recommended]?.components?.length ? (
         <section className="stack">
           <h2 className="heading">{t("verdict.architecture")}</h2>

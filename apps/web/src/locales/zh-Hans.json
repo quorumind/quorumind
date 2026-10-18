@@ -84,7 +84,53 @@
       "hardConstraints": "硬性约束",
       "softConstraints": "弹性约束",
       "priorities": "优先级",
-      "assumptions": "假设"
+      "assumptions": "假设",
+      "buildBudget": "开发预算",
+      "runBudget": "运营预算",
+      "period": "运营预算的周期",
+      "currency": "货币",
+      "note": "备注",
+      "usersLaunch": "上线时用户数",
+      "usersYear": "一年后用户数",
+      "usersNote": "峰值与负载",
+      "people": "人数",
+      "skills": "技能",
+      "deadlineDate": "上线日期",
+      "duration": "或可用时间",
+      "unit": "可用时间的单位",
+      "compliance": "合规"
+    },
+    "period": {
+      "month": "每月",
+      "year": "每年"
+    },
+    "unit": {
+      "week": "周",
+      "month": "个月"
+    },
+    "per": {
+      "month": "每月 {{amount}}",
+      "year": "每年 {{amount}}"
+    },
+    "duration": {
+      "week": "{{count}} 周",
+      "month": "{{count}} 个月"
+    },
+    "usersLaunch": "上线时 {{count}} 名用户",
+    "usersYear": "一年后 {{count}}",
+    "teamSize": "{{count}} 人团队",
+    "unknown": "未知",
+    "commas": "用逗号分隔。",
+    "currencyHint": "ISO 代码，例如 CNY 或 USD。",
+    "currencyInvalid": "请用 ISO 代码填写预算货币，例如 CNY。",
+    "currencyNote": "本次辩论的所有金额都将以 {{currency}} 表示。",
+    "complianceHint": "每个勾选项都是所有方案必须满足的硬性约束。",
+    "compliance": {
+      "gdpr": "欧盟境内人员的个人数据（GDPR）",
+      "healthData": "健康数据",
+      "paymentCards": "支付卡数据",
+      "accessibility": "需满足的无障碍标准",
+      "publicSector": "公共部门客户"
     }
   },
   "debate": {
@@ -113,7 +159,9 @@
     "estimates": "成本和周期均为估算。",
     "probe": "仲裁者介入",
     "probeTag": "无人考虑过的角度",
-    "yourSolution": "您的方案"
+    "yourSolution": "您的方案",
+    "personDays": "{{days}} 人天",
+    "weeks": "{{range}} 周"
   },
   "severity": {
     "blocking": "致命",
@@ -349,7 +397,7 @@
     "hint": "调整权重，排名随之更新。不可行的方案无论得分多少都排在最后。",
     "reset": "重置权重",
     "score": "加权得分",
-    "estimates": "费用为提案方的估算。"
+    "estimates": "开发成本按各方案的工作包计价；运营成本为提案方的估算。"
   },
   "map": {
     "title": "辩论地图",
@@ -551,5 +599,40 @@
     "password_required": "此链接需要密码。",
     "wrong_password": "密码不正确。",
     "too_many_attempts": "错误密码次数过多。请等待几分钟后重试。"
+  },
+  "costing": {
+    "title": "按工作包测算成本",
+    "workPackage": "工作包",
+    "role": "角色",
+    "days": "人天",
+    "dayRate": "日费率",
+    "amount": "金额",
+    "total": "合计",
+    "exclusions": "不包括",
+    "ratesProfile": "按贵组织资料中的日费率计价。",
+    "ratesEstimated": "日费率为提案方估算。在设置中填写组织资料，即可按自己的费率计价。",
+    "ratesLegacy": "开发成本由提案方整体给出。",
+    "unpriced": "{{roles}} 没有日费率：只计入其天数，不计入成本。"
+  },
+  "checks": {
+    "title": "预算与期限",
+    "overBudget": "超出预算 {{amount}}",
+    "budgetAtRisk": "可能超出预算 {{amount}}",
+    "withinBudget": "在预算内",
+    "overRunBudget": "每月超出运营预算 {{amount}}",
+    "runBudgetAtRisk": "每月可能超出运营预算 {{amount}}",
+    "withinRunBudget": "在运营预算内",
+    "late": "延误 {{count}} 周",
+    "lateAtRisk": "可能延误 {{count}} 周",
+    "onTime": "按期"
+  },
+  "roles": {
+    "project_manager": "项目经理",
+    "architect": "架构师",
+    "senior_developer": "高级开发人员",
+    "developer": "开发人员",
+    "designer": "设计师",
+    "tester": "测试人员",
+    "devops": "DevOps 工程师"
   }
 }

@@ -1,5 +1,7 @@
 import type { RequirementsSheet } from "@quorumind/core";
+import { COMPLIANCE_KEYS } from "@quorumind/core/session";
 import { useTranslation } from "react-i18next";
+import { budgetText, deadlineText, teamText, usersText } from "./sheetText.ts";
 
 const LISTS = [
   "goals",
@@ -15,23 +17,36 @@ const LISTS = [
 
 /** The validated requirements sheet, read-only. */
 export function SheetView({ sheet }: { sheet: RequirementsSheet }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const facts = [
+    ["users", usersText(sheet, t, i18n.language)],
+    ["budget", budgetText(sheet, t, i18n.language)],
+    ["team", teamText(sheet, t, i18n.language)],
+    ["deadline", deadlineText(sheet, t, i18n.language)],
+  ].filter(([, value]) => value);
+  const compliance = COMPLIANCE_KEYS.filter((key) => sheet.compliance[key]);
   return (
     <div className="stack-lg">
       <p className="lead" style={{ margin: 0 }}>
         {sheet.summary}
       </p>
       <dl className="sheet-facts">
-        {(["users", "budget", "team"] as const).map((field) => (
+        {facts.map(([field, value]) => (
           <div key={field}>
             <dt className="label muted">{t(`review.fields.${field}`)}</dt>
-            <dd>{sheet[field]}</dd>
+            <dd>{value}</dd>
           </div>
         ))}
-        {sheet.deadline ? (
+        {compliance.length > 0 ? (
           <div>
-            <dt className="label muted">{t("review.fields.deadline")}</dt>
-            <dd>{sheet.deadline}</dd>
+            <dt className="label muted">{t("review.fields.compliance")}</dt>
+            <dd className="chips">
+              {compliance.map((key) => (
+                <span className="chip" key={key}>
+                  {t(`review.compliance.${key}`)}
+                </span>
+              ))}
+            </dd>
           </div>
         ) : null}
       </dl>

@@ -84,7 +84,53 @@
       "hardConstraints": "Harte Vorgaben",
       "softConstraints": "Weiche Vorgaben",
       "priorities": "Prioritäten",
-      "assumptions": "Annahmen"
+      "assumptions": "Annahmen",
+      "buildBudget": "Entwicklungsbudget",
+      "runBudget": "Betriebsbudget",
+      "period": "Zeitraum des Betriebsbudgets",
+      "currency": "Währung",
+      "note": "Anmerkungen",
+      "usersLaunch": "Nutzer zum Start",
+      "usersYear": "Nutzer nach einem Jahr",
+      "usersNote": "Spitzen und Last",
+      "people": "Personen",
+      "skills": "Kompetenzen",
+      "deadlineDate": "Starttermin",
+      "duration": "Oder verfügbare Zeit",
+      "unit": "Einheit der verfügbaren Zeit",
+      "compliance": "Compliance"
+    },
+    "period": {
+      "month": "pro Monat",
+      "year": "pro Jahr"
+    },
+    "unit": {
+      "week": "Wochen",
+      "month": "Monate"
+    },
+    "per": {
+      "month": "{{amount}} pro Monat",
+      "year": "{{amount}} pro Jahr"
+    },
+    "duration": {
+      "week": "{{count}} Woche(n)",
+      "month": "{{count}} Monat(e)"
+    },
+    "usersLaunch": "{{count}} Nutzer zum Start",
+    "usersYear": "{{count}} nach einem Jahr",
+    "teamSize": "Team von {{count}}",
+    "unknown": "Unbekannt",
+    "commas": "Durch Kommas trennen.",
+    "currencyHint": "ISO-Code, etwa EUR oder USD.",
+    "currencyInvalid": "Geben Sie die Währung des Budgets als ISO-Code an, etwa EUR.",
+    "currencyNote": "Alle Beträge dieser Debatte werden in {{currency}} angegeben.",
+    "complianceHint": "Jedes angekreuzte Kästchen ist eine harte Vorgabe für alle Optionen.",
+    "compliance": {
+      "gdpr": "Personenbezogene Daten von Personen in der EU (DSGVO)",
+      "healthData": "Gesundheitsdaten",
+      "paymentCards": "Zahlungskartendaten",
+      "accessibility": "Ein einzuhaltender Barrierefreiheitsstandard",
+      "publicSector": "Ein Kunde aus dem öffentlichen Sektor"
     }
   },
   "debate": {
@@ -113,7 +159,9 @@
     "estimates": "Kosten und Zeitangaben sind Schätzungen.",
     "probe": "Der Schiedsrichter greift ein",
     "probeTag": "Von niemandem geprüfter Aspekt",
-    "yourSolution": "Ihre Lösung"
+    "yourSolution": "Ihre Lösung",
+    "personDays": "{{days}} Personentage",
+    "weeks": "{{range}} Wochen"
   },
   "severity": {
     "blocking": "Blockierend",
@@ -349,7 +397,7 @@
     "hint": "Verschieben Sie ein Gewicht, und die Rangfolge passt sich an. Eine nicht umsetzbare Option bleibt unabhängig von ihren Punkten auf dem letzten Platz.",
     "reset": "Gewichte zurücksetzen",
     "score": "Gewichtete Punktzahl",
-    "estimates": "Die Kosten sind Schätzungen aus den Vorschlägen."
+    "estimates": "Die Entwicklungskosten werden aus den Arbeitspaketen jeder Option kalkuliert; die Betriebskosten sind Schätzungen aus den Vorschlägen."
   },
   "map": {
     "title": "Debattenkarte",
@@ -551,5 +599,40 @@
     "password_required": "Dieser Link fragt nach einem Passwort.",
     "wrong_password": "Das Passwort ist nicht richtig.",
     "too_many_attempts": "Zu viele falsche Passwörter. Warten Sie ein paar Minuten und versuchen Sie es dann erneut."
+  },
+  "costing": {
+    "title": "Kalkulation nach Arbeitspaketen",
+    "workPackage": "Arbeitspaket",
+    "role": "Rolle",
+    "days": "Personentage",
+    "dayRate": "Tagessatz",
+    "amount": "Betrag",
+    "total": "Summe",
+    "exclusions": "Ausschlüsse",
+    "ratesProfile": "Kalkuliert mit den Tagessätzen Ihres Organisationsprofils.",
+    "ratesEstimated": "Tagessätze vom Vorschlag geschätzt. Legen Sie Ihr Organisationsprofil in den Einstellungen an, um mit Ihren eigenen zu kalkulieren.",
+    "ratesLegacy": "Entwicklungskosten vom Vorschlag als Gesamtbetrag angegeben.",
+    "unpriced": "Kein Tagessatz für {{roles}}: deren Tage werden gezählt, nicht deren Kosten."
+  },
+  "checks": {
+    "title": "Budget und Termin",
+    "overBudget": "Über Budget um {{amount}}",
+    "budgetAtRisk": "Kann das Budget um {{amount}} überschreiten",
+    "withinBudget": "Im Budget",
+    "overRunBudget": "Über dem Betriebsbudget um {{amount}} pro Monat",
+    "runBudgetAtRisk": "Kann das Betriebsbudget um {{amount}} pro Monat überschreiten",
+    "withinRunBudget": "Im Betriebsbudget",
+    "late": "{{count}} Woche(n) zu spät",
+    "lateAtRisk": "Möglicherweise {{count}} Woche(n) zu spät",
+    "onTime": "Termingerecht"
+  },
+  "roles": {
+    "project_manager": "Projektleitung",
+    "architect": "Architekt",
+    "senior_developer": "Senior-Entwickler",
+    "developer": "Entwickler",
+    "designer": "Designer",
+    "tester": "Tester",
+    "devops": "DevOps-Engineer"
   }
 }

@@ -11,6 +11,8 @@
     "./templates": "./src/templates.ts",
     "./ranking": "./src/ranking.ts",
     "./branding": "./src/branding.ts",
+    "./profile": "./src/profile.ts",
+    "./costing": "./src/costing.ts",
     "./diagram": "./src/diagram.ts",
     "./docx": "./src/exports/docx.ts"
   },

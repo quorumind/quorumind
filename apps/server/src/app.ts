@@ -8,6 +8,7 @@ import {
   DEMO_LINEUP,
   DEPTHS,
   DebateEngine,
+  deliveryChecks,
   estimateDebateCost,
   INTERRUPTED,
   InvalidStateError,
@@ -30,6 +31,7 @@ import {
   renderClientReport,
   renderReport,
   type Session,
+  sessionCostings,
   TEMPLATE_IDS,
   type UsageRecord,
 } from "@quorumind/core";
@@ -565,6 +567,9 @@ export function createApp(deps: AppDeps) {
     if (!access.mine && access.shared && hooks.authors && owner) access.author = (await hooks.authors([owner]))[owner] ?? null;
     return c.json({
       session: view(session),
+      // The build cost of each option priced from its work packages, and how it fits the budget and the deadline.
+      costings: sessionCostings(session),
+      checks: deliveryChecks(session),
       busy: busy.has(id),
       share: await store.shareOf(id),
       feedback: await store.feedbackOf(id),

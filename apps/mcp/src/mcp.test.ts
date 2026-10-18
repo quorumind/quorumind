@@ -182,15 +182,17 @@ describe("MCP server on the recorded demo", () => {
 
     const review = await call(mcp, "quorumind_review", { session_id: sessionId });
     expect(textOf(review)).toContain("## Requirements sheet:");
+    expect(textOf(review)).toContain('`{"build":{"amount":15000,"currency":"EUR"},"run":{"amount":400,"currency":"EUR","period":"month"}');
 
     const progress: string[] = [];
-    const confirmed = await call(mcp, "quorumind_confirm", { session_id: sessionId, edits: { budget: "20 000 € to build" } }, (message) =>
+    const budget = { build: { amount: 20_000, currency: "EUR" }, run: null, note: "20 000 € to build" };
+    const confirmed = await call(mcp, "quorumind_confirm", { session_id: sessionId, edits: { budget } }, (message) =>
       progress.push(message),
     );
     expect(textOf(confirmed)).toContain("Sheet confirmed with changes to: budget.");
     expect(snapOf(confirmed).status).toBe("debate_questions");
     expect(snapOf(confirmed).debateQuestions?.length).toBeGreaterThan(0);
-    expect((await quorumind.store.get(sessionId))?.sheet?.budget).toBe("20 000 € to build");
+    expect((await quorumind.store.get(sessionId))?.sheet?.budget).toEqual(budget);
     expect(progress.some((message) => message.includes("Seat A"))).toBe(true);
 
     const debateAnswers = (snapOf(confirmed).debateQuestions ?? []).map((question) => ({ question, answer: "Yes" }));
@@ -210,6 +212,7 @@ describe("MCP server on the recorded demo", () => {
   it("returns the verdict as a summary and as the Markdown report", async () => {
     const summary = await call(mcp, "quorumind_verdict", { session_id: sessionId, format: "summary" });
     expect(textOf(summary)).toContain("**Recommended: option A");
+    expect(textOf(summary)).toContain("  Build cost: 12,300 EUR to 15,500 EUR, 47 to 59 person-days in 7 work packages");
     const report = await call(mcp, "quorumind_verdict", { session_id: sessionId, format: "markdown" });
     expect(textOf(report)).toContain("_Decision report");
     const resource = await mcp.client.readResource({ uri: `quorumind://sessions/${sessionId}/report` });

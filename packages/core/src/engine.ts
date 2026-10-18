@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { checkFacts, debateCurrency, sessionCostings, sessionProfile } from "./costing.ts";
 import { partialStringField } from "./partial-json.ts";
 import { costOf, TASK_PROFILE, typicalCallCost } from "./pricing.ts";
 import { fence, redact } from "./privacy.ts";
@@ -7,15 +8,19 @@ import {
   arbiterSystem,
   briefSystem,
   CONTEXT_BUDGET,
+  type ComputedCost,
   challengerSystem,
+  checksBlock,
   contextBlock,
   criticSystem,
   devilSystem,
   formalizerSystem,
   interviewerSystem,
   probeSystem,
+  profileBlock,
   proposalsBlock,
   proposerSystem,
+  ratesBlock,
   requirementsBlock,
   reviserSystem,
 } from "./prompts.ts";
@@ -174,10 +179,16 @@ export class DebateEngine {
     await this.guard(session, () => this.interviewStep(session));
   }
 
-  /** The person validates (and possibly edits) the requirements sheet; the debate can start. */
-  async confirmSheet(session: Session, sheet: RequirementsSheet): Promise<void> {
+  /**
+   * The person validates (and possibly edits) the requirements sheet; the debate can start. `ignoreProfile` debates
+   * without the organisation profile. The currency of the debate is fixed here.
+   */
+  async confirmSheet(session: Session, sheet: RequirementsSheet, options: { ignoreProfile?: boolean } = {}): Promise<void> {
     if (session.phase !== "review") throw new InvalidStateError("There is no requirements sheet to confirm.");
     session.sheet = RequirementsSheet.parse(sheet);
+    if (options.ignoreProfile !== undefined) session.ignoreProfile = options.ignoreProfile;
+    session.currency = null;
+    session.currency = debateCurrency(session);
     session.sheetConfirmedAt = new Date().toISOString();
     session.phase = "debating";
     await this.persist(session);
@@ -245,7 +256,7 @@ export class DebateEngine {
           role: "user",
           content: [
             requirementsBlock(requireSheet(session)),
-            proposalsBlock(currentProposals(session)),
+            proposalsBlock(currentProposals(session), computedCosts(session)),
             fence("debate", JSON.stringify({ verdict: stripSpeech(session.verdict) }, null, 2)),
             `Write the brief for this reader: ${audience}.`,
           ].join("\n\n"),
@@ -260,6 +271,7 @@ export class DebateEngine {
     const opening = [
       `Project idea:\n${fence("answers", session.idea)}`,
       session.challenge ? fence("solution", session.challenge) : "",
+      profileBlock(sessionProfile(session)),
       contextBlock(session.context, CONTEXT_BUDGET.interview),
     ]
       .filter(Boolean)
@@ -277,6 +289,7 @@ export class DebateEngine {
         express,
         template: session.template,
         challenge: session.mode === "challenge",
+        today: new Date().toISOString().slice(0, 10),
       }),
       messages,
     });
@@ -375,7 +388,12 @@ export class DebateEngine {
       messages: [
         {
           role: "user",
-          content: [requirementsBlock(sheet), fence("solution", session.challenge ?? session.idea), "Restate this solution."].join("\n\n"),
+          content: [
+            requirementsBlock(sheet),
+            ratesBlock(sessionProfile(session), debateCurrency(session)),
+            fence("solution", session.challenge ?? session.idea),
+            "Restate this solution.",
+          ].join("\n\n"),
         },
       ],
     });
@@ -390,7 +408,13 @@ export class DebateEngine {
       messages: [
         {
           role: "user",
-          content: [requirementsBlock(sheet), contextBlock(session.context, CONTEXT_BUDGET.proposal), "Design your solution."]
+          content: [
+            requirementsBlock(sheet),
+            profileBlock(sessionProfile(session)),
+            ratesBlock(sessionProfile(session), debateCurrency(session)),
+            contextBlock(session.context, CONTEXT_BUDGET.proposal),
+            "Design your solution.",
+          ]
             .filter(Boolean)
             .join("\n\n"),
         },
@@ -423,8 +447,9 @@ export class DebateEngine {
           role: "user",
           content: [
             requirementsBlock(sheet),
+            profileBlock(sessionProfile(session)),
             answersBlock(allAnswers(session)),
-            proposalsBlock(targets),
+            proposalsBlock(targets, computedCosts(session)),
             contextBlock(session.context, CONTEXT_BUDGET.critique),
             earlier.length > 0 ? fence("debate", JSON.stringify(earlier, null, 2)) : "",
             probe ? fence("probe", probe.angle) : "",
@@ -452,8 +477,9 @@ export class DebateEngine {
           role: "user",
           content: [
             requirementsBlock(sheet),
+            profileBlock(sessionProfile(session)),
             answersBlock(allAnswers(session)),
-            proposalsBlock(currentProposals(session)),
+            proposalsBlock(currentProposals(session), computedCosts(session)),
             contextBlock(session.context, CONTEXT_BUDGET.critique),
             fence("debate", JSON.stringify(critiques, null, 2)),
             "Find the angle nobody examined.",
@@ -485,8 +511,10 @@ export class DebateEngine {
           role: "user",
           content: [
             requirementsBlock(sheet),
+            profileBlock(sessionProfile(session)),
+            ratesBlock(sessionProfile(session), debateCurrency(session)),
             answersBlock(allAnswers(session)),
-            proposalsBlock({ [seat]: own }),
+            proposalsBlock({ [seat]: own }, computedCosts(session)),
             fence("debate", JSON.stringify(received, null, 2)),
             received.length === 0
               ? "No critique targeted your proposal this round. Confirm or improve it."
@@ -545,8 +573,10 @@ export class DebateEngine {
           role: "user",
           content: [
             requirementsBlock(sheet),
+            profileBlock(sessionProfile(session)),
             answersBlock(allAnswers(session)),
-            proposalsBlock(currentProposals(session)),
+            proposalsBlock(currentProposals(session), computedCosts(session)),
+            checksBlock(checkFacts(session)),
             contextBlock(session.context, CONTEXT_BUDGET.verdict),
             fence("debate", JSON.stringify(transcript, null, 2)),
             "Rule on these options.",
@@ -697,6 +727,16 @@ async function settleAll(calls: Promise<void>[]): Promise<void> {
   const results = await Promise.allSettled(calls);
   const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
   if (failure) throw failure.reason;
+}
+
+/** The build cost of each option as Quorumind priced it, for the models that read the proposals. */
+function computedCosts(session: Session): Record<string, ComputedCost> {
+  return Object.fromEntries(
+    Object.entries(sessionCostings(session)).map(([seat, costing]) => [
+      seat,
+      { currency: costing.currency, low: costing.total.low, high: costing.total.high, personDays: costing.days },
+    ]),
+  );
 }
 
 function requireSheet(session: Session) {

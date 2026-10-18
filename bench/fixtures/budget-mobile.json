@@ -9,6 +9,8 @@
   ],
   "debateAnswers": ["Una web instalable en el móvil sería suficiente al principio."],
   "expect": {
-    "hardConstraintKeywords": ["30"]
+    "hardConstraintKeywords": ["30"],
+    "currency": "EUR",
+    "buildBudget": 2000
   }
 }

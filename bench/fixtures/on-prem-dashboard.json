@@ -9,6 +9,45 @@
   ],
   "debateAnswers": ["Les données viennent de bases SQL Server existantes, rafraîchies toutes les 15 minutes."],
   "expect": {
-    "hardConstraintKeywords": ["site"]
+    "hardConstraintKeywords": ["site"],
+    "currency": "EUR",
+    "buildBudget": 30000
+  },
+  "profile": {
+    "name": "Atelier Nord",
+    "preferredTechnologies": ["Python", "PostgreSQL"],
+    "forbiddenTechnologies": ["MongoDB", "Firebase"],
+    "hosting": {
+      "euOnly": true,
+      "providers": [],
+      "onPremises": true,
+      "notes": ""
+    },
+    "currency": "EUR",
+    "roles": [
+      {
+        "name": "Project manager",
+        "dailyRate": 750
+      },
+      {
+        "name": "Architect",
+        "dailyRate": 850
+      },
+      {
+        "name": "Developer",
+        "dailyRate": 600
+      },
+      {
+        "name": "DevOps",
+        "dailyRate": 650
+      }
+    ],
+    "capacity": {
+      "people": 8,
+      "typicalTeamSize": 3
+    },
+    "deliverables": ["Technical documentation", "Handover workshop"],
+    "guarantees": ["Three-month warranty"],
+    "notes": ""
   }
 }

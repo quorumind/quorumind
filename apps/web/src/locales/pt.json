@@ -84,7 +84,53 @@
       "hardConstraints": "Restrições inegociáveis",
       "softConstraints": "Restrições flexíveis",
       "priorities": "Prioridades",
-      "assumptions": "Premissas"
+      "assumptions": "Premissas",
+      "buildBudget": "Orçamento de desenvolvimento",
+      "runBudget": "Orçamento de operação",
+      "period": "Período do orçamento de operação",
+      "currency": "Moeda",
+      "note": "Observações",
+      "usersLaunch": "Usuários no lançamento",
+      "usersYear": "Usuários após um ano",
+      "usersNote": "Picos e carga",
+      "people": "Pessoas",
+      "skills": "Competências",
+      "deadlineDate": "Data de lançamento",
+      "duration": "Ou prazo disponível",
+      "unit": "Unidade do prazo disponível",
+      "compliance": "Conformidade"
+    },
+    "period": {
+      "month": "por mês",
+      "year": "por ano"
+    },
+    "unit": {
+      "week": "semanas",
+      "month": "meses"
+    },
+    "per": {
+      "month": "{{amount}} por mês",
+      "year": "{{amount}} por ano"
+    },
+    "duration": {
+      "week": "{{count}} semana(s)",
+      "month": "{{count}} mês(es)"
+    },
+    "usersLaunch": "{{count}} usuários no lançamento",
+    "usersYear": "{{count}} após um ano",
+    "teamSize": "Equipe de {{count}}",
+    "unknown": "Desconhecido",
+    "commas": "Separe-as com vírgulas.",
+    "currencyHint": "Código ISO, como BRL ou USD.",
+    "currencyInvalid": "Informe a moeda do orçamento pelo código ISO, como BRL.",
+    "currencyNote": "Todos os valores deste debate estarão em {{currency}}.",
+    "complianceHint": "Cada caixa marcada é uma restrição inegociável para todas as opções.",
+    "compliance": {
+      "gdpr": "Dados pessoais de pessoas na UE (RGPD)",
+      "healthData": "Dados de saúde",
+      "paymentCards": "Dados de cartão de pagamento",
+      "accessibility": "Uma norma de acessibilidade a cumprir",
+      "publicSector": "Um cliente do setor público"
     }
   },
   "debate": {
@@ -113,7 +159,9 @@
     "estimates": "Custos e prazos são estimativas.",
     "probe": "O árbitro intervém",
     "probeTag": "Ângulo que ninguém examinou",
-    "yourSolution": "Sua solução"
+    "yourSolution": "Sua solução",
+    "personDays": "{{days}} dias-pessoa",
+    "weeks": "{{range}} semanas"
   },
   "severity": {
     "blocking": "Bloqueante",
@@ -349,7 +397,7 @@
     "hint": "Mude um peso e a classificação se atualiza. Uma opção inviável fica em último, sejam quais forem suas notas.",
     "reset": "Redefinir os pesos",
     "score": "Pontuação ponderada",
-    "estimates": "Os custos são estimativas dos proponentes."
+    "estimates": "Os custos de desenvolvimento são orçados a partir dos pacotes de trabalho de cada opção; os custos de operação são estimativas dos proponentes."
   },
   "map": {
     "title": "Mapa do debate",
@@ -551,5 +599,40 @@
     "password_required": "Este link pede uma senha.",
     "wrong_password": "A senha não está certa.",
     "too_many_attempts": "Senhas erradas demais. Espere alguns minutos e tente de novo."
+  },
+  "costing": {
+    "title": "Orçamento por pacote de trabalho",
+    "workPackage": "Pacote de trabalho",
+    "role": "Função",
+    "days": "Dias-pessoa",
+    "dayRate": "Diária",
+    "amount": "Valor",
+    "total": "Total",
+    "exclusions": "Exclusões",
+    "ratesProfile": "Orçado com as diárias do perfil da sua organização.",
+    "ratesEstimated": "Diárias estimadas pelo proponente. Configure o perfil da sua organização em Configurações para orçar com as suas.",
+    "ratesLegacy": "Custo de desenvolvimento informado em bloco pelo proponente.",
+    "unpriced": "Sem diária para {{roles}}: os dias são contados, o custo não."
+  },
+  "checks": {
+    "title": "Orçamento e prazo",
+    "overBudget": "Acima do orçamento em {{amount}}",
+    "budgetAtRisk": "Pode exceder o orçamento em {{amount}}",
+    "withinBudget": "Dentro do orçamento",
+    "overRunBudget": "Acima do orçamento de operação em {{amount}} por mês",
+    "runBudgetAtRisk": "Pode exceder o orçamento de operação em {{amount}} por mês",
+    "withinRunBudget": "Dentro do orçamento de operação",
+    "late": "Atraso de {{count}} semana(s)",
+    "lateAtRisk": "Possível atraso de {{count}} semana(s)",
+    "onTime": "No prazo"
+  },
+  "roles": {
+    "project_manager": "Gerente de projeto",
+    "architect": "Arquiteto",
+    "senior_developer": "Desenvolvedor sênior",
+    "developer": "Desenvolvedor",
+    "designer": "Designer",
+    "tester": "Testador",
+    "devops": "Engenheiro DevOps"
   }
 }

@@ -1,4 +1,5 @@
 import type { CritiqueRound, DebateEntry, Probe, Proposal, Revision, Session } from "@quorumind/core";
+import { proposalCosting } from "@quorumind/core/costing";
 import { PERSONA_IDS } from "@quorumind/core/templates";
 import type { TFunction } from "i18next";
 import { type FormEvent, type ReactNode, useState } from "react";
@@ -7,8 +8,8 @@ import { useCanEdit } from "./access.tsx";
 import { api } from "./api.ts";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ArrowIcon, DevilIcon, ProbeIcon } from "./components/Icons.tsx";
+import { CostingTable, dayRange, moneyRange, monthlyCurrency } from "./costing.tsx";
 import { failureText } from "./errors.ts";
-import { formatMoney } from "./format.ts";
 import type { LiveSpeech } from "./useSession.ts";
 
 const VOICES: Record<string, string> = { A: "voice-a", B: "voice-b", C: "voice-c", D: "voice-d", U: "voice-you", devil: "voice-devil" };
@@ -92,9 +93,10 @@ function Message({
   );
 }
 
-function ProposalDetails({ proposal }: { proposal: Proposal }) {
+function ProposalDetails({ session, proposal }: { session: Session; proposal: Proposal }) {
   const { t, i18n } = useTranslation();
-  const money = (amount: number) => formatMoney(amount, proposal.monthlyCost.currency, i18n.language);
+  const costing = proposalCosting(session, proposal);
+  const weeks = proposal.buildWeeks;
   return (
     <>
       <div>
@@ -104,27 +106,32 @@ function ProposalDetails({ proposal }: { proposal: Proposal }) {
       <div className="facts">
         <div className="fact">
           <span className="field-hint">{t("debate.monthlyCost")}</span>
-          <span className="mono">
-            {money(proposal.monthlyCost.low)} – {money(proposal.monthlyCost.high)}
-          </span>
+          <span className="mono">{moneyRange(proposal.monthlyCost, monthlyCurrency(session, proposal.monthlyCost), i18n.language)}</span>
         </div>
-        {proposal.buildCost ? (
+        {costing ? (
           <div className="fact">
             <span className="field-hint">{t("debate.buildCost")}</span>
-            <span className="mono">
-              {formatMoney(proposal.buildCost.low, proposal.buildCost.currency, i18n.language)} –{" "}
-              {formatMoney(proposal.buildCost.high, proposal.buildCost.currency, i18n.language)}
-            </span>
+            <span className="mono">{moneyRange(costing.total, costing.currency, i18n.language)}</span>
+            {costing.packages.length > 0 ? (
+              <span className="field-hint">{t("debate.personDays", { days: dayRange(costing.days, i18n.language) })}</span>
+            ) : null}
           </div>
         ) : null}
         <div className="fact">
           <span className="field-hint">{t("debate.buildTime")}</span>
           <span>{proposal.buildTime}</span>
+          {weeks ? <span className="field-hint">{t("debate.weeks", { range: dayRange(weeks, i18n.language) })}</span> : null}
         </div>
       </div>
       <p className="field-hint" style={{ margin: 0 }}>
         {t("debate.estimates")}
       </p>
+      {costing && costing.packages.length > 0 ? (
+        <div>
+          <h4>{t("costing.title")}</h4>
+          <CostingTable costing={costing} caption={`${t("costing.title")}: ${proposal.title}`} />
+        </div>
+      ) : null}
       <ArchitectureDiagram components={proposal.components} flows={proposal.flows} title={proposal.title} />
       <div>
         <h4>{t("debate.stack")}</h4>
@@ -178,7 +185,7 @@ function CritiqueDetails({ round }: { round: CritiqueRound }) {
   );
 }
 
-function RevisionDetails({ revision }: { revision: Revision }) {
+function RevisionDetails({ session, revision }: { session: Session; revision: Revision }) {
   const { t } = useTranslation();
   return (
     <>
@@ -192,7 +199,7 @@ function RevisionDetails({ revision }: { revision: Revision }) {
           <span>{reply.reply}</span>
         </div>
       ))}
-      <ProposalDetails proposal={revision.proposal} />
+      <ProposalDetails session={session} proposal={revision.proposal} />
     </>
   );
 }
@@ -335,7 +342,7 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
       case "proposal":
         items.push(
           <Message key={key} session={session} seat={entry.seat} speech={entry.data.speech}>
-            <ProposalDetails proposal={entry.data} />
+            <ProposalDetails session={session} proposal={entry.data} />
           </Message>,
         );
         break;
@@ -349,7 +356,7 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
       case "revision":
         items.push(
           <Message key={key} session={session} seat={entry.seat} speech={entry.data.speech}>
-            <RevisionDetails revision={entry.data} />
+            <RevisionDetails session={session} revision={entry.data} />
           </Message>,
         );
         break;

@@ -6,14 +6,21 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   createSession,
+  currentProposals,
   DEMO_LINEUP,
   DebateEngine,
+  EMPTY_PROFILE,
   type Lineup,
   type Locale,
   liveLineupFromEnv,
+  type OrgProfile,
+  type ProfileRole,
+  proposalCosting,
   providersFor,
   type Session,
+  sessionProfile,
   totalCost,
+  withRoleIds,
 } from "@quorumind/core";
 
 interface Fixture {
@@ -22,7 +29,15 @@ interface Fixture {
   idea: string;
   interviewAnswers: string[];
   debateAnswers: string[];
-  expect: { hardConstraintKeywords: string[] };
+  /** The organisation that answers the brief: its rate card prices the work packages. */
+  profile?: Omit<OrgProfile, "roles" | "updatedAt"> & { roles: Omit<ProfileRole, "id">[] };
+  expect: {
+    hardConstraintKeywords: string[];
+    /** The one currency every amount of the debate must be in. */
+    currency: string;
+    /** The build budget the interviewer must record (checked with live models). */
+    buildBudget?: number;
+  };
 }
 
 interface Check {
@@ -42,7 +57,10 @@ const lineup: Lineup = configured;
 
 async function run(fixture: Fixture) {
   const engine = new DebateEngine(providersFor(lineup, process.env, { mockDelayMs: 0 }), { emit: () => {}, save: () => {} });
-  const session = createSession({ locale: fixture.locale, idea: fixture.idea, demo: !live, budgetUsd: 5, ...lineup });
+  const profile: OrgProfile | null = fixture.profile
+    ? { ...EMPTY_PROFILE, ...fixture.profile, roles: withRoleIds(fixture.profile.roles), updatedAt: null }
+    : null;
+  const session = createSession({ locale: fixture.locale, idea: fixture.idea, demo: !live, budgetUsd: 5, ...lineup, profile });
   const started = Date.now();
 
   await engine.startInterview(session);
@@ -111,6 +129,52 @@ function check(session: Session, fixture: Fixture): Check[] {
         constraints.includes(keyword.toLowerCase()),
         session.sheet.hardConstraints.join("; "),
       );
+    }
+  }
+  if (!session.demo && fixture.expect.buildBudget !== undefined) {
+    const build = session.sheet.budget.build;
+    add("records the build budget as an amount", build?.amount === fixture.expect.buildBudget, JSON.stringify(build));
+  }
+
+  // The costing: every option broken into work packages, priced by the code, in the debate's one currency.
+  const proposals = Object.entries(currentProposals(session));
+  add(
+    "breaks every option into work packages with effort per role",
+    proposals.every(
+      ([, proposal]) => proposal.estimate.workPackages.length > 0 && proposal.estimate.workPackages.every((item) => item.effort.length > 0),
+    ),
+  );
+  const costings = proposals.map(([seat, proposal]) => ({ seat, costing: proposalCosting(session, proposal) }));
+  const unpriced = costings.flatMap(({ seat, costing }) => (costing?.unpriced ?? []).map((role) => `${seat}: ${role}`));
+  add(
+    "computes every build cost from its work packages",
+    costings.every(
+      ({ costing }) =>
+        costing !== null &&
+        costing.rates !== "legacy" &&
+        costing.total.high > 0 &&
+        costing.total.low === costing.packages.reduce((sum, item) => sum + item.cost.low, 0) &&
+        costing.total.high === costing.packages.reduce((sum, item) => sum + item.cost.high, 0),
+    ),
+  );
+  add("prices every role it uses", unpriced.length === 0, unpriced.join(", "));
+  add(
+    "gives every amount in one currency",
+    session.currency === fixture.expect.currency && costings.every(({ costing }) => costing?.currency === session.currency),
+    `${session.currency} / ${costings.map(({ costing }) => costing?.currency).join(", ")}`,
+  );
+  const profile = sessionProfile(session);
+  if (profile) {
+    add(
+      "prices with the profile's rate card",
+      costings.every(({ costing }) => costing?.rates === "profile"),
+    );
+    if (!session.demo) {
+      const forbidden = profile.forbiddenTechnologies.map((item) => item.toLowerCase());
+      const used = proposals.flatMap(([seat, proposal]) =>
+        proposal.stack.filter((item) => forbidden.some((banned) => item.toLowerCase().includes(banned))).map((item) => `${seat}: ${item}`),
+      );
+      add("stays clear of the profile's forbidden technologies", used.length === 0, used.join(", "));
     }
   }
   add("records the cost of every call", session.usage.length > 0 && session.usage.every((record) => record.inputTokens >= 0));

@@ -9,6 +9,8 @@
   ],
   "debateAnswers": ["Yes, a hosted platform is fine if it fits the monthly cap with EU hosting."],
   "expect": {
-    "hardConstraintKeywords": ["EU", "400"]
+    "hardConstraintKeywords": ["EU", "400"],
+    "currency": "EUR",
+    "buildBudget": 15000
   }
 }

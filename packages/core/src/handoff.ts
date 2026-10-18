@@ -1,4 +1,16 @@
-import { chosenOption, formatRange, mermaidFlowchart } from "./report.ts";
+import { proposalCosting, sessionProfile } from "./costing.ts";
+import {
+  budgetText,
+  chosenOption,
+  complianceItems,
+  deadlineText,
+  formatRange,
+  mermaidFlowchart,
+  monthlyRange,
+  reportLabels,
+  teamText,
+  usersText,
+} from "./report.ts";
 import type { Proposal } from "./schemas.ts";
 import { allAnswers, type Session } from "./session.ts";
 
@@ -63,6 +75,9 @@ function instructions(session: Session, title: string): string {
   const proposal = chosen?.proposal ?? null;
   const conditions = verdict?.options.find((option) => option.seat === chosen?.seat)?.conditions ?? [];
   const project = sheet?.projectName ?? session.idea;
+  const en = reportLabels("en");
+  const profile = sessionProfile(session);
+  const costing = proposal ? proposalCosting(session, proposal) : null;
   const lines = [
     `# ${title}`,
     "",
@@ -75,9 +90,11 @@ function instructions(session: Session, title: string): string {
       `**${project}.** ${sheet?.summary ?? session.idea}`,
       sheet && sheet.goals.length > 0 && `Goals:\n\n${bullets(sheet.goals)}`,
       sheet && sheet.mustHave.length > 0 && `Must have:\n\n${bullets(sheet.mustHave)}`,
-      sheet?.users && `Users and load: ${sheet.users}`,
-      sheet?.team && `Team: ${sheet.team}`,
-      sheet?.deadline && `Deadline: ${sheet.deadline}`,
+      sheet && usersText(sheet, en, "en") && `Users and load: ${usersText(sheet, en, "en")}`,
+      sheet && budgetText(sheet, en, "en") && `Budget: ${budgetText(sheet, en, "en")}`,
+      sheet && teamText(sheet, en, "en") && `Team: ${teamText(sheet, en, "en")}`,
+      sheet && deadlineText(sheet, en, "en") && `Deadline: ${deadlineText(sheet, en, "en")}`,
+      sheet && complianceItems(sheet, en).length > 0 && `Compliance: ${complianceItems(sheet, en).join(", ")}`,
     ),
     ...(proposal
       ? section(
@@ -94,8 +111,14 @@ function instructions(session: Session, title: string): string {
       "These are non-negotiable. Never write code that violates one; if a task seems to require it, stop and ask.",
       sheet && sheet.hardConstraints.length > 0 && sheet.hardConstraints.map((rule, index) => `${index + 1}. ${rule}`).join("\n"),
       conditions.length > 0 && `The decision only holds under these conditions:\n\n${bullets(conditions)}`,
+      profile &&
+        profile.forbiddenTechnologies.length > 0 &&
+        `Never use ${profile.forbiddenTechnologies.join(", ")}: the organisation delivering the project excludes them.`,
       proposal &&
-        `Running cost must stay within the estimate: ${formatRange(proposal.monthlyCost, "en")} per month (${proposal.monthlyCost.basis}).`,
+        `Running cost must stay within the estimate: ${formatRange(monthlyRange(session, proposal), "en")} per month (${proposal.monthlyCost.basis}).`,
+      costing &&
+        costing.packages.length > 0 &&
+        `The build is costed at ${costing.days.low} to ${costing.days.high} person-days across these work packages: ${costing.packages.map((item) => item.name).join(", ")}. Tell the project owner as soon as a package looks larger than estimated.`,
     ),
     ...section(
       "Out of scope",

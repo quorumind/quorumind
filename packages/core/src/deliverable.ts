@@ -1,13 +1,42 @@
+import { deliveryChecks, type OptionChecks, proposalCosting, type Range } from "./costing.ts";
 import type { Locale } from "./locales.ts";
 import { rankOptions } from "./ranking.ts";
-import { fill, formatScore, labelled, reportLabels, seatName } from "./report.ts";
+import {
+  checkLine,
+  fill,
+  formatDayRange,
+  formatMoney,
+  formatScore,
+  labelled,
+  monthlyRange,
+  reportLabels,
+  seatName,
+  weeksText,
+} from "./report.ts";
 import type { Brief, Feasibility, Verdict } from "./schemas.ts";
 import { currentProposals, type Mode, type Session } from "./session.ts";
 
 /**
+ * What an option costs the client: its work packages with their days and amounts, the total, the running cost and the
+ * build time, and how they compare with the budget and the deadline. Never the day rates behind the amounts.
+ */
+export interface DeliverableCosting {
+  currency: string;
+  packages: { name: string; description: string; days: Range; cost: Range }[];
+  days: Range;
+  total: Range;
+  monthly: Range;
+  buildWeeks: Range | null;
+  assumptions: string[];
+  exclusions: string[];
+  checks: OptionChecks | null;
+}
+
+/**
  * The decision as a client reads it, from a "client" share link: the verdict's summary and recommendation, the
- * options with their scores, the risks, the roadmap, the open questions and the brief written for a client. It is
- * built from an allowlist: never the transcript, the interview, the requirements sheet, the costs or the documents.
+ * options with their scores and their costing, the risks, the roadmap, the open questions and the brief written for
+ * a client. It is built from an allowlist: never the transcript, the interview, the requirements sheet, the costs of
+ * the models, the day rates or the documents.
  */
 export interface ClientDeliverable {
   /** The project's name; empty until the interview named it. */
@@ -32,6 +61,8 @@ export interface ClientDeliverable {
     conditions: string[];
     scores: { criterion: string; score: number }[];
     weightedScore: number | null;
+    /** Null for an option without work packages or build cost. */
+    costing: DeliverableCosting | null;
   }[];
   risks: Verdict["risks"];
   roadmap: Verdict["roadmap"];
@@ -66,6 +97,25 @@ export function clientDeliverable(session: Session): ClientDeliverable {
   }
   const weights = Object.fromEntries(criteria.map((item) => [item.criterion, item.weight]));
   const ranking = rankOptions(verdict, weights);
+  const proposals = currentProposals(session);
+  const checks = deliveryChecks(session);
+  const costingOf = (optionSeat: string): DeliverableCosting | null => {
+    const proposal = proposals[optionSeat];
+    const costing = proposal ? proposalCosting(session, proposal) : null;
+    if (!proposal || !costing) return null;
+    const monthly = monthlyRange(session, proposal);
+    return {
+      currency: costing.currency,
+      packages: costing.packages.map(({ name, description, days, cost }) => ({ name, description, days, cost })),
+      days: costing.days,
+      total: costing.total,
+      monthly: { low: monthly.low, high: monthly.high },
+      buildWeeks: proposal.buildWeeks,
+      assumptions: costing.assumptions,
+      exclusions: costing.exclusions,
+      checks: checks[optionSeat] ?? null,
+    };
+  };
   const seat = verdict.recommendation.seat;
   const brief = session.briefs.client;
   return {
@@ -83,7 +133,9 @@ export function clientDeliverable(session: Session): ClientDeliverable {
       const option = verdict.options.find((item) => item.seat === ranked.seat);
       if (!option) return [];
       const { seat: optionSeat, title, feasibility, reason, conditions, scores } = option;
-      return [{ seat: optionSeat, title, feasibility, reason, conditions, scores, weightedScore: ranked.score }];
+      return [
+        { seat: optionSeat, title, feasibility, reason, conditions, scores, weightedScore: ranked.score, costing: costingOf(optionSeat) },
+      ];
     }),
     risks: verdict.risks,
     roadmap: verdict.roadmap,
@@ -147,6 +199,39 @@ export function renderClientReport(deliverable: ClientDeliverable): string {
       if (option.conditions.length > 0) lines.push(`  - ${say(t.conditions, option.conditions.join("; "))}`);
     }
     lines.push("");
+  }
+
+  const costed = deliverable.options.filter((option) => option.costing);
+  if (costed.length > 0) {
+    lines.push(`## ${t.costing}`, "");
+    for (const option of costed) {
+      const costing = option.costing as DeliverableCosting;
+      const money = (amount: number) => formatMoney(amount, costing.currency, deliverable.locale);
+      const range = (value: Range) => (value.low === value.high ? money(value.low) : `${money(value.low)} – ${money(value.high)}`);
+      lines.push(`### ${seatName(option.seat, t)}: ${option.title}`, "");
+      if (costing.packages.length > 0) {
+        lines.push(`| ${t.workPackage} | ${t.personDays} | ${t.amount} |`, "| --- | --- | --- |");
+        for (const item of costing.packages) {
+          lines.push(`| ${cell(item.name)} | ${formatDayRange(item.days, deliverable.locale)} | ${range(item.cost)} |`);
+        }
+        lines.push(`| **${t.total}** | **${formatDayRange(costing.days, deliverable.locale)}** | **${range(costing.total)}** |`, "");
+      }
+      const weeks = weeksText(costing.buildWeeks, t, deliverable.locale);
+      const badges = checkLine(costing.checks ?? undefined, t, deliverable.locale);
+      lines.push(
+        list(
+          [
+            say(t.buildCost, range(costing.total)),
+            say(t.monthlyCost, range(costing.monthly)),
+            weeks ? say(t.buildTime, weeks) : "",
+            badges ? say(t.checks, badges) : "",
+          ].filter(Boolean),
+        ),
+        "",
+      );
+      if (costing.assumptions.length > 0) lines.push(`**${t.assumptions}**`, "", list(costing.assumptions), "");
+      if (costing.exclusions.length > 0) lines.push(`**${t.exclusions}**`, "", list(costing.exclusions), "");
+    }
   }
 
   if (deliverable.risks.length > 0) {

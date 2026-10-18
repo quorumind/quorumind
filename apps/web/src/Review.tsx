@@ -1,4 +1,7 @@
-import type { RequirementsSheet, Session } from "@quorumind/core";
+import type { BudgetPeriod, DurationUnit, RequirementsSheet, Session } from "@quorumind/core";
+import { debateCurrency } from "@quorumind/core/costing";
+import { currencyCode } from "@quorumind/core/profile";
+import { COMPLIANCE_KEYS } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "./api.ts";
@@ -15,7 +18,6 @@ type ListField =
   | "hardConstraints"
   | "softConstraints"
   | "assumptions";
-type TextField = "summary" | "users" | "budget" | "team";
 
 const LISTS: { field: ListField; wide?: boolean }[] = [
   { field: "goals" },
@@ -28,7 +30,6 @@ const LISTS: { field: ListField; wide?: boolean }[] = [
   { field: "softConstraints" },
   { field: "assumptions" },
 ];
-const TEXTS: TextField[] = ["users", "budget", "team"];
 
 const toLines = (items: string[]) => items.join("\n");
 const fromLines = (text: string) =>
@@ -36,6 +37,17 @@ const fromLines = (text: string) =>
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+const fromCommas = (text: string) =>
+  text
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+/** A number field's value: null when empty or not a non-negative number. */
+const amountOf = (text: string): number | null => {
+  const value = Number(text.replace(",", "."));
+  return text.trim() === "" || !Number.isFinite(value) || value < 0 ? null : value;
+};
+const textOf = (value: number | null | undefined) => (value === null || value === undefined ? "" : String(value));
 
 export function Review({ session }: { session: Session }) {
   const { t } = useTranslation();
@@ -45,21 +57,61 @@ export function Review({ session }: { session: Session }) {
   const [lists, setLists] = useState<Record<ListField, string>>(
     () => Object.fromEntries(LISTS.map(({ field }) => [field, toLines(initial[field])])) as Record<ListField, string>,
   );
+  // The budget's amounts are typed as text and share one currency.
+  const [budget, setBudget] = useState(() => ({
+    build: textOf(initial.budget.build?.amount),
+    run: textOf(initial.budget.run?.amount),
+    period: (initial.budget.run?.period ?? "month") as BudgetPeriod,
+    currency: initial.budget.build?.currency ?? initial.budget.run?.currency ?? debateCurrency({ ...session, currency: null }),
+  }));
+  const [numbers, setNumbers] = useState(() => ({
+    usersLaunch: textOf(initial.users.launch),
+    usersYear: textOf(initial.users.oneYear),
+    people: textOf(initial.team.people),
+    duration: textOf(initial.deadline.duration?.amount),
+  }));
+  const [unit, setUnit] = useState<DurationUnit>(initial.deadline.duration?.unit ?? "month");
+  const [skills, setSkills] = useState(initial.team.skills.join(", "));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const set = <K extends keyof RequirementsSheet>(key: K, value: RequirementsSheet[K]) =>
     setSheet((current) => ({ ...current, [key]: value }));
+  const currency = currencyCode(budget.currency);
+  const amountsTyped = budget.build.trim() !== "" || budget.run.trim() !== "";
+  const currencyInvalid = amountsTyped && !currency;
+  // What the debate's amounts will be in, as it will be fixed on confirmation.
+  const debateIn = debateCurrency({
+    ...session,
+    currency: null,
+    sheet: { ...sheet, budget: { ...sheet.budget, build: currency ? { amount: 1, currency } : null, run: null } },
+  });
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (currencyInvalid) return setError(t("review.currencyInvalid"));
     setSending(true);
     setError(null);
+    const build = amountOf(budget.build);
+    const run = amountOf(budget.run);
+    const duration = amountOf(numbers.duration);
     const final: RequirementsSheet = {
       ...sheet,
       ...(Object.fromEntries(LISTS.map(({ field }) => [field, fromLines(lists[field])])) as Pick<RequirementsSheet, ListField>),
       priorities: sheet.priorities.filter((priority) => priority.criterion.trim()),
-      deadline: sheet.deadline?.trim() ? sheet.deadline : null,
+      users: { ...sheet.users, launch: amountOf(numbers.usersLaunch), oneYear: amountOf(numbers.usersYear) },
+      budget: {
+        build: build !== null && currency ? { amount: build, currency } : null,
+        run: run !== null && currency ? { amount: run, currency, period: budget.period } : null,
+        note: sheet.budget.note,
+      },
+      team: { ...sheet.team, people: amountOf(numbers.people), skills: fromCommas(skills) },
+      // A date wins over a duration: it is the firmer of the two.
+      deadline: {
+        ...sheet.deadline,
+        date: sheet.deadline.date || null,
+        duration: !sheet.deadline.date && duration ? { amount: duration, unit } : null,
+      },
     };
     try {
       await api.confirmSheet(session.id, final);
@@ -68,6 +120,24 @@ export function Review({ session }: { session: Session }) {
       setSending(false);
     }
   };
+
+  const numberField = (id: keyof typeof numbers, label: string) => (
+    <div className="field">
+      <label className="field-label" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        className="input"
+        type="number"
+        min={0}
+        inputMode="numeric"
+        placeholder={t("review.unknown")}
+        value={numbers[id]}
+        onChange={(event) => setNumbers((current) => ({ ...current, [id]: event.target.value }))}
+      />
+    </div>
+  );
 
   return (
     <form className="stack-lg" onSubmit={submit}>
@@ -90,12 +160,6 @@ export function Review({ session }: { session: Session }) {
             onChange={(event) => set("projectName", event.target.value)}
           />
         </div>
-        <div className="field">
-          <label className="field-label" htmlFor="deadline">
-            {t("review.fields.deadline")}
-          </label>
-          <input id="deadline" className="input" value={sheet.deadline ?? ""} onChange={(event) => set("deadline", event.target.value)} />
-        </div>
         <div className="field wide">
           <label className="field-label" htmlFor="summary">
             {t("review.fields.summary")}
@@ -108,14 +172,206 @@ export function Review({ session }: { session: Session }) {
             onChange={(event) => set("summary", event.target.value)}
           />
         </div>
-        {TEXTS.map((field) => (
-          <div className="field" key={field}>
-            <label className="field-label" htmlFor={field}>
-              {t(`review.fields.${field}`)}
-            </label>
-            <textarea id={field} className="textarea" rows={3} value={sheet[field]} onChange={(event) => set(field, event.target.value)} />
+
+        <fieldset className="field wide sheet-group">
+          <legend className="field-label">{t("review.fields.budget")}</legend>
+          <div className="sheet-inputs">
+            <div className="field">
+              <label className="field-label" htmlFor="buildBudget">
+                {t("review.fields.buildBudget")}
+              </label>
+              <input
+                id="buildBudget"
+                className="input"
+                type="number"
+                min={0}
+                inputMode="decimal"
+                placeholder={t("review.unknown")}
+                value={budget.build}
+                onChange={(event) => setBudget((current) => ({ ...current, build: event.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="runBudget">
+                {t("review.fields.runBudget")}
+              </label>
+              <div className="input-pair">
+                <input
+                  id="runBudget"
+                  className="input"
+                  type="number"
+                  min={0}
+                  inputMode="decimal"
+                  placeholder={t("review.unknown")}
+                  value={budget.run}
+                  onChange={(event) => setBudget((current) => ({ ...current, run: event.target.value }))}
+                />
+                <select
+                  className="select"
+                  aria-label={t("review.fields.period")}
+                  value={budget.period}
+                  onChange={(event) => setBudget((current) => ({ ...current, period: event.target.value as BudgetPeriod }))}
+                >
+                  <option value="month">{t("review.period.month")}</option>
+                  <option value="year">{t("review.period.year")}</option>
+                </select>
+              </div>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="budgetCurrency">
+                {t("review.fields.currency")}
+              </label>
+              <input
+                id="budgetCurrency"
+                className="input mono"
+                maxLength={3}
+                autoCapitalize="characters"
+                spellCheck={false}
+                value={budget.currency}
+                aria-invalid={currencyInvalid || undefined}
+                aria-describedby="budgetCurrency-hint"
+                onChange={(event) => setBudget((current) => ({ ...current, currency: event.target.value.toUpperCase() }))}
+              />
+              <span className="field-hint" id="budgetCurrency-hint">
+                {t("review.currencyHint")}
+              </span>
+            </div>
           </div>
-        ))}
+          <label className="field-hint" htmlFor="budgetNote">
+            {t("review.fields.note")}
+          </label>
+          <textarea
+            id="budgetNote"
+            className="textarea"
+            rows={2}
+            value={sheet.budget.note}
+            onChange={(event) => set("budget", { ...sheet.budget, note: event.target.value })}
+          />
+        </fieldset>
+
+        <fieldset className="field sheet-group">
+          <legend className="field-label">{t("review.fields.users")}</legend>
+          <div className="sheet-inputs">
+            {numberField("usersLaunch", t("review.fields.usersLaunch"))}
+            {numberField("usersYear", t("review.fields.usersYear"))}
+          </div>
+          <label className="field-hint" htmlFor="usersNote">
+            {t("review.fields.usersNote")}
+          </label>
+          <textarea
+            id="usersNote"
+            className="textarea"
+            rows={2}
+            value={sheet.users.note}
+            onChange={(event) => set("users", { ...sheet.users, note: event.target.value })}
+          />
+        </fieldset>
+
+        <fieldset className="field sheet-group">
+          <legend className="field-label">{t("review.fields.team")}</legend>
+          <div className="sheet-inputs">
+            {numberField("people", t("review.fields.people"))}
+            <div className="field">
+              <label className="field-label" htmlFor="skills">
+                {t("review.fields.skills")}
+              </label>
+              <input
+                id="skills"
+                className="input"
+                value={skills}
+                aria-describedby="skills-hint"
+                onChange={(event) => setSkills(event.target.value)}
+              />
+              <span className="field-hint" id="skills-hint">
+                {t("review.commas")}
+              </span>
+            </div>
+          </div>
+          <label className="field-hint" htmlFor="teamNote">
+            {t("review.fields.note")}
+          </label>
+          <textarea
+            id="teamNote"
+            className="textarea"
+            rows={2}
+            value={sheet.team.note}
+            onChange={(event) => set("team", { ...sheet.team, note: event.target.value })}
+          />
+        </fieldset>
+
+        <fieldset className="field sheet-group">
+          <legend className="field-label">{t("review.fields.deadline")}</legend>
+          <div className="sheet-inputs">
+            <div className="field">
+              <label className="field-label" htmlFor="deadlineDate">
+                {t("review.fields.deadlineDate")}
+              </label>
+              <input
+                id="deadlineDate"
+                className="input"
+                type="date"
+                value={sheet.deadline.date ?? ""}
+                onChange={(event) => set("deadline", { ...sheet.deadline, date: event.target.value || null })}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="duration">
+                {t("review.fields.duration")}
+              </label>
+              <div className="input-pair">
+                <input
+                  id="duration"
+                  className="input"
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  placeholder={t("review.unknown")}
+                  disabled={Boolean(sheet.deadline.date)}
+                  value={numbers.duration}
+                  onChange={(event) => setNumbers((current) => ({ ...current, duration: event.target.value }))}
+                />
+                <select
+                  className="select"
+                  aria-label={t("review.fields.unit")}
+                  disabled={Boolean(sheet.deadline.date)}
+                  value={unit}
+                  onChange={(event) => setUnit(event.target.value as DurationUnit)}
+                >
+                  <option value="week">{t("review.unit.week")}</option>
+                  <option value="month">{t("review.unit.month")}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <label className="field-hint" htmlFor="deadlineNote">
+            {t("review.fields.note")}
+          </label>
+          <textarea
+            id="deadlineNote"
+            className="textarea"
+            rows={2}
+            value={sheet.deadline.note}
+            onChange={(event) => set("deadline", { ...sheet.deadline, note: event.target.value })}
+          />
+        </fieldset>
+
+        <fieldset className="field sheet-group">
+          <legend className="field-label">{t("review.fields.compliance")}</legend>
+          <div className="stack" style={{ gap: "var(--space-2)" }}>
+            {COMPLIANCE_KEYS.map((key) => (
+              <label className="check" key={key}>
+                <input
+                  type="checkbox"
+                  checked={sheet.compliance[key]}
+                  onChange={(event) => set("compliance", { ...sheet.compliance, [key]: event.target.checked })}
+                />
+                <span>{t(`review.compliance.${key}`)}</span>
+              </label>
+            ))}
+          </div>
+          <span className="field-hint">{t("review.complianceHint")}</span>
+        </fieldset>
+
         {LISTS.map(({ field, wide }) => (
           <div className={`field${wide ? " wide" : ""}${field === "hardConstraints" ? " field-hard" : ""}`} key={field}>
             <label className="field-label" htmlFor={field}>
@@ -208,6 +464,7 @@ export function Review({ session }: { session: Session }) {
             {error}
           </p>
         ) : null}
+        <span className="field-hint">{t("review.currencyNote", { currency: debateIn })}</span>
         <button type="submit" className="button button-primary" disabled={sending}>
           {sending ? t("review.starting") : t("review.start")}
           <ArrowIcon />

@@ -1,4 +1,15 @@
-import type { Answer, ContextDocument, Depth, EngineEvent, Mode, RequirementsSheet, Session, TemplateId } from "@quorumind/core";
+import type {
+  Answer,
+  ContextDocument,
+  Costing,
+  Depth,
+  EngineEvent,
+  Mode,
+  OptionChecks,
+  RequirementsSheet,
+  Session,
+  TemplateId,
+} from "@quorumind/core";
 
 /** The price the host sells a debate at (hosted version), instead of what the providers charge. */
 export interface PriceQuote {
@@ -8,7 +19,13 @@ export interface PriceQuote {
   label: string;
 }
 
-export interface SessionState {
+/** What the server computed about the options' costs: their costing and their budget and deadline checks. */
+export interface SessionCosts {
+  costings?: Record<string, Costing>;
+  checks?: Record<string, OptionChecks>;
+}
+
+export interface SessionState extends SessionCosts {
   session: Session;
   /** True while a model is working on the session. */
   busy: boolean;

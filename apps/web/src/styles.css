@@ -3110,3 +3110,99 @@ button.chip:active {
 .access {
   gap: var(--space-2);
 }
+
+/* Agency kit: the costing by work package, the budget and deadline checks, the structured requirements and the
+   organisation profile */
+
+.check-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.check-badge {
+  display: inline-block;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--feasible-soft);
+  color: var(--feasible);
+}
+
+.check-at_risk {
+  background: var(--conditional-soft);
+  color: var(--conditional);
+}
+
+.check-over {
+  background: var(--infeasible-soft);
+  color: var(--infeasible);
+}
+
+.costing .num {
+  text-align: end;
+  white-space: nowrap;
+}
+
+.costing tfoot > tr > * {
+  font-weight: 700;
+}
+
+.costing-description {
+  display: block;
+  font-weight: 400;
+}
+
+.costing-head {
+  justify-content: space-between;
+}
+
+.sheet-group,
+.profile-group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.sheet-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+
+.input-pair {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.input-pair .input {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.profile-notice {
+  border-color: color-mix(in srgb, var(--thesis) 35%, var(--line));
+}
+
+.profile-ignored > div:first-child {
+  opacity: 0.55;
+}
+
+.profile-role {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 24px;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.profile-currency {
+  max-inline-size: 120px;
+}
+
+.textarea-hard {
+  border-color: color-mix(in srgb, var(--infeasible) 50%, var(--line));
+}

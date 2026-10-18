@@ -1,6 +1,18 @@
 import type { Locale } from "./locales.ts";
+import type { OrgProfile } from "./profile.ts";
 import type { ProviderKind, Task } from "./providers/types.ts";
-import type { Audience, Brief, CritiqueRound, InterviewTurn, Probe, Proposal, RequirementsSheet, Revision, Verdict } from "./schemas.ts";
+import type {
+  Audience,
+  Brief,
+  Compliance,
+  CritiqueRound,
+  InterviewTurn,
+  Probe,
+  Proposal,
+  RequirementsSheet,
+  Revision,
+  Verdict,
+} from "./schemas.ts";
 import type { TemplateId } from "./templates.ts";
 
 export type Phase = "interview" | "review" | "debating" | "awaiting_answers" | "complete" | "failed";
@@ -107,6 +119,18 @@ export interface Session {
   redact: boolean;
   /** Session this one was started from, when the person revisits an earlier decision. */
   parentId: string | null;
+  /**
+   * The organisation profile in force when the session was created, kept as it was then so that later edits do not
+   * change its report; null when there was none.
+   */
+  profile: OrgProfile | null;
+  /** The person chose to debate without the profile. */
+  ignoreProfile: boolean;
+  /**
+   * The one currency of every amount of the debate (costs, rates, budget checks), fixed when the requirements sheet is
+   * confirmed; null before (debateCurrency then tells which it will be).
+   */
+  currency: string | null;
   /** Send an e-mail when the debate ends or waits for an answer (when the server can send mail). */
   notify: boolean;
   interview: InterviewEntry[];
@@ -149,9 +173,20 @@ export interface NewSessionInput {
   redact?: boolean;
   parentId?: string | null;
   notify?: boolean;
+  profile?: OrgProfile | null;
+  ignoreProfile?: boolean;
 }
 
 export const MAX_ROUNDS = 3;
+
+/** The compliance boxes of a requirements sheet, in the order the interfaces show them. */
+export const COMPLIANCE_KEYS = [
+  "gdpr",
+  "healthData",
+  "paymentCards",
+  "accessibility",
+  "publicSector",
+] as const satisfies readonly (keyof Compliance)[];
 
 export function createSession(input: NewSessionInput): Session {
   const now = new Date().toISOString();
@@ -178,6 +213,9 @@ export function createSession(input: NewSessionInput): Session {
     context: input.context ?? [],
     redact: input.redact ?? false,
     parentId: input.parentId ?? null,
+    profile: input.profile ?? null,
+    ignoreProfile: input.ignoreProfile ?? false,
+    currency: null,
     notify: input.notify ?? false,
     interview: [],
     sheet: null,
@@ -204,6 +242,18 @@ export function normalizeSession(stored: Session): Session {
   session.notify ??= false;
   session.briefs ??= {};
   session.shortened ??= null;
+  session.profile ??= null;
+  session.ignoreProfile ??= false;
+  session.sheet = session.sheet ? normalizeSheet(session.sheet) : null;
+  for (const entry of session.interview ?? []) {
+    if (entry.kind === "interviewer" && entry.data.sheet) entry.data.sheet = normalizeSheet(entry.data.sheet);
+  }
+  for (const entry of session.debate ?? []) {
+    if (entry.kind === "proposal") normalizeProposal(entry.data);
+    if (entry.kind === "revision") normalizeProposal(entry.data.proposal);
+  }
+  // Proposals made before the single currency each named theirs: the debate keeps the first one's.
+  session.currency ??= session.sheetConfirmedAt ? legacyCurrency(session) : null;
   // Verdicts stored before the debate map listed consensus and disagreements separately.
   const legacy = session.verdict as (Verdict & { consensus?: string[]; disagreements?: { topic: string; positions: string[] }[] }) | null;
   if (legacy && !legacy.topics) {
@@ -220,6 +270,58 @@ export function normalizeSession(stored: Session): Session {
     Object.entries(session.seats).map(([seat, value]) => [seat, { ...value, persona: value.persona ?? null }]),
   );
   return session as Session;
+}
+
+type LegacySheet = Omit<RequirementsSheet, "users" | "budget" | "team" | "deadline" | "compliance"> & {
+  users: RequirementsSheet["users"] | string;
+  budget: RequirementsSheet["budget"] | string;
+  team: RequirementsSheet["team"] | string;
+  deadline: RequirementsSheet["deadline"] | string | null;
+  compliance?: RequirementsSheet["compliance"];
+};
+
+/**
+ * A sheet stored before budget, team, deadline and load had fields of their own: the free text each was becomes its
+ * note, the structured values stay unknown, and no compliance box is checked.
+ */
+export function normalizeSheet(stored: RequirementsSheet): RequirementsSheet {
+  const sheet = stored as LegacySheet;
+  if (
+    typeof sheet.users !== "string" &&
+    typeof sheet.budget !== "string" &&
+    typeof sheet.team !== "string" &&
+    sheet.deadline !== null &&
+    typeof sheet.deadline !== "string" &&
+    sheet.compliance
+  ) {
+    return stored;
+  }
+  return {
+    ...sheet,
+    users: typeof sheet.users === "string" ? { launch: null, oneYear: null, note: sheet.users } : sheet.users,
+    budget: typeof sheet.budget === "string" ? { build: null, run: null, note: sheet.budget } : sheet.budget,
+    team: typeof sheet.team === "string" ? { people: null, skills: [], note: sheet.team } : sheet.team,
+    deadline:
+      sheet.deadline === null || typeof sheet.deadline === "string"
+        ? { date: null, duration: null, note: sheet.deadline ?? "" }
+        : sheet.deadline,
+    compliance: sheet.compliance ?? { gdpr: false, healthData: false, paymentCards: false, accessibility: false, publicSector: false },
+  };
+}
+
+/** A proposal stored before work packages: no estimate to price, its build cost kept as the model gave it. */
+function normalizeProposal(proposal: Proposal) {
+  const stored = proposal as Proposal & Partial<Pick<Proposal, "estimate" | "buildWeeks">>;
+  stored.estimate ??= { workPackages: [], dayRates: [], assumptions: [], exclusions: [] };
+  stored.buildWeeks ??= null;
+}
+
+function legacyCurrency(session: Session): string | null {
+  for (const proposal of Object.values(currentProposals(session))) {
+    const currency = (proposal.monthlyCost as { currency?: string }).currency ?? proposal.buildCost?.currency;
+    if (currency) return currency;
+  }
+  return null;
 }
 
 /**

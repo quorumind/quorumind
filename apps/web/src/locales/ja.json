@@ -84,7 +84,53 @@
       "hardConstraints": "譲れない制約",
       "softConstraints": "柔軟な制約",
       "priorities": "優先事項",
-      "assumptions": "前提"
+      "assumptions": "前提",
+      "buildBudget": "開発予算",
+      "runBudget": "運用予算",
+      "period": "運用予算の期間",
+      "currency": "通貨",
+      "note": "メモ",
+      "usersLaunch": "公開時のユーザー数",
+      "usersYear": "1 年後のユーザー数",
+      "usersNote": "ピークと負荷",
+      "people": "人数",
+      "skills": "スキル",
+      "deadlineDate": "公開日",
+      "duration": "または使える期間",
+      "unit": "使える期間の単位",
+      "compliance": "コンプライアンス"
+    },
+    "period": {
+      "month": "月あたり",
+      "year": "年あたり"
+    },
+    "unit": {
+      "week": "週",
+      "month": "か月"
+    },
+    "per": {
+      "month": "月 {{amount}}",
+      "year": "年 {{amount}}"
+    },
+    "duration": {
+      "week": "{{count}} 週",
+      "month": "{{count}} か月"
+    },
+    "usersLaunch": "公開時 {{count}} ユーザー",
+    "usersYear": "1 年後 {{count}}",
+    "teamSize": "{{count}} 人のチーム",
+    "unknown": "不明",
+    "commas": "カンマで区切ってください。",
+    "currencyHint": "JPY や USD などの ISO コード。",
+    "currencyInvalid": "予算の通貨を JPY などの ISO コードで入力してください。",
+    "currencyNote": "この討論の金額はすべて {{currency}} で示されます。",
+    "complianceHint": "チェックした項目は、すべての案にとって譲れない制約になります。",
+    "compliance": {
+      "gdpr": "EU 域内の人の個人データ（GDPR）",
+      "healthData": "健康データ",
+      "paymentCards": "決済カードデータ",
+      "accessibility": "満たすべきアクセシビリティ基準",
+      "publicSector": "公共部門の顧客"
     }
   },
   "debate": {
@@ -113,7 +159,9 @@
     "estimates": "費用と期間は推定です。",
     "probe": "審判が介入します",
     "probeTag": "誰も検討しなかった観点",
-    "yourSolution": "あなたの案"
+    "yourSolution": "あなたの案",
+    "personDays": "{{days}} 人日",
+    "weeks": "{{range}} 週"
   },
   "severity": {
     "blocking": "致命的",
@@ -349,7 +397,7 @@
     "hint": "重みを動かすと順位が更新されます。実現不可能な選択肢は、スコアに関係なく最下位のままです。",
     "reset": "重みをリセット",
     "score": "加重スコア",
-    "estimates": "費用は提案者による推定です。"
+    "estimates": "開発費用は各案の作業パッケージから算出し、運用費用は提案者の推定です。"
   },
   "map": {
     "title": "議論マップ",
@@ -551,5 +599,40 @@
     "password_required": "このリンクはパスワードを求めます。",
     "wrong_password": "パスワードが正しくありません。",
     "too_many_attempts": "誤ったパスワードが多すぎます。数分待ってから再試行してください。"
+  },
+  "costing": {
+    "title": "作業パッケージ別の費用",
+    "workPackage": "作業パッケージ",
+    "role": "役割",
+    "days": "人日",
+    "dayRate": "日単価",
+    "amount": "金額",
+    "total": "合計",
+    "exclusions": "対象外",
+    "ratesProfile": "組織プロフィールの日単価で算出しています。",
+    "ratesEstimated": "日単価は提案者の推定です。自社の単価で算出するには、設定で組織プロフィールを入力してください。",
+    "ratesLegacy": "開発費用は提案者が一括で示したものです。",
+    "unpriced": "{{roles}} の日単価がありません。日数は計上していますが、費用は含めていません。"
+  },
+  "checks": {
+    "title": "予算と期限",
+    "overBudget": "予算超過 {{amount}}",
+    "budgetAtRisk": "予算を最大 {{amount}} 超える可能性",
+    "withinBudget": "予算内",
+    "overRunBudget": "運用予算を月 {{amount}} 超過",
+    "runBudgetAtRisk": "運用予算を月最大 {{amount}} 超える可能性",
+    "withinRunBudget": "運用予算内",
+    "late": "{{count}} 週の遅れ",
+    "lateAtRisk": "最大 {{count}} 週遅れる可能性",
+    "onTime": "期限内"
+  },
+  "roles": {
+    "project_manager": "プロジェクトマネージャー",
+    "architect": "アーキテクト",
+    "senior_developer": "シニア開発者",
+    "developer": "開発者",
+    "designer": "デザイナー",
+    "tester": "テスター",
+    "devops": "DevOps エンジニア"
   }
 }

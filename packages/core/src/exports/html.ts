@@ -1,20 +1,35 @@
 import { type Branding, isAccent, parseLogo, QUORUMIND_ACCENT } from "../branding.ts";
+import { type Costing, deliveryChecks, type OptionChecks, proposalCosting, sessionProfile, threeYearCost } from "../costing.ts";
 import { DIAGRAM_THEME, diagramSvg, layoutDiagram } from "../diagram.ts";
-import { localeInfo } from "../locales.ts";
+import { type Locale, localeInfo } from "../locales.ts";
 import {
+  budgetAmounts,
+  budgetText,
+  buildRange,
+  checkBadges,
   chosenOption,
+  complianceItems,
+  costingNotes,
+  deadlineText,
   decisionSummary,
   fill,
+  formatDayRange,
+  formatMoney,
   formatRange,
   formatScore,
   labelled,
   methodNotes,
+  monthlyRange,
   participants,
+  profileFacts,
   type ReportLabels,
   reportLabels,
+  roleLabel,
   seatName,
   sessionProbes,
-  threeYearCost,
+  teamText,
+  usersText,
+  weeksText,
 } from "../report.ts";
 import type { Audience, Proposal, TopicStatus } from "../schemas.ts";
 import { currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "../session.ts";
@@ -157,6 +172,13 @@ dd { margin: 0; }
 .clarifications dd { color: var(--muted); }
 .weight { display: block; font-weight: 500; font-size: 11px; color: var(--muted); }
 .matrix .total, .matrix thead th:last-child { font: 600 14px var(--mono); text-align: end; white-space: nowrap; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--feasible-soft); color: var(--feasible); }
+.badge.at_risk { background: var(--conditional-soft); color: var(--conditional); }
+.badge.over { background: var(--infeasible-soft); color: var(--infeasible); }
+.costing td.num, .costing th.num { text-align: end; white-space: nowrap; }
+.costing tfoot th, .costing tfoot td { font-weight: 700; border-block-start: 2px solid var(--line); background: var(--surface); }
+.costing h3 { margin-block-end: 8px; }
 .costs .chosen th, .costs .chosen td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .method { margin-block-start: 44px; padding: 20px 22px; border-radius: 10px; background: var(--surface); }
 .method h2 { border: 0; padding: 0; margin-block-end: 8px; font-size: 17px; }
@@ -193,6 +215,36 @@ function score(value: number, label: string) {
   return `<span class="score" role="img" aria-label="${esc(label)}">${dots}<b>${esc(value)}</b></span>`;
 }
 
+/** The budget and deadline checks of an option, as colored badges. */
+function badges(checks: OptionChecks | undefined, t: ReportLabels, locale: Locale) {
+  const items = checkBadges(checks, t, locale);
+  return items.length > 0
+    ? `<span class="badges">${items.map((badge) => `<span class="badge ${badge.status}">${esc(badge.text)}</span>`).join("")}</span>`
+    : "";
+}
+
+/** One option's costing: its work packages, role by role, the total, and what the estimate assumes and leaves out. */
+function costingTable(costing: Costing, t: ReportLabels, locale: Locale) {
+  const money = (amount: number) => formatMoney(amount, costing.currency, locale);
+  const range = (value: { low: number; high: number }) =>
+    value.low === value.high ? money(value.low) : `${money(value.low)} – ${money(value.high)}`;
+  const rows = costing.packages.flatMap((item) =>
+    item.lines.map(
+      (line, index) =>
+        `<tr>${index === 0 ? `<th scope="row" rowspan="${item.lines.length}">${esc(item.name)}${item.description ? `<span class="note">${esc(item.description)}</span>` : ""}</th>` : ""}<td>${esc(roleLabel(line, t))}</td><td class="num">${esc(formatDayRange(line.days, locale))}</td><td class="num">${line.dailyRate === null ? "–" : esc(money(line.dailyRate))}</td><td class="num">${line.cost ? esc(range(line.cost)) : "–"}</td></tr>`,
+    ),
+  );
+  const table =
+    costing.packages.length > 0
+      ? `<div class="table-wrap"><table class="table costing"><thead><tr><th scope="col">${esc(t.workPackage)}</th><th scope="col">${esc(t.role)}</th><th scope="col" class="num">${esc(t.personDays)}</th><th scope="col" class="num">${esc(t.dayRate)}</th><th scope="col" class="num">${esc(t.amount)}</th></tr></thead><tbody>${rows.join("")}</tbody><tfoot><tr><th scope="row" colspan="2">${esc(t.total)}</th><td class="num">${esc(formatDayRange(costing.days, locale))}</td><td></td><td class="num">${esc(range(costing.total))}</td></tr></tfoot></table></div>`
+      : `<div class="facts"><div class="fact"><span>${esc(t.buildCost)}</span><strong>${esc(range(costing.total))}</strong></div></div>`;
+  const lists = [
+    costing.assumptions.length > 0 ? `<div><p class="label">${esc(t.assumptions)}</p>${list(costing.assumptions)}</div>` : "",
+    costing.exclusions.length > 0 ? `<div><p class="label">${esc(t.exclusions)}</p>${list(costing.exclusions)}</div>` : "",
+  ].join("");
+  return `${table}<p class="note">${esc(costingNotes(costing, t).join(" "))}</p>${lists ? `<div class="two">${lists}</div>` : ""}`;
+}
+
 function proposalCard(seat: string, proposal: Proposal, t: ReportLabels, session: Session, recommended: boolean, index: number) {
   const rtl = localeInfo(session.locale).dir === "rtl";
   const components = proposal.components ?? [];
@@ -208,18 +260,20 @@ function proposalCard(seat: string, proposal: Proposal, t: ReportLabels, session
           idPrefix: `d${index}`,
         })}<figcaption>${esc(t.diagram)}</figcaption></figure>`
       : "";
+  const build = buildRange(proposalCosting(session, proposal));
+  const weeks = weeksText(proposal.buildWeeks, t, session.locale);
   const facts = [
-    [t.monthlyCost, `${formatRange(proposal.monthlyCost, session.locale)}`, t.estimate],
+    [t.monthlyCost, `${formatRange(monthlyRange(session, proposal), session.locale)}`, t.estimate],
     // Proposals stored before V1 have no build cost.
-    ...(proposal.buildCost ? [[t.buildCost, formatRange(proposal.buildCost, session.locale), t.estimate]] : []),
-    [t.buildTime, proposal.buildTime, ""],
+    ...(build ? [[t.buildCost, formatRange(build, session.locale), t.estimate]] : []),
+    [t.buildTime, weeks ? `${proposal.buildTime} (${weeks})` : proposal.buildTime, ""],
   ] as [string, string, string][];
   return `<article class="proposal${recommended ? " recommended" : ""}">
 <header><span class="seat ${seatClass(seat)}">${esc(seat === USER_SEAT ? "U" : seat)}</span><h3>${esc(seatName(seat, t))}: ${esc(proposal.title)}</h3></header>
 <p class="prose">${esc(proposal.summary)}</p>
 ${diagram}
 <div class="facts">${facts.map(([label, value, note]) => `<div class="fact"><span>${esc(label)}${note ? ` (${esc(note)})` : ""}</span><strong>${esc(value)}</strong></div>`).join("")}</div>
-<p class="note">${esc(t.estimate)}: ${esc(proposal.monthlyCost.basis)}${proposal.buildCost ? ` · ${esc(proposal.buildCost.basis)}` : ""}</p>
+<p class="note">${esc(t.estimate)}: ${esc(proposal.monthlyCost.basis)}</p>
 <p class="label">${esc(t.stack)}</p>
 <div class="chips">${proposal.stack.map((item) => `<span class="chip">${esc(item)}</span>`).join("")}</div>
 <div class="two"><div><p class="label">${esc(t.architecture)}</p>${list(proposal.architecture)}</div><div><p class="label">${esc(t.infrastructure)}</p>${list(proposal.infrastructure)}</div></div>
@@ -262,6 +316,9 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
     ? `${logo ? `<img src="${esc(logo)}" alt="${esc(branding.name ?? "")}">` : ""}${branding.name ? `<span>${esc(branding.name)}</span>` : ""}`
     : `${MARK}<span>Quorumind</span>`;
   const say = (label: string, value: string) => esc(labelled(label, value, session.locale));
+  const checks = deliveryChecks(session);
+  const budget = sheet ? budgetText(sheet, t, session.locale) : "";
+  const budgetFigures = sheet ? budgetAmounts(sheet, t, session.locale) : "";
   const audienceName = { cto: t.audienceCto, executive: t.audienceExecutive, client: t.audienceClient };
   const brief = options.audience ? (session.briefs[options.audience] ?? null) : null;
   const body: string[] = [];
@@ -277,13 +334,16 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
     const option = chosen ? verdict.options.find((item) => item.seat === chosen.seat) : null;
     const facts: [string, string][] = [];
     if (proposal) {
-      facts.push([`${t.monthlyCost} (${t.estimate})`, formatRange(proposal.monthlyCost, session.locale)]);
-      if (proposal.buildCost) facts.push([`${t.buildCost} (${t.estimate})`, formatRange(proposal.buildCost, session.locale)]);
-      const total = threeYearCost(proposal);
+      facts.push([`${t.monthlyCost} (${t.estimate})`, formatRange(monthlyRange(session, proposal), session.locale)]);
+      const build = buildRange(proposalCosting(session, proposal));
+      if (build) facts.push([`${t.buildCost} (${t.estimate})`, formatRange(build, session.locale)]);
+      const total = threeYearCost(session, proposal);
       if (total) facts.push([t.total3y, formatRange(total, session.locale)]);
-      facts.push([t.buildTime, proposal.buildTime]);
+      const weeks = weeksText(proposal.buildWeeks, t, session.locale);
+      facts.push([t.buildTime, weeks ? `${proposal.buildTime} (${weeks})` : proposal.buildTime]);
     }
-    if (sheet?.budget) facts.push([t.budget, sheet.budget]);
+    if (budget) facts.push([t.budget, budget]);
+    const optionBadges = chosen ? badges(checks[chosen.seat], t, session.locale) : "";
     return `<section class="verdict"><p class="eyebrow">${esc(t.recommendation)}</p>${
       chosen
         ? `<h2>${esc(proposal?.title ?? seatName(chosen.seat, t))}</h2><p class="tags"><span class="seat ${seatClass(chosen.seat)}">${esc(chosen.seat)}</span> ${esc(seatName(chosen.seat, t))}${option ? ` <span class="chip ${option.feasibility}">${esc(t[option.feasibility])}</span>` : ""}</p>`
@@ -292,7 +352,7 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
       facts.length > 0
         ? `<div class="facts">${facts.map(([label, value]) => `<div class="fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("")}</div>`
         : ""
-    }</section>`;
+    }${optionBadges ? `<p class="tags">${optionBadges}</p>` : ""}</section>`;
   };
 
   const methodBox = () =>
@@ -344,13 +404,18 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
     }
 
     if (sheet) {
+      const profile = sessionProfile(session);
       const facts = (
         [
-          [t.users, sheet.users],
-          [t.budget, sheet.budget],
-          [t.team, sheet.team],
-          [t.deadline, sheet.deadline ?? ""],
+          [t.users, usersText(sheet, t, session.locale)],
+          [t.budget, budget],
+          [t.team, teamText(sheet, t, session.locale)],
+          [t.deadline, deadlineText(sheet, t, session.locale)],
           [t.existingInfrastructure, sheet.existingInfrastructure.join(" · ")],
+          [t.compliance, complianceItems(sheet, t).join(" · ")],
+          ...(profile
+            ? [[t.profile, profile.name.trim()], ...profileFacts(profile, t, session.locale).filter(([label]) => label !== t.dayRate)]
+            : []),
         ] as [string, string][]
       ).filter(([, value]) => value);
       body.push(
@@ -375,7 +440,8 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
         const total = weighted.get(option.seat);
         const conditions =
           option.conditions.length > 0 ? `<span class="note">${say(t.conditions, option.conditions.join(" · "))}</span>` : "";
-        return `<tr><th scope="row"><span class="seat ${seatClass(option.seat)}">${esc(option.seat)}</span> ${esc(option.title)}</th><td><span class="chip ${option.feasibility}">${esc(t[option.feasibility])}</span><span class="note">${esc(option.reason)}</span>${conditions}</td>${scores.join("")}<td class="total">${total == null ? "–" : esc(formatScore(total, session.locale))}</td></tr>`;
+        const optionBadges = badges(checks[option.seat], t, session.locale);
+        return `<tr><th scope="row"><span class="seat ${seatClass(option.seat)}">${esc(option.seat)}</span> ${esc(option.title)}</th><td><span class="chip ${option.feasibility}">${esc(t[option.feasibility])}</span><span class="note">${esc(option.reason)}</span>${conditions}${optionBadges ? `<span class="note">${optionBadges}</span>` : ""}</td>${scores.join("")}<td class="total">${total == null ? "–" : esc(formatScore(total, session.locale))}</td></tr>`;
       });
       body.push(
         `<section><h2>${esc(t.options)}</h2><div class="table-wrap"><table class="table matrix"><thead><tr><th scope="col">${esc(t.option)}</th><th scope="col">${esc(t.feasibility)}</th>${priorities
@@ -391,15 +457,31 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
       const costed = Object.entries(proposals).filter(([seat]) => verdict.options.some((option) => option.seat === seat));
       if (costed.length > 0) {
         body.push(
-          `<section><h2>${esc(t.costComparison)}</h2><div class="table-wrap"><table class="table costs"><thead><tr><th scope="col">${esc(t.option)}</th><th scope="col">${esc(t.buildCost)}</th><th scope="col">${esc(t.monthlyCost)}</th><th scope="col">${esc(t.total3y)}</th></tr></thead><tbody>${costed
+          `<section><h2>${esc(t.costComparison)}</h2><div class="table-wrap"><table class="table costs"><thead><tr><th scope="col">${esc(t.option)}</th><th scope="col">${esc(t.buildCost)}</th><th scope="col">${esc(t.monthlyCost)}</th><th scope="col">${esc(t.total3y)}</th><th scope="col">${esc(t.checks)}</th></tr></thead><tbody>${costed
             .map(([seat, proposal]) => {
-              const total = threeYearCost(proposal);
-              return `<tr${seat === chosen?.seat ? ' class="chosen"' : ""}><th scope="row"><span class="seat ${seatClass(seat)}">${esc(seat)}</span> ${esc(proposal.title)}</th><td>${proposal.buildCost ? esc(formatRange(proposal.buildCost, session.locale)) : "–"}</td><td>${esc(formatRange(proposal.monthlyCost, session.locale))}</td><td><strong>${total ? esc(formatRange(total, session.locale)) : "–"}</strong></td></tr>`;
+              const build = buildRange(proposalCosting(session, proposal));
+              const total = threeYearCost(session, proposal);
+              return `<tr${seat === chosen?.seat ? ' class="chosen"' : ""}><th scope="row"><span class="seat ${seatClass(seat)}">${esc(seat)}</span> ${esc(proposal.title)}</th><td>${build ? esc(formatRange(build, session.locale)) : "–"}</td><td>${esc(formatRange(monthlyRange(session, proposal), session.locale))}</td><td><strong>${total ? esc(formatRange(total, session.locale)) : "–"}</strong></td><td>${badges(checks[seat], t, session.locale) || "–"}</td></tr>`;
             })
             .join(
               "",
-            )}</tbody></table></div><p class="note">${esc(t.costNote)}${sheet?.budget ? ` ${say(t.budget, sheet.budget)}` : ""}</p></section>`,
+            )}</tbody></table></div><p class="note">${esc(t.costNote)}${budgetFigures ? ` ${esc(budgetFigures)}.` : ""}</p></section>`,
         );
+
+        const costings = costed.flatMap(([seat, proposal]) => {
+          const costing = proposalCosting(session, proposal);
+          return costing ? [{ seat, proposal, costing }] : [];
+        });
+        if (costings.length > 0) {
+          body.push(
+            `<section><h2>${esc(t.costing)}</h2>${costings
+              .map(
+                ({ seat, proposal, costing }) =>
+                  `<div class="costing"><h3><span class="seat ${seatClass(seat)}">${esc(seat)}</span> ${esc(proposal.title)}</h3>${costingTable(costing, t, session.locale)}</div>`,
+              )
+              .join("")}</section>`,
+          );
+        }
       }
 
       const topics = verdict.topics ?? [];

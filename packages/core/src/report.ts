@@ -1,9 +1,22 @@
+import {
+  type CheckStatus,
+  type Costing,
+  debateCurrency,
+  deliveryChecks,
+  type OptionChecks,
+  proposalCosting,
+  sessionProfile,
+  threeYearCost,
+} from "./costing.ts";
 import type { DiagramComponent, DiagramFlow } from "./diagram.ts";
 import type { Locale } from "./locales.ts";
+import { isGenericRole, type OrgProfile } from "./profile.ts";
 import { rankOptions } from "./ranking.ts";
 import { LABELS, type Labels } from "./report-labels.ts";
-import type { ComponentKind, Probe, Proposal } from "./schemas.ts";
-import { currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "./session.ts";
+import type { ComponentKind, Probe, Proposal, RequirementsSheet } from "./schemas.ts";
+import { COMPLIANCE_KEYS, currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "./session.ts";
+
+export { threeYearCost };
 
 export type ReportLabels = Labels;
 
@@ -51,11 +64,226 @@ export function formatScore(value: number, locale: Locale): string {
   return new Intl.NumberFormat(tag, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
 }
 
-/** Build cost plus three years of running cost, or null when the proposal has no build cost or mixes currencies. */
-export function threeYearCost(proposal: Proposal): { low: number; high: number; currency: string } | null {
-  const build = proposal.buildCost;
-  if (!build || build.currency !== proposal.monthlyCost.currency) return null;
-  return { low: build.low + 36 * proposal.monthlyCost.low, high: build.high + 36 * proposal.monthlyCost.high, currency: build.currency };
+/** The monthly running cost of a proposal, in the debate's currency. */
+export function monthlyRange(session: Session, proposal: Proposal): { low: number; high: number; currency: string } {
+  const legacy = (proposal.monthlyCost as { currency?: string }).currency;
+  return { low: proposal.monthlyCost.low, high: proposal.monthlyCost.high, currency: legacy ?? debateCurrency(session) };
+}
+
+/** The build cost of a proposal as Quorumind priced it, or null when it has none. */
+export function buildRange(costing: Costing | null): { low: number; high: number; currency: string } | null {
+  return costing ? { ...costing.total, currency: costing.currency } : null;
+}
+
+const GENERIC_ROLE_LABELS = {
+  project_manager: "roleProjectManager",
+  architect: "roleArchitect",
+  senior_developer: "roleSeniorDeveloper",
+  developer: "roleDeveloper",
+  designer: "roleDesigner",
+  tester: "roleTester",
+  devops: "roleDevops",
+} as const satisfies Record<string, keyof Labels>;
+
+/** A role of a costing: the rate card's name, a generic role in the document's language, or the id as the model gave it. */
+export function roleLabel(line: { role: string; name: string | null }, t: Labels): string {
+  if (line.name) return line.name;
+  return isGenericRole(line.role) ? t[GENERIC_ROLE_LABELS[line.role]] : line.role.replaceAll("_", " ");
+}
+
+/** Days such as "12.5", in the language's notation. */
+export function formatDays(days: number, locale: Locale): string {
+  const tag = locale === "ar" || locale === "hi" ? `${locale}-u-nu-latn` : locale;
+  return new Intl.NumberFormat(tag, { maximumFractionDigits: 1 }).format(days);
+}
+
+/** "12 – 15" days, or one figure when the range is a single value. */
+export function formatDayRange(range: { low: number; high: number }, locale: Locale): string {
+  return range.low === range.high ? formatDays(range.low, locale) : `${formatDays(range.low, locale)} – ${formatDays(range.high, locale)}`;
+}
+
+/** The note under a costing: where its day rates come from, and the roles that had none. */
+export function costingNotes(costing: Costing, t: Labels): string[] {
+  const notes = [costing.rates === "profile" ? t.ratesProfile : costing.rates === "estimated" ? t.ratesEstimated : t.ratesLegacy];
+  if (costing.unpriced.length > 0) {
+    notes.push(fill(t.unpriced, { roles: costing.unpriced.map((role) => roleLabel({ role, name: null }, t)).join(", ") }));
+  }
+  return notes;
+}
+
+/** Items of a list on one line: French puts a narrow no-break space before the semicolon. */
+export function joinItems(items: string[], locale: Locale): string {
+  return items.join(locale === "fr" ? " ; " : "; ");
+}
+
+/** The budget and deadline checks of an option on one line, the problems first; "" when none could be made. */
+export function checkLine(checks: OptionChecks | undefined, t: Labels, locale: Locale): string {
+  return joinItems(
+    checkBadges(checks, t, locale).map((badge) => badge.text),
+    locale,
+  );
+}
+
+/** The budget and deadline checks of an option as badges: the problems first, what fits after. */
+export function checkBadges(checks: OptionChecks | undefined, t: Labels, locale: Locale): { status: CheckStatus; text: string }[] {
+  if (!checks) return [];
+  const badges: { status: CheckStatus; text: string }[] = [];
+  if (checks.build) {
+    const { status, by, currency } = checks.build;
+    const amount = formatMoney(by, currency, locale);
+    badges.push({
+      status,
+      text: status === "over" ? fill(t.overBudget, { amount }) : status === "at_risk" ? fill(t.budgetAtRisk, { amount }) : t.withinBudget,
+    });
+  }
+  if (checks.run) {
+    const { status, by, currency } = checks.run;
+    const amount = formatMoney(by, currency, locale);
+    badges.push({
+      status,
+      text:
+        status === "over"
+          ? fill(t.overRunBudget, { amount })
+          : status === "at_risk"
+            ? fill(t.runBudgetAtRisk, { amount })
+            : t.withinRunBudget,
+    });
+  }
+  if (checks.time) {
+    const { status, by } = checks.time;
+    badges.push({
+      status,
+      text: status === "over" ? fill(t.late, { weeks: by }) : status === "at_risk" ? fill(t.lateAtRisk, { weeks: by }) : t.onTime,
+    });
+  }
+  const order: Record<CheckStatus, number> = { over: 0, at_risk: 1, within: 2 };
+  return badges.sort((a, b) => order[a.status] - order[b.status]);
+}
+
+/** The build budget and the running budget of a sheet, then its note: "Build budget: €15,000 · Running budget: €400 a month". */
+export function budgetText(sheet: RequirementsSheet, t: Labels, locale: Locale): string {
+  return [budgetAmounts(sheet, t, locale), sheet.budget.note.trim()].filter(Boolean).join(". ");
+}
+
+/** The budget as a line of a list: its amounts, each labelled, or the note under the "Budget" label when none is known. */
+export function budgetLine(sheet: RequirementsSheet, t: Labels, locale: Locale): string {
+  const amounts = budgetAmounts(sheet, t, locale);
+  const note = sheet.budget.note.trim();
+  if (amounts) return [amounts, note].filter(Boolean).join(". ");
+  return note ? labelled(t.budget, note, locale) : "";
+}
+
+/** The amounts of the budget alone: "Build budget: €15,000 · Running budget: €400 a month", or "" when unknown. */
+export function budgetAmounts(sheet: RequirementsSheet, t: Labels, locale: Locale): string {
+  const { build, run } = sheet.budget;
+  const parts = [
+    build ? labelled(t.buildBudget, formatMoney(build.amount, build.currency, locale), locale) : "",
+    run
+      ? labelled(
+          t.runBudget,
+          fill(run.period === "year" ? t.perYear : t.perMonth, { amount: formatMoney(run.amount, run.currency, locale) }),
+          locale,
+        )
+      : "",
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+const count = (value: number, locale: Locale) =>
+  new Intl.NumberFormat(locale === "ar" || locale === "hi" ? `${locale}-u-nu-latn` : locale).format(value);
+
+export function teamText(sheet: RequirementsSheet, t: Labels, locale: Locale): string {
+  const { people, skills, note } = sheet.team;
+  const head = [people !== null ? fill(t.teamSize, { count: count(people, locale) }) : "", skills.join(", ")].filter(Boolean).join(": ");
+  return [head, note.trim()].filter(Boolean).join(". ");
+}
+
+export function usersText(sheet: RequirementsSheet, t: Labels, locale: Locale): string {
+  const { launch, oneYear, note } = sheet.users;
+  const head = [
+    launch !== null ? fill(t.usersLaunch, { count: count(launch, locale) }) : "",
+    oneYear !== null ? fill(t.usersYear, { count: count(oneYear, locale) }) : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return [head, note.trim()].filter(Boolean).join(". ");
+}
+
+export function deadlineText(sheet: RequirementsSheet, t: Labels, locale: Locale): string {
+  const { date, duration, note } = sheet.deadline;
+  const head = date
+    ? formatDate(date, locale)
+    : duration
+      ? fill(duration.unit === "week" ? t.weeks : t.months, { count: count(duration.amount, locale) })
+      : "";
+  return [head, note.trim()].filter(Boolean).join(". ");
+}
+
+/** The compliance boxes checked on a sheet, named in the document's language. */
+export function complianceItems(sheet: RequirementsSheet, t: Labels): string[] {
+  return COMPLIANCE_KEYS.filter((key) => sheet.compliance[key]).map((key) => t[key]);
+}
+
+/** A build duration in weeks such as "12 to 14 weeks". */
+export function weeksText(weeks: { low: number; high: number } | null, t: Labels, locale: Locale): string | null {
+  if (!weeks) return null;
+  return weeks.low === weeks.high
+    ? fill(t.weeks, { count: count(weeks.low, locale) })
+    : fill(t.weeksRange, { low: count(weeks.low, locale), high: count(weeks.high, locale) });
+}
+
+function formatDate(date: string, locale: Locale): string {
+  const parsed = Date.parse(`${date}T00:00:00Z`);
+  if (!Number.isFinite(parsed)) return date;
+  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(parsed);
+}
+
+/** What the organisation profile in force says, as label and value pairs. */
+export function profileFacts(profile: OrgProfile, t: Labels, locale: Locale): [string, string][] {
+  const hosting = [
+    profile.hosting.euOnly ? t.euOnly : "",
+    profile.hosting.providers.join(", "),
+    profile.hosting.onPremises ? t.onPremises : "",
+    profile.hosting.notes.trim(),
+  ].filter(Boolean);
+  const facts: [string, string][] = [];
+  if (profile.forbiddenTechnologies.length > 0) facts.push([t.forbiddenTechnologies, profile.forbiddenTechnologies.join(", ")]);
+  if (hosting.length > 0) facts.push([t.hosting, hosting.join("; ")]);
+  if (profile.preferredTechnologies.length > 0) facts.push([t.preferredTechnologies, profile.preferredTechnologies.join(", ")]);
+  if (profile.roles.length > 0) {
+    facts.push([
+      t.dayRate,
+      profile.roles.map((role) => `${role.name} ${formatMoney(role.dailyRate, profile.currency, locale)}`).join(", "),
+    ]);
+  }
+  if (profile.deliverables.length > 0) facts.push([t.deliverables, profile.deliverables.join("; ")]);
+  if (profile.guarantees.length > 0) facts.push([t.guarantees, profile.guarantees.join("; ")]);
+  return facts;
+}
+
+/** The costing of a proposal as a Markdown table, with its notes, assumptions and exclusions. */
+export function costingMarkdown(costing: Costing, t: Labels, locale: Locale): string[] {
+  const money = (amount: number) => formatMoney(amount, costing.currency, locale);
+  const moneyRange = (range: { low: number; high: number }) =>
+    range.low === range.high ? money(range.low) : `${money(range.low)} – ${money(range.high)}`;
+  const lines: string[] = [];
+  if (costing.packages.length > 0) {
+    lines.push(`| ${t.workPackage} | ${t.role} | ${t.personDays} | ${t.dayRate} | ${t.amount} |`, "| --- | --- | --- | --- | --- |");
+    for (const item of costing.packages) {
+      item.lines.forEach((line, index) => {
+        lines.push(
+          `| ${index === 0 ? `**${cell(item.name)}**` : ""} | ${cell(roleLabel(line, t))} | ${formatDayRange(line.days, locale)} | ${line.dailyRate === null ? "–" : money(line.dailyRate)} | ${line.cost ? moneyRange(line.cost) : "–"} |`,
+        );
+      });
+    }
+    lines.push(`| **${t.total}** | | **${formatDayRange(costing.days, locale)}** | | **${moneyRange(costing.total)}** |`, "");
+  } else {
+    lines.push(labelled(`**${t.buildCost}**`, moneyRange(costing.total), locale), "");
+  }
+  lines.push(`_${costingNotes(costing, t).join(" ")}_`, "");
+  if (costing.assumptions.length > 0) lines.push(`**${t.assumptions}**`, "", list(costing.assumptions), "");
+  if (costing.exclusions.length > 0) lines.push(`**${t.exclusions}**`, "", list(costing.exclusions), "");
+  return lines;
 }
 
 const LEVEL = { low: 1, medium: 2, high: 3 } as const;
@@ -196,9 +424,11 @@ export function renderReport(session: Session): string {
   const sheet = session.sheet;
   const proposals = currentProposals(session);
   const lines: string[] = [];
-  const money = (amount: number, currency: string) => formatMoney(amount, currency, session.locale);
   const say = (label: string, value: string) => labelled(label, value, session.locale);
   const summary = decisionSummary(session);
+  const checks = deliveryChecks(session);
+  const badges = (seat: string) => checkLine(checks[seat], t, session.locale);
+  const profile = sessionProfile(session);
 
   lines.push(`# ${sheet?.projectName ?? session.idea}`, "", `_${t.title} · ${session.updatedAt.slice(0, 10)}_`, "");
 
@@ -214,14 +444,17 @@ export function renderReport(session: Session): string {
     if (verdict.speech.trim()) lines.push(`### ${t.summary}`, "", verdict.speech, "");
 
     const facts: string[] = [];
-    if (recommended) {
-      facts.push(say(t.monthlyCost, `${formatRange(recommended.monthlyCost, session.locale)} (${t.estimate})`));
-      if (recommended.buildCost) facts.push(say(t.buildCost, `${formatRange(recommended.buildCost, session.locale)} (${t.estimate})`));
-      const total = threeYearCost(recommended);
+    if (recommended && seat) {
+      facts.push(say(t.monthlyCost, `${formatRange(monthlyRange(session, recommended), session.locale)} (${t.estimate})`));
+      const build = buildRange(proposalCosting(session, recommended));
+      if (build) facts.push(say(t.buildCost, `${formatRange(build, session.locale)} (${t.estimate})`));
+      const total = threeYearCost(session, recommended);
       if (total) facts.push(say(t.total3y, formatRange(total, session.locale)));
-      facts.push(say(t.buildTime, recommended.buildTime));
+      const weeks = weeksText(recommended.buildWeeks, t, session.locale);
+      facts.push(say(t.buildTime, weeks ? `${recommended.buildTime} (${weeks})` : recommended.buildTime));
+      if (badges(seat)) facts.push(say(t.checks, badges(seat)));
     }
-    if (sheet?.budget) facts.push(say(t.budget, sheet.budget));
+    if (sheet && budgetLine(sheet, t, session.locale)) facts.push(budgetLine(sheet, t, session.locale));
     if (summary?.mainRisk) facts.push(say(t.mainRisk, `${summary.mainRisk.risk} (${summary.mainRisk.mitigation})`));
     if (summary?.alternative)
       facts.push(say(fill(t.whyNot, { option: seatName(summary.alternative.seat, t) }), summary.alternative.reason));
@@ -240,15 +473,24 @@ export function renderReport(session: Session): string {
     lines.push(`## ${t.contextGoals}`, "", sheet.summary, "");
     lines.push(`### ${t.goals}`, "", list(sheet.goals), "");
     if (sheet.successCriteria.length > 0) lines.push(`### ${t.successCriteria}`, "", list(sheet.successCriteria), "");
+    const field = (label: string, value: string) => (value ? say(label, value) : "");
+    const compliance = complianceItems(sheet, t);
     const context = [
-      sheet.users ? say(t.users, sheet.users) : "",
-      sheet.budget ? say(t.budget, sheet.budget) : "",
-      sheet.team ? say(t.team, sheet.team) : "",
-      sheet.deadline ? say(t.deadline, sheet.deadline) : "",
+      field(t.users, usersText(sheet, t, session.locale)),
+      budgetLine(sheet, t, session.locale),
+      field(t.team, teamText(sheet, t, session.locale)),
+      field(t.deadline, deadlineText(sheet, t, session.locale)),
       sheet.existingInfrastructure.length > 0 ? say(t.existingInfrastructure, sheet.existingInfrastructure.join("; ")) : "",
+      compliance.length > 0 ? say(t.compliance, compliance.join(", ")) : "",
     ].filter(Boolean);
     if (context.length > 0) lines.push(list(context), "");
     if (sheet.hardConstraints.length > 0) lines.push(`### ${t.hardConstraints}`, "", list(sheet.hardConstraints), "");
+  }
+
+  if (profile) {
+    lines.push(`### ${t.profile}${profile.name.trim() ? `: ${profile.name.trim()}` : ""}`, "");
+    const facts = profileFacts(profile, t, session.locale);
+    if (facts.length > 0) lines.push(list(facts.map(([label, value]) => say(label, value))), "");
   }
 
   if (verdict) {
@@ -270,24 +512,38 @@ export function renderReport(session: Session): string {
     for (const option of verdict.options) {
       lines.push(`- **${seatName(option.seat, t)}, ${t[option.feasibility]}:** ${option.reason}`);
       if (option.conditions.length > 0) lines.push(`  - ${say(t.conditions, option.conditions.join("; "))}`);
+      if (badges(option.seat)) lines.push(`  - ${say(t.checks, badges(option.seat))}`);
     }
     lines.push("");
 
     const costed = Object.entries(proposals).filter(([seat]) => verdict.options.some((option) => option.seat === seat));
     if (costed.length > 0) {
+      const budget = sheet ? budgetAmounts(sheet, t, session.locale) : "";
       lines.push(
         `## ${t.costComparison}`,
         "",
-        `| ${t.option} | ${t.buildCost} | ${t.monthlyCost} | ${t.total3y} |`,
-        "| --- | --- | --- | --- |",
+        `| ${t.option} | ${t.buildCost} | ${t.monthlyCost} | ${t.total3y} | ${t.checks} |`,
+        "| --- | --- | --- | --- | --- |",
       );
       for (const [seat, proposal] of costed) {
-        const total = threeYearCost(proposal);
+        const build = buildRange(proposalCosting(session, proposal));
+        const total = threeYearCost(session, proposal);
         lines.push(
-          `| ${cell(seatName(seat, t))}: ${cell(proposal.title)} | ${proposal.buildCost ? formatRange(proposal.buildCost, session.locale) : "–"} | ${formatRange(proposal.monthlyCost, session.locale)} | ${total ? formatRange(total, session.locale) : "–"} |`,
+          `| ${cell(seatName(seat, t))}: ${cell(proposal.title)} | ${build ? formatRange(build, session.locale) : "–"} | ${formatRange(monthlyRange(session, proposal), session.locale)} | ${total ? formatRange(total, session.locale) : "–"} | ${cell(badges(seat)) || "–"} |`,
         );
       }
-      lines.push("", `_${t.costNote}${sheet?.budget ? ` ${say(t.budget, sheet.budget)}.` : ""}_`, "");
+      lines.push("", `_${t.costNote}${budget ? ` ${budget}.` : ""}_`, "");
+
+      const costings = costed.flatMap(([seat, proposal]) => {
+        const costing = proposalCosting(session, proposal);
+        return costing ? [{ seat, proposal, costing }] : [];
+      });
+      if (costings.length > 0) {
+        lines.push(`## ${t.costing}`, "");
+        for (const { seat, proposal, costing } of costings) {
+          lines.push(`### ${seatName(seat, t)}: ${proposal.title}`, "", ...costingMarkdown(costing, t, session.locale));
+        }
+      }
     }
 
     const topics = verdict.topics ?? [];
@@ -341,7 +597,7 @@ export function renderReport(session: Session): string {
 
   if (Object.keys(proposals).length > 0) {
     lines.push(`## ${session.mode === "challenge" ? t.yourSolution : t.proposals}`, "");
-    for (const [seat, proposal] of Object.entries(proposals)) lines.push(...renderProposal(seat, proposal, t, money), "");
+    for (const [seat, proposal] of Object.entries(proposals)) lines.push(...renderProposal(session, seat, proposal, t), "");
   }
 
   if (sheet) {
@@ -371,10 +627,11 @@ export function renderReport(session: Session): string {
   return lines.join("\n");
 }
 
-function renderProposal(seat: string, proposal: Proposal, t: Labels, money: (amount: number, currency: string) => string) {
-  const range = (value: { low: number; high: number; currency: string }) =>
-    `${money(value.low, value.currency)} – ${money(value.high, value.currency)}`;
+function renderProposal(session: Session, seat: string, proposal: Proposal, t: Labels) {
+  const range = (value: { low: number; high: number; currency: string }) => formatRange(value, session.locale);
   const diagram = mermaidFlowchart(proposal.components, proposal.flows);
+  const build = buildRange(proposalCosting(session, proposal));
+  const weeks = weeksText(proposal.buildWeeks, t, session.locale);
   return [
     `### ${seatName(seat, t)}: ${proposal.title}`,
     "",
@@ -391,11 +648,11 @@ function renderProposal(seat: string, proposal: Proposal, t: Labels, money: (amo
     "",
     list(proposal.infrastructure),
     "",
-    `**${t.monthlyCost}:** ${range(proposal.monthlyCost)} (${t.estimate}: ${proposal.monthlyCost.basis})`,
+    `**${t.monthlyCost}:** ${range(monthlyRange(session, proposal))} (${t.estimate}: ${proposal.monthlyCost.basis})`,
     "",
     // Sessions stored before V1 have no build cost.
-    ...(proposal.buildCost ? [`**${t.buildCost}:** ${range(proposal.buildCost)} (${t.estimate}: ${proposal.buildCost.basis})`, ""] : []),
-    `**${t.buildTime}:** ${proposal.buildTime}`,
+    ...(build ? [`**${t.buildCost}:** ${range(build)} (${t.estimate})`, ""] : []),
+    `**${t.buildTime}:** ${proposal.buildTime}${weeks ? ` (${weeks})` : ""}`,
     "",
     `**${t.risks}**`,
     "",

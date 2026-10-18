@@ -84,7 +84,53 @@
       "hardConstraints": "Vincoli non negoziabili",
       "softConstraints": "Vincoli flessibili",
       "priorities": "Priorità",
-      "assumptions": "Ipotesi"
+      "assumptions": "Ipotesi",
+      "buildBudget": "Budget di realizzazione",
+      "runBudget": "Budget di esercizio",
+      "period": "Periodo del budget di esercizio",
+      "currency": "Valuta",
+      "note": "Note",
+      "usersLaunch": "Utenti al lancio",
+      "usersYear": "Utenti dopo un anno",
+      "usersNote": "Picchi e carico",
+      "people": "Persone",
+      "skills": "Competenze",
+      "deadlineDate": "Data di lancio",
+      "duration": "Oppure tempo disponibile",
+      "unit": "Unità del tempo disponibile",
+      "compliance": "Conformità"
+    },
+    "period": {
+      "month": "al mese",
+      "year": "all'anno"
+    },
+    "unit": {
+      "week": "settimane",
+      "month": "mesi"
+    },
+    "per": {
+      "month": "{{amount}} al mese",
+      "year": "{{amount}} all'anno"
+    },
+    "duration": {
+      "week": "{{count}} settimana/e",
+      "month": "{{count}} mese/i"
+    },
+    "usersLaunch": "{{count}} utenti al lancio",
+    "usersYear": "{{count}} dopo un anno",
+    "teamSize": "Team di {{count}}",
+    "unknown": "Sconosciuto",
+    "commas": "Le separi con delle virgole.",
+    "currencyHint": "Codice ISO, come EUR o USD.",
+    "currencyInvalid": "Indichi la valuta del budget con il codice ISO, come EUR.",
+    "currencyNote": "Tutti gli importi di questo dibattito saranno in {{currency}}.",
+    "complianceHint": "Ogni casella spuntata è un vincolo non negoziabile per tutte le opzioni.",
+    "compliance": {
+      "gdpr": "Dati personali di persone nell'UE (GDPR)",
+      "healthData": "Dati sanitari",
+      "paymentCards": "Dati delle carte di pagamento",
+      "accessibility": "Uno standard di accessibilità da rispettare",
+      "publicSector": "Un cliente del settore pubblico"
     }
   },
   "debate": {
@@ -113,7 +159,9 @@
     "estimates": "Costi e tempi sono stime.",
     "probe": "L'arbitro interviene",
     "probeTag": "Aspetto che nessuno ha esaminato",
-    "yourSolution": "La tua soluzione"
+    "yourSolution": "La tua soluzione",
+    "personDays": "{{days}} giorni-persona",
+    "weeks": "{{range}} settimane"
   },
   "severity": {
     "blocking": "Bloccante",
@@ -349,7 +397,7 @@
     "hint": "Sposta un peso e la classifica si aggiorna. Un'opzione non fattibile resta ultima, qualunque siano i suoi punteggi.",
     "reset": "Ripristina i pesi",
     "score": "Punteggio ponderato",
-    "estimates": "I costi sono stime dei proponenti."
+    "estimates": "I costi di realizzazione sono valorizzati dai pacchetti di lavoro di ogni opzione; i costi di esercizio sono stime dei proponenti."
   },
   "map": {
     "title": "Mappa del dibattito",
@@ -551,5 +599,40 @@
     "password_required": "Questo link chiede una password.",
     "wrong_password": "La password non è corretta.",
     "too_many_attempts": "Troppe password errate. Attendi qualche minuto, poi riprova."
+  },
+  "costing": {
+    "title": "Stima per pacchetto di lavoro",
+    "workPackage": "Pacchetto di lavoro",
+    "role": "Ruolo",
+    "days": "Giorni-persona",
+    "dayRate": "Tariffa giornaliera",
+    "amount": "Importo",
+    "total": "Totale",
+    "exclusions": "Esclusioni",
+    "ratesProfile": "Valorizzato con le tariffe giornaliere del profilo della sua organizzazione.",
+    "ratesEstimated": "Tariffe giornaliere stimate dal proponente. Configuri il profilo della sua organizzazione nelle Impostazioni per usare le sue.",
+    "ratesLegacy": "Costo di realizzazione indicato in blocco dal proponente.",
+    "unpriced": "Nessuna tariffa giornaliera per {{roles}}: i giorni sono contati, il costo no."
+  },
+  "checks": {
+    "title": "Budget e scadenza",
+    "overBudget": "Fuori budget di {{amount}}",
+    "budgetAtRisk": "Può superare il budget di {{amount}}",
+    "withinBudget": "Nel budget",
+    "overRunBudget": "Supera il budget di esercizio di {{amount}} al mese",
+    "runBudgetAtRisk": "Può superare il budget di esercizio di {{amount}} al mese",
+    "withinRunBudget": "Nel budget di esercizio",
+    "late": "In ritardo di {{count}} settimana/e",
+    "lateAtRisk": "Possibile ritardo di {{count}} settimana/e",
+    "onTime": "Nei tempi"
+  },
+  "roles": {
+    "project_manager": "Project manager",
+    "architect": "Architetto",
+    "senior_developer": "Sviluppatore senior",
+    "developer": "Sviluppatore",
+    "designer": "Designer",
+    "tester": "Tester",
+    "devops": "Ingegnere DevOps"
   }
 }

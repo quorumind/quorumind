@@ -13,6 +13,24 @@ export const Priority = z.object({
   weight: z.number().describe("Importance from 1 (low) to 5 (critical)."),
 });
 
+export const Money = z.object({ amount: z.number(), currency: z.string().describe("ISO 4217 code, e.g. EUR.") });
+export type Money = z.infer<typeof Money>;
+
+export const BudgetPeriod = z.enum(["month", "year"]);
+export type BudgetPeriod = z.infer<typeof BudgetPeriod>;
+
+export const DurationUnit = z.enum(["week", "month"]);
+export type DurationUnit = z.infer<typeof DurationUnit>;
+
+/** Regulations and kinds of data that weigh on the design: each one is a hard constraint when checked. */
+export const Compliance = z.object({
+  gdpr: z.boolean().describe("Personal data of people in the EU."),
+  healthData: z.boolean(),
+  paymentCards: z.boolean().describe("Card data handled by the system itself (PCI DSS)."),
+  accessibility: z.boolean().describe("An accessibility standard must be met, e.g. WCAG or RGAA."),
+  publicSector: z.boolean().describe("A public-sector client: procurement, sovereignty and accessibility rules."),
+});
+export type Compliance = z.infer<typeof Compliance>;
 export const RequirementsSheet = z.object({
   projectName: z.string(),
   summary: z.string().describe("Two or three sentences describing the project."),
@@ -21,11 +39,33 @@ export const RequirementsSheet = z.object({
   mustHave: z.array(z.string()),
   niceToHave: z.array(z.string()),
   outOfScope: z.array(z.string()),
-  users: z.string().describe("Who uses it, how many at launch and in a year, usage peaks."),
-  budget: z.string().describe("Build budget and monthly running budget, with currency."),
+  users: z.object({
+    launch: z.number().nullable().describe("Expected users at launch; null when unknown."),
+    oneYear: z.number().nullable().describe("Expected users after a year; null when unknown."),
+    note: z.string().describe("Usage peaks, load and anything the numbers do not say."),
+  }),
+  budget: z.object({
+    build: Money.nullable().describe("The one-off budget to build it; null when unknown."),
+    run: Money.extend({ period: BudgetPeriod })
+      .nullable()
+      .describe("The running budget (hosting, licences, services) per month or year; null when unknown."),
+    note: z.string().describe("Nuance: what the budget covers, how firm it is."),
+  }),
   existingInfrastructure: z.array(z.string()),
-  team: z.string().describe("Who builds and maintains it, skills, available time."),
-  deadline: z.string().nullable(),
+  team: z.object({
+    people: z.number().nullable().describe("How many people build it; null when unknown."),
+    skills: z.array(z.string()),
+    note: z.string().describe("Who builds and maintains it, and their available time."),
+  }),
+  deadline: z.object({
+    date: z.string().nullable().describe("Launch date as YYYY-MM-DD, when there is one."),
+    duration: z
+      .object({ amount: z.number(), unit: DurationUnit })
+      .nullable()
+      .describe("Time available from the start, when there is no date."),
+    note: z.string(),
+  }),
+  compliance: Compliance,
   hardConstraints: z.array(z.string()).describe("Constraints that make an option infeasible when violated."),
   softConstraints: z.array(z.string()),
   priorities: z.array(Priority),
@@ -62,16 +102,35 @@ export const Proposal = z.object({
   monthlyCost: z.object({
     low: z.number(),
     high: z.number(),
-    currency: z.string(),
     basis: z.string().describe("What the estimate covers and how it was derived."),
   }),
-  buildCost: z.object({
-    low: z.number(),
-    high: z.number(),
-    currency: z.string(),
-    basis: z.string().describe("What the estimate covers: team, duration, day rate or vendor fees."),
+  estimate: z.object({
+    workPackages: z
+      .array(
+        z.object({
+          name: z.string().describe("e.g. Framing, Back end, Front end, Integrations, Testing, Deployment, Project management."),
+          description: z.string(),
+          effort: z.array(
+            z.object({
+              role: z.string().describe("A role id of the rate card."),
+              low: z.number().describe("Person-days, low estimate."),
+              high: z.number().describe("Person-days, high estimate."),
+            }),
+          ),
+        }),
+      )
+      .describe("The whole build, from framing to deployment and project management."),
+    dayRates: z
+      .array(z.object({ role: z.string(), dailyRate: z.number() }))
+      .describe("Only without a rate card: the daily rate you assume for each role. Empty when a rate card is given."),
+    assumptions: z.array(z.string()).describe("What the estimate rests on."),
+    exclusions: z.array(z.string()).describe("What the estimate does not cover."),
   }),
   buildTime: z.string(),
+  buildWeeks: z
+    .object({ low: z.number(), high: z.number() })
+    .nullable()
+    .describe("Calendar weeks from the start to the launch; null only when it cannot be estimated."),
   components: z
     .array(
       z.object({
@@ -87,7 +146,14 @@ export const Proposal = z.object({
   risks: z.array(z.string()),
   assumptions: z.array(z.string()),
 });
-export type Proposal = z.infer<typeof Proposal>;
+/**
+ * A proposal as stored. Those made before work packages carry the build cost the model gave itself, and their costs
+ * a currency of their own (normalizeSession keeps them readable).
+ */
+export type Proposal = z.infer<typeof Proposal> & {
+  buildCost?: { low: number; high: number; currency: string; basis: string };
+};
+export type WorkPackage = Proposal["estimate"]["workPackages"][number];
 
 export const Severity = z.enum(["blocking", "major", "minor"]);
 export type Severity = z.infer<typeof Severity>;

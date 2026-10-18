@@ -1,6 +1,7 @@
 import type { ClientDeliverable } from "@quorumind/core";
 import { useTranslation } from "react-i18next";
 import { DownloadIcon, SparkIcon } from "./components/Icons.tsx";
+import { CheckBadges, dayRange, moneyRange } from "./costing.tsx";
 import { FeasibilityChip, Score } from "./Verdict.tsx";
 
 /**
@@ -118,6 +119,100 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
               </tbody>
             </table>
           </div>
+        </section>
+      ) : null}
+
+      {deliverable.options.some((option) => option.costing) ? (
+        <section className="stack">
+          <h2 className="heading">{t("costing.title")}</h2>
+          {deliverable.options.map((option) => {
+            const costing = option.costing;
+            if (!costing) return null;
+            const range = (value: { low: number; high: number }) => moneyRange(value, costing.currency, i18n.language);
+            return (
+              <article className="card stack" key={option.seat}>
+                <div className="row costing-head">
+                  <h3 className="title" style={{ margin: 0 }}>
+                    <span className="voice-name">{option.seat}</span> {option.title}
+                  </h3>
+                  <span className="mono">{range(costing.total)}</span>
+                </div>
+                <CheckBadges checks={costing.checks ?? undefined} />
+                {costing.packages.length > 0 ? (
+                  <div className="table-wrap">
+                    <table className="costing">
+                      <thead>
+                        <tr>
+                          <th scope="col">{t("costing.workPackage")}</th>
+                          <th scope="col" className="num">
+                            {t("costing.days")}
+                          </th>
+                          <th scope="col" className="num">
+                            {t("costing.amount")}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {costing.packages.map((item) => (
+                          <tr key={item.name}>
+                            <th scope="row">
+                              {item.name}
+                              {item.description ? <span className="field-hint costing-description">{item.description}</span> : null}
+                            </th>
+                            <td className="num mono">{dayRange(item.days, i18n.language)}</td>
+                            <td className="num mono">{range(item.cost)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <th scope="row">{t("costing.total")}</th>
+                          <td className="num mono">{dayRange(costing.days, i18n.language)}</td>
+                          <td className="num mono">{range(costing.total)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : null}
+                <div className="facts">
+                  <div className="fact">
+                    <span className="field-hint">{t("debate.monthlyCost")}</span>
+                    <span className="mono">{range(costing.monthly)}</span>
+                  </div>
+                  {costing.buildWeeks ? (
+                    <div className="fact">
+                      <span className="field-hint">{t("debate.buildTime")}</span>
+                      <span>{t("debate.weeks", { range: dayRange(costing.buildWeeks, i18n.language) })}</span>
+                    </div>
+                  ) : null}
+                </div>
+                {costing.assumptions.length > 0 || costing.exclusions.length > 0 ? (
+                  <div className="two-col">
+                    {costing.assumptions.length > 0 ? (
+                      <div>
+                        <h4>{t("debate.assumptions")}</h4>
+                        <ul style={{ margin: 0 }}>
+                          {costing.assumptions.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {costing.exclusions.length > 0 ? (
+                      <div>
+                        <h4>{t("costing.exclusions")}</h4>
+                        <ul style={{ margin: 0 }}>
+                          {costing.exclusions.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
         </section>
       ) : null}
 

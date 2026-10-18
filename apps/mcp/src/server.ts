@@ -62,11 +62,40 @@ const SheetEdits = z
     mustHave: z.array(z.string()),
     niceToHave: z.array(z.string()),
     outOfScope: z.array(z.string()),
-    users: z.string(),
-    budget: z.string(),
+    users: z.object({
+      launch: z.number().int().min(0).nullable().describe("Expected users at launch; null when unknown."),
+      oneYear: z.number().int().min(0).nullable().describe("Expected users after a year; null when unknown."),
+      note: z.string(),
+    }),
+    budget: z.object({
+      build: z
+        .object({ amount: z.number().min(0), currency: z.string().length(3) })
+        .nullable()
+        .describe("One-off build budget, ISO currency."),
+      run: z
+        .object({ amount: z.number().min(0), currency: z.string().length(3), period: z.enum(["month", "year"]) })
+        .nullable()
+        .describe("Running budget per month or year."),
+      note: z.string(),
+    }),
     existingInfrastructure: z.array(z.string()),
-    team: z.string(),
-    deadline: z.string().nullable(),
+    team: z.object({ people: z.number().int().min(0).nullable(), skills: z.array(z.string()), note: z.string() }),
+    deadline: z.object({
+      date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullable()
+        .describe("Launch date, YYYY-MM-DD."),
+      duration: z.object({ amount: z.number().positive(), unit: z.enum(["week", "month"]) }).nullable(),
+      note: z.string(),
+    }),
+    compliance: z.object({
+      gdpr: z.boolean(),
+      healthData: z.boolean(),
+      paymentCards: z.boolean(),
+      accessibility: z.boolean(),
+      publicSector: z.boolean(),
+    }),
     hardConstraints: z.array(z.string()),
     softConstraints: z.array(z.string()),
     priorities: z.array(z.object({ criterion: z.string(), weight: z.number().min(1).max(5) })),
@@ -154,14 +183,14 @@ export function createMcpServer(options: McpOptions): McpServer {
     if (outcome === "timeout") {
       lines.push(`Waited ${Math.round(waitMs / 1000)} s; the session is not at a stopping point yet.`);
     }
-    lines.push(renderSnapshot(snap, state.session));
+    lines.push(renderSnapshot(snap, state.session, state));
     return text(lines.join("\n"), snap);
   };
 
   // A request that does not fit where the session stands: say why, and where it stands.
   const refuse = (state: SessionState, preface: string) => {
     const snap = snapshot(client, state, statusOf(state));
-    return failure(`${preface}\n\n${renderSnapshot(snap, state.session)}`, snap);
+    return failure(`${preface}\n\n${renderSnapshot(snap, state.session, state)}`, snap);
   };
 
   server.registerTool(
@@ -356,7 +385,7 @@ export function createMcpServer(options: McpOptions): McpServer {
         const state = await client.getSession(session_id);
         if (wait && !isStoppingPoint(state, null)) return settle(session_id, null, ctx);
         const snap = snapshot(client, state, statusOf(state));
-        return text(renderSnapshot(snap, state.session), snap);
+        return text(renderSnapshot(snap, state.session, state), snap);
       }),
   );
 
@@ -433,7 +462,7 @@ export function createMcpServer(options: McpOptions): McpServer {
         if (session.phase !== "complete" || !session.verdict) return refuse(state, "The verdict is not ready.");
         const snap = snapshot(client, state, "complete");
         const structured = { sessionId: session.id, format, recommendation: snap.recommendation, options: snap.options };
-        if (format === "summary") return text(formatVerdictSummary(session), { ...structured, verdict: session.verdict });
+        if (format === "summary") return text(formatVerdictSummary(session, state), { ...structured, verdict: session.verdict });
         const path = `/api/sessions/${encodeURIComponent(session_id)}/${format === "adr" ? "adr.md" : "report.md"}`;
         try {
           return text(await client.text(path), structured);

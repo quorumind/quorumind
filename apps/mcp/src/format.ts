@@ -1,5 +1,5 @@
 import type { InterviewQuestion, RequirementsSheet, Session } from "@quorumind/core";
-import type { PriceQuote, SessionState } from "./client.ts";
+import type { PriceQuote, SessionCosts, SessionState } from "./client.ts";
 
 // Everything here is read by a coding agent: plain Markdown, short, and always ending on what to do next.
 
@@ -119,7 +119,7 @@ export function snapshot(client: { sessionUrl(id: string): string }, state: Sess
 }
 
 /** The text answer of a tool that reached (or gave up waiting for) a stopping point. */
-export function renderSnapshot(snap: Snapshot, session: Session): string {
+export function renderSnapshot(snap: Snapshot, session: Session, costs: SessionCosts = {}): string {
   const lines: string[] = [];
   const header: Record<Status, string> = {
     interview_questions: "The interviewer has questions.",
@@ -141,7 +141,7 @@ export function renderSnapshot(snap: Snapshot, session: Session): string {
   if (snap.questions) lines.push(formatInterviewQuestions(snap.questions), "");
   if (snap.debateQuestions) lines.push(snap.debateQuestions.map((question, i) => `${i + 1}. ${question}`).join("\n"), "");
   if (snap.sheet) lines.push(formatSheet(snap.sheet), "");
-  if (snap.status === "complete" && session.verdict) lines.push(formatVerdictSummary(session), "");
+  if (snap.status === "complete" && session.verdict) lines.push(formatVerdictSummary(session, costs), "");
   if (snap.error) lines.push(`Error (${snap.error.code}): ${snap.error.message}`, "");
   lines.push(`Next: ${snap.next}`);
   return lines.join("\n");
@@ -169,11 +169,12 @@ export function formatSheet(sheet: RequirementsSheet): string {
     section("Must have (mustHave)", list(sheet.mustHave)),
     section("Nice to have (niceToHave)", list(sheet.niceToHave)),
     section("Out of scope (outOfScope)", list(sheet.outOfScope)),
-    section("Users (users)", sheet.users),
-    section("Budget (budget)", sheet.budget),
+    section("Users and load (users)", json(sheet.users)),
+    section("Budget (budget: build and run amounts with an ISO currency, run per month or year)", json(sheet.budget)),
     section("Existing infrastructure (existingInfrastructure)", list(sheet.existingInfrastructure)),
-    section("Team (team)", sheet.team),
-    section("Deadline (deadline)", sheet.deadline ?? "(none)"),
+    section("Team (team)", json(sheet.team)),
+    section("Deadline (deadline: a YYYY-MM-DD date or a duration in weeks or months)", json(sheet.deadline)),
+    section("Compliance (compliance)", json(sheet.compliance)),
     section("Hard constraints (hardConstraints)", list(sheet.hardConstraints)),
     section("Soft constraints (softConstraints)", list(sheet.softConstraints)),
     section("Priorities (priorities, weight 1 to 5)", list(sheet.priorities.map((p) => `${p.criterion}: ${p.weight}`))),
@@ -181,7 +182,11 @@ export function formatSheet(sheet: RequirementsSheet): string {
   ].join("\n\n");
 }
 
-export function formatVerdictSummary(session: Session): string {
+const json = (value: unknown) => `\`${JSON.stringify(value)}\``;
+
+const amount = (value: number, currency: string) => `${value.toLocaleString("en")} ${currency}`;
+
+export function formatVerdictSummary(session: Session, costs: SessionCosts = {}): string {
   const verdict = session.verdict;
   if (!verdict) return "No verdict yet.";
   const title = (seat: string | null) => verdict.options.find((option) => option.seat === seat)?.title;
@@ -192,6 +197,28 @@ export function formatVerdictSummary(session: Session): string {
   for (const option of verdict.options) {
     lines.push(`- ${option.seat}: ${option.title} (${option.feasibility}). ${option.reason}`);
     if (option.conditions.length > 0) lines.push(`  Conditions: ${option.conditions.join("; ")}`);
+    const costing = costs.costings?.[option.seat];
+    if (costing) {
+      lines.push(
+        `  Build cost: ${amount(costing.total.low, costing.currency)} to ${amount(costing.total.high, costing.currency)}` +
+          (costing.packages.length > 0
+            ? `, ${costing.days.low} to ${costing.days.high} person-days in ${costing.packages.length} work packages`
+            : ""),
+      );
+    }
+    const checks = costs.checks?.[option.seat];
+    const issues = [
+      checks?.build && checks.build.status !== "within"
+        ? `build budget ${checks.build.status === "over" ? "exceeded" : "at risk"} by ${amount(checks.build.by, checks.build.currency)}`
+        : "",
+      checks?.run && checks.run.status !== "within"
+        ? `running budget ${checks.run.status === "over" ? "exceeded" : "at risk"} by ${amount(checks.run.by, checks.run.currency)} a month`
+        : "",
+      checks?.time && checks.time.status !== "within"
+        ? `${checks.time.status === "over" ? "late" : "may be late"} by ${checks.time.by} week(s)`
+        : "",
+    ].filter(Boolean);
+    if (issues.length > 0) lines.push(`  Checks: ${issues.join("; ")}`);
   }
   if (verdict.risks.length > 0) {
     lines.push("", "### Main risks");

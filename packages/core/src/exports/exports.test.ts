@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BRANDING } from "../branding.ts";
 import { DEMO_LINEUP, providersFor } from "../config.ts";
+import { clientDeliverable, renderClientReport } from "../deliverable.ts";
 import { DEMO_IDEA, DEMO_SCRIPT, DEMO_SHEET } from "../demo.ts";
 import { DebateEngine } from "../engine.ts";
 import { renderHandoff } from "../handoff.ts";
@@ -72,7 +73,7 @@ describe("Markdown report", () => {
     expect(report).toContain("## Cost comparison");
     expect(report).toContain("## How this report was produced");
     expect(report).not.toContain("Cost of this session");
-    expect(report).toContain("**Build cost:** €12,000 – €15,000 (estimate:");
+    expect(report).toContain("**Build cost:** €12,300 – €15,500 (estimate)");
     expect(report).toContain("```mermaid\nflowchart LR");
     expect(report).toContain('n_db[("Postgres (EU)")]');
     expect(report).toContain('n_members -->|"book, buy passes"| n_app');
@@ -226,5 +227,46 @@ describe("a debate shortened to stay within its budget", () => {
 
     session.shortened = null;
     expect(renderReport(session)).not.toContain("shortened");
+  });
+});
+
+describe("the costing by work package", () => {
+  it("is in the Markdown, HTML and Word reports and in the client deliverable, priced in one currency", async () => {
+    const session = await demo();
+    const report = renderReport(session);
+    expect(report).toContain("## Costing");
+    expect(report).toContain("| Work package | Role | Person-days | Day rate | Amount |");
+    expect(report).toContain("| **Back end** | Developer | 16 – 19 | €250 | €4,000 – €4,750 |");
+    expect(report).toContain("| **Total** | | **47 – 59** | | **€12,300 – €15,500** |");
+    expect(report).toContain("- Budget and deadline: May exceed the budget by €500; Within the running budget; On time");
+
+    const html = renderHtml(session, DEFAULT_BRANDING, { print: false });
+    expect(html).toContain('<table class="table costing">');
+    expect(html).toContain('<span class="badge at_risk">May exceed the budget by €500</span>');
+    expect(html).toContain("€12,300 – €15,500");
+
+    const xml = unzip(await renderDocx(session, DEFAULT_BRANDING), "word/document.xml");
+    if (xml !== null) {
+      expect(xml).toContain("Work package");
+      expect(xml).toContain("€12,300 – €15,500");
+    }
+
+    const deliverable = clientDeliverable(session);
+    const costing = deliverable.options.find((option) => option.seat === "A")?.costing;
+    expect(costing).toMatchObject({ currency: "EUR", total: { low: 12_300, high: 15_500 }, buildWeeks: { low: 12, high: 14 } });
+    // The client sees the work packages and their amounts, never the day rates behind them.
+    expect(JSON.stringify(deliverable)).not.toContain("dailyRate");
+    const client = renderClientReport(deliverable);
+    expect(client).toContain("| Back end | 16 – 19 | €4,000 – €4,750 |");
+    expect(client).toContain("- Budget and deadline: May exceed the budget by €500; Within the running budget; On time");
+    expect(client).not.toContain("€250");
+  });
+
+  it("speaks the session's language, with French typography", async () => {
+    const report = renderReport(await demo("fr"));
+    expect(report).toContain("## Chiffrage");
+    // Intl puts a no-break space before the euro sign and a narrow one between thousands.
+    expect(report).toContain("| **Back end** | Développeur | 16 – 19 | 250 € | 4 000 € – 4 750 € |");
+    expect(report).toContain("Peut dépasser le budget de 500 € ; Dans le budget d'exploitation ; Dans les délais");
   });
 });

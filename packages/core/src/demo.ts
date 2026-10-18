@@ -42,11 +42,16 @@ export const DEMO_SHEET: RequirementsSheet = {
   mustHave: ["Class schedule per studio", "Booking and cancellation", "Pass purchase with card payment", "Email and SMS reminders"],
   niceToHave: ["Waiting lists", "Teacher substitution", "Native mobile apps"],
   outOfScope: ["Accounting", "Payroll"],
-  users: "About 4,000 members at launch, 6,000 in a year; peak on Sunday evenings when the week's classes open.",
-  budget: "€15,000 to build, at most €400 per month to run.",
+  users: { launch: 4_000, oneYear: 6_000, note: "Peak on Sunday evenings, when the week's classes open." },
+  budget: {
+    build: { amount: 15_000, currency: "EUR" },
+    run: { amount: 400, currency: "EUR", period: "month" },
+    note: "The running budget is a firm cap; the build budget can stretch a little.",
+  },
   existingInfrastructure: ["Website on a shared WordPress host", "Stripe account already open"],
-  team: "Two JavaScript developers, about 3 days a week each, comfortable with React and Node.js.",
-  deadline: "Launch before September, about 5 months away.",
+  team: { people: 2, skills: ["React", "Node.js", "JavaScript"], note: "Two in-house developers, about 3 days a week each." },
+  deadline: { date: null, duration: { amount: 5, unit: "month" }, note: "Launch before September." },
+  compliance: { gdpr: true, healthData: false, paymentCards: false, accessibility: false, publicSector: false },
   hardConstraints: ["Member data hosted in the EU (GDPR)", "Running cost at most €400 per month"],
   softConstraints: ["Reuse the existing Stripe account", "Studio managers are not technical"],
   priorities: [
@@ -79,9 +84,55 @@ const PROPOSAL_A: Proposal = {
   ],
   stack: ["Next.js", "TypeScript", "PostgreSQL", "Stripe", "Transactional email and SMS API"],
   infrastructure: ["EU-region platform hosting with preview environments", "Daily database backups", "CI on every pull request"],
-  monthlyCost: { low: 120, high: 260, currency: "EUR", basis: "Hosting, database and SMS for 6,000 members; estimate." },
-  buildCost: { low: 12_000, high: 15_000, currency: "EUR", basis: "Two in-house developers for 4 months at 3 days a week; estimate." },
+  monthlyCost: { low: 120, high: 260, basis: "Hosting, database and SMS for 6,000 members; estimate." },
+  estimate: {
+    workPackages: [
+      {
+        name: "Framing",
+        description: "Workshops with two studio managers, booking rules, data model.",
+        effort: [
+          { role: "project_manager", low: 2, high: 3 },
+          { role: "architect", low: 2, high: 3 },
+        ],
+      },
+      {
+        name: "Back end",
+        description: "Schedules, bookings with a capacity lock, passes, Stripe Checkout and webhooks.",
+        effort: [{ role: "developer", low: 16, high: 19 }],
+      },
+      {
+        name: "Front end",
+        description: "Member booking pages and the studio back office.",
+        effort: [{ role: "developer", low: 14, high: 17 }],
+      },
+      {
+        name: "Integrations",
+        description: "Email and SMS reminders through a managed scheduler.",
+        effort: [{ role: "developer", low: 4, high: 5 }],
+      },
+      {
+        name: "Testing",
+        description: "End-to-end tests and a load test of the Sunday evening peak.",
+        effort: [{ role: "developer", low: 4, high: 6 }],
+      },
+      { name: "Deployment", description: "EU hosting, backups, CI and monitoring.", effort: [{ role: "devops", low: 2, high: 2 }] },
+      {
+        name: "Project management",
+        description: "Fortnightly reviews with the studios until launch.",
+        effort: [{ role: "project_manager", low: 3, high: 4 }],
+      },
+    ],
+    dayRates: [
+      { role: "project_manager", dailyRate: 300 },
+      { role: "architect", dailyRate: 350 },
+      { role: "developer", dailyRate: 250 },
+      { role: "devops", dailyRate: 300 },
+    ],
+    assumptions: ["In-house developers at their internal cost", "Studio managers available for the framing workshops"],
+    exclusions: ["Native mobile apps", "Data migration from the current spreadsheets"],
+  },
   buildTime: "About 4 months for two developers at 3 days a week",
+  buildWeeks: { low: 16, high: 18 },
   components: [
     { id: "members", label: "Members (web and mobile)", kind: "client" },
     { id: "office", label: "Studio back office", kind: "client" },
@@ -117,9 +168,40 @@ const PROPOSAL_B: Proposal = {
   ],
   stack: ["Hosted booking platform", "WordPress", "Stripe"],
   infrastructure: ["No servers to run", "Platform-managed backups"],
-  monthlyCost: { low: 360, high: 600, currency: "EUR", basis: "Typical per-location subscription for 12 locations; estimate." },
-  buildCost: { low: 4_000, high: 6_000, currency: "EUR", basis: "Six weeks of configuration, data import and site integration; estimate." },
+  monthlyCost: { low: 360, high: 600, basis: "Typical per-location subscription for 12 locations; estimate." },
+  estimate: {
+    workPackages: [
+      {
+        name: "Framing",
+        description: "Vendor selection against the cost cap and EU hosting.",
+        effort: [{ role: "project_manager", low: 2, high: 3 }],
+      },
+      {
+        name: "Configuration",
+        description: "Schedules, passes and reminders for the 12 studios; member data import.",
+        effort: [{ role: "developer", low: 8, high: 12 }],
+      },
+      {
+        name: "Integrations",
+        description: "Booking widgets in the WordPress site, Stripe connection.",
+        effort: [{ role: "developer", low: 4, high: 6 }],
+      },
+      { name: "Testing", description: "Bookings and payments tested in every studio.", effort: [{ role: "developer", low: 2, high: 3 }] },
+      {
+        name: "Project management",
+        description: "Training of the studio managers and launch.",
+        effort: [{ role: "project_manager", low: 2, high: 3 }],
+      },
+    ],
+    dayRates: [
+      { role: "project_manager", dailyRate: 300 },
+      { role: "developer", dailyRate: 250 },
+    ],
+    assumptions: ["The vendor's import tool accepts the current member list"],
+    exclusions: ["The platform subscription, counted in the monthly cost", "A redesign of the website"],
+  },
   buildTime: "About 6 weeks of configuration and integration",
+  buildWeeks: { low: 6, high: 8 },
   components: [
     { id: "members", label: "Members", kind: "client" },
     { id: "site", label: "WordPress site", kind: "service" },
@@ -218,7 +300,12 @@ const REVISION_A: Revision = {
   ],
   withdrawn: false,
   endorses: null,
-  proposal: { ...PROPOSAL_A, buildTime: "About 3 months for the first release", speech: "Revised: a smaller first release, same stack." },
+  proposal: {
+    ...PROPOSAL_A,
+    buildTime: "About 3 months for the first release",
+    buildWeeks: { low: 12, high: 14 },
+    speech: "Revised: a smaller first release, same stack.",
+  },
 };
 
 const REVISION_B: Revision = {
@@ -239,7 +326,7 @@ const REVISION_B: Revision = {
   endorses: null,
   proposal: {
     ...PROPOSAL_B,
-    monthlyCost: { low: 300, high: 400, currency: "EUR", basis: "Only vendors under €30 per location; estimate." },
+    monthlyCost: { low: 300, high: 400, basis: "Only vendors under €30 per location; estimate." },
     speech: "Revised: stricter vendor criteria.",
   },
 };
@@ -334,6 +421,7 @@ const VERDICT: Verdict = {
   ],
   claims: [
     { claim: "Option A runs at €120 to €260 per month", confidence: "estimated" },
+    { claim: "Option A may exceed the €15,000 build budget by up to €500", confidence: "verified" },
     { claim: "The team knows React and Node.js", confidence: "verified" },
     { claim: "A suitable EU booking vendor exists", confidence: "assumed" },
   ],
@@ -363,7 +451,7 @@ const BRIEFS: Record<Audience, Brief> = {
   executive: {
     speech: "We recommend building our own booking app: it fits the budget and keeps member data in Europe.",
     headline: "Our own app, live before September, within budget",
-    summary: "About €12,000 to €15,000 to build and €120 to €260 a month to run (estimates), with member data kept in Europe.",
+    summary: "About €12,300 to €15,500 to build and €120 to €260 a month to run (estimates), with member data kept in Europe.",
     sections: [{ title: "What we need from you", body: "Approve a smaller first release; extras come after launch." }],
     nextSteps: ["Approve the first-release scope"],
   },
@@ -371,7 +459,7 @@ const BRIEFS: Record<Audience, Brief> = {
     speech: "Your members will book classes and buy passes online, from September, without going over your monthly budget.",
     headline: "Online booking for your 12 studios by September",
     summary: "Members book, pay and get reminders; your managers update schedules themselves.",
-    sections: [{ title: "Cost", body: "About €12,000 to €15,000 once, then €120 to €260 a month (estimates)." }],
+    sections: [{ title: "Cost", body: "About €12,300 to €15,500 once, then €120 to €260 a month (estimates)." }],
     nextSteps: ["Confirm the list of features for September"],
   },
 };
