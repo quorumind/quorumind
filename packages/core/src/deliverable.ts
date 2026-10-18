@@ -1,3 +1,4 @@
+import { agencyLabels } from "./agency-labels.ts";
 import { deliveryChecks, type OptionChecks, proposalCosting, type Range } from "./costing.ts";
 import type { Locale } from "./locales.ts";
 import { rankOptions } from "./ranking.ts";
@@ -13,6 +14,7 @@ import {
   seatName,
   weeksText,
 } from "./report.ts";
+import { formatDate } from "./revision-report.ts";
 import type { Brief, Feasibility, Verdict } from "./schemas.ts";
 import { currentProposals, type Mode, type Session } from "./session.ts";
 
@@ -47,6 +49,8 @@ export interface ClientDeliverable {
   date: string;
   /** False until the arbiter has ruled: the deliverable is empty until then. */
   complete: boolean;
+  /** The revision of the verdict it shows: its number and date. */
+  revision: { number: number; date: string } | null;
   /** The arbiter's summary of the debate. */
   summary: string | null;
   recommendation: { seat: string | null; title: string | null; rationale: string } | null;
@@ -86,6 +90,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
     return {
       ...base,
       complete: false,
+      revision: null,
       summary: null,
       recommendation: null,
       options: [],
@@ -118,9 +123,11 @@ export function clientDeliverable(session: Session): ClientDeliverable {
   };
   const seat = verdict.recommendation.seat;
   const brief = session.briefs.client;
+  const revision = session.revisions.at(-1);
   return {
     ...base,
     complete: true,
+    revision: revision ? { number: revision.number, date: revision.createdAt } : null,
     summary: verdict.speech.trim() || null,
     recommendation: {
       seat,
@@ -151,7 +158,10 @@ const cell = (text: string) => text.replaceAll("|", "\\|").replaceAll("\n", " ")
 export function renderClientReport(deliverable: ClientDeliverable): string {
   const t = reportLabels(deliverable.locale);
   const say = (label: string, value: string) => labelled(label, value, deliverable.locale);
-  const lines = [`# ${deliverable.title || t.title}`, "", `_${t.title} · ${deliverable.date.slice(0, 10)}_`, ""];
+  const revision = deliverable.revision
+    ? ` · ${fill(agencyLabels(deliverable.locale).revisionDated, { number: deliverable.revision.number, date: formatDate(deliverable.revision.date, deliverable.locale) })}`
+    : "";
+  const lines = [`# ${deliverable.title || t.title}`, "", `_${t.title} · ${deliverable.date.slice(0, 10)}${revision}_`, ""];
   const recommendation = deliverable.recommendation;
   if (!deliverable.complete || !recommendation) {
     lines.push(`_${t.generated}_`, "");

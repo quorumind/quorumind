@@ -13,6 +13,7 @@ import type { Locale } from "./locales.ts";
 import { isGenericRole, type OrgProfile } from "./profile.ts";
 import { rankOptions } from "./ranking.ts";
 import { LABELS, type Labels } from "./report-labels.ts";
+import { revisionMarkdown, revisionNote } from "./revision-report.ts";
 import type { ComponentKind, Probe, Proposal, RequirementsSheet } from "./schemas.ts";
 import { COMPLIANCE_KEYS, currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "./session.ts";
 
@@ -429,8 +430,14 @@ export function renderReport(session: Session): string {
   const checks = deliveryChecks(session);
   const badges = (seat: string) => checkLine(checks[seat], t, session.locale);
   const profile = sessionProfile(session);
+  const revision = revisionNote(session);
 
-  lines.push(`# ${sheet?.projectName ?? session.idea}`, "", `_${t.title} · ${session.updatedAt.slice(0, 10)}_`, "");
+  lines.push(
+    `# ${sheet?.projectName ?? session.idea}`,
+    "",
+    `_${t.title} · ${session.updatedAt.slice(0, 10)}${revision ? ` · ${revision.label}` : ""}_`,
+    "",
+  );
 
   if (verdict) {
     lines.push(`## ${t.recommendation}`, "");
@@ -467,6 +474,7 @@ export function renderReport(session: Session): string {
       facts.push(say(t.weightedScore, fill(summary.margin.close ? t.closeCall : t.clearLead, values)));
     }
     if (facts.length > 0) lines.push(list(facts), "");
+    if (revision) lines.push(...revisionMarkdown(revision));
   }
 
   if (sheet) {

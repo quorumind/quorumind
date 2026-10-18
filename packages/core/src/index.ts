@@ -1,3 +1,4 @@
+export * from "./agency-labels.ts";
 export * from "./branding.ts";
 export * from "./config.ts";
 export * from "./costing.ts";
@@ -24,6 +25,7 @@ export * from "./providers/openrouter.ts";
 export * from "./providers/types.ts";
 export * from "./ranking.ts";
 export * from "./report.ts";
+export * from "./revision-report.ts";
 export * from "./revisions.ts";
 export * from "./schemas.ts";
 export * from "./session.ts";

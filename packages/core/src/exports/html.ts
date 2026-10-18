@@ -31,6 +31,7 @@ import {
   usersText,
   weeksText,
 } from "../report.ts";
+import { type RevisionNote, revisionNote } from "../revision-report.ts";
 import type { Audience, Proposal, TopicStatus } from "../schemas.ts";
 import { currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "../session.ts";
 
@@ -281,6 +282,18 @@ ${proposal.risks.length > 0 ? `<p class="label">${esc(t.risks)}</p>${list(propos
 </article>`;
 }
 
+/** What changed since the previous revision of the verdict; nothing for the debate's own verdict. */
+function revisionSection(note: RevisionNote): string {
+  if (!note.changes) return "";
+  const groups = note.changes.groups
+    .map((group) => `<div class="point"><p class="label">${esc(group.title)}</p>${list(group.items)}</div>`)
+    .join("");
+  const facts = note.facts.length > 0 ? `<p class="label">${esc(note.factsTitle)}</p>${list(note.facts)}` : "";
+  return `<section class="changes"><h2>${esc(note.changes.title)}</h2><p class="note">${esc(note.label)} · ${esc(note.reason)}</p>${
+    note.changes.empty ? `<p>${esc(note.changes.empty)}</p>` : `<div class="points">${groups}</div>`
+  }${facts}</section>`;
+}
+
 export interface HtmlOptions {
   /** Open the browser's print dialog as soon as the page is loaded: the PDF export. */
   print: boolean;
@@ -321,10 +334,11 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
   const budgetFigures = sheet ? budgetAmounts(sheet, t, session.locale) : "";
   const audienceName = { cto: t.audienceCto, executive: t.audienceExecutive, client: t.audienceClient };
   const brief = options.audience ? (session.briefs[options.audience] ?? null) : null;
+  const revision = revisionNote(session);
   const body: string[] = [];
 
   body.push(
-    `<header class="masthead"><div class="brand">${brand}</div><div class="meta">${esc(date)}<br>${say(t.reference, reference)}</div></header>`,
+    `<header class="masthead"><div class="brand">${brand}</div><div class="meta">${esc(date)}<br>${say(t.reference, reference)}${revision ? `<br>${esc(revision.label)}` : ""}</div></header>`,
   );
 
   // The recommendation box: the option's own name, its verdict, and the figures someone who pays asks first.
@@ -381,6 +395,7 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
     );
     if (verdict) {
       body.push(recommendationBox());
+      if (revision) body.push(revisionSection(revision));
       // In short: the arbiter's own summary and the four answers a decision maker looks for.
       const points: [string, string][] = [];
       if (summary?.mainRisk) points.push([t.mainRisk, `${summary.mainRisk.risk}. ${t.mitigation}: ${summary.mainRisk.mitigation}`]);
