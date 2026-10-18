@@ -253,7 +253,8 @@
     "notify": "辩论结束或需要我回答时，发邮件通知我",
     "estimateUnknown": "部分模型无法估算费用；辩论进行时会显示实际费用。",
     "local": "数据不会离开本机",
-    "startChallenge": "挑战我的方案"
+    "startChallenge": "挑战我的方案",
+    "importing": "请等待文档导入完成后再开始。"
   },
   "persona": {
     "cloud_architect": "云架构师",

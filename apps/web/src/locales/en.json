@@ -253,7 +253,8 @@
     "notify": "E-mail me when the debate ends or needs my answer",
     "estimateUnknown": "The cost estimate is unavailable for some of these models; the real cost is shown as the debate runs.",
     "local": "Nothing leaves this machine",
-    "startChallenge": "Challenge my solution"
+    "startChallenge": "Challenge my solution",
+    "importing": "Wait for the documents to finish importing before you start."
   },
   "persona": {
     "cloud_architect": "Cloud architect",

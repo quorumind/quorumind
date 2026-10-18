@@ -8,6 +8,8 @@ export interface ContextPickerProps {
   value: ContextDocument[];
   onChange(next: ContextDocument[]): void;
   disabled?: boolean;
+  /** Told when imports start and when the last one ends: a session must not start without its documents. */
+  onBusyChange?(busy: boolean): void;
 }
 
 type Kind = ContextDocument["kind"];
@@ -123,7 +125,7 @@ const CloseGlyph = () => (
  * Attaches context documents to a session: uploaded files, web pages or GitHub repositories, pasted text.
  * The documents are extracted on the server and kept by the parent through `value` and `onChange`.
  */
-export function ContextPicker({ value, onChange, disabled = false }: ContextPickerProps) {
+export function ContextPicker({ value, onChange, disabled = false, onBusyChange }: ContextPickerProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const [pending, setPending] = useState<Pending[]>([]);
@@ -157,6 +159,11 @@ export function ContextPicker({ value, onChange, disabled = false }: ContextPick
   useEffect(() => {
     inFlight.current = pending;
   }, [pending]);
+
+  const importing = pending.length > 0;
+  useEffect(() => {
+    onBusyChange?.(importing);
+  }, [importing, onBusyChange]);
 
   // Leaving the page stops the imports still running.
   useEffect(

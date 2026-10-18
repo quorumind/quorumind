@@ -253,7 +253,8 @@
     "notify": "Avisarme por correo cuando el debate termine o necesite mi respuesta",
     "estimateUnknown": "La estimación de coste no está disponible para algunos de estos modelos; el coste real se muestra a medida que avanza el debate.",
     "local": "Nada sale de esta máquina",
-    "startChallenge": "Poner a prueba mi solución"
+    "startChallenge": "Poner a prueba mi solución",
+    "importing": "Espere a que terminen de importarse los documentos antes de empezar."
   },
   "persona": {
     "cloud_architect": "Arquitecto cloud",

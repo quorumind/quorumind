@@ -260,6 +260,8 @@ export function NewSession() {
   const [price, setPrice] = useState<PriceQuote | null>(null);
   const [pending, setPending] = useState<"live" | "demo" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Starting while a document is still being imported would leave it out of the session.
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     api.config().then(
@@ -328,7 +330,7 @@ export function NewSession() {
   const ready = Boolean(live && idea.trim() && (mode !== "challenge" || solution.trim()));
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (ready) start(false);
+    if (ready && !importing) start(false);
   };
 
   return (
@@ -417,7 +419,7 @@ export function NewSession() {
           </fieldset>
         ) : null}
 
-        <ContextPicker value={context} onChange={setContext} disabled={!live} />
+        <ContextPicker value={context} onChange={setContext} disabled={!live} onBusyChange={setImporting} />
 
         {live && config && lineup ? (
           <details className="settings">
@@ -513,10 +515,20 @@ export function NewSession() {
           </p>
         ) : null}
         <div>
-          <button type="submit" className="button button-primary" disabled={!ready || pending !== null}>
+          <button
+            type="submit"
+            className="button button-primary"
+            disabled={!ready || pending !== null || importing}
+            aria-describedby={importing ? "importing-note" : undefined}
+          >
             {t(mode === "challenge" ? "setup.startChallenge" : "home.start")}
             <ArrowIcon />
           </button>
+          {importing ? (
+            <p id="importing-note" className="field-hint" role="status" style={{ margin: 0 }}>
+              {t("setup.importing")}
+            </p>
+          ) : null}
         </div>
       </form>
 

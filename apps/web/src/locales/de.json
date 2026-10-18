@@ -253,7 +253,8 @@
     "notify": "Mich per E-Mail benachrichtigen, wenn die Debatte endet oder meine Antwort braucht",
     "estimateUnknown": "Für einige dieser Modelle ist keine Kostenschätzung verfügbar; die tatsächlichen Kosten werden während der Debatte angezeigt.",
     "local": "Nichts verlässt dieses Gerät",
-    "startChallenge": "Meine Lösung prüfen"
+    "startChallenge": "Meine Lösung prüfen",
+    "importing": "Warten Sie, bis die Dokumente importiert sind, bevor Sie beginnen."
   },
   "persona": {
     "cloud_architect": "Cloud-Architekt",
