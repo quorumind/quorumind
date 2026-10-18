@@ -73,8 +73,10 @@ bash create-issues.sh owner/repo  # or without an argument, from a clone of the 
 ```
 
 The script creates the `quorumind` label if it is missing, then each phase's steps, then the
-phase's tracking issue, whose task list links them. The issues are created with the GitHub CLI's
-own sign-in: Quorumind never asks for, sees or stores a GitHub credential.
+phase's tracking issue, whose task list links them. From a coding agent, the `quorumind_issues`
+tool of the MCP server prints the same commands or runs them (see its
+[README](../apps/mcp/README.md#github-issues)). Either way the issues are created with the GitHub
+CLI's own sign-in: Quorumind never asks for, sees or stores a GitHub credential.
 
 ## Decision records in the repository
 

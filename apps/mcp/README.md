@@ -124,6 +124,7 @@ In `.cursor/mcp.json` at the project root (or `~/.cursor/mcp.json` for every pro
 | `quorumind_verdict` | The verdict as a short summary, the full Markdown report, or an ADR. |
 | `quorumind_handoff` | Writes `CLAUDE.md`, `AGENTS.md` and `PLAN.md` into a directory; never replaces an existing file unless `overwrite` is true. |
 | `quorumind_adr` | Records the decision as an ADR in the repository's ADR folder, numbered after the last record; never replaces a file. See [Decision records](#decision-records). |
+| `quorumind_issues` | Turns the roadmap into GitHub issues: prints the `gh` commands, or runs them with the GitHub CLI. See [GitHub issues](#github-issues). |
 | `quorumind_sessions` | Recent sessions (on the hosted version, the workspace's, with their author). |
 
 Every tool answers in short Markdown that ends on what to do next, plus the same facts as
@@ -146,6 +147,19 @@ repository given as `repository` (default: the directory the MCP server runs in)
   records (four for the first one), and the `NNNN-title.md` convention: `name: "authentication"`
   next to `0006-use-postgresql.md` gives `0007-authentication.md`, titled `# 7. <decision>`;
 - it never replaces a file: if the name is taken in the meantime, nothing is written.
+
+## GitHub issues
+
+`quorumind_issues` turns the roadmap of a finished session into GitHub issues: one issue per
+step and one tracking issue per phase, whose task list links its steps, all labelled
+`quorumind`. With `action: "print"` (the default) it returns a Bash script of `gh label create`
+and `gh issue create` commands to review or run; with `action: "create"` it runs them with the
+[GitHub CLI](https://cli.github.com) installed and signed in on the machine of the MCP server,
+in `repo` (`owner/name`) or the repository of the directory the server runs in. The issues are
+created as whoever is signed in to `gh`: no GitHub token is ever given to the MCP server or to
+Quorumind. If `gh` is missing or signed out, the tool says so and returns the script instead;
+if GitHub refuses an issue halfway, it lists the issues already created so that they are not
+created twice.
 
 ## A typical run
 

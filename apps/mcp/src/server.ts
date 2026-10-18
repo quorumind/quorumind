@@ -1,12 +1,13 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { type CallToolResult, McpServer, ResourceTemplate, type ServerContext } from "@modelcontextprotocol/server";
-import type { Answer, RequirementsSheet, Session } from "@quorumind/core";
+import type { Answer, GithubIssuePlan, RequirementsSheet, Session } from "@quorumind/core";
 import { z } from "zod";
 import { AdrError, adrSlug, findAdrTarget, isDirectory, writeAdr } from "./adr.ts";
 import { QuorumindClient, QuorumindError, type SessionState } from "./client.ts";
 import { ContextFileError, MAX_FILE_CHARS, MAX_FILES, readContextFiles } from "./files.ts";
 import { formatSheet, formatUsd, formatVerdictSummary, interviewQuestions, renderSnapshot, snapshot, statusOf } from "./format.ts";
+import { checkGithubCli, createGithubIssues, GITHUB_REPO, GithubCliError, type RunCommand, runCommand } from "./github.ts";
 import { type Baseline, baselineOf, isStoppingPoint, waitForStoppingPoint } from "./wait.ts";
 import { readZip, ZipError } from "./zip.ts";
 
@@ -25,6 +26,8 @@ export interface McpOptions {
   pollMs?: number;
   /** Directory that relative paths are resolved against. */
   cwd?: string;
+  /** Runs the GitHub CLI; replaced in tests. */
+  run?: RunCommand;
 }
 
 export function optionsFromEnv(env: Record<string, string | undefined>): McpOptions {
@@ -94,6 +97,12 @@ async function guarded(work: () => Promise<CallToolResult>): Promise<CallToolRes
               : "";
       return failure(`${error.message}${hint}`, { error: error.code, status: error.status });
     }
+    if (error instanceof GithubCliError) {
+      const created = error.created.map((issue) => `- ${issue.url} ${issue.title}`).join("\n");
+      return failure(created ? `${error.message}\n\nAlready created, do not create them again:\n${created}` : error.message, {
+        created: error.created,
+      });
+    }
     if (error instanceof ContextFileError || error instanceof ZipError || error instanceof AdrError) return failure(error.message);
     throw error;
   }
@@ -116,6 +125,7 @@ export function createMcpServer(options: McpOptions): McpServer {
   const { client } = options;
   const waitMs = options.waitMs ?? 600_000;
   const cwd = options.cwd ?? process.cwd();
+  const run = options.run ?? runCommand;
 
   const server = new McpServer(
     { name: "quorumind", version: VERSION },
@@ -540,6 +550,63 @@ export function createMcpServer(options: McpOptions): McpServer {
             "Next: commit it with the code it decides; when a later decision replaces it, mark it superseded instead of deleting it.",
           { path, number: target.number, directory: target.directory, created: !target.exists },
         );
+      }),
+  );
+
+  server.registerTool(
+    "quorumind_issues",
+    {
+      title: "Turn the roadmap into GitHub issues",
+      description:
+        "Turn the roadmap of a finished debate into GitHub issues: one issue per step and one tracking issue per phase that lists them, all labelled quorumind. " +
+        "print (default) returns a Bash script of `gh issue create` commands to review or run; create runs them with the GitHub CLI (gh) installed and signed in on this machine. " +
+        "Quorumind never handles GitHub credentials: gh uses its own sign-in. Ask the user before creating issues.",
+      inputSchema: z.object({
+        session_id: SessionId,
+        action: z.enum(["print", "create"]).default("print"),
+        repo: z
+          .string()
+          .regex(GITHUB_REPO, "owner/name, e.g. octo-org/booking")
+          .optional()
+          .describe("The repository, as owner/name. Default: the repository of the directory this MCP server runs in."),
+      }),
+      annotations: { destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    ({ session_id, action, repo }) =>
+      guarded(async () => {
+        const state = await client.getSession(session_id);
+        if (state.session.phase !== "complete") return refuse(state, "The issues are written from the verdict, which is not ready.");
+        let archive: Buffer;
+        try {
+          archive = await client.bytes(`/api/sessions/${encodeURIComponent(session_id)}/github-issues.zip`);
+        } catch (error) {
+          if (isMissingRoute(error)) return failure("This Quorumind server cannot export GitHub issues yet: update it.");
+          throw error;
+        }
+        const entries = readZip(archive);
+        const script = entries.find((entry) => entry.name === "create-issues.sh")?.data.toString("utf8");
+        const manifest = entries.find((entry) => entry.name === "issues.json")?.data.toString("utf8");
+        if (!script || !manifest) return failure("The GitHub issues archive has no create-issues.sh or issues.json.");
+        const plan = JSON.parse(manifest) as GithubIssuePlan;
+        const count = plan.phases.reduce((total, phase) => total + 1 + phase.steps.length, 0);
+        const printed = [
+          `${count} issues for ${plan.phases.length} phases. Save this script as create-issues.sh and run it with the GitHub CLI signed in (\`gh auth login\`):`,
+          `\`bash create-issues.sh ${repo ?? "owner/repo"}\` (without a repository, it uses the one of the current directory).`,
+          "",
+          "```bash",
+          script.trimEnd(),
+          "```",
+        ].join("\n");
+        if (action === "print") return text(printed, { action, count, script });
+        try {
+          await checkGithubCli(run, cwd);
+        } catch (error) {
+          if (error instanceof GithubCliError) return failure(`${error.message}\n\n${printed}`, { action, count, script });
+          throw error;
+        }
+        const created = await createGithubIssues(plan, run, { cwd, repo: repo ?? null });
+        const lines = created.map((issue) => `- ${issue.url} ${issue.title}`);
+        return text(`Created ${created.length} issues:\n${lines.join("\n")}`, { action, count, created });
       }),
   );
 

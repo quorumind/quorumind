@@ -13,6 +13,7 @@ import { EventBus } from "../../server/src/bus.ts";
 import { SqliteSessionStore } from "../../server/src/store.ts";
 import { QuorumindClient } from "./client.ts";
 import type { Snapshot } from "./format.ts";
+import type { RunCommand } from "./github.ts";
 import { createMcpServer, type McpOptions } from "./server.ts";
 
 // The real Quorumind server runs in-process on the recorded demo, behind a real HTTP port,
@@ -136,6 +137,7 @@ describe("MCP server on the recorded demo", () => {
       "quorumind_answer",
       "quorumind_confirm",
       "quorumind_handoff",
+      "quorumind_issues",
       "quorumind_resume",
       "quorumind_review",
       "quorumind_sessions",
@@ -267,6 +269,84 @@ describe("MCP server on the recorded demo", () => {
     const missing = await call(mcp, "quorumind_adr", { session_id: sessionId, repository: "nowhere" });
     expect(missing.isError).toBe(true);
     expect(textOf(missing)).toContain("is not a directory");
+  });
+
+  it("prints the gh commands of the roadmap's GitHub issues", async () => {
+    const printed = await call(mcp, "quorumind_issues", { session_id: sessionId, repo: "octo-org/booking" });
+    expect(printed.isError).toBeFalsy();
+    expect(textOf(printed)).toContain("bash create-issues.sh octo-org/booking");
+    expect(textOf(printed)).toContain("gh issue create");
+    expect(snapOf(printed)).toMatchObject({ action: "print", count: 2 + 4 + 1 });
+    const invalid = await call(mcp, "quorumind_issues", { session_id: sessionId, repo: "not a repo; rm -rf" });
+    expect(invalid.isError).toBe(true);
+  });
+
+  it("creates them with the GitHub CLI when it is installed and signed in", async () => {
+    const calls: { args: string[]; input?: string }[] = [];
+    let state: "missing" | "signed-out" | "ready" | "failing" = "missing";
+    let next = 0;
+    const run: RunCommand = async (command, args, options) => {
+      expect(command).toBe("gh");
+      calls.push({ args, ...(options.input === undefined ? {} : { input: options.input }) });
+      if (state === "missing") return { code: null, stdout: "", stderr: "spawn gh ENOENT" };
+      if (args[0] === "auth")
+        return state === "signed-out" ? { code: 1, stdout: "", stderr: "not logged in" } : { code: 0, stdout: "", stderr: "" };
+      if (args[0] === "issue") {
+        if (state === "failing" && next === 2) return { code: 1, stdout: "", stderr: "HTTP 403: Resource not accessible\nmore" };
+        next += 1;
+        return { code: 0, stdout: `Creating issue\nhttps://github.com/octo-org/booking/issues/${next}\n`, stderr: "" };
+      }
+      return { code: 0, stdout: "", stderr: "" };
+    };
+    const agent = await connect({ client: new QuorumindClient({ baseUrl: quorumind.url }), cwd: workdir, run });
+    try {
+      const missing = await call(agent, "quorumind_issues", { session_id: sessionId, action: "create" });
+      expect(missing.isError).toBe(true);
+      expect(textOf(missing)).toContain("not installed");
+      expect(textOf(missing)).toContain("gh issue create");
+
+      state = "signed-out";
+      expect(textOf(await call(agent, "quorumind_issues", { session_id: sessionId, action: "create" }))).toContain("gh auth login");
+
+      state = "ready";
+      calls.length = 0;
+      const created = await call(agent, "quorumind_issues", { session_id: sessionId, action: "create", repo: "octo-org/booking" });
+      expect(created.isError).toBeFalsy();
+      const issues = calls.filter((entry) => entry.args[0] === "issue");
+      expect(calls.find((entry) => entry.args[0] === "label")?.args).toEqual(
+        expect.arrayContaining(["label", "create", "quorumind", "--repo", "octo-org/booking", "--force"]),
+      );
+      expect(issues).toHaveLength(7);
+      expect(issues[0]?.args).toEqual([
+        "issue",
+        "create",
+        "--repo",
+        "octo-org/booking",
+        "--title",
+        "Schedules",
+        "--label",
+        "quorumind",
+        "--body-file",
+        "-",
+      ]);
+      // Phase 1's four steps, then its tracking issue that lists them.
+      expect(issues[4]?.args).toContain("Phase 1: First release");
+      expect(issues[4]?.input).toContain(
+        "- [ ] https://github.com/octo-org/booking/issues/1\n- [ ] https://github.com/octo-org/booking/issues/2",
+      );
+      expect(textOf(created)).toContain("Created 7 issues");
+
+      state = "failing";
+      next = 0;
+      const failed = await call(agent, "quorumind_issues", { session_id: sessionId, action: "create" });
+      expect(failed.isError).toBe(true);
+      expect(textOf(failed)).toContain('could not create the issue "Passes": HTTP 403: Resource not accessible');
+      expect(textOf(failed)).toContain(
+        "Already created, do not create them again:\n- https://github.com/octo-org/booking/issues/1 Schedules",
+      );
+    } finally {
+      await agent.close();
+    }
   });
 
   it("lists the sessions", async () => {
