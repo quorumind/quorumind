@@ -4,7 +4,7 @@ import { type CallToolResult, McpServer, ResourceTemplate, type ServerContext } 
 import type { Answer, RequirementsSheet, Session } from "@quorumind/core";
 import { z } from "zod";
 import { QuorumindClient, QuorumindError, type SessionState } from "./client.ts";
-import { ContextFileError, readContextFiles } from "./files.ts";
+import { ContextFileError, MAX_FILE_CHARS, MAX_FILES, readContextFiles } from "./files.ts";
 import { formatSheet, formatUsd, formatVerdictSummary, interviewQuestions, renderSnapshot, snapshot, statusOf } from "./format.ts";
 import { type Baseline, baselineOf, isStoppingPoint, waitForStoppingPoint } from "./wait.ts";
 import { readZip, ZipError } from "./zip.ts";
@@ -188,10 +188,10 @@ export function createMcpServer(options: McpOptions): McpServer {
           ),
         context_files: z
           .array(z.string())
-          .max(10)
+          .max(MAX_FILES)
           .optional()
           .describe(
-            "Paths of local text files the models should read: README, architecture notes, schema, package.json... Absolute, or relative to the directory this MCP server runs in. Long files are cut.",
+            `Paths of up to ${MAX_FILES} local text files the models should read: README, architecture notes, schema, package.json... Absolute, or relative to the directory this MCP server runs in. Files longer than ${MAX_FILE_CHARS} characters are cut.`,
           ),
         redact: z.boolean().optional().describe("Mask e-mails, phone numbers, card numbers and secrets before anything reaches a model."),
       }),

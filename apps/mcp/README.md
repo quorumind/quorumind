@@ -86,7 +86,7 @@ In `.cursor/mcp.json` at the project root (or `~/.cursor/mcp.json` for every pro
 
 | Tool | What it does |
 | --- | --- |
-| `quorumind_start` | Starts a session from an idea (mode, template, language, depth, rounds, cost cap, the user's own solution, local text files as context) and returns the interviewer's first questions with why they matter and example answers. |
+| `quorumind_start` | Starts a session from an idea (mode, template, language, depth, rounds, cost cap, the user's own solution, up to 5 local text files as context, 100 000 characters each) and returns the interviewer's first questions with why they matter and example answers. |
 | `quorumind_answer` | Sends the user's answers, to the interview or to the questions the debate paused on, and waits for the next stopping point. |
 | `quorumind_review` | Shows the requirements sheet the interview produced. |
 | `quorumind_confirm` | Confirms the sheet, with optional edits, and runs the debate until it needs the user or reaches the verdict. |
