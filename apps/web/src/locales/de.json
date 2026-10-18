@@ -388,7 +388,13 @@
     "delete": "Löschen",
     "deleteTitle": "Diese Sitzung löschen?",
     "deleteLead": "Befragung, Debatte und Bericht werden endgültig gelöscht, und geteilte Links funktionieren nicht mehr.",
-    "deleteConfirm": "Endgültig löschen"
+    "deleteConfirm": "Endgültig löschen",
+    "stop": "Anhalten",
+    "stopTitle": "Diese Sitzung anhalten?",
+    "stopLead": "Die Modelle hören sofort auf und es fallen keine weiteren Kosten an. Was schon erledigt ist, bleibt erhalten: Sie können dort fortsetzen, wo sie angehalten hat.",
+    "stopCancel": "Weiterlaufen lassen",
+    "stopConfirm": "Jetzt anhalten",
+    "deleteBusy": "Halten Sie die Sitzung an, bevor Sie sie löschen."
   },
   "gallery": {
     "title": "Galerie",
@@ -499,6 +505,8 @@
     "insufficient_credits": "Sie haben kein Guthaben mehr. Kaufen Sie Guthaben oder schließen Sie einen Tarif ab, um fortzufahren.",
     "plan_limit": "Ihr Tarif erlaubt das nicht. Wählen Sie andere Einstellungen oder einen anderen Tarif.",
     "seat_limit": "Der Tarif dieses Arbeitsbereichs hat keinen freien Platz mehr. Wählen Sie einen Tarif mit mehr Plätzen.",
-    "read_only": "Nur der Autor dieser Sitzung oder ein Admin ihres Arbeitsbereichs kann sie ändern."
+    "read_only": "Nur der Autor dieser Sitzung oder ein Admin ihres Arbeitsbereichs kann sie ändern.",
+    "stopped": "Sie haben diese Sitzung angehalten. Setzen Sie sie fort, wann Sie möchten.",
+    "not_running": "Diese Sitzung läuft nicht mehr."
   }
 }

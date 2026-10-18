@@ -388,7 +388,13 @@
     "delete": "删除",
     "deleteTitle": "删除此会话？",
     "deleteLead": "访谈、辩论和报告将被永久删除，所有分享链接也将失效。",
-    "deleteConfirm": "永久删除"
+    "deleteConfirm": "永久删除",
+    "stop": "停止",
+    "stopTitle": "停止此会话？",
+    "stopLead": "模型会立即停止，不会再产生任何费用。已完成的部分会保留：您可以从中断处继续。",
+    "stopCancel": "继续运行",
+    "stopConfirm": "立即停止",
+    "deleteBusy": "请先停止会话再删除。"
   },
   "gallery": {
     "title": "展示区",
@@ -499,6 +505,8 @@
     "insufficient_credits": "您的额度已用完。请购买额度或订阅套餐以继续。",
     "plan_limit": "您的套餐不允许此操作。请选择其他设置或其他套餐。",
     "seat_limit": "此工作区的套餐已无空余席位。请选择席位更多的套餐。",
-    "read_only": "只有此会话的作者或其工作区管理员可以修改它。"
+    "read_only": "只有此会话的作者或其工作区管理员可以修改它。",
+    "stopped": "您已停止此会话。可随时继续。",
+    "not_running": "此会话已不在运行。"
   }
 }

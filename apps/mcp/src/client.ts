@@ -120,6 +120,11 @@ export class QuorumindClient {
     await this.json("POST", `/api/sessions/${encodeURIComponent(id)}/resume`, {});
   }
 
+  /** Stops the work in flight; answers once it has stopped, with the session as it was left. */
+  async stop(id: string) {
+    return (await this.json<{ session: Session }>("POST", `/api/sessions/${encodeURIComponent(id)}/stop`, {})).session;
+  }
+
   async text(path: string) {
     return (await this.send("GET", path)).text();
   }

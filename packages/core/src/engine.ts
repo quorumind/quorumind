@@ -98,12 +98,22 @@ export class InvalidStateError extends Error {
   }
 }
 
+/** The person stopped the session: the work in flight was cancelled and can be resumed. */
+export class StoppedError extends Error {
+  readonly code = "stopped";
+  constructor() {
+    super("The session was stopped.");
+    this.name = "StoppedError";
+  }
+}
+
 /** The models that made a call fail, for the interface to name them. */
 const failedCalls = new WeakMap<object, { provider: string; model: string }>();
 
 /** The failure of a session from what was thrown: a stable code, its parameters and the English message. */
 export function sessionError(error: unknown): SessionError {
   const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof StoppedError) return { code: error.code, message };
   if (error instanceof BudgetExceededError) return { code: error.code, message, params: error.params };
   if (error instanceof InvalidStateError) return { code: error.code, message, ...(error.params ? { params: error.params } : {}) };
   const failed = error instanceof Object ? failedCalls.get(error) : undefined;
@@ -130,10 +140,16 @@ const SCHEMAS = {
 export class DebateEngine {
   private readonly providers: ProviderSet;
   private readonly hooks: EngineHooks;
+  private readonly signal: AbortSignal | undefined;
 
-  constructor(providers: ProviderSet, hooks: EngineHooks) {
+  /**
+   * @param options.signal stops the work: the calls in flight are cancelled and the session fails with the code
+   * "stopped", ready to be resumed. A call cut short is not recorded, so it costs the person nothing.
+   */
+  constructor(providers: ProviderSet, hooks: EngineHooks, options: { signal?: AbortSignal } = {}) {
     this.providers = providers;
     this.hooks = hooks;
+    this.signal = options.signal;
   }
 
   /** First interviewer turn, from the idea alone. */
@@ -201,6 +217,7 @@ export class DebateEngine {
     if (session.phase !== "debating") throw new InvalidStateError("The debate is not running.");
     await this.guard(session, async () => {
       while (session.phase === "debating") {
+        this.checkStopped();
         await this.debateStep(session);
       }
     });
@@ -271,7 +288,7 @@ export class DebateEngine {
     } else {
       const missingProposals = proposerSeats(session).filter((seat) => !has("proposal", seat, 0));
       if (missingProposals.length > 0) {
-        await Promise.all(missingProposals.map((seat) => this.propose(session, seat)));
+        await settleAll(missingProposals.map((seat) => this.propose(session, seat)));
         return;
       }
     }
@@ -280,7 +297,7 @@ export class DebateEngine {
       const missingCritiques = criticSeats(session).filter((seat) => !has("critiques", seat, round));
       if (missingCritiques.length > 0) {
         const proposals = currentProposals(session);
-        await Promise.all(missingCritiques.map((seat) => this.criticise(session, seat, round, proposals)));
+        await settleAll(missingCritiques.map((seat) => this.criticise(session, seat, round, proposals)));
         return;
       }
       if (shouldProbe(session, round)) {
@@ -299,7 +316,7 @@ export class DebateEngine {
       }
       const missingRevisions = proposerSeats(session).filter((seat) => !has("revision", seat, round));
       if (missingRevisions.length > 0) {
-        await Promise.all(missingRevisions.map((seat) => this.revise(session, seat, round)));
+        await settleAll(missingRevisions.map((seat) => this.revise(session, seat, round)));
         return;
       }
     }
@@ -510,6 +527,7 @@ export class DebateEngine {
     const spec = SCHEMAS[task];
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt++) {
+      this.checkStopped();
       this.checkBudget(session);
       this.hooks.emit(session.id, { type: "speaking", task, seat });
       let raw = "";
@@ -527,6 +545,7 @@ export class DebateEngine {
             schema: spec.json,
             schemaName: spec.name,
             maxTokens: spec.maxTokens,
+            ...(this.signal ? { signal: this.signal } : {}),
           },
           (delta) => {
             raw += delta;
@@ -550,6 +569,8 @@ export class DebateEngine {
         this.hooks.emit(session.id, { type: "spoke", task, seat });
         return parsed.data as z.infer<(typeof SCHEMAS)[K]["zod"]>;
       } catch (error) {
+        // Whatever the provider made of the cancellation, the person stopped the call.
+        this.checkStopped();
         lastError = error;
         const retryable = error instanceof SyntaxError || (error instanceof ProviderError && error.retryable);
         if (!retryable) break;
@@ -557,6 +578,10 @@ export class DebateEngine {
     }
     if (lastError instanceof Object) failedCalls.set(lastError, { provider: provider.kind, model: provider.model });
     throw lastError;
+  }
+
+  private checkStopped() {
+    if (this.signal?.aborted) throw new StoppedError();
   }
 
   private checkBudget(session: Session) {
@@ -576,10 +601,20 @@ export class DebateEngine {
       await work();
     } catch (error) {
       session.phase = "failed";
-      session.error = sessionError(error);
+      session.error = sessionError(this.signal?.aborted ? new StoppedError() : error);
       await this.persist(session);
     }
   }
+}
+
+/**
+ * Runs the calls of one step side by side and waits for all of them, even when one fails: the answers that arrive
+ * are kept (they are paid for), and nothing still writes to the session once it is marked failed.
+ */
+async function settleAll(calls: Promise<void>[]): Promise<void> {
+  const results = await Promise.allSettled(calls);
+  const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+  if (failure) throw failure.reason;
 }
 
 function requireSheet(session: Session) {

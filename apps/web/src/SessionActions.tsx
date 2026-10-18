@@ -1,10 +1,11 @@
 import type { Session } from "@quorumind/core";
+import { isWorking } from "@quorumind/core/session";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
 import { useCanEdit } from "./access.tsx";
-import { api, type Share } from "./api.ts";
-import { BranchIcon, CheckIcon, ShareIcon, TrashIcon } from "./components/Icons.tsx";
+import { ApiError, api, type Share } from "./api.ts";
+import { BranchIcon, CheckIcon, ShareIcon, StopIcon, TrashIcon } from "./components/Icons.tsx";
 import { failureText } from "./errors.ts";
 
 /** Share, start again from this session, delete: the actions on a session's header. */
@@ -23,11 +24,12 @@ export function SessionActions({
   const canEdit = useCanEdit();
   const shareDialog = useRef<HTMLDialogElement>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
+  const stopDialog = useRef<HTMLDialogElement>(null);
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const link = share ? `${window.location.origin}${window.location.pathname}#/shared/${share.token}` : "";
-  const working = session.phase === "interview" || session.phase === "debating";
+  const working = isWorking(session);
 
   const run = async (work: () => Promise<void>) => {
     setPending(true);
@@ -62,8 +64,20 @@ export function SessionActions({
           {t("session.fork")}
         </button>
       ) : null}
+      {canEdit && working ? (
+        <button type="button" className="button button-secondary danger" onClick={() => stopDialog.current?.showModal()}>
+          <StopIcon />
+          {t("session.stop")}
+        </button>
+      ) : null}
       {canEdit ? (
-        <button type="button" className="button button-quiet danger" onClick={() => deleteDialog.current?.showModal()} disabled={working}>
+        <button
+          type="button"
+          className="button button-quiet danger"
+          onClick={() => deleteDialog.current?.showModal()}
+          disabled={working}
+          title={working ? t("session.deleteBusy") : undefined}
+        >
           <TrashIcon />
           <span className="visually-hidden-mobile">{t("session.delete")}</span>
         </button>
@@ -158,6 +172,43 @@ export function SessionActions({
           <div className="dialog-actions">
             <button type="submit" className="button button-quiet">
               {t("common.close")}
+            </button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog ref={stopDialog} className="dialog" aria-labelledby="stop-title">
+        <form method="dialog" className="stack">
+          <h2 id="stop-title" className="heading">
+            {t("session.stopTitle")}
+          </h2>
+          <p style={{ margin: 0 }}>{t("session.stopLead")}</p>
+          {error ? (
+            <p className="notice notice-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="dialog-actions">
+            <button type="submit" className="button button-quiet">
+              {t("session.stopCancel")}
+            </button>
+            <button
+              type="button"
+              className="button button-danger"
+              disabled={pending}
+              onClick={() =>
+                run(async () => {
+                  try {
+                    await api.stop(session.id);
+                  } catch (caught) {
+                    // It finished on its own in the meantime: there is nothing left to stop.
+                    if (!(caught instanceof ApiError && caught.code === "not_running")) throw caught;
+                  }
+                  stopDialog.current?.close();
+                })
+              }
+            >
+              {t("session.stopConfirm")}
             </button>
           </div>
         </form>

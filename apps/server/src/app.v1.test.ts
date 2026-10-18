@@ -277,6 +277,61 @@ describe.each(BACKENDS)("on $name", (each) => {
     });
   });
 
+  describe("stopping", () => {
+    it("stops a running session at once, reports no further call, and resumes it", async () => {
+      const records: UsageRecord[] = [];
+      storage = await backend.open();
+      store = storage.store;
+      const app = createApp({
+        store,
+        brandingStore: storage.brandingStore,
+        bus: new EventBus(),
+        env: {},
+        // Slow enough to be caught in the middle of a call.
+        mockDelayMs: 5,
+        hooks: {
+          identify: async () => ({ userId: "ada" }),
+          onUsage: (_user, _session, record) => {
+            records.push(record);
+          },
+          catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
+        },
+      });
+      const created = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM" }));
+      const { session } = (await created.json()) as { session: Session };
+      expect((await (await app.request(`/api/sessions/${session.id}`)).json()) as { busy: boolean }).toMatchObject({ busy: true });
+
+      const stopped = await app.request(`/api/sessions/${session.id}/stop`, json({}));
+      expect(stopped.status).toBe(200);
+      const body = (await stopped.json()) as { session: Session };
+      expect(body.session).toMatchObject({ phase: "failed", error: { code: "stopped" }, interview: [] });
+      expect(records).toEqual([]);
+      expect((await (await app.request(`/api/sessions/${session.id}`)).json()) as { busy: boolean }).toMatchObject({ busy: false });
+      expect((await store.get(session.id, "ada"))?.error?.code).toBe("stopped");
+
+      const again = await app.request(`/api/sessions/${session.id}/stop`, json({}));
+      expect(again.status).toBe(409);
+      expect(await again.json()).toMatchObject({ error: "not_running" });
+
+      expect((await app.request(`/api/sessions/${session.id}/resume`, json({}))).status).toBe(202);
+      const resumed = await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy);
+      expect(resumed.phase).toBe("interview");
+      expect(records.map((record) => record.task)).toEqual(["interview"]);
+    });
+
+    it("refuses to delete or act on a session while it works", async () => {
+      storage = await backend.open();
+      store = storage.store;
+      const app = createApp({ store, brandingStore: storage.brandingStore, bus: new EventBus(), env: {}, mockDelayMs: 5 });
+      const created = await app.request("/api/sessions", json({ locale: "en", demo: true }));
+      const { session } = (await created.json()) as { session: Session };
+      const refused = await app.request(`/api/sessions/${session.id}`, { method: "DELETE" });
+      expect(refused.status).toBe(409);
+      expect(await refused.json()).toMatchObject({ error: "session_busy" });
+      await app.request(`/api/sessions/${session.id}/stop`, json({}));
+    });
+  });
+
   describe("retention", () => {
     it("purges sessions untouched for longer than the retention period", async () => {
       const app = await makeApp();

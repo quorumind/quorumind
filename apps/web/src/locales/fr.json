@@ -388,7 +388,13 @@
     "delete": "Supprimer",
     "deleteTitle": "Supprimer cette session ?",
     "deleteLead": "L'entretien, le débat et le rapport sont supprimés définitivement, et tout lien partagé cesse de fonctionner.",
-    "deleteConfirm": "Supprimer définitivement"
+    "deleteConfirm": "Supprimer définitivement",
+    "stop": "Arrêter",
+    "stopTitle": "Arrêter cette session ?",
+    "stopLead": "Les modèles s'arrêtent aussitôt et plus rien n'est dépensé. Le travail déjà fait est conservé : vous pourrez reprendre là où elle s'est arrêtée.",
+    "stopCancel": "La laisser continuer",
+    "stopConfirm": "Arrêter maintenant",
+    "deleteBusy": "Arrêtez la session avant de la supprimer."
   },
   "gallery": {
     "title": "Galerie",
@@ -499,6 +505,8 @@
     "insufficient_credits": "Vous n'avez plus de crédits. Achetez des crédits ou souscrivez un forfait pour continuer.",
     "plan_limit": "Votre forfait ne le permet pas. Choisissez d'autres paramètres ou un autre forfait.",
     "seat_limit": "Le forfait de cet espace n'a plus de place libre. Choisissez un forfait avec plus de places.",
-    "read_only": "Seuls l'auteur de cette session et les administrateurs de son espace de travail peuvent la modifier."
+    "read_only": "Seuls l'auteur de cette session et les administrateurs de son espace de travail peuvent la modifier.",
+    "stopped": "Vous avez arrêté cette session. Reprenez-la quand vous voulez.",
+    "not_running": "Cette session ne tourne plus."
   }
 }

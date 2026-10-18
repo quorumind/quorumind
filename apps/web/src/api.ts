@@ -151,6 +151,7 @@ export const api = {
     request(`/api/sessions/${id}/sheet`, { method: "PUT", body: JSON.stringify({ sheet }) }),
   answerDebate: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/answers`, post({ answers })),
   resume: (id: string) => request(`/api/sessions/${id}/resume`, post()),
+  stop: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/stop`, post()),
   brief: (id: string, audience: Audience) => request<{ brief: Brief }>(`/api/sessions/${id}/brief`, post({ audience })),
   fork: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/fork`, post()),
   share: (id: string, isPublic: boolean) => request<{ share: Share }>(`/api/sessions/${id}/share`, post({ public: isPublic })),

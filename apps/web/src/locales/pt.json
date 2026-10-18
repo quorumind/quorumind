@@ -388,7 +388,13 @@
     "delete": "Excluir",
     "deleteTitle": "Excluir esta sessão?",
     "deleteLead": "A entrevista, o debate e o relatório são excluídos definitivamente, e qualquer link compartilhado deixa de funcionar.",
-    "deleteConfirm": "Excluir definitivamente"
+    "deleteConfirm": "Excluir definitivamente",
+    "stop": "Parar",
+    "stopTitle": "Parar esta sessão?",
+    "stopLead": "Os modelos param na hora e nada mais é gasto. O que já foi feito é mantido: você pode retomar de onde parou.",
+    "stopCancel": "Deixar continuar",
+    "stopConfirm": "Parar agora",
+    "deleteBusy": "Pare a sessão antes de excluí-la."
   },
   "gallery": {
     "title": "Galeria",
@@ -499,6 +505,8 @@
     "insufficient_credits": "Você não tem mais créditos. Compre créditos ou assine um plano para continuar.",
     "plan_limit": "Seu plano não permite isso. Escolha outras configurações ou outro plano.",
     "seat_limit": "O plano deste espaço não tem mais lugares livres. Escolha um plano com mais lugares.",
-    "read_only": "Só o autor desta sessão ou um administrador do seu espaço de trabalho pode alterá-la."
+    "read_only": "Só o autor desta sessão ou um administrador do seu espaço de trabalho pode alterá-la.",
+    "stopped": "Você parou esta sessão. Retome quando quiser.",
+    "not_running": "Esta sessão não está mais em andamento."
   }
 }

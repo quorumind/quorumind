@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DEMO_LINEUP, providersFor } from "./config.ts";
 import { DEMO_IDEA } from "./demo.ts";
 import { DebateEngine, type EngineEvent, type ProviderSet } from "./engine.ts";
@@ -193,6 +193,46 @@ describe("failures", () => {
   it("refuses an action that does not match the phase, with a code", async () => {
     const { engine, session } = setup();
     await expect(engine.answerDebate(session, [])).rejects.toMatchObject({ code: "wrong_phase" });
+  });
+
+  it("stops the calls in flight when asked, spends nothing more, and resumes from there", async () => {
+    let started = 0;
+    const hanging: LlmProvider = {
+      kind: "mock",
+      model: "mock",
+      generate(request) {
+        started++;
+        return new Promise((_resolve, reject) => {
+          request.signal?.addEventListener("abort", () => reject(new ProviderError("The request was cancelled.", false)), { once: true });
+        });
+      },
+    };
+    const mock = new MockProvider({ chunkDelayMs: 0 });
+    const controller = new AbortController();
+    const events: EngineEvent[] = [];
+    const engine = new DebateEngine(
+      { interviewer: mock, arbiter: mock, proposers: { A: hanging, B: hanging }, devil: mock },
+      { emit: (_id, event) => events.push(event), save: () => {} },
+      { signal: controller.signal },
+    );
+    const { session } = setup();
+    await engine.startInterview(session);
+    await engine.answerInterview(session, [{ question: "Budget?", answer: "€15,000" }]);
+    await engine.confirmSheet(session, session.sheet!);
+    const usage = session.usage.length;
+    const running = engine.runDebate(session);
+    await vi.waitFor(() => expect(started).toBe(2));
+    controller.abort();
+    await running;
+    expect(session.phase).toBe("failed");
+    expect(session.error).toEqual({ code: "stopped", message: "The session was stopped." });
+    expect(session.usage).toHaveLength(usage);
+    expect(started).toBe(2);
+
+    const { engine: fresh } = setup();
+    expect(await fresh.resume(session)).toBe("debate");
+    await fresh.runDebate(session);
+    expect(session.phase).toBe("awaiting_answers");
   });
 
   it("retries once when an answer is not valid JSON", async () => {

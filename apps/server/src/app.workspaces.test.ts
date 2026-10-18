@@ -174,6 +174,7 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect((await app.request(`/api/sessions/${session.id}/share`, json({ public: false }, "bob"))).status).toBe(403);
       expect((await app.request(`/api/sessions/${session.id}`, { method: "DELETE", headers: as("bob") })).status).toBe(403);
       expect((await app.request(`/api/sessions/${session.id}/resume`, json({}, "bob"))).status).toBe(403);
+      expect((await app.request(`/api/sessions/${session.id}/stop`, json({}, "bob"))).status).toBe(403);
       expect((await app.request(`/api/sessions/${session.id}/interview`, json(answers, "dan"))).status).toBe(404);
 
       // The admin answers for the team; the author confirms.

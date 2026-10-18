@@ -120,6 +120,7 @@ In `.cursor/mcp.json` at the project root (or `~/.cursor/mcp.json` for every pro
 | `quorumind_confirm` | Confirms the sheet, with optional edits, and runs the debate until it needs the user or reaches the verdict. |
 | `quorumind_status` | Phase, whether a model is working, cost so far (the price of the debate on the hosted version) and what is expected next; `wait: true` waits for the next stopping point. |
 | `quorumind_resume` | Retries the step a failed session stopped on. |
+| `quorumind_stop` | Stops a running session at once, without spending more; `quorumind_resume` continues it. |
 | `quorumind_verdict` | The verdict as a short summary, the full Markdown report, or an ADR. |
 | `quorumind_handoff` | Writes `CLAUDE.md`, `AGENTS.md` and `PLAN.md` into a directory; never replaces an existing file unless `overwrite` is true. |
 | `quorumind_sessions` | Recent sessions (on the hosted version, the workspace's, with their author). |

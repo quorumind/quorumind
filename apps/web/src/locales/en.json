@@ -388,7 +388,13 @@
     "delete": "Delete",
     "deleteTitle": "Delete this session?",
     "deleteLead": "The interview, the debate and the report are deleted for good, and any shared link stops working.",
-    "deleteConfirm": "Delete for good"
+    "deleteConfirm": "Delete for good",
+    "stop": "Stop",
+    "stopTitle": "Stop this session?",
+    "stopLead": "The models stop at once and nothing more is spent. What is already done is kept: you can resume from where it stopped.",
+    "stopCancel": "Keep it running",
+    "stopConfirm": "Stop now",
+    "deleteBusy": "Stop the session before deleting it."
   },
   "gallery": {
     "title": "Gallery",
@@ -499,6 +505,8 @@
     "insufficient_credits": "You have no credits left. Buy credits or subscribe to a plan to continue.",
     "plan_limit": "Your plan does not allow this. Choose other settings or another plan.",
     "seat_limit": "This workspace has no seat left in its plan. Choose a plan with more seats.",
-    "read_only": "Only the author of this session or an admin of its workspace can change it."
+    "read_only": "Only the author of this session or an admin of its workspace can change it.",
+    "stopped": "You stopped this session. Resume it whenever you like.",
+    "not_running": "This session is not running any more."
   }
 }

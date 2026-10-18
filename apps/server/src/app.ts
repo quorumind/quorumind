@@ -243,6 +243,8 @@ const slug = (session: Session) =>
 export function createApp(deps: AppDeps) {
   const { store, bus, env, hooks = {} } = deps;
   const busy = new Set<string>();
+  /** The background work of each session that has some, to stop it. */
+  const workers = new Map<string, { controller: AbortController; done: Promise<void> }>();
   const users = new Map<string, User | null>();
   const mockOptions = deps.mockDelayMs === undefined ? {} : { mockDelayMs: deps.mockDelayMs };
 
@@ -258,19 +260,23 @@ export function createApp(deps: AppDeps) {
   const priceOf = (user: User | null, settings: PricedSettings, sessionId: string | null) =>
     user && hooks.quote ? hooks.quote(user, settings, sessionId) : Promise.resolve(null);
 
-  const engineFor = (session: Session) => {
+  const engineFor = (session: Session, signal?: AbortSignal) => {
     const user = users.get(session.id) ?? null;
     let reported = session.usage.length;
-    return new DebateEngine(providersFor(session, envFor(user), mockOptions), {
-      emit: (id, event) => bus.publish(id, event),
-      save: async (updated) => {
-        await store.save(updated);
-        if (user && hooks.onUsage) {
-          for (const record of updated.usage.slice(reported)) await hooks.onUsage(user, updated, record);
-        }
-        reported = updated.usage.length;
+    return new DebateEngine(
+      providersFor(session, envFor(user), mockOptions),
+      {
+        emit: (id, event) => bus.publish(id, event),
+        save: async (updated) => {
+          await store.save(updated);
+          if (user && hooks.onUsage) {
+            for (const record of updated.usage.slice(reported)) await hooks.onUsage(user, updated, record);
+          }
+          reported = updated.usage.length;
+        },
       },
-    });
+      signal ? { signal } : {},
+    );
   };
 
   const estimateFor = (session: {
@@ -306,13 +312,20 @@ export function createApp(deps: AppDeps) {
     await deps.notifier.notify(session, session.phase, recipient);
   };
 
-  // Long operations run in the background; the client follows them through the event stream.
+  // Long operations run in the background; the client follows them through the event stream. Each one can be
+  // stopped (POST /stop), which cancels the model calls in flight.
   const runInBackground = (session: Session, work: (engine: DebateEngine) => Promise<void>) => {
     busy.add(session.id);
-    work(engineFor(session))
-      .then(() => notify(session))
+    const controller = new AbortController();
+    const done = work(engineFor(session, controller.signal))
+      // The person who stopped the session knows: no e-mail for it.
+      .then(() => (session.error?.code === "stopped" ? undefined : notify(session)))
       .catch((error) => console.error(`Session ${session.id} failed:`, error))
-      .finally(() => busy.delete(session.id));
+      .finally(() => {
+        busy.delete(session.id);
+        workers.delete(session.id);
+      });
+    workers.set(session.id, { controller, done });
   };
 
   const app = new Hono<{ Variables: { user: User | null } }>();
@@ -557,6 +570,17 @@ export function createApp(deps: AppDeps) {
       if (next === "debate" && session.phase === "debating") await engine.runDebate(session);
     });
     return c.json({ accepted: true }, 202);
+  });
+
+  // Stops the work in flight: the model calls are cancelled, nothing more is spent, and the session fails with the
+  // code "stopped", ready to be resumed. Answers once the work has stopped, with the session as it was left.
+  app.post("/api/sessions/:id/stop", async (c) => {
+    const session = await loadForEdit(c.req.param("id"), c.get("user"));
+    const worker = workers.get(session.id);
+    if (!worker) throw new InvalidStateError("This session is not running.", "not_running");
+    worker.controller.abort();
+    await worker.done;
+    return c.json({ session: view(session) });
   });
 
   // The verdict rewritten for another reader. Short enough to wait for.

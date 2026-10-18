@@ -366,6 +366,34 @@ export function createMcpServer(options: McpOptions): McpServer {
   );
 
   server.registerTool(
+    "quorumind_stop",
+    {
+      title: "Stop a running session",
+      description:
+        "Stop a session while the models work on it, when the user asks to: the calls in flight are cancelled and nothing more is spent. " +
+        "What is already done is kept, and quorumind_resume continues from where it stopped.",
+      inputSchema: z.object({ session_id: SessionId }),
+    },
+    ({ session_id }) =>
+      guarded(async () => {
+        const state = await client.getSession(session_id);
+        if (!state.busy) return refuse(state, "This session is not running: there is nothing to stop.");
+        let session: Session;
+        try {
+          session = await client.stop(session_id);
+        } catch (error) {
+          // It reached a stopping point on its own in the meantime.
+          if (error instanceof QuorumindError && error.code === "not_running")
+            return refuse(await client.getSession(session_id), error.message);
+          throw error;
+        }
+        const stopped = { session, busy: false };
+        const snap = snapshot(client, stopped, statusOf(stopped));
+        return text(`Stopped.\n\n${renderSnapshot(snap, session)}`, snap);
+      }),
+  );
+
+  server.registerTool(
     "quorumind_verdict",
     {
       title: "Read the verdict",

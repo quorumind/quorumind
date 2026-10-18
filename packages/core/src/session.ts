@@ -215,6 +215,15 @@ export function normalizeSession(stored: Session): Session {
   return session as Session;
 }
 
+/**
+ * True when the models owe the next move: the debate runs, or the interviewer has to answer. The session then has a
+ * worker on the server.
+ */
+export function isWorking(session: Session): boolean {
+  if (session.phase === "debating") return true;
+  return session.phase === "interview" && session.interview.at(-1)?.kind !== "interviewer";
+}
+
 /** Seats that design an option: none in challenge mode, where the person's solution is the only option. */
 export function proposerSeats(session: Session): string[] {
   return session.mode === "challenge" ? [] : Object.keys(session.seats);

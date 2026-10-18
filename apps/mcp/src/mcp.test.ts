@@ -140,6 +140,7 @@ describe("MCP server on the recorded demo", () => {
       "quorumind_sessions",
       "quorumind_start",
       "quorumind_status",
+      "quorumind_stop",
       "quorumind_verdict",
     ]);
     const start = tools.find((tool) => tool.name === "quorumind_start");
@@ -402,6 +403,25 @@ describe("long waits", () => {
     const patient = await connect({ client });
     const status = await call(patient, "quorumind_status", { session_id: snapOf(started).sessionId, wait: true });
     expect(snapOf(status).status).toBe("interview_questions");
+    await patient.close();
+  });
+
+  it("stops a running session, then resumes it", async () => {
+    const client = new QuorumindClient({ baseUrl: quorumind.url });
+    const impatient = await connect({ client, waitMs: 50 });
+    const started = await call(impatient, "quorumind_start", { idea: "A booking app" });
+    const id = snapOf(started).sessionId;
+    const stopped = await call(impatient, "quorumind_stop", { session_id: id });
+    expect(stopped.isError).toBeFalsy();
+    expect(snapOf(stopped)).toMatchObject({ status: "failed", busy: false, error: { code: "stopped" } });
+    const idle = await call(impatient, "quorumind_stop", { session_id: id });
+    expect(idle.isError).toBe(true);
+    expect(textOf(idle)).toContain("not running");
+    await impatient.close();
+
+    const patient = await connect({ client });
+    const resumed = await call(patient, "quorumind_resume", { session_id: id });
+    expect(snapOf(resumed).status).toBe("interview_questions");
     await patient.close();
   });
 });
