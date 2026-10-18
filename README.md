@@ -2,6 +2,11 @@
 
 **Several AIs debate your project before you build it.**
 
+[![CI](https://github.com/quorumind/quorumind/actions/workflows/ci.yml/badge.svg)](https://github.com/quorumind/quorumind/actions/workflows/ci.yml)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue.svg)](LICENSE)
+
+[Website](https://quorumind.com) · [MCP server](apps/mcp/README.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+
 Quorumind first interviews you to pin down what you actually need: goals, scope, budget,
 existing infrastructure, team skills and hard constraints. Then several AI models (Claude,
 OpenAI / Codex, Gemini, local models via Ollama) each propose a solution, criticise each
@@ -11,9 +16,10 @@ requirements and tells you what is feasible, what is not, and why.
 You get a decision report: targeted goals, compared options with their verdict, recommended
 infrastructure, risks and a roadmap.
 
-> **Status:** MVP in progress. The full flow works end to end: interview, requirements
-> sheet, blind proposals, critiques, revisions, verdict and Markdown report, with Claude
-> and OpenAI, in ten languages. A recorded demo runs without any API key.
+> **Status:** pre-release. The full flow works end to end: interview, requirements sheet,
+> blind proposals, critiques, revisions, verdict and report, with Claude, OpenAI, Gemini and
+> Ollama, in ten languages. A recorded demo runs without any API key. Expect breaking changes
+> until 1.0.
 
 ![The verdict of a debate: the recommended option and the decision matrix](docs/media/verdict.png)
 
@@ -141,8 +147,8 @@ language.
 
 ## Contributing
 
-Everything in the codebase is written in English: code, comments, commit messages, issues
-and documentation. User-facing strings live in translation files, never in the code.
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to set
+up the project, the checks a change must pass and the conventions the codebase follows.
 
 ## Development
 
@@ -158,7 +164,7 @@ npm run media       # screenshots and demo video in docs/media, filmed on the re
 
 | Path | Content |
 | --- | --- |
-| `packages/core` | Debate engine, role prompts, schemas, provider adapters (Claude, OpenAI, demo), pricing, report |
+| `packages/core` | Debate engine, role prompts, schemas, provider adapters (Claude, OpenAI, Gemini, Ollama, demo), pricing, report and exports |
 | `apps/server` | HTTP API, live event stream (SSE), SQLite storage, serves the interface |
 | `apps/mcp` | MCP server for coding agents: runs a debate through the HTTP API and writes the hand-off files |
 | `apps/web` | React interface, ten languages, right-to-left support, light and dark themes |
@@ -170,18 +176,21 @@ change makes debates better or worse.
 
 ## Roadmap
 
-1. **MVP:** one debate end to end: interview, requirements sheet, 2 proposers + arbiter,
-   3 rounds, Markdown report. Claude and OpenAI.
-2. **All providers:** Gemini and Ollama, devil's advocate, free role assignment, cost cap.
-3. **Fact reliability:** optional web search for prices and versions, cited sources,
-   interactive decision matrix.
-4. **Collaboration:** multi-user sessions, PDF export, resumable sessions, handoff to a
-   coding agent.
+Available today: the full debate with up to four proposers and a devil's advocate, any model
+in any role (Claude, OpenAI, Gemini, Ollama), a cost cap, an interactive decision matrix, a
+debate map, reports rewritten for a CTO, an executive or a client, exports (Markdown, PDF,
+Word, ADR, coding-agent hand-off), resumable and shareable sessions, and the MCP server.
+
+Next:
+
+1. **Context import:** attach a PDF or Word spec, a web page or a GitHub repository.
+2. **Fact reliability:** optional web search for prices and versions, with cited sources.
+3. **Collaboration:** multi-user sessions and shared history.
 
 ## Hosted version
 
-A hosted version (no API keys needed, pay as you go or team plans) is planned. This
-repository is and will stay the open source core.
+A hosted version (no API keys needed, pay as you go or team plans) is planned at
+[quorumind.com](https://quorumind.com). This repository is and will stay the open source core.
 
 ## License
 

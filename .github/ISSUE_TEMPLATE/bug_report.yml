@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work as described.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can, reproduce it on the recorded demo, which needs no API key.
+      placeholder: |
+        1. Start a new session in French
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Commit SHA or release, and how you run it (npm, Docker).
+    validations:
+      required: true
+  - type: dropdown
+    id: providers
+    attributes:
+      label: Providers involved
+      multiple: true
+      options: [Recorded demo, Claude, OpenAI, Gemini, Ollama, Not related to a provider]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove API keys and personal data first.

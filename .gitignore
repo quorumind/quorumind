@@ -6,4 +6,3 @@ data/
 *.db
 bench/results/
 docs/media/*.mp4
-.claude/worktrees/
