@@ -10,7 +10,7 @@ import { type CallToolResult, InMemoryTransport } from "@modelcontextprotocol/se
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../server/src/app.ts";
 import { EventBus } from "../../server/src/bus.ts";
-import { SessionStore } from "../../server/src/store.ts";
+import { SqliteSessionStore } from "../../server/src/store.ts";
 import { QuorumindClient } from "./client.ts";
 import type { Snapshot } from "./format.ts";
 import { createMcpServer, type McpOptions } from "./server.ts";
@@ -20,12 +20,12 @@ import { createMcpServer, type McpOptions } from "./server.ts";
 
 interface Running {
   url: string;
-  store: SessionStore;
+  store: SqliteSessionStore;
   close: () => Promise<void>;
 }
 
 async function startQuorumind(mockDelayMs: number): Promise<Running> {
-  const store = new SessionStore(":memory:");
+  const store = new SqliteSessionStore(":memory:");
   const app = createApp({ store, bus: new EventBus(), env: {}, mockDelayMs });
   const server = await new Promise<ReturnType<typeof serve>>((resolve) => {
     const started = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, () => resolve(started));
@@ -37,7 +37,7 @@ async function startQuorumind(mockDelayMs: number): Promise<Running> {
     close: async () => {
       if ("closeAllConnections" in server) server.closeAllConnections();
       await new Promise((resolve) => server.close(resolve));
-      store.close();
+      await store.close();
     },
   };
 }
@@ -160,7 +160,7 @@ describe("MCP server on the recorded demo", () => {
     expect(first.questions?.length).toBeGreaterThan(0);
     expect(textOf(started)).toContain("Why it matters:");
     expect(textOf(started)).toContain("Attached: NOTES.md.");
-    const stored = quorumind.store.get(sessionId);
+    const stored = await quorumind.store.get(sessionId);
     // A server older than the context documents ignores them; a newer one stores them.
     if (stored && Array.isArray(stored.context) && stored.context.length > 0) expect(stored.context[0]?.name).toBe("NOTES.md");
 
@@ -173,7 +173,7 @@ describe("MCP server on the recorded demo", () => {
     const answered = await call(mcp, "quorumind_answer", { session_id: sessionId, answers });
     expect(snapOf(answered).status).toBe("sheet_review");
     expect(textOf(answered)).toContain("quorumind_confirm");
-    const interview = quorumind.store.get(sessionId)?.interview.find((entry) => entry.kind === "user");
+    const interview = (await quorumind.store.get(sessionId))?.interview.find((entry) => entry.kind === "user");
     expect(interview?.kind === "user" && interview.answers[0]?.question).toBe(questions[0]?.text);
 
     const review = await call(mcp, "quorumind_review", { session_id: sessionId });
@@ -186,7 +186,7 @@ describe("MCP server on the recorded demo", () => {
     expect(textOf(confirmed)).toContain("Sheet confirmed with changes to: budget.");
     expect(snapOf(confirmed).status).toBe("debate_questions");
     expect(snapOf(confirmed).debateQuestions?.length).toBeGreaterThan(0);
-    expect(quorumind.store.get(sessionId)?.sheet?.budget).toBe("20 000 € to build");
+    expect((await quorumind.store.get(sessionId))?.sheet?.budget).toBe("20 000 € to build");
     expect(progress.some((message) => message.includes("Seat A"))).toBe(true);
 
     const debateAnswers = (snapOf(confirmed).debateQuestions ?? []).map((question) => ({ question, answer: "Yes" }));

@@ -2,18 +2,18 @@ import { MAX_CONTEXT_CHARS, MAX_CONTEXT_DOCUMENTS, type Session } from "@quorumi
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BODY_LIMITS, createApp } from "../app.ts";
 import { EventBus } from "../bus.ts";
-import { SessionStore } from "../store.ts";
+import { SqliteSessionStore } from "../store.ts";
 import { ImportLimiter } from "./limit.ts";
 import { contextRoutes } from "./routes.ts";
 
-let store: SessionStore | null = null;
-afterEach(() => {
-  store?.close();
+let store: SqliteSessionStore | null = null;
+afterEach(async () => {
+  await store?.close();
   store = null;
 });
 
 function makeApp() {
-  store = new SessionStore(":memory:");
+  store = new SqliteSessionStore(":memory:");
   return createApp({ store, bus: new EventBus(), env: {}, mockDelayMs: 0 });
 }
 

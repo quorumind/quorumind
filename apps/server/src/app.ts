@@ -33,7 +33,7 @@ import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
-import { BrandingStore } from "./branding.ts";
+import { type BrandingStore, SqliteBrandingStore } from "./branding.ts";
 import type { EventBus } from "./bus.ts";
 import { contextRoutes } from "./context/routes.ts";
 import { exportRoutes } from "./exports.ts";
@@ -213,7 +213,7 @@ export function createApp(deps: AppDeps) {
     return new DebateEngine(providersFor(session, envFor(user), mockOptions), {
       emit: (id, event) => bus.publish(id, event),
       save: async (updated) => {
-        store.save(updated);
+        await store.save(updated);
         if (user && hooks.onUsage) {
           for (const record of updated.usage.slice(reported)) await hooks.onUsage(user, updated, record);
         }
@@ -327,7 +327,7 @@ export function createApp(deps: AppDeps) {
     });
   });
 
-  app.get("/api/sessions", (c) => c.json({ sessions: store.list(50, ownerOf(c.get("user"))) }));
+  app.get("/api/sessions", async (c) => c.json({ sessions: await store.list(50, ownerOf(c.get("user"))) }));
 
   app.post("/api/sessions", async (c) => {
     const user = c.get("user");
@@ -369,13 +369,13 @@ export function createApp(deps: AppDeps) {
     });
     users.set(session.id, user);
     await authorize(session);
-    store.save(session, ownerOf(user));
+    await store.save(session, ownerOf(user));
     runInBackground(session, (engine) => engine.startInterview(session));
     return c.json({ session: view(session) }, 201);
   });
 
-  const load = (id: string, user: User | null) => {
-    const session = store.get(id, ownerOf(user));
+  const load = async (id: string, user: User | null) => {
+    const session = await store.get(id, ownerOf(user));
     if (!session) throw new NotFound();
     if (!users.has(id)) users.set(id, user);
     return session;
@@ -388,27 +388,27 @@ export function createApp(deps: AppDeps) {
   app.get("/api/sessions/:id", async (c) => {
     const id = c.req.param("id");
     const user = c.get("user");
-    const session = load(id, user);
+    const session = await load(id, user);
     return c.json({
       session: view(session),
       busy: busy.has(id),
-      share: store.shareOf(id),
-      feedback: store.feedbackOf(id),
+      share: await store.shareOf(id),
+      feedback: await store.feedbackOf(id),
       price: session.demo ? null : await priceOf(user, session, session.id),
       providerCosts: !hooks.hideProviderCosts,
     });
   });
 
-  app.delete("/api/sessions/:id", (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+  app.delete("/api/sessions/:id", async (c) => {
+    const session = await load(c.req.param("id"), c.get("user"));
     startAction(session);
-    store.delete(session.id, ownerOf(c.get("user")));
+    await store.delete(session.id, ownerOf(c.get("user")));
     users.delete(session.id);
     return c.body(null, 204);
   });
 
   app.post("/api/sessions/:id/interview", async (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+    const session = await load(c.req.param("id"), c.get("user"));
     startAction(session);
     const { answers } = z.object({ answers: AnswerList }).parse(await c.req.json());
     if (session.phase !== "interview") throw new InvalidStateError("The interview is over.");
@@ -418,7 +418,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.put("/api/sessions/:id/sheet", async (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+    const session = await load(c.req.param("id"), c.get("user"));
     startAction(session);
     const { sheet } = z.object({ sheet: RequirementsSheet }).parse(await c.req.json());
     await authorize(session);
@@ -428,7 +428,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.post("/api/sessions/:id/answers", async (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+    const session = await load(c.req.param("id"), c.get("user"));
     startAction(session);
     const { answers } = z.object({ answers: AnswerList }).parse(await c.req.json());
     await authorize(session);
@@ -438,7 +438,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.post("/api/sessions/:id/resume", async (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+    const session = await load(c.req.param("id"), c.get("user"));
     startAction(session);
     await authorize(session);
     runInBackground(session, async (engine) => {
@@ -450,7 +450,7 @@ export function createApp(deps: AppDeps) {
 
   // The verdict rewritten for another reader. Short enough to wait for.
   app.post("/api/sessions/:id/brief", async (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+    const session = await load(c.req.param("id"), c.get("user"));
     startAction(session);
     const { audience } = z.object({ audience: Audience }).parse(await c.req.json());
     const cached = session.briefs[audience];
@@ -469,7 +469,7 @@ export function createApp(deps: AppDeps) {
   // changes what moved in their project and runs the debate again.
   app.post("/api/sessions/:id/fork", async (c) => {
     const user = c.get("user");
-    const source = load(c.req.param("id"), user);
+    const source = await load(c.req.param("id"), user);
     if (!source.sheet) throw new InvalidStateError("This session has no requirements sheet yet.");
     const session = createSession({
       locale: source.locale,
@@ -494,38 +494,38 @@ export function createApp(deps: AppDeps) {
     session.sheet = structuredClone(source.sheet);
     session.phase = "review";
     users.set(session.id, user);
-    store.save(session, ownerOf(user));
+    await store.save(session, ownerOf(user));
     return c.json({ session: view(session) }, 201);
   });
 
   app.post("/api/sessions/:id/share", async (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+    const session = await load(c.req.param("id"), c.get("user"));
     const { public: isPublic } = z.object({ public: z.boolean().default(false) }).parse(await c.req.json());
-    return c.json({ share: store.share(session.id, isPublic) });
+    return c.json({ share: await store.share(session.id, isPublic) });
   });
 
-  app.delete("/api/sessions/:id/share", (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
-    store.unshare(session.id);
+  app.delete("/api/sessions/:id/share", async (c) => {
+    const session = await load(c.req.param("id"), c.get("user"));
+    await store.unshare(session.id);
     return c.body(null, 204);
   });
 
-  app.get("/api/shared/:token", (c) => {
-    const session = store.shared(c.req.param("token"));
+  app.get("/api/shared/:token", async (c) => {
+    const session = await store.shared(c.req.param("token"));
     if (!session) throw new NotFound();
     return c.json({ session: publicView(session) });
   });
 
-  app.get("/api/shared/:token/report.md", (c) => {
-    const session = store.shared(c.req.param("token"));
+  app.get("/api/shared/:token/report.md", async (c) => {
+    const session = await store.shared(c.req.param("token"));
     if (!session) throw new NotFound();
     return markdown(c, publicView(session));
   });
 
-  app.get("/api/gallery", (c) => c.json({ sessions: store.gallery() }));
+  app.get("/api/gallery", async (c) => c.json({ sessions: await store.gallery() }));
 
   app.post("/api/sessions/:id/feedback", async (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+    const session = await load(c.req.param("id"), c.get("user"));
     const input = z
       .object({
         helpful: z.boolean().nullable().default(null),
@@ -533,24 +533,25 @@ export function createApp(deps: AppDeps) {
         comment: z.string().trim().max(2_000).default(""),
       })
       .parse(await c.req.json());
-    store.addFeedback({ sessionId: session.id, ...input, createdAt: new Date().toISOString() });
-    return c.json({ feedback: store.feedbackOf(session.id) }, 201);
+    await store.addFeedback({ sessionId: session.id, ...input, createdAt: new Date().toISOString() });
+    return c.json({ feedback: await store.feedbackOf(session.id) }, 201);
   });
 
   // Everything stored about the caller, in one file: the GDPR right to data portability.
-  app.get("/api/export", (c) => {
-    const sessions = store.all(ownerOf(c.get("user")));
+  app.get("/api/export", async (c) => {
+    const sessions = await store.all(ownerOf(c.get("user")));
+    const exported = [];
+    for (const session of sessions) {
+      exported.push({ ...view(session), share: await store.shareOf(session.id), feedback: await store.feedbackOf(session.id) });
+    }
     c.header("Content-Disposition", `attachment; filename="quorumind-export-${new Date().toISOString().slice(0, 10)}.json"`);
-    return c.json({
-      exportedAt: new Date().toISOString(),
-      sessions: sessions.map((session) => ({ ...view(session), share: store.shareOf(session.id), feedback: store.feedbackOf(session.id) })),
-    });
+    return c.json({ exportedAt: new Date().toISOString(), sessions: exported });
   });
 
-  app.get("/api/sessions/:id/report.md", (c) => markdown(c, load(c.req.param("id"), c.get("user"))));
+  app.get("/api/sessions/:id/report.md", async (c) => markdown(c, await load(c.req.param("id"), c.get("user"))));
 
-  app.get("/api/sessions/:id/events", (c) => {
-    const session = load(c.req.param("id"), c.get("user"));
+  app.get("/api/sessions/:id/events", async (c) => {
+    const session = await load(c.req.param("id"), c.get("user"));
     return streamSSE(c, async (stream) => {
       let id = 0;
       const queue: string[] = [];
@@ -587,7 +588,7 @@ export function createApp(deps: AppDeps) {
     exportRoutes({
       getSession: (id, user) => store.get(id, ownerOf(user)),
       ownerOf,
-      branding: deps.brandingStore ?? new BrandingStore(":memory:"),
+      branding: deps.brandingStore ?? new SqliteBrandingStore(":memory:"),
     }),
   );
 

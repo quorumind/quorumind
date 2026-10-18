@@ -22,7 +22,7 @@ import type { BrandingStore } from "./branding.ts";
 
 export interface ExportDeps {
   /** The session when it exists and belongs to this user. */
-  getSession(id: string, user: User | null): Session | null;
+  getSession(id: string, user: User | null): Promise<Session | null>;
   /** Whose branding to use: each account of the hosted version has its own. */
   ownerOf(user: User | null): string | null;
   branding: BrandingStore;
@@ -71,8 +71,8 @@ export function exportRoutes(deps: ExportDeps) {
   type Ctx = Context<{ Variables: { user: User | null } }>;
   const notFound = (c: Ctx) => c.json({ error: "not_found", message: "This session does not exist." }, 404);
   const noVerdict = (c: Ctx) => c.json({ error: "invalid_state", message: "The verdict is not ready yet." }, 409);
-  const load = (c: Ctx) => {
-    const session = deps.getSession(c.req.param("id") ?? "", c.get("user"));
+  const load = async (c: Ctx) => {
+    const session = await deps.getSession(c.req.param("id") ?? "", c.get("user"));
     return session ? normalizeSession(session) : null;
   };
   const branding = (c: Ctx) => deps.branding.get(deps.ownerOf(c.get("user")));
@@ -82,8 +82,8 @@ export function exportRoutes(deps: ExportDeps) {
     c.header("Cache-Control", "no-store");
   };
 
-  app.get("/api/sessions/:id/report.html", (c) => {
-    const session = load(c);
+  app.get("/api/sessions/:id/report.html", async (c) => {
+    const session = await load(c);
     if (!session) return notFound(c);
     const print = c.req.query("print") === "1";
     // ?audience=cto|executive|client: the verdict rewritten for that reader, once it was generated in the app.
@@ -96,41 +96,41 @@ export function exportRoutes(deps: ExportDeps) {
     c.header("Content-Security-Policy", REPORT_CSP);
     c.header("X-Content-Type-Options", "nosniff");
     c.header("Cache-Control", "no-store");
-    return c.html(renderHtml(session, branding(c), { print, audience: audience?.success ? audience.data : null }));
+    return c.html(renderHtml(session, await branding(c), { print, audience: audience?.success ? audience.data : null }));
   });
 
   app.get("/api/sessions/:id/report.docx", async (c) => {
-    const session = load(c);
+    const session = await load(c);
     if (!session) return notFound(c);
-    const document = await renderDocx(session, branding(c));
+    const document = await renderDocx(session, await branding(c));
     attachment(c, MIME.docx, `${reportSlug(session)}-report.docx`);
     return c.body(document as Uint8Array<ArrayBuffer>);
   });
 
-  app.get("/api/sessions/:id/adr.md", (c) => {
-    const session = load(c);
+  app.get("/api/sessions/:id/adr.md", async (c) => {
+    const session = await load(c);
     if (!session) return notFound(c);
     if (!session.verdict) return noVerdict(c);
     attachment(c, MIME.markdown, `0001-${reportSlug(session)}.md`);
     return c.body(renderAdr(session));
   });
 
-  app.get("/api/sessions/:id/handoff.zip", (c) => {
-    const session = load(c);
+  app.get("/api/sessions/:id/handoff.zip", async (c) => {
+    const session = await load(c);
     if (!session) return notFound(c);
     if (!session.verdict) return noVerdict(c);
     attachment(c, MIME.zip, `${reportSlug(session)}-handoff.zip`);
     return c.body(zipFiles(renderHandoff(session), new Date(session.updatedAt)) as Uint8Array<ArrayBuffer>);
   });
 
-  app.get("/api/branding", (c) => c.json({ branding: branding(c) }));
+  app.get("/api/branding", async (c) => c.json({ branding: await branding(c) }));
 
   app.put("/api/branding", async (c) => {
     const body = await c.req.json().catch(() => undefined);
     if (body === undefined) return c.json({ error: "invalid_request", message: "The body is not valid JSON." }, 400);
     const parsed = BrandingInput.safeParse(body);
     if (!parsed.success) return c.json({ error: "invalid_request", issues: parsed.error.issues }, 400);
-    return c.json({ branding: deps.branding.set(deps.ownerOf(c.get("user")), parsed.data) });
+    return c.json({ branding: await deps.branding.set(deps.ownerOf(c.get("user")), parsed.data) });
   });
 
   return app;

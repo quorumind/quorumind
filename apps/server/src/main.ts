@@ -5,10 +5,10 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createApp, retentionDays } from "./app.ts";
-import { BrandingStore } from "./branding.ts";
+import { SqliteBrandingStore } from "./branding.ts";
 import { EventBus } from "./bus.ts";
 import { notifierFromEnv } from "./notifier.ts";
-import { SessionStore } from "./store.ts";
+import { SqliteSessionStore } from "./store.ts";
 
 const env = process.env;
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -17,8 +17,8 @@ const webDist = resolve(env.QUORUMIND_WEB_DIST ?? join(here, "../../web/dist"));
 const port = Number(env.PORT ?? 8787);
 const hostname = env.HOST ?? "127.0.0.1";
 
-const store = new SessionStore(join(dataDir, "quorumind.db"));
-const brandingStore = new BrandingStore(join(dataDir, "quorumind.db"));
+const store = new SqliteSessionStore(join(dataDir, "quorumind.db"));
+const brandingStore = new SqliteBrandingStore(store.db);
 const demoDelay = env.QUORUMIND_DEMO_DELAY_MS ? Number(env.QUORUMIND_DEMO_DELAY_MS) : undefined;
 const api = createApp({
   store,
@@ -32,11 +32,15 @@ const api = createApp({
 // QUORUMIND_RETENTION_DAYS: sessions untouched for that long are deleted, at start and then daily.
 const retention = retentionDays(env);
 if (retention !== null) {
-  const purge = () => {
-    const count = store.purgeOlderThan(retention);
-    if (count > 0) console.log(`Deleted ${count} session(s) older than ${retention} days.`);
+  const purge = async () => {
+    try {
+      const count = await store.purgeOlderThan(retention);
+      if (count > 0) console.log(`Deleted ${count} session(s) older than ${retention} days.`);
+    } catch (error) {
+      console.error("The retention purge failed:", error);
+    }
   };
-  purge();
+  void purge();
   setInterval(purge, 86_400_000).unref();
 }
 
@@ -57,9 +61,7 @@ serve({ fetch: root.fetch, port, hostname }, (info) => {
 });
 
 const shutdown = () => {
-  store.close();
-  brandingStore.close();
-  process.exit(0);
+  Promise.all([brandingStore.close(), store.close()]).finally(() => process.exit(0));
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);

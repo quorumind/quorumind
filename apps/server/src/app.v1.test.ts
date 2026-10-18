@@ -1,19 +1,26 @@
 import type { Session, UsageRecord } from "@quorumind/core";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type AppHooks, createApp } from "./app.ts";
 import { EventBus } from "./bus.ts";
-import { SessionStore } from "./store.ts";
+import type { SessionStore } from "./store.ts";
+import { BACKENDS, type Backend, type TestStorage } from "./testing.ts";
 
+let backend: Backend;
+let storage: TestStorage | null = null;
 let store: SessionStore;
 
-function makeApp(env: Record<string, string> = {}, hooks?: AppHooks) {
-  store = new SessionStore(":memory:");
-  return createApp({ store, bus: new EventBus(), env, mockDelayMs: 0, ...(hooks ? { hooks } : {}) });
+async function makeApp(env: Record<string, string> = {}, hooks?: AppHooks) {
+  storage = await backend.open();
+  store = storage.store;
+  return createApp({ store, brandingStore: storage.brandingStore, bus: new EventBus(), env, mockDelayMs: 0, ...(hooks ? { hooks } : {}) });
 }
 
-afterEach(() => store?.close());
+afterEach(async () => {
+  await storage?.close();
+  storage = null;
+});
 
-type App = ReturnType<typeof makeApp>;
+type App = Awaited<ReturnType<typeof makeApp>>;
 
 const json = (body: unknown, method = "POST", headers: Record<string, string> = {}) => ({
   method,
@@ -45,233 +52,239 @@ async function completeDemo(app: App, headers: Record<string, string> = {}, body
   return waitFor(app, session.id, (s, busy) => s.phase === "complete" && !busy, headers);
 }
 
-describe("V1 API", () => {
-  it("plays the demo with its experts and devil's advocate", async () => {
-    const app = makeApp();
-    const session = await completeDemo(app);
-    expect(session.seats.A?.persona).toBe("cloud_architect");
-    expect(session.debate.some((entry) => entry.kind === "critiques" && entry.seat === "devil")).toBe(true);
-    expect(session.verdict?.topics.length).toBeGreaterThan(0);
+describe.each(BACKENDS)("on $name", (each) => {
+  beforeEach(() => {
+    backend = each;
   });
 
-  it("shares a session read-only, without attached documents or costs, and lists public ones in the gallery", async () => {
-    const app = makeApp();
-    const session = await completeDemo(app, {}, { context: [{ id: "1", kind: "text", name: "brief.txt", text: "Confidential" }] });
-    const shared = await app.request(`/api/sessions/${session.id}/share`, json({ public: false }));
-    const { share } = (await shared.json()) as { share: { token: string; public: boolean } };
-    const view = (await (await app.request(`/api/shared/${share.token}`)).json()) as { session: Session };
-    expect(view.session.verdict).toBeTruthy();
-    expect(JSON.stringify(view.session)).not.toContain("Confidential");
-    expect(view.session.usage).toEqual([]);
-    expect(((await (await app.request("/api/gallery")).json()) as { sessions: unknown[] }).sessions).toHaveLength(0);
+  describe("V1 API", () => {
+    it("plays the demo with its experts and devil's advocate", async () => {
+      const app = await makeApp();
+      const session = await completeDemo(app);
+      expect(session.seats.A?.persona).toBe("cloud_architect");
+      expect(session.debate.some((entry) => entry.kind === "critiques" && entry.seat === "devil")).toBe(true);
+      expect(session.verdict?.topics.length).toBeGreaterThan(0);
+    });
 
-    await app.request(`/api/sessions/${session.id}/share`, json({ public: true }));
-    const gallery = (await (await app.request("/api/gallery")).json()) as { sessions: { token: string }[] };
-    expect(gallery.sessions.map((item) => item.token)).toEqual([share.token]);
+    it("shares a session read-only, without attached documents or costs, and lists public ones in the gallery", async () => {
+      const app = await makeApp();
+      const session = await completeDemo(app, {}, { context: [{ id: "1", kind: "text", name: "brief.txt", text: "Confidential" }] });
+      const shared = await app.request(`/api/sessions/${session.id}/share`, json({ public: false }));
+      const { share } = (await shared.json()) as { share: { token: string; public: boolean } };
+      const view = (await (await app.request(`/api/shared/${share.token}`)).json()) as { session: Session };
+      expect(view.session.verdict).toBeTruthy();
+      expect(JSON.stringify(view.session)).not.toContain("Confidential");
+      expect(view.session.usage).toEqual([]);
+      expect(((await (await app.request("/api/gallery")).json()) as { sessions: unknown[] }).sessions).toHaveLength(0);
 
-    expect((await app.request(`/api/sessions/${session.id}/share`, { method: "DELETE" })).status).toBe(204);
-    expect((await app.request(`/api/shared/${share.token}`)).status).toBe(404);
+      await app.request(`/api/sessions/${session.id}/share`, json({ public: true }));
+      const gallery = (await (await app.request("/api/gallery")).json()) as { sessions: { token: string }[] };
+      expect(gallery.sessions.map((item) => item.token)).toEqual([share.token]);
+
+      expect((await app.request(`/api/sessions/${session.id}/share`, { method: "DELETE" })).status).toBe(204);
+      expect((await app.request(`/api/shared/${share.token}`)).status).toBe(404);
+    });
+
+    it("records feedback on the report", async () => {
+      const app = await makeApp();
+      const session = await completeDemo(app);
+      const response = await app.request(`/api/sessions/${session.id}/feedback`, json({ helpful: true, comment: "Clear." }));
+      expect(response.status).toBe(201);
+      await app.request(`/api/sessions/${session.id}/feedback`, json({ kind: "error", comment: "The SMS price is wrong." }));
+      const { feedback } = (await (await app.request(`/api/sessions/${session.id}`)).json()) as { feedback: { kind: string }[] };
+      expect(feedback.map((item) => item.kind)).toEqual(["rating", "error"]);
+    });
+
+    it("rewrites the verdict for an executive and keeps it", async () => {
+      const app = await makeApp();
+      const session = await completeDemo(app);
+      const response = await app.request(`/api/sessions/${session.id}/brief`, json({ audience: "executive" }));
+      const { brief } = (await response.json()) as { brief: { headline: string } };
+      expect(brief.headline).toBeTruthy();
+      const { session: stored } = (await (await app.request(`/api/sessions/${session.id}`)).json()) as { session: Session };
+      expect(stored.briefs.executive?.headline).toBe(brief.headline);
+    });
+
+    it("starts a new session from an earlier one, at the requirements review", async () => {
+      const app = await makeApp();
+      const source = await completeDemo(app);
+      const response = await app.request(`/api/sessions/${source.id}/fork`, json({}));
+      expect(response.status).toBe(201);
+      const { session } = (await response.json()) as { session: Session };
+      expect(session.phase).toBe("review");
+      expect(session.parentId).toBe(source.id);
+      expect(session.sheet).toEqual(source.sheet);
+      expect(session.debate).toEqual([]);
+    });
+
+    it("exports every session, then deletes one for good", async () => {
+      const app = await makeApp();
+      const session = await completeDemo(app);
+      const exported = (await (await app.request("/api/export")).json()) as { sessions: { id: string }[] };
+      expect(exported.sessions.map((item) => item.id)).toEqual([session.id]);
+      expect((await app.request(`/api/sessions/${session.id}`, { method: "DELETE" })).status).toBe(204);
+      expect((await app.request(`/api/sessions/${session.id}`)).status).toBe(404);
+      expect(((await (await app.request("/api/sessions")).json()) as { sessions: unknown[] }).sessions).toEqual([]);
+    });
+
+    it("accepts a lineup built from the catalog and refuses unknown models", async () => {
+      const app = await makeApp({ ANTHROPIC_API_KEY: "key", OPENAI_API_KEY: "key", OPENAI_MODEL: "gpt-test" });
+      const config = (await (await app.request("/api/config")).json()) as { catalog: { provider: string; model: string }[] };
+      expect(config.catalog.map((option) => option.provider)).toContain("openai");
+      const claude = { provider: "anthropic", model: "claude-sonnet-5-5" };
+      const lineup = {
+        interviewer: claude,
+        arbiter: claude,
+        seats: { A: { ...claude, persona: "security" }, B: { provider: "openai", model: "gpt-test", persona: null }, C: claude },
+        devil: { ...claude, persona: null },
+      };
+      const estimate = await app.request("/api/estimate", json({ lineup, rounds: 2, mode: "standard" }));
+      expect(((await estimate.json()) as { estimateUsd: unknown }).estimateUsd).toBeNull(); // gpt-test has no price
+
+      const bad = await app.request(
+        "/api/sessions",
+        json({ locale: "en", idea: "A CRM", lineup: { ...lineup, arbiter: { provider: "anthropic", model: "unknown" } } }),
+      );
+      expect(bad.status).toBe(400);
+      expect(((await bad.json()) as { error: string }).error).toBe("invalid_lineup");
+
+      const gap = await app.request(
+        "/api/sessions",
+        json({ locale: "en", idea: "A CRM", lineup: { ...lineup, seats: { A: claude, C: claude } } }),
+      );
+      expect(gap.status).toBe(400);
+    });
+
+    it("requires the solution to challenge", async () => {
+      const app = await makeApp({ ANTHROPIC_API_KEY: "key" });
+      const response = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", mode: "challenge" }));
+      expect(response.status).toBe(400);
+    });
   });
 
-  it("records feedback on the report", async () => {
-    const app = makeApp();
-    const session = await completeDemo(app);
-    const response = await app.request(`/api/sessions/${session.id}/feedback`, json({ helpful: true, comment: "Clear." }));
-    expect(response.status).toBe(201);
-    await app.request(`/api/sessions/${session.id}/feedback`, json({ kind: "error", comment: "The SMS price is wrong." }));
-    const { feedback } = (await (await app.request(`/api/sessions/${session.id}`)).json()) as { feedback: { kind: string }[] };
-    expect(feedback.map((item) => item.kind)).toEqual(["rating", "error"]);
-  });
-
-  it("rewrites the verdict for an executive and keeps it", async () => {
-    const app = makeApp();
-    const session = await completeDemo(app);
-    const response = await app.request(`/api/sessions/${session.id}/brief`, json({ audience: "executive" }));
-    const { brief } = (await response.json()) as { brief: { headline: string } };
-    expect(brief.headline).toBeTruthy();
-    const { session: stored } = (await (await app.request(`/api/sessions/${session.id}`)).json()) as { session: Session };
-    expect(stored.briefs.executive?.headline).toBe(brief.headline);
-  });
-
-  it("starts a new session from an earlier one, at the requirements review", async () => {
-    const app = makeApp();
-    const source = await completeDemo(app);
-    const response = await app.request(`/api/sessions/${source.id}/fork`, json({}));
-    expect(response.status).toBe(201);
-    const { session } = (await response.json()) as { session: Session };
-    expect(session.phase).toBe("review");
-    expect(session.parentId).toBe(source.id);
-    expect(session.sheet).toEqual(source.sheet);
-    expect(session.debate).toEqual([]);
-  });
-
-  it("exports every session, then deletes one for good", async () => {
-    const app = makeApp();
-    const session = await completeDemo(app);
-    const exported = (await (await app.request("/api/export")).json()) as { sessions: { id: string }[] };
-    expect(exported.sessions.map((item) => item.id)).toEqual([session.id]);
-    expect((await app.request(`/api/sessions/${session.id}`, { method: "DELETE" })).status).toBe(204);
-    expect((await app.request(`/api/sessions/${session.id}`)).status).toBe(404);
-    expect(((await (await app.request("/api/sessions")).json()) as { sessions: unknown[] }).sessions).toEqual([]);
-  });
-
-  it("accepts a lineup built from the catalog and refuses unknown models", async () => {
-    const app = makeApp({ ANTHROPIC_API_KEY: "key", OPENAI_API_KEY: "key", OPENAI_MODEL: "gpt-test" });
-    const config = (await (await app.request("/api/config")).json()) as { catalog: { provider: string; model: string }[] };
-    expect(config.catalog.map((option) => option.provider)).toContain("openai");
-    const claude = { provider: "anthropic", model: "claude-sonnet-5-5" };
-    const lineup = {
-      interviewer: claude,
-      arbiter: claude,
-      seats: { A: { ...claude, persona: "security" }, B: { provider: "openai", model: "gpt-test", persona: null }, C: claude },
-      devil: { ...claude, persona: null },
+  describe("hosted hooks", () => {
+    const as = (user: string) => ({ "x-user": user });
+    const identify: AppHooks["identify"] = async (request) => {
+      const user = request.headers.get("x-user");
+      return user ? { userId: user } : null;
     };
-    const estimate = await app.request("/api/estimate", json({ lineup, rounds: 2, mode: "standard" }));
-    expect(((await estimate.json()) as { estimateUsd: unknown }).estimateUsd).toBeNull(); // gpt-test has no price
 
-    const bad = await app.request(
-      "/api/sessions",
-      json({ locale: "en", idea: "A CRM", lineup: { ...lineup, arbiter: { provider: "anthropic", model: "unknown" } } }),
-    );
-    expect(bad.status).toBe(400);
-    expect(((await bad.json()) as { error: string }).error).toBe("invalid_lineup");
+    it("scopes sessions to their owner and requires a user", async () => {
+      const app = await makeApp({}, { identify });
+      expect((await app.request("/api/sessions")).status).toBe(401);
+      expect((await app.request("/api/config")).status).toBe(200);
+      const created = await app.request("/api/sessions", json({ locale: "en", demo: true }, "POST", as("ada")));
+      const { session } = (await created.json()) as { session: Session };
+      expect((await app.request(`/api/sessions/${session.id}`, { headers: as("ada") })).status).toBe(200);
+      expect((await app.request(`/api/sessions/${session.id}`, { headers: as("bob") })).status).toBe(404);
+      const list = (await (await app.request("/api/sessions", { headers: as("bob") })).json()) as { sessions: unknown[] };
+      expect(list.sessions).toEqual([]);
+    });
 
-    const gap = await app.request(
-      "/api/sessions",
-      json({ locale: "en", idea: "A CRM", lineup: { ...lineup, seats: { A: claude, C: claude } } }),
-    );
-    expect(gap.status).toBe(400);
-  });
-
-  it("requires the solution to challenge", async () => {
-    const app = makeApp({ ANTHROPIC_API_KEY: "key" });
-    const response = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", mode: "challenge" }));
-    expect(response.status).toBe(400);
-  });
-});
-
-describe("hosted hooks", () => {
-  const as = (user: string) => ({ "x-user": user });
-  const identify: AppHooks["identify"] = async (request) => {
-    const user = request.headers.get("x-user");
-    return user ? { userId: user } : null;
-  };
-
-  it("scopes sessions to their owner and requires a user", async () => {
-    const app = makeApp({}, { identify });
-    expect((await app.request("/api/sessions")).status).toBe(401);
-    expect((await app.request("/api/config")).status).toBe(200);
-    const created = await app.request("/api/sessions", json({ locale: "en", demo: true }, "POST", as("ada")));
-    const { session } = (await created.json()) as { session: Session };
-    expect((await app.request(`/api/sessions/${session.id}`, { headers: as("ada") })).status).toBe(200);
-    expect((await app.request(`/api/sessions/${session.id}`, { headers: as("bob") })).status).toBe(404);
-    const list = (await (await app.request("/api/sessions", { headers: as("bob") })).json()) as { sessions: unknown[] };
-    expect(list.sessions).toEqual([]);
-  });
-
-  it("asks before spending, reports every call and caps the budget", async () => {
-    const records: UsageRecord[] = [];
-    let allow = true;
-    const app = makeApp(
-      { ANTHROPIC_API_KEY: "key" },
-      {
-        identify,
-        maxBudgetUsd: 5,
-        authorizeSpend: async () => (allow ? { ok: true } : { ok: false, code: "insufficient_credits", reason: "Buy credits." }),
-        onUsage: (_user, _session, record) => {
-          records.push(record);
+    it("asks before spending, reports every call and caps the budget", async () => {
+      const records: UsageRecord[] = [];
+      let allow = true;
+      const app = await makeApp(
+        { ANTHROPIC_API_KEY: "key" },
+        {
+          identify,
+          maxBudgetUsd: 5,
+          authorizeSpend: async () => (allow ? { ok: true } : { ok: false, code: "insufficient_credits", reason: "Buy credits." }),
+          onUsage: (_user, _session, record) => {
+            records.push(record);
+          },
+          // The hosted catalog offers the demo model so this test spends nothing.
+          catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
         },
-        // The hosted catalog offers the demo model so this test spends nothing.
-        catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
-      },
-    );
-    const created = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", budgetUsd: 50 }, "POST", as("ada")));
-    expect(created.status).toBe(201);
-    const { session } = (await created.json()) as { session: Session };
-    expect(session.budgetUsd).toBe(5);
-    await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
-    expect(records.map((record) => record.task)).toEqual(["interview"]);
+      );
+      const created = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", budgetUsd: 50 }, "POST", as("ada")));
+      expect(created.status).toBe(201);
+      const { session } = (await created.json()) as { session: Session };
+      expect(session.budgetUsd).toBe(5);
+      await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
+      expect(records.map((record) => record.task)).toEqual(["interview"]);
 
-    allow = false;
-    const refused = await app.request(`/api/sessions/${session.id}/interview`, json({ answers: [] }, "POST", as("ada")));
-    expect(refused.status).toBe(402);
-    expect(((await refused.json()) as { error: string }).error).toBe("insufficient_credits");
-  });
+      allow = false;
+      const refused = await app.request(`/api/sessions/${session.id}/interview`, json({ answers: [] }, "POST", as("ada")));
+      expect(refused.status).toBe(402);
+      expect(((await refused.json()) as { error: string }).error).toBe("insufficient_credits");
+    });
 
-  it("caps each session by its settings, quotes a price and hides the provider costs", async () => {
-    const quoted: { settings: unknown; sessionId: string | null }[] = [];
-    const app = makeApp(
-      {},
-      {
-        identify,
-        maxBudgetUsd: 5,
-        sessionBudgetUsd: ({ mode, depth }) => (mode === "express" ? 1 : depth === "deep" ? 5 : 2.5),
-        quote: async (_user, settings, sessionId) => {
-          quoted.push({ settings, sessionId });
-          return { amount: settings.depth === "deep" ? 15 : 7, currency: "EUR", label: `Debate (${settings.locale})` };
+    it("caps each session by its settings, quotes a price and hides the provider costs", async () => {
+      const quoted: { settings: unknown; sessionId: string | null }[] = [];
+      const app = await makeApp(
+        {},
+        {
+          identify,
+          maxBudgetUsd: 5,
+          sessionBudgetUsd: ({ mode, depth }) => (mode === "express" ? 1 : depth === "deep" ? 5 : 2.5),
+          quote: async (_user, settings, sessionId) => {
+            quoted.push({ settings, sessionId });
+            return { amount: settings.depth === "deep" ? 15 : 7, currency: "EUR", label: `Debate (${settings.locale})` };
+          },
+          hideProviderCosts: true,
+          catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
         },
-        hideProviderCosts: true,
-        catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
-      },
-    );
-    const config = (await (await app.request("/api/config", { headers: as("ada") })).json()) as {
-      providerCosts: boolean;
-      maxBudgetUsd: number | null;
-      live: { lineup: unknown; estimateUsd: unknown };
-    };
-    expect(config).toMatchObject({ providerCosts: false, maxBudgetUsd: null, live: { estimateUsd: null } });
+      );
+      const config = (await (await app.request("/api/config", { headers: as("ada") })).json()) as {
+        providerCosts: boolean;
+        maxBudgetUsd: number | null;
+        live: { lineup: unknown; estimateUsd: unknown };
+      };
+      expect(config).toMatchObject({ providerCosts: false, maxBudgetUsd: null, live: { estimateUsd: null } });
 
-    const estimate = await app.request(
-      "/api/estimate",
-      json({ lineup: config.live.lineup, rounds: 1, mode: "standard", depth: "deep", locale: "fr" }, "POST", as("ada")),
-    );
-    expect(await estimate.json()).toEqual({ estimateUsd: null, price: { amount: 15, currency: "EUR", label: "Debate (fr)" } });
-    expect(quoted[0]).toEqual({ settings: { mode: "standard", depth: "deep", locale: "fr" }, sessionId: null });
+      const estimate = await app.request(
+        "/api/estimate",
+        json({ lineup: config.live.lineup, rounds: 1, mode: "standard", depth: "deep", locale: "fr" }, "POST", as("ada")),
+      );
+      expect(await estimate.json()).toEqual({ estimateUsd: null, price: { amount: 15, currency: "EUR", label: "Debate (fr)" } });
+      expect(quoted[0]).toEqual({ settings: { mode: "standard", depth: "deep", locale: "fr" }, sessionId: null });
 
-    const express = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", mode: "express" }, "POST", as("ada")));
-    const created = (await express.json()) as { session: Session };
-    // The cap is kept on the server, never sent.
-    expect(created.session.budgetUsd).toBeNull();
-    expect(store.get(created.session.id, "ada")?.budgetUsd).toBe(1);
-    const own = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", budgetUsd: 0.5 }, "POST", as("ada")));
-    expect(store.get(((await own.json()) as { session: Session }).session.id, "ada")?.budgetUsd).toBe(0.5);
+      const express = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", mode: "express" }, "POST", as("ada")));
+      const created = (await express.json()) as { session: Session };
+      // The cap is kept on the server, never sent.
+      expect(created.session.budgetUsd).toBeNull();
+      expect((await store.get(created.session.id, "ada"))?.budgetUsd).toBe(1);
+      const own = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", budgetUsd: 0.5 }, "POST", as("ada")));
+      expect((await store.get(((await own.json()) as { session: Session }).session.id, "ada"))?.budgetUsd).toBe(0.5);
 
-    await waitFor(app, created.session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
-    const detail = (await (await app.request(`/api/sessions/${created.session.id}`, { headers: as("ada") })).json()) as {
-      session: Session;
-      price: unknown;
-      providerCosts: boolean;
-    };
-    expect(detail.providerCosts).toBe(false);
-    expect(detail.price).toEqual({ amount: 7, currency: "EUR", label: "Debate (en)" });
-    expect(quoted.at(-1)?.sessionId).toBe(created.session.id);
-    expect(detail.session.usage.length).toBeGreaterThan(0);
-    expect(detail.session.usage.every((record) => record.costUsd === null)).toBe(true);
+      await waitFor(app, created.session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
+      const detail = (await (await app.request(`/api/sessions/${created.session.id}`, { headers: as("ada") })).json()) as {
+        session: Session;
+        price: unknown;
+        providerCosts: boolean;
+      };
+      expect(detail.providerCosts).toBe(false);
+      expect(detail.price).toEqual({ amount: 7, currency: "EUR", label: "Debate (en)" });
+      expect(quoted.at(-1)?.sessionId).toBe(created.session.id);
+      expect(detail.session.usage.length).toBeGreaterThan(0);
+      expect(detail.session.usage.every((record) => record.costUsd === null)).toBe(true);
+    });
+
+    it("keeps the provider costs and the user's cap without the pricing hooks", async () => {
+      const app = await makeApp({}, { identify, catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }] });
+      const created = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", budgetUsd: 3 }, "POST", as("ada")));
+      const { session } = (await created.json()) as { session: Session };
+      expect(session.budgetUsd).toBe(3);
+      await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
+      const detail = (await (await app.request(`/api/sessions/${session.id}`, { headers: as("ada") })).json()) as {
+        session: Session;
+        price: unknown;
+        providerCosts: boolean;
+      };
+      expect(detail).toMatchObject({ price: null, providerCosts: true });
+      expect(detail.session.usage[0]?.costUsd).toBe(0);
+    });
   });
 
-  it("keeps the provider costs and the user's cap without the pricing hooks", async () => {
-    const app = makeApp({}, { identify, catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }] });
-    const created = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", budgetUsd: 3 }, "POST", as("ada")));
-    const { session } = (await created.json()) as { session: Session };
-    expect(session.budgetUsd).toBe(3);
-    await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
-    const detail = (await (await app.request(`/api/sessions/${session.id}`, { headers: as("ada") })).json()) as {
-      session: Session;
-      price: unknown;
-      providerCosts: boolean;
-    };
-    expect(detail).toMatchObject({ price: null, providerCosts: true });
-    expect(detail.session.usage[0]?.costUsd).toBe(0);
-  });
-});
-
-describe("retention", () => {
-  it("purges sessions untouched for longer than the retention period", async () => {
-    const app = makeApp();
-    const created = await app.request("/api/sessions", json({ locale: "en", demo: true }));
-    const { session } = (await created.json()) as { session: Session };
-    await waitFor(app, session.id, (_s, busy) => !busy);
-    expect(store.purgeOlderThan(30, Date.now() + 31 * 86_400_000)).toBe(1);
-    expect(store.get(session.id)).toBeNull();
+  describe("retention", () => {
+    it("purges sessions untouched for longer than the retention period", async () => {
+      const app = await makeApp();
+      const created = await app.request("/api/sessions", json({ locale: "en", demo: true }));
+      const { session } = (await created.json()) as { session: Session };
+      await waitFor(app, session.id, (_s, busy) => !busy);
+      expect(await store.purgeOlderThan(30, Date.now() + 31 * 86_400_000)).toBe(1);
+      expect(await store.get(session.id)).toBeNull();
+    });
   });
 });
