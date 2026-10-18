@@ -271,7 +271,8 @@
     "proposal": "Proposal",
     "critique": "Critiques",
     "revision": "Revision",
-    "verdict": "Verdict"
+    "verdict": "Verdict",
+    "reassess": "Updated verdict"
   },
   "setup": {
     "modeLabel": "What do you need?",
@@ -528,7 +529,11 @@
     "needsVerdict": "Available once the arbiter has ruled",
     "newTab": "opens in a new tab",
     "briefPdf": "PDF for {{audience}}",
-    "briefPdfHint": "The verdict rewritten for this reader, ready to send"
+    "briefPdfHint": "The verdict rewritten for this reader, ready to send",
+    "proposalWord": "Client proposal (Word)",
+    "proposalWordHint": "Ready to edit and send under your brand",
+    "proposalPdf": "Client proposal (PDF)",
+    "proposalPdfHint": "The same proposal, to save as PDF"
   },
   "diagram": {
     "label": "Architecture diagram: {{title}}",
@@ -612,7 +617,13 @@
     "share_expired": "This link has expired. Ask the person who shared it for a new one.",
     "password_required": "This link asks for a password.",
     "wrong_password": "The password is not right.",
-    "too_many_attempts": "Too many wrong passwords. Wait a few minutes, then try again."
+    "too_many_attempts": "Too many wrong passwords. Wait a few minutes, then try again.",
+    "questionnaire_expired": "This questionnaire link has expired. Ask the person who sent it for a new one.",
+    "already_submitted": "These answers have already been sent.",
+    "rate_limited": "Too many requests. Try again in a few minutes.",
+    "not_submitted": "The client has not answered yet.",
+    "no_answers": "None of the questions has an answer yet.",
+    "no_questions": "Add at least one question."
   },
   "costing": {
     "title": "Costing by work package",
@@ -689,5 +700,104 @@
     "currencyInvalid": "Enter the currency as an ISO code, such as EUR.",
     "rateInvalid": "Give every role a day rate above zero.",
     "managed": "Your workspace's profile is managed by its owners and admins, in the workspace settings of your account."
+  },
+  "revision": {
+    "label": "Revision {{number}} · {{date}}",
+    "reason": {
+      "debate": "Verdict of the debate",
+      "client_answers": "Updated with the client's answers",
+      "edit": "Updated with new facts",
+      "scenario": "Scenario"
+    },
+    "show": "Revision shown",
+    "latest": "current",
+    "viewingOld": "You are reading revision {{number}}. The current verdict is revision {{latest}}.",
+    "backToLatest": "Back to the current verdict",
+    "working": "Updating the recommendation with the new facts…",
+    "failed": "The update stopped and the verdict is unchanged. {{reason}}",
+    "retry": "Try again",
+    "update": "Update the recommendation",
+    "whatChanged": "What changed since revision {{number}}",
+    "noChange": "The new facts changed neither the recommendation, the scores, the risks nor the costs.",
+    "fromTo": "{{from}} → {{to}}",
+    "noRecommendation": "no option",
+    "recommendation": "Recommendation",
+    "feasibility": "Verdict per option",
+    "scores": "Scores",
+    "weighted": "{{option}}, weighted score",
+    "risksAdded": "New risks",
+    "risksRemoved": "Risks no longer listed",
+    "risksChanged": "Risks reassessed",
+    "costs": "Cost estimates",
+    "monthly": "{{option}}, monthly cost",
+    "answered": "Questions answered",
+    "added": "New open questions",
+    "facts": "New facts taken into account",
+    "editTitle": "Add new facts",
+    "editLabel": "What changed?",
+    "editHint": "A correction, or something you learnt since the debate. Only the arbiter rules again, not the whole debate."
+  },
+  "client": {
+    "title": "Your client",
+    "lead": "Send the open questions to your client, then update the recommendation with their answers. Your client needs no account.",
+    "create": "Prepare a questionnaire",
+    "createAnother": "Prepare another questionnaire",
+    "questionLabel": "Question {{number}}",
+    "whyLabel": "Why you ask (optional, shown to your client)",
+    "addQuestion": "Add a question",
+    "removeQuestion": "Remove question {{number}}",
+    "clientLabel": "Client name (optional)",
+    "messageLabel": "Message to your client (optional)",
+    "messageHint": "Shown above the questions. Without it, a short standard introduction is shown.",
+    "expiryLabel": "Link valid for",
+    "expiry": {
+      "7d": "7 days",
+      "30d": "30 days"
+    },
+    "passwordLabel": "Password (optional)",
+    "save": "Create the link",
+    "saveChanges": "Save the changes",
+    "link": "Link for your client",
+    "copy": "Copy",
+    "copied": "Copied",
+    "word": "Word version",
+    "wordHint": "for clients who prefer to answer by e-mail",
+    "status": {
+      "open": "Waiting for answers",
+      "submitted": "Answered on {{date}}"
+    },
+    "until": "Link valid until {{date}}",
+    "byAgency": "Answers recorded by you",
+    "answers": "Answers",
+    "questions": "Questions ({{number}})",
+    "noAnswer": "No answer",
+    "comment": "Comment: {{comment}}",
+    "applied": "Revision {{number}} was made from these answers.",
+    "edit": "Edit the questions",
+    "reopen": "Reopen for answers",
+    "delete": "Delete"
+  },
+  "questionnaire": {
+    "title": "Questions about {{project}}",
+    "untitled": "Questions about your project",
+    "from": "From {{agency}}",
+    "for": "For {{client}}",
+    "intro": "To finalise our recommendation, we need a few answers from you. Answer what you can: “we don't know yet” is a useful answer too.",
+    "until": "Please answer by {{date}}.",
+    "question": "Question {{number}}",
+    "why": "Why we ask: {{why}}",
+    "answerLabel": "Your answer",
+    "commentLabel": "Comment (optional)",
+    "progress": "{{answered}} of {{total}} questions answered",
+    "once": "Your answers are sent once: check them before sending.",
+    "submit": "Send my answers",
+    "sending": "Sending…",
+    "thanks": "Thank you: your answers were sent on {{date}}.",
+    "thanksLead": "You can close this page. If something changes, tell the person who sent you this link.",
+    "word": "Download the Word version",
+    "lockedTitle": "This questionnaire is protected",
+    "lockedLead": "Enter the password you were given with the link.",
+    "unlock": "Open",
+    "missing": "This questionnaire does not exist, or was withdrawn."
   }
 }

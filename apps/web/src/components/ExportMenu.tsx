@@ -2,7 +2,7 @@ import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DownloadIcon } from "./Icons.tsx";
 
-type ExportKey = "markdown" | "pdf" | "word" | "adr" | "handoff" | "jira" | "linear" | "github";
+type ExportKey = "markdown" | "pdf" | "word" | "adr" | "handoff" | "jira" | "linear" | "github" | "proposalWord" | "proposalPdf";
 type Audience = "cto" | "executive" | "client";
 
 interface ExportItem {
@@ -14,6 +14,8 @@ interface ExportItem {
   /** Opens in a new tab instead of downloading: the PDF goes through the browser's print dialog. */
   newTab?: boolean;
   needsVerdict?: boolean;
+  /** A document for the client: it names the client, when the agency did. */
+  forClient?: boolean;
 }
 
 const ITEMS: ExportItem[] = [
@@ -22,6 +24,8 @@ const ITEMS: ExportItem[] = [
   { key: "word", path: "report.docx" },
   { key: "adr", path: "adr.md", needsVerdict: true },
   { key: "handoff", path: "handoff.zip", needsVerdict: true },
+  { key: "proposalWord", path: "proposal.docx", needsVerdict: true, forClient: true },
+  { key: "proposalPdf", path: "proposal.html?print=1", newTab: true, needsVerdict: true, forClient: true },
   // The roadmap for issue trackers.
   { key: "jira", path: "jira.csv", needsVerdict: true },
   { key: "linear", path: "linear.csv", needsVerdict: true },
@@ -53,7 +57,21 @@ const NewTabIcon = () => (
  * The "Export" disclosure of a session: a menu button following the WAI-ARIA pattern (arrow keys,
  * Home and End move between items, Escape closes and returns focus to the button, Tab leaves).
  */
-export function ExportMenu({ sessionId, hasVerdict, briefs = [] }: { sessionId: string; hasVerdict: boolean; briefs?: Audience[] }) {
+export function ExportMenu({
+  sessionId,
+  hasVerdict,
+  briefs = [],
+  revision = null,
+  client = null,
+}: {
+  sessionId: string;
+  hasVerdict: boolean;
+  briefs?: Audience[];
+  /** An earlier revision of the verdict on screen: every document is that revision's. */
+  revision?: number | null;
+  /** Who the client proposal is prepared for. */
+  client?: string | null;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [initial, setInitial] = useState<"first" | "last">("first");
@@ -73,6 +91,14 @@ export function ExportMenu({ sessionId, hasVerdict, briefs = [] }: { sessionId: 
       hint: t("export.briefPdfHint"),
     })),
   ];
+
+  const hrefOf = (item: ExportItem) => {
+    const query = new URLSearchParams();
+    if (revision !== null) query.set("revision", String(revision));
+    if (item.forClient && client) query.set("client", client);
+    const extra = query.toString();
+    return extra ? `${base}/${item.path}${item.path.includes("?") ? "&" : "?"}${extra}` : `${base}/${item.path}`;
+  };
 
   const items = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
   const focusAt = (index: number) => {
@@ -177,7 +203,7 @@ export function ExportMenu({ sessionId, hasVerdict, briefs = [] }: { sessionId: 
                 tabIndex={-1}
                 className="export-item"
                 aria-describedby={hintId}
-                href={`${base}/${item.path}`}
+                href={hrefOf(item)}
                 {...(item.newTab ? { target: "_blank", rel: "noopener" } : { download: "" })}
                 onClick={() => close(true)}
               >

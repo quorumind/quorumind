@@ -394,7 +394,8 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
   });
 
   for (const speech of Object.values(live)) {
-    if (speech.task === "interview" || speech.task === "brief") continue;
+    // A revision of the verdict is followed on the verdict tab, not in the transcript of the debate.
+    if (speech.task === "interview" || speech.task === "brief" || speech.task === "reassess" || session.revising) continue;
     const round =
       session.debate.filter((entry) => entry.kind === (speech.task === "critique" ? "critiques" : "revision") && entry.seat === speech.seat)
         .length + 1;

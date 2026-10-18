@@ -65,12 +65,14 @@ export function SessionView({ id }: { id: string }) {
     share: Share | null;
     feedback: Feedback[];
     price: PriceQuote | null;
+    revisionPrice: PriceQuote | null;
     providerCosts: boolean;
     access: SessionAccess | null;
   }>({
     share: null,
     feedback: [],
     price: null,
+    revisionPrice: null,
     // Known once the session is loaded: a hosted session never shows a provider cost, even briefly.
     providerCosts: false,
     access: null,
@@ -86,6 +88,7 @@ export function SessionView({ id }: { id: string }) {
           share: body.share,
           feedback: body.feedback,
           price: body.price,
+          revisionPrice: body.revisionPrice ?? null,
           providerCosts: body.providerCosts,
           access: body.access ?? FULL_ACCESS,
         }),
@@ -105,6 +108,7 @@ export function SessionView({ id }: { id: string }) {
         onAccess={(access) => setExtras((current) => ({ ...current, access }))}
         feedback={extras.feedback}
         price={extras.price}
+        revisionPrice={extras.revisionPrice}
         providerCosts={extras.providerCosts}
       />
     </AccessContext.Provider>
@@ -243,6 +247,7 @@ function SessionBody({
   feedback = [],
   reportUrl,
   price = null,
+  revisionPrice = null,
   providerCosts = true,
 }: {
   session: Session | null;
@@ -258,6 +263,8 @@ function SessionBody({
   reportUrl?: string;
   /** The price the host sells this debate at, shown instead of its provider cost. */
   price?: PriceQuote | null;
+  /** The price of the next revision of the verdict, on the button that makes it. */
+  revisionPrice?: PriceQuote | null;
   /** False when provider costs are not shown (the host sets a price of its own). */
   providerCosts?: boolean;
 }) {
@@ -440,7 +447,14 @@ function SessionBody({
 
       <div id="tab-panel" {...(tabs.length > 1 ? { role: "tabpanel", "aria-labelledby": `tab-${active}` } : {})}>
         {active === "verdict" && session.verdict ? (
-          <Verdict session={session} readOnly={readOnly} feedback={feedback} {...(reportUrl ? { reportUrl } : {})} />
+          <Verdict
+            session={session}
+            readOnly={readOnly}
+            feedback={feedback}
+            revisionPrice={revisionPrice}
+            providerCosts={providerCosts}
+            {...(reportUrl ? { reportUrl } : {})}
+          />
         ) : null}
         {active === "debate" ? <Debate session={session} live={live} /> : null}
         {active === "requirements" && session.sheet ? (

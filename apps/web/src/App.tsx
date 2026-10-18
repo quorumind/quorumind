@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useTranslation } from "react-i18next";
 import { authorName } from "./access.tsx";
 import { api, type SessionSummary } from "./api.ts";
+import { ClientQuestionnaire } from "./ClientQuestionnaire.tsx";
 import { CrossIcon, GalleryIcon, LockIcon, MenuIcon, MonitorIcon, MoonIcon, PlusIcon, SettingsIcon, SunIcon } from "./components/Icons.tsx";
 import { Mark } from "./components/Logo.tsx";
 import { Gallery } from "./Gallery.tsx";
@@ -194,8 +195,14 @@ function Sidebar({ current }: { current: string | null }) {
 }
 
 export function App() {
-  const { t } = useTranslation();
   const route = useRoute();
+  // A questionnaire link is the client's page alone: none of the app around it.
+  if (route.startsWith("q/")) return <ClientQuestionnaire key={route} token={route.slice(2)} />;
+  return <Shell route={route} />;
+}
+
+function Shell({ route }: { route: string }) {
+  const { t } = useTranslation();
   const sessionsState = useSessionList();
   const [menuOpen, setMenuOpen] = useState(false);
   const sessionId = route.startsWith("s/") ? route.slice(2) : null;

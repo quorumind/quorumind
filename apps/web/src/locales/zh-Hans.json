@@ -271,7 +271,8 @@
     "proposal": "提案",
     "critique": "批评",
     "revision": "修订",
-    "verdict": "结论"
+    "verdict": "结论",
+    "reassess": "更新后的裁决"
   },
   "setup": {
     "modeLabel": "您需要什么？",
@@ -528,7 +529,11 @@
     "needsVerdict": "仲裁者作出裁决后可用",
     "newTab": "在新标签页中打开",
     "briefPdf": "面向{{audience}}的 PDF",
-    "briefPdfHint": "为该读者重写的结论，可直接发送"
+    "briefPdfHint": "为该读者重写的结论，可直接发送",
+    "proposalWord": "客户方案（Word）",
+    "proposalWordHint": "可直接编辑并以您的品牌发送",
+    "proposalPdf": "客户方案（PDF）",
+    "proposalPdfHint": "同一份方案，另存为 PDF"
   },
   "diagram": {
     "label": "架构图：{{title}}",
@@ -612,7 +617,13 @@
     "share_expired": "此链接已过期。请向分享者索取新链接。",
     "password_required": "此链接需要密码。",
     "wrong_password": "密码不正确。",
-    "too_many_attempts": "错误密码次数过多。请等待几分钟后重试。"
+    "too_many_attempts": "错误密码次数过多。请等待几分钟后重试。",
+    "questionnaire_expired": "此问卷链接已过期。请向发送者索取新链接。",
+    "already_submitted": "这些回答已经发送。",
+    "rate_limited": "请求过多。请几分钟后再试。",
+    "not_submitted": "客户尚未回答。",
+    "no_answers": "还没有任何问题得到回答。",
+    "no_questions": "请至少添加一个问题。"
   },
   "costing": {
     "title": "按工作包测算成本",
@@ -689,5 +700,104 @@
     "currencyInvalid": "请用 ISO 代码填写货币，例如 CNY。",
     "rateInvalid": "请为每个角色设置大于零的日费率。",
     "managed": "工作区的资料由其所有者和管理员在您账户的工作区设置中管理。"
+  },
+  "revision": {
+    "label": "修订 {{number}} · {{date}}",
+    "reason": {
+      "debate": "辩论的裁决",
+      "client_answers": "根据客户的回答更新",
+      "edit": "根据新信息更新",
+      "scenario": "情景"
+    },
+    "show": "显示的修订",
+    "latest": "当前",
+    "viewingOld": "您正在查看修订 {{number}}。当前裁决为修订 {{latest}}。",
+    "backToLatest": "返回当前裁决",
+    "working": "正在根据新信息更新推荐方案…",
+    "failed": "更新已停止，裁决未改变。{{reason}}",
+    "retry": "重试",
+    "update": "更新推荐方案",
+    "whatChanged": "自修订 {{number}} 以来的变化",
+    "noChange": "新信息没有改变推荐方案、评分、风险或成本。",
+    "fromTo": "{{from}} → {{to}}",
+    "noRecommendation": "无推荐",
+    "recommendation": "推荐方案",
+    "feasibility": "各方案的裁决",
+    "scores": "评分",
+    "weighted": "{{option}}，加权评分",
+    "risksAdded": "新增风险",
+    "risksRemoved": "已移除的风险",
+    "risksChanged": "重新评估的风险",
+    "costs": "成本估算",
+    "monthly": "{{option}}，每月成本",
+    "answered": "已解答的问题",
+    "added": "新的待解决问题",
+    "facts": "纳入考虑的新信息",
+    "editTitle": "添加新信息",
+    "editLabel": "有什么变化？",
+    "editHint": "一项更正，或辩论之后得知的情况。只有仲裁者重新裁决，不会重新进行整个辩论。"
+  },
+  "client": {
+    "title": "您的客户",
+    "lead": "将待解决的问题发给客户，再根据客户的回答更新推荐方案。客户无需账号。",
+    "create": "准备问卷",
+    "createAnother": "再准备一份问卷",
+    "questionLabel": "问题 {{number}}",
+    "whyLabel": "提问原因（可选，客户可见）",
+    "addQuestion": "添加问题",
+    "removeQuestion": "删除问题 {{number}}",
+    "clientLabel": "客户名称（可选）",
+    "messageLabel": "给客户的留言（可选）",
+    "messageHint": "显示在问题上方。未填写时显示一段简短的标准说明。",
+    "expiryLabel": "链接有效期",
+    "expiry": {
+      "7d": "7 天",
+      "30d": "30 天"
+    },
+    "passwordLabel": "密码（可选）",
+    "save": "创建链接",
+    "saveChanges": "保存修改",
+    "link": "发给客户的链接",
+    "copy": "复制",
+    "copied": "已复制",
+    "word": "Word 版本",
+    "wordHint": "适合希望通过邮件回答的客户",
+    "status": {
+      "open": "等待回答",
+      "submitted": "已于 {{date}} 回答"
+    },
+    "until": "链接有效期至 {{date}}",
+    "byAgency": "由您录入的回答",
+    "answers": "回答",
+    "questions": "问题（{{number}}）",
+    "noAnswer": "未回答",
+    "comment": "备注：{{comment}}",
+    "applied": "已根据这些回答生成修订 {{number}}。",
+    "edit": "编辑问题",
+    "reopen": "重新开放作答",
+    "delete": "删除"
+  },
+  "questionnaire": {
+    "title": "关于 {{project}} 的问题",
+    "untitled": "关于您项目的问题",
+    "from": "来自 {{agency}}",
+    "for": "致 {{client}}",
+    "intro": "为了完成我们的建议，我们需要您回答几个问题。请尽量回答：“我们还不知道”也是有用的回答。",
+    "until": "请在 {{date}} 之前回复。",
+    "question": "问题 {{number}}",
+    "why": "我们为什么问这个问题：{{why}}",
+    "answerLabel": "您的回答",
+    "commentLabel": "备注（可选）",
+    "progress": "已回答 {{answered}} / {{total}} 个问题",
+    "once": "回答只能发送一次：发送前请仔细检查。",
+    "submit": "发送我的回答",
+    "sending": "正在发送…",
+    "thanks": "谢谢：您的回答已于 {{date}} 发送。",
+    "thanksLead": "您可以关闭此页面。如有变化，请告知向您发送此链接的人。",
+    "word": "下载 Word 版本",
+    "lockedTitle": "此问卷受密码保护",
+    "lockedLead": "请输入随链接收到的密码。",
+    "unlock": "打开",
+    "missing": "此问卷不存在或已撤回。"
   }
 }

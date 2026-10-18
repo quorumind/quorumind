@@ -1,6 +1,7 @@
 import type {
   Answer,
   Audience,
+  Branding,
   Brief,
   ClientDeliverable,
   ContextDocument,
@@ -10,12 +11,16 @@ import type {
   Mode,
   ModelOption,
   OrgProfile,
+  PublicQuestionnaire,
+  Questionnaire,
+  QuestionnaireAnswer,
+  QuestionnaireQuestion,
   RequirementsSheet,
   Session,
 } from "@quorumind/core";
 import type { TemplateId } from "@quorumind/core/templates";
 
-export type { Answer, Lineup, Session };
+export type { Answer, Lineup, PublicQuestionnaire, Questionnaire, Session };
 
 type Estimate = { low: number; high: number } | null;
 
@@ -151,6 +156,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const post = (body: unknown = {}) => ({ method: "POST", body: JSON.stringify(body) });
+const patch = (body: unknown) => ({ method: "PATCH", body: JSON.stringify(body) });
+
+/** What creating or changing a questionnaire sets; a field left out keeps its value. password: null removes it. */
+export interface QuestionnaireSettings {
+  questions?: { id?: string; text: string; why: string | null; origin: QuestionnaireQuestion["origin"] }[];
+  client?: string | null;
+  message?: string | null;
+  password?: string | null;
+  expiresIn?: "7d" | "30d";
+}
+
+/** What a questionnaire link opens on: the questions, and the branding of the agency that sent them. */
+export interface QuestionnaireView {
+  questionnaire: PublicQuestionnaire;
+  branding: Branding;
+}
+
+const questionnaireHeaders = (access: string | null) => (access ? { "X-Questionnaire-Access": access } : undefined);
 
 export const api = {
   config: () => request<AppConfig>("/api/config"),
@@ -164,9 +187,38 @@ export const api = {
       share: Share | null;
       feedback: Feedback[];
       price: PriceQuote | null;
+      /** What the next revision of the verdict costs, when the host sells revisions. */
+      revisionPrice?: PriceQuote | null;
       providerCosts: boolean;
       access?: SessionAccess;
     }>(`/api/sessions/${id}`),
+  /** A revision of the verdict from facts the person states. */
+  revise: (id: string, input: { facts: { question: string | null; answer: string; comment: string | null }[]; note: string | null }) =>
+    request<{ accepted: true; revision: number }>(`/api/sessions/${id}/revisions`, post(input)),
+  questionnaires: (id: string) => request<{ questionnaires: Questionnaire[] }>(`/api/sessions/${id}/questionnaires`),
+  createQuestionnaire: (id: string, settings: QuestionnaireSettings) =>
+    request<{ questionnaire: Questionnaire }>(`/api/sessions/${id}/questionnaires`, post(settings)),
+  updateQuestionnaire: (id: string, qid: string, settings: QuestionnaireSettings) =>
+    request<{ questionnaire: Questionnaire }>(`/api/sessions/${id}/questionnaires/${qid}`, patch(settings)),
+  reopenQuestionnaire: (id: string, qid: string) =>
+    request<{ questionnaire: Questionnaire }>(`/api/sessions/${id}/questionnaires/${qid}/reopen`, post()),
+  deleteQuestionnaire: (id: string, qid: string) => request<void>(`/api/sessions/${id}/questionnaires/${qid}`, { method: "DELETE" }),
+  /** "Update the recommendation": a revision of the verdict from the client's answers. */
+  reviseFromAnswers: (id: string, qid: string) =>
+    request<{ accepted: true; revision: number }>(`/api/sessions/${id}/questionnaires/${qid}/revision`, post()),
+  questionnaireWordUrl: (id: string, qid: string) => `/api/sessions/${id}/questionnaires/${qid}/questionnaire.docx`,
+  /** The client's side of a questionnaire link; `access` is the token its password gives. */
+  questionnaire: (token: string, access: string | null) =>
+    request<QuestionnaireView>(`/api/questionnaire/${token}`, { headers: questionnaireHeaders(access) }),
+  questionnaireAccess: (token: string, password: string) =>
+    request<{ access: string | null; expiresAt: string | null }>(`/api/questionnaire/${token}/access`, post({ password })),
+  submitAnswers: (token: string, access: string | null, answers: QuestionnaireAnswer[]) =>
+    request<{ questionnaire: PublicQuestionnaire }>(`/api/questionnaire/${token}/answers`, {
+      ...post({ answers }),
+      headers: questionnaireHeaders(access),
+    }),
+  sharedQuestionnaireWordUrl: (token: string, access: string | null) =>
+    `/api/questionnaire/${token}/questionnaire.docx${access ? `?access=${encodeURIComponent(access)}` : ""}`,
   setPrivate: (id: string, isPrivate: boolean) =>
     request<{ access: SessionAccess }>(`/api/sessions/${id}/visibility`, { method: "PUT", body: JSON.stringify({ private: isPrivate }) }),
   create: (input: NewSessionInput) => request<{ session: Session }>("/api/sessions", post(input)),

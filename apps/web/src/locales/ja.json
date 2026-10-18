@@ -271,7 +271,8 @@
     "proposal": "提案",
     "critique": "批判",
     "revision": "修正",
-    "verdict": "判定"
+    "verdict": "判定",
+    "reassess": "更新された判定"
   },
   "setup": {
     "modeLabel": "何が必要ですか？",
@@ -528,7 +529,11 @@
     "needsVerdict": "審判の判定後に利用できます",
     "newTab": "新しいタブで開きます",
     "briefPdf": "{{audience}}向けPDF",
-    "briefPdfHint": "この読み手向けに書き直した判定。そのまま送れます"
+    "briefPdfHint": "この読み手向けに書き直した判定。そのまま送れます",
+    "proposalWord": "クライアント向け提案書（Word）",
+    "proposalWordHint": "自社ブランドで編集してそのまま送れます",
+    "proposalPdf": "クライアント向け提案書（PDF）",
+    "proposalPdfHint": "同じ提案書を PDF として保存"
   },
   "diagram": {
     "label": "アーキテクチャ図：{{title}}",
@@ -612,7 +617,13 @@
     "share_expired": "このリンクは期限切れです。共有した人に新しいリンクを依頼してください。",
     "password_required": "このリンクはパスワードを求めます。",
     "wrong_password": "パスワードが正しくありません。",
-    "too_many_attempts": "誤ったパスワードが多すぎます。数分待ってから再試行してください。"
+    "too_many_attempts": "誤ったパスワードが多すぎます。数分待ってから再試行してください。",
+    "questionnaire_expired": "この質問票のリンクは期限切れです。送信者に新しいリンクを依頼してください。",
+    "already_submitted": "この回答はすでに送信されています。",
+    "rate_limited": "リクエストが多すぎます。数分後にもう一度お試しください。",
+    "not_submitted": "クライアントはまだ回答していません。",
+    "no_answers": "まだどの質問にも回答がありません。",
+    "no_questions": "質問を 1 つ以上追加してください。"
   },
   "costing": {
     "title": "作業パッケージ別の費用",
@@ -689,5 +700,104 @@
     "currencyInvalid": "通貨を JPY などの ISO コードで入力してください。",
     "rateInvalid": "各役割に 0 より大きい日単価を設定してください。",
     "managed": "ワークスペースのプロフィールは、アカウントのワークスペース設定でオーナーと管理者が管理します。"
+  },
+  "revision": {
+    "label": "改訂 {{number}} · {{date}}",
+    "reason": {
+      "debate": "議論の判定",
+      "client_answers": "クライアントの回答で更新",
+      "edit": "新しい情報で更新",
+      "scenario": "シナリオ"
+    },
+    "show": "表示中の改訂",
+    "latest": "最新",
+    "viewingOld": "改訂 {{number}} を表示しています。現在の判定は改訂 {{latest}} です。",
+    "backToLatest": "現在の判定に戻る",
+    "working": "新しい情報で推奨案を更新しています…",
+    "failed": "更新が停止したため、判定は変わっていません。{{reason}}",
+    "retry": "もう一度試す",
+    "update": "推奨案を更新",
+    "whatChanged": "改訂 {{number}} からの変更点",
+    "noChange": "新しい情報によって、推奨案・評価・リスク・費用のいずれも変わりませんでした。",
+    "fromTo": "{{from}} → {{to}}",
+    "noRecommendation": "推奨なし",
+    "recommendation": "推奨案",
+    "feasibility": "選択肢ごとの判定",
+    "scores": "評価",
+    "weighted": "{{option}}、加重評価",
+    "risksAdded": "新たなリスク",
+    "risksRemoved": "除外されたリスク",
+    "risksChanged": "再評価されたリスク",
+    "costs": "費用の見積もり",
+    "monthly": "{{option}}、月額費用",
+    "answered": "回答済みの質問",
+    "added": "新たな未解決の質問",
+    "facts": "反映した新しい情報",
+    "editTitle": "新しい情報を追加",
+    "editLabel": "何が変わりましたか？",
+    "editHint": "訂正や、議論のあとに分かったこと。議論全体ではなく、審判だけが判定し直します。"
+  },
+  "client": {
+    "title": "クライアント",
+    "lead": "未解決の質問をクライアントに送り、回答をもとに推奨案を更新します。クライアントにアカウントは不要です。",
+    "create": "質問票を作成",
+    "createAnother": "別の質問票を作成",
+    "questionLabel": "質問 {{number}}",
+    "whyLabel": "質問の理由（任意、クライアントに表示されます）",
+    "addQuestion": "質問を追加",
+    "removeQuestion": "質問 {{number}} を削除",
+    "clientLabel": "クライアント名（任意）",
+    "messageLabel": "クライアントへのメッセージ（任意）",
+    "messageHint": "質問の上に表示されます。未入力の場合は短い定型の案内が表示されます。",
+    "expiryLabel": "リンクの有効期間",
+    "expiry": {
+      "7d": "7 日間",
+      "30d": "30 日間"
+    },
+    "passwordLabel": "パスワード（任意）",
+    "save": "リンクを作成",
+    "saveChanges": "変更を保存",
+    "link": "クライアント用リンク",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "word": "Word 版",
+    "wordHint": "メールで回答したいクライアント向け",
+    "status": {
+      "open": "回答待ち",
+      "submitted": "{{date}} に回答済み"
+    },
+    "until": "リンクの有効期限: {{date}}",
+    "byAgency": "あなたが入力した回答",
+    "answers": "回答",
+    "questions": "質問（{{number}}）",
+    "noAnswer": "回答なし",
+    "comment": "コメント: {{comment}}",
+    "applied": "この回答から改訂 {{number}} を作成しました。",
+    "edit": "質問を編集",
+    "reopen": "回答を再開",
+    "delete": "削除"
+  },
+  "questionnaire": {
+    "title": "{{project}} に関するご質問",
+    "untitled": "プロジェクトに関するご質問",
+    "from": "{{agency}} より",
+    "for": "{{client}} 様",
+    "intro": "推奨案をまとめるために、いくつかご回答をお願いします。分かる範囲でお答えください。「まだ分からない」も有用な回答です。",
+    "until": "{{date}} までにご回答ください。",
+    "question": "質問 {{number}}",
+    "why": "お尋ねする理由: {{why}}",
+    "answerLabel": "ご回答",
+    "commentLabel": "コメント（任意）",
+    "progress": "{{total}} 問中 {{answered}} 問に回答済み",
+    "once": "回答の送信は 1 回のみです。送信前にご確認ください。",
+    "submit": "回答を送信",
+    "sending": "送信中…",
+    "thanks": "ありがとうございます。回答は {{date}} に送信されました。",
+    "thanksLead": "このページは閉じてかまいません。変更がある場合は、このリンクを送った担当者にお知らせください。",
+    "word": "Word 版をダウンロード",
+    "lockedTitle": "この質問票は保護されています",
+    "lockedLead": "リンクと一緒に受け取ったパスワードを入力してください。",
+    "unlock": "開く",
+    "missing": "この質問票は存在しないか、取り下げられました。"
   }
 }

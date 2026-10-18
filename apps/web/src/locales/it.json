@@ -271,7 +271,8 @@
     "proposal": "Proposta",
     "critique": "Critiche",
     "revision": "Revisione",
-    "verdict": "Verdetto"
+    "verdict": "Verdetto",
+    "reassess": "Verdetto aggiornato"
   },
   "setup": {
     "modeLabel": "Di cosa hai bisogno?",
@@ -528,7 +529,11 @@
     "needsVerdict": "Disponibile quando l'arbitro ha deciso",
     "newTab": "si apre in una nuova scheda",
     "briefPdf": "PDF per {{audience}}",
-    "briefPdfHint": "Il verdetto riscritto per questo lettore, pronto da inviare"
+    "briefPdfHint": "Il verdetto riscritto per questo lettore, pronto da inviare",
+    "proposalWord": "Proposta per il cliente (Word)",
+    "proposalWordHint": "Pronta da modificare e inviare con il vostro marchio",
+    "proposalPdf": "Proposta per il cliente (PDF)",
+    "proposalPdfHint": "La stessa proposta, da salvare in PDF"
   },
   "diagram": {
     "label": "Diagramma dell'architettura: {{title}}",
@@ -612,7 +617,13 @@
     "share_expired": "Questo link è scaduto. Chiedine uno nuovo a chi lo ha condiviso.",
     "password_required": "Questo link chiede una password.",
     "wrong_password": "La password non è corretta.",
-    "too_many_attempts": "Troppe password errate. Attendi qualche minuto, poi riprova."
+    "too_many_attempts": "Troppe password errate. Attendi qualche minuto, poi riprova.",
+    "questionnaire_expired": "Questo link al questionario è scaduto. Chiedetene uno nuovo a chi ve l'ha inviato.",
+    "already_submitted": "Queste risposte sono già state inviate.",
+    "rate_limited": "Troppe richieste. Riprovate tra qualche minuto.",
+    "not_submitted": "Il cliente non ha ancora risposto.",
+    "no_answers": "Nessuna domanda ha ancora una risposta.",
+    "no_questions": "Aggiungete almeno una domanda."
   },
   "costing": {
     "title": "Stima per pacchetto di lavoro",
@@ -689,5 +700,104 @@
     "currencyInvalid": "Indichi la valuta con il codice ISO, come EUR.",
     "rateInvalid": "Dia a ogni ruolo una tariffa giornaliera superiore a zero.",
     "managed": "Il profilo del suo spazio di lavoro è gestito dai proprietari e dagli amministratori, nelle impostazioni dello spazio del suo account."
+  },
+  "revision": {
+    "label": "Revisione {{number}} · {{date}}",
+    "reason": {
+      "debate": "Verdetto del dibattito",
+      "client_answers": "Aggiornato con le risposte del cliente",
+      "edit": "Aggiornato con nuovi elementi",
+      "scenario": "Scenario"
+    },
+    "show": "Revisione mostrata",
+    "latest": "attuale",
+    "viewingOld": "State leggendo la revisione {{number}}. Il verdetto attuale è la revisione {{latest}}.",
+    "backToLatest": "Torna al verdetto attuale",
+    "working": "Aggiornamento della raccomandazione con i nuovi elementi…",
+    "failed": "L'aggiornamento si è fermato e il verdetto non è cambiato. {{reason}}",
+    "retry": "Riprova",
+    "update": "Aggiorna la raccomandazione",
+    "whatChanged": "Cosa è cambiato dalla revisione {{number}}",
+    "noChange": "I nuovi elementi non hanno cambiato né la raccomandazione, né i punteggi, né i rischi, né i costi.",
+    "fromTo": "{{from}} → {{to}}",
+    "noRecommendation": "nessuna opzione",
+    "recommendation": "Raccomandazione",
+    "feasibility": "Verdetto per opzione",
+    "scores": "Punteggi",
+    "weighted": "{{option}}, punteggio ponderato",
+    "risksAdded": "Nuovi rischi",
+    "risksRemoved": "Rischi non più elencati",
+    "risksChanged": "Rischi rivalutati",
+    "costs": "Stime dei costi",
+    "monthly": "{{option}}, costo mensile",
+    "answered": "Domande risolte",
+    "added": "Nuove domande aperte",
+    "facts": "Nuovi elementi considerati",
+    "editTitle": "Aggiungi nuovi elementi",
+    "editLabel": "Cosa è cambiato?",
+    "editHint": "Una correzione, o qualcosa che avete saputo dopo il dibattito. Solo l'arbitro si pronuncia di nuovo, non l'intero dibattito."
+  },
+  "client": {
+    "title": "Il vostro cliente",
+    "lead": "Inviate le domande aperte al vostro cliente, poi aggiornate la raccomandazione con le sue risposte. Il cliente non ha bisogno di un account.",
+    "create": "Prepara un questionario",
+    "createAnother": "Prepara un altro questionario",
+    "questionLabel": "Domanda {{number}}",
+    "whyLabel": "Perché la fate (facoltativo, visibile al cliente)",
+    "addQuestion": "Aggiungi una domanda",
+    "removeQuestion": "Rimuovi la domanda {{number}}",
+    "clientLabel": "Nome del cliente (facoltativo)",
+    "messageLabel": "Messaggio al cliente (facoltativo)",
+    "messageHint": "Mostrato sopra le domande. Senza messaggio, compare una breve introduzione standard.",
+    "expiryLabel": "Link valido per",
+    "expiry": {
+      "7d": "7 giorni",
+      "30d": "30 giorni"
+    },
+    "passwordLabel": "Password (facoltativa)",
+    "save": "Crea il link",
+    "saveChanges": "Salva le modifiche",
+    "link": "Link per il vostro cliente",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "word": "Versione Word",
+    "wordHint": "per i clienti che preferiscono rispondere via e-mail",
+    "status": {
+      "open": "In attesa di risposte",
+      "submitted": "Risposto il {{date}}"
+    },
+    "until": "Link valido fino al {{date}}",
+    "byAgency": "Risposte registrate da voi",
+    "answers": "Risposte",
+    "questions": "Domande ({{number}})",
+    "noAnswer": "Nessuna risposta",
+    "comment": "Commento: {{comment}}",
+    "applied": "La revisione {{number}} è stata fatta da queste risposte.",
+    "edit": "Modifica le domande",
+    "reopen": "Riapri alle risposte",
+    "delete": "Elimina"
+  },
+  "questionnaire": {
+    "title": "Domande su {{project}}",
+    "untitled": "Domande sul vostro progetto",
+    "from": "Da parte di {{agency}}",
+    "for": "Per {{client}}",
+    "intro": "Per finalizzare la nostra raccomandazione ci servono alcune vostre risposte. Rispondete a ciò che potete: «non lo sappiamo ancora» è anch'essa una risposta utile.",
+    "until": "Vi preghiamo di rispondere entro il {{date}}.",
+    "question": "Domanda {{number}}",
+    "why": "Perché lo chiediamo: {{why}}",
+    "answerLabel": "La vostra risposta",
+    "commentLabel": "Commento (facoltativo)",
+    "progress": "{{answered}} domande su {{total}} con risposta",
+    "once": "Le risposte si inviano una sola volta: rileggetele prima di inviarle.",
+    "submit": "Invia le mie risposte",
+    "sending": "Invio…",
+    "thanks": "Grazie: le vostre risposte sono state inviate il {{date}}.",
+    "thanksLead": "Potete chiudere questa pagina. Se qualcosa cambia, avvisate chi vi ha inviato questo link.",
+    "word": "Scarica la versione Word",
+    "lockedTitle": "Questo questionario è protetto",
+    "lockedLead": "Inserite la password ricevuta con il link.",
+    "unlock": "Apri",
+    "missing": "Questo questionario non esiste o è stato ritirato."
   }
 }

@@ -1,17 +1,19 @@
 import type { Audience, Feasibility, Session, TopicStatus } from "@quorumind/core";
 import { deliveryChecks, proposalCosting } from "@quorumind/core/costing";
 import { rankOptions } from "@quorumind/core/ranking";
-import { currentProposals } from "@quorumind/core/session";
+import { currentProposals, sessionAtRevision } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCanEdit } from "./access.tsx";
-import { api, type Feedback } from "./api.ts";
+import { api, type Feedback, type PriceQuote } from "./api.ts";
+import { ClientLoop } from "./ClientLoop.tsx";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ExportMenu } from "./components/ExportMenu.tsx";
 import { CheckIcon, CrossIcon, DownloadIcon, MapIcon, SparkIcon, WarningIcon } from "./components/Icons.tsx";
 import { CheckBadges, CostingTable, moneyRange, monthlyCurrency } from "./costing.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText } from "./errors.ts";
+import { RevisionBar, WhatChanged } from "./Revisions.tsx";
 import { useFlip } from "./useFlip.ts";
 
 export function FeasibilityChip({ value }: { value: Feasibility }) {
@@ -426,17 +428,29 @@ function FeedbackBox({ session, feedback }: { session: Session; feedback: Feedba
 }
 
 export function Verdict({
-  session,
+  session: live,
   readOnly = false,
   feedback = [],
   reportUrl,
+  revisionPrice = null,
+  providerCosts = true,
 }: {
   session: Session;
   readOnly?: boolean;
   feedback?: Feedback[];
   reportUrl?: string;
+  /** What the next revision of the verdict costs, when the host sells revisions. */
+  revisionPrice?: PriceQuote | null;
+  providerCosts?: boolean;
 }) {
   const { t } = useTranslation();
+  const canEdit = useCanEdit();
+  // The revision on screen: the latest unless the person picks an earlier one.
+  const [picked, setPicked] = useState<number | null>(null);
+  const [client, setClient] = useState<string | null>(null);
+  const latest = live.revisions.at(-1)?.number ?? 1;
+  const shown = picked ?? latest;
+  const session = sessionAtRevision(live, shown) ?? live;
   const verdict = session.verdict;
   if (!verdict) return null;
   const proposals = currentProposals(session);
@@ -449,6 +463,14 @@ export function Verdict({
 
   return (
     <div className="stack-lg" style={{ marginBlockEnd: "var(--space-12)" }}>
+      <RevisionBar
+        session={live}
+        shown={shown}
+        onShow={(number) => setPicked(number === latest ? null : number)}
+        canEdit={!readOnly && canEdit}
+        providerCosts={providerCosts}
+        price={revisionPrice}
+      />
       <section className="verdict-panel">
         <span className="label muted">{t("role.arbiter")}</span>
         <h2 className="display">{recommendedTitle}</h2>
@@ -475,10 +497,14 @@ export function Verdict({
               sessionId={session.id}
               hasVerdict
               briefs={(Object.keys(session.briefs ?? {}) as ("cto" | "executive" | "client")[]).sort()}
+              revision={shown === latest ? null : shown}
+              client={client}
             />
           )}
         </div>
       </section>
+
+      <WhatChanged session={live} number={shown} />
 
       <Briefs session={session} readOnly={readOnly} />
       <Matrix session={session} />
@@ -569,6 +595,7 @@ export function Verdict({
         ) : null}
       </div>
 
+      {readOnly || !canEdit || shown !== latest ? null : <ClientLoop session={live} price={revisionPrice} onClient={setClient} />}
       {readOnly ? null : <FeedbackBox session={session} feedback={feedback} />}
     </div>
   );

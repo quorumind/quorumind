@@ -271,7 +271,8 @@
     "proposal": "Proposition",
     "critique": "Critiques",
     "revision": "Révision",
-    "verdict": "Verdict"
+    "verdict": "Verdict",
+    "reassess": "Verdict mis à jour"
   },
   "setup": {
     "modeLabel": "De quoi avez-vous besoin ?",
@@ -528,7 +529,11 @@
     "needsVerdict": "Disponible une fois que l'arbitre a tranché",
     "newTab": "s'ouvre dans un nouvel onglet",
     "briefPdf": "PDF pour {{audience}}",
-    "briefPdfHint": "Le verdict réécrit pour ce lecteur, prêt à envoyer"
+    "briefPdfHint": "Le verdict réécrit pour ce lecteur, prêt à envoyer",
+    "proposalWord": "Proposition client (Word)",
+    "proposalWordHint": "Prête à modifier et à envoyer sous votre marque",
+    "proposalPdf": "Proposition client (PDF)",
+    "proposalPdfHint": "La même proposition, à enregistrer en PDF"
   },
   "diagram": {
     "label": "Schéma d'architecture : {{title}}",
@@ -612,7 +617,13 @@
     "share_expired": "Ce lien a expiré. Demandez-en un nouveau à la personne qui l'a partagé.",
     "password_required": "Ce lien demande un mot de passe.",
     "wrong_password": "Le mot de passe n'est pas le bon.",
-    "too_many_attempts": "Trop de mots de passe erronés. Patientez quelques minutes, puis réessayez."
+    "too_many_attempts": "Trop de mots de passe erronés. Patientez quelques minutes, puis réessayez.",
+    "questionnaire_expired": "Ce lien de questionnaire a expiré. Demandez-en un nouveau à la personne qui vous l'a envoyé.",
+    "already_submitted": "Ces réponses ont déjà été envoyées.",
+    "rate_limited": "Trop de requêtes. Réessayez dans quelques minutes.",
+    "not_submitted": "Le client n'a pas encore répondu.",
+    "no_answers": "Aucune question n'a encore de réponse.",
+    "no_questions": "Ajoutez au moins une question."
   },
   "costing": {
     "title": "Chiffrage par lot",
@@ -689,5 +700,104 @@
     "currencyInvalid": "Indiquez la devise par son code ISO, comme EUR.",
     "rateInvalid": "Donnez à chaque rôle un taux journalier supérieur à zéro.",
     "managed": "Le profil de votre espace de travail est géré par ses propriétaires et ses administrateurs, dans les réglages de l'espace de votre compte."
+  },
+  "revision": {
+    "label": "Révision {{number}} · {{date}}",
+    "reason": {
+      "debate": "Verdict du débat",
+      "client_answers": "Mise à jour avec les réponses du client",
+      "edit": "Mise à jour avec de nouveaux éléments",
+      "scenario": "Scénario"
+    },
+    "show": "Révision affichée",
+    "latest": "actuelle",
+    "viewingOld": "Vous lisez la révision {{number}}. Le verdict actuel est la révision {{latest}}.",
+    "backToLatest": "Revenir au verdict actuel",
+    "working": "Mise à jour de la recommandation avec les nouveaux éléments…",
+    "failed": "La mise à jour s'est arrêtée et le verdict est inchangé. {{reason}}",
+    "retry": "Réessayer",
+    "update": "Mettre à jour la recommandation",
+    "whatChanged": "Ce qui a changé depuis la révision {{number}}",
+    "noChange": "Les nouveaux éléments n'ont changé ni la recommandation, ni les notes, ni les risques, ni les coûts.",
+    "fromTo": "{{from}} → {{to}}",
+    "noRecommendation": "aucune option",
+    "recommendation": "Recommandation",
+    "feasibility": "Verdict par option",
+    "scores": "Notes",
+    "weighted": "{{option}}, note pondérée",
+    "risksAdded": "Nouveaux risques",
+    "risksRemoved": "Risques retirés",
+    "risksChanged": "Risques réévalués",
+    "costs": "Estimations de coût",
+    "monthly": "{{option}}, coût mensuel",
+    "answered": "Questions résolues",
+    "added": "Nouvelles questions ouvertes",
+    "facts": "Nouveaux éléments pris en compte",
+    "editTitle": "Ajouter de nouveaux éléments",
+    "editLabel": "Qu'est-ce qui a changé \u0001",
+    "editHint": "Une correction, ou ce que vous avez appris depuis le débat. Seul l'arbitre se prononce à nouveau, pas tout le débat."
+  },
+  "client": {
+    "title": "Votre client",
+    "lead": "Envoyez les questions ouvertes à votre client, puis mettez à jour la recommandation avec ses réponses. Votre client n'a pas besoin de compte.",
+    "create": "Préparer un questionnaire",
+    "createAnother": "Préparer un autre questionnaire",
+    "questionLabel": "Question {{number}}",
+    "whyLabel": "Pourquoi vous la posez (facultatif, visible par votre client)",
+    "addQuestion": "Ajouter une question",
+    "removeQuestion": "Retirer la question {{number}}",
+    "clientLabel": "Nom du client (facultatif)",
+    "messageLabel": "Message à votre client (facultatif)",
+    "messageHint": "Affiché au-dessus des questions. Sans message, une courte introduction standard s'affiche.",
+    "expiryLabel": "Lien valable",
+    "expiry": {
+      "7d": "7 jours",
+      "30d": "30 jours"
+    },
+    "passwordLabel": "Mot de passe (facultatif)",
+    "save": "Créer le lien",
+    "saveChanges": "Enregistrer les modifications",
+    "link": "Lien pour votre client",
+    "copy": "Copier",
+    "copied": "Copié",
+    "word": "Version Word",
+    "wordHint": "pour les clients qui préfèrent répondre par e-mail",
+    "status": {
+      "open": "En attente des réponses",
+      "submitted": "Répondu le {{date}}"
+    },
+    "until": "Lien valable jusqu'au {{date}}",
+    "byAgency": "Réponses saisies par vous",
+    "answers": "Réponses",
+    "questions": "Questions ({{number}})",
+    "noAnswer": "Pas de réponse",
+    "comment": "Commentaire \u0001 {{comment}}",
+    "applied": "La révision {{number}} a été faite à partir de ces réponses.",
+    "edit": "Modifier les questions",
+    "reopen": "Rouvrir aux réponses",
+    "delete": "Supprimer"
+  },
+  "questionnaire": {
+    "title": "Questions sur {{project}}",
+    "untitled": "Questions sur votre projet",
+    "from": "De la part de {{agency}}",
+    "for": "Pour {{client}}",
+    "intro": "Pour finaliser notre recommandation, nous avons besoin de quelques réponses de votre part. Répondez à ce que vous pouvez \u0001 « nous ne savons pas encore \u0001 est aussi une réponse utile.",
+    "until": "Merci de répondre avant le {{date}}.",
+    "question": "Question {{number}}",
+    "why": "Pourquoi nous le demandons \u0001 {{why}}",
+    "answerLabel": "Votre réponse",
+    "commentLabel": "Commentaire (facultatif)",
+    "progress": "{{answered}} question(s) répondue(s) sur {{total}}",
+    "once": "Vos réponses ne s'envoient qu'une fois \u0001 relisez-les avant l'envoi.",
+    "submit": "Envoyer mes réponses",
+    "sending": "Envoi…",
+    "thanks": "Merci \u0001 vos réponses ont été envoyées le {{date}}.",
+    "thanksLead": "Vous pouvez fermer cette page. Si quelque chose change, prévenez la personne qui vous a envoyé ce lien.",
+    "word": "Télécharger la version Word",
+    "lockedTitle": "Ce questionnaire est protégé",
+    "lockedLead": "Saisissez le mot de passe reçu avec le lien.",
+    "unlock": "Ouvrir",
+    "missing": "Ce questionnaire n'existe pas, ou a été retiré."
   }
 }

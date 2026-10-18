@@ -3206,3 +3206,160 @@ button.chip:active {
 .textarea-hard {
   border-color: color-mix(in srgb, var(--infeasible) 50%, var(--line));
 }
+
+/* Revisions of the verdict: the one shown, the one being made, and what changed since the one before */
+
+.revision-head {
+  gap: var(--space-2) var(--space-3);
+}
+
+.revision-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+.revision-pick .select {
+  inline-size: auto;
+  max-inline-size: 100%;
+}
+
+.revision-working {
+  border-inline-start: 4px solid var(--thesis);
+}
+
+.update-price {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin-inline-start: var(--space-2);
+  padding-inline-start: var(--space-2);
+  border-inline-start: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+}
+
+.what-changed .changes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4) var(--space-6);
+}
+
+.change-group {
+  border-inline-start: 3px solid var(--thesis);
+  padding-inline-start: var(--space-3);
+}
+
+.change-group ul {
+  margin: var(--space-1) 0 0;
+  padding-inline-start: var(--space-4);
+}
+
+.facts-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+}
+
+.facts-list dt {
+  font-weight: 600;
+}
+
+.facts-list dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* The loop with the client: the questionnaire, its link and answers */
+
+.client-loop summary,
+.what-changed summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.question-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.question-draft {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.chip.status-done {
+  background: var(--feasible-soft);
+  color: var(--feasible);
+  border-color: transparent;
+}
+
+/* The client's page, from a questionnaire link: nothing of the app around it */
+
+.client-page {
+  min-block-size: 100vh;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.client-page-main {
+  padding-block: var(--space-8) var(--space-12);
+  padding-inline: max(var(--space-4), env(safe-area-inset-left, 0px)) max(var(--space-4), env(safe-area-inset-right, 0px));
+}
+
+.client-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block-end: var(--space-4);
+  border-block-end: 3px solid var(--thesis);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.client-brand img {
+  max-block-size: 48px;
+  max-inline-size: 200px;
+  object-fit: contain;
+}
+
+.client-question {
+  border: 1px solid var(--line);
+  margin: 0;
+}
+
+.client-question:focus-within {
+  border-color: var(--thesis);
+}
+
+.textarea-small {
+  min-block-size: 56px;
+}
+
+.client-thanks {
+  background: var(--feasible-soft);
+  border-color: color-mix(in srgb, var(--feasible) 35%, transparent);
+}
+
+.client-thanks svg {
+  vertical-align: -3px;
+}
+
+@media (max-width: 640px) {
+  .client-page .card {
+    padding: var(--space-4);
+  }
+
+  .revision-pick {
+    margin-inline-start: 0;
+    flex-wrap: wrap;
+  }
+
+  .client-page .button-primary {
+    inline-size: 100%;
+    justify-content: center;
+  }
+}
