@@ -2,9 +2,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 import { createSession, type Session } from "@quorumind/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqliteBrandingStore } from "./branding.ts";
+import { loadMigrations, migrate } from "./postgres/migrate.ts";
 import { pgliteDatabase } from "./postgres/pglite.ts";
 import { migrateSessions, PostgresSessionStore } from "./postgres/store.ts";
 import { SqliteSessionStore } from "./store.ts";
@@ -69,6 +71,53 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     expect((await restarted.list()).map((summary) => summary.id)).toEqual([local.id]);
     expect(await restarted.delete(ada.id, "bob")).toBe(false);
     expect(await restarted.all("bob")).toEqual([]);
+  });
+
+  it("shares a session with the workspace it was started in, unless it is private", async () => {
+    const { store } = storage;
+    const shared = newSession("Shared", day(4));
+    const secret = newSession("Secret", day(3));
+    const bobs = newSession("Bob's", day(2));
+    const legacy = newSession("Legacy", day(1));
+    const elsewhere = newSession("Elsewhere", day(5));
+    await store.save(shared, "ada", { workspace: "team" });
+    await store.save(secret, "ada", { workspace: "team", private: true });
+    await store.save(bobs, "bob", { workspace: "team" });
+    await store.save(legacy, "ada");
+    await store.save(elsewhere, "ada", { workspace: "other" });
+    // The engine saves without a placement: the session keeps the one it was created with.
+    await store.save(shared);
+
+    for (const view of [store, storage.reopen()]) {
+      const history = async (owner: string, mine = false) =>
+        (await view.history(50, { owner, workspace: "team", mine })).map((entry) => entry.idea);
+      expect(await history("ada")).toEqual(["Shared", "Secret", "Bob's", "Legacy"]);
+      expect(await history("bob")).toEqual(["Shared", "Bob's"]);
+      expect(await history("ada", true)).toEqual(["Shared", "Secret", "Legacy"]);
+      expect((await view.history(50, { owner: "ada", workspace: null })).map((entry) => entry.idea)).toEqual(["Legacy"]);
+      expect((await view.history(1, { owner: "ada", workspace: "team" }))[0]).toEqual({
+        id: shared.id,
+        idea: "Shared",
+        phase: "interview",
+        mode: "standard",
+        updatedAt: day(4),
+        owner: "ada",
+        workspace: "team",
+        private: false,
+      });
+      expect(await view.find(secret.id)).toMatchObject({ owner: "ada", workspace: "team", private: true, session: { id: secret.id } });
+      expect(await view.find(legacy.id)).toMatchObject({ owner: "ada", workspace: null, private: false });
+      expect(await view.find("unknown")).toBeNull();
+      // Read by its owner only, as before.
+      expect(await view.get(bobs.id, "ada")).toBeNull();
+    }
+
+    await store.setPrivate(secret.id, false);
+    await store.setPrivate(shared.id, true);
+    expect((await store.find(shared.id))?.private).toBe(true);
+    const restarted = storage.reopen();
+    expect((await restarted.history(50, { owner: "bob", workspace: "team" })).map((entry) => entry.idea)).toEqual(["Secret", "Bob's"]);
+    expect((await restarted.find(shared.id))?.private).toBe(true);
   });
 
   it("lists the latest sessions first, and exports them all oldest first", async () => {
@@ -206,10 +255,34 @@ describe("the PostgreSQL schema", () => {
     const db = await pgliteDatabase();
     try {
       const runs = await Promise.all([migrateSessions(db), migrateSessions(db)]);
-      expect(runs.flat()).toEqual([1]);
+      expect(runs.flat()).toEqual([1, 2]);
       expect(await migrateSessions(db)).toEqual([]);
-      const { rows } = await db.query("SELECT component, version, name FROM schema_migrations");
-      expect(rows).toEqual([{ component: "quorumind", version: 1, name: "sessions" }]);
+      const { rows } = await db.query("SELECT component, version, name FROM schema_migrations ORDER BY version");
+      expect(rows).toEqual([
+        { component: "quorumind", version: 1, name: "sessions" },
+        { component: "quorumind", version: 2, name: "workspaces" },
+      ]);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("keeps the owner of the sessions stored before workspaces, unshared and not private", async () => {
+    const db = await pgliteDatabase();
+    try {
+      const [first] = loadMigrations(fileURLToPath(new URL("./postgres/migrations/", import.meta.url)));
+      await migrate(db, "quorumind", first ? [first] : []);
+      const session = newSession("Before");
+      await db.query("INSERT INTO sessions (id, owner_id, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $4)", [
+        session.id,
+        "ada",
+        JSON.stringify(session),
+        day(1),
+      ]);
+      expect(await migrateSessions(db)).toEqual([2]);
+      const store = new PostgresSessionStore(db);
+      expect(await store.find(session.id)).toMatchObject({ owner: "ada", workspace: null, private: false });
+      expect((await store.history(50, { owner: "ada", workspace: "team" })).map((entry) => entry.id)).toEqual([session.id]);
     } finally {
       await db.close();
     }
@@ -241,6 +314,26 @@ describe("the PostgreSQL schema", () => {
       expect((await new PostgresSessionStore(db).get(session.id))?.idea).toBe("AB");
     } finally {
       await db.close();
+    }
+  });
+});
+
+describe("the SQLite schema", () => {
+  it("adds the workspace and private columns to a database from before them, keeping each session's owner", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "quorumind-schema-"));
+    try {
+      const path = join(dir, "quorumind.db");
+      const session = newSession("Before");
+      const old = new DatabaseSync(path);
+      old.exec("CREATE TABLE sessions (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL, owner_id TEXT)");
+      old.prepare("INSERT INTO sessions VALUES (?, ?, ?, ?)").run(session.id, JSON.stringify(session), day(1), "ada");
+      old.close();
+      const store = new SqliteSessionStore(path);
+      expect(await store.find(session.id)).toMatchObject({ owner: "ada", workspace: null, private: false });
+      expect((await store.history(50, { owner: "ada", workspace: "team" })).map((entry) => entry.id)).toEqual([session.id]);
+      await store.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

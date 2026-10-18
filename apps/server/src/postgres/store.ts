@@ -4,11 +4,16 @@ import {
   type Feedback,
   type GalleryEntry,
   galleryOf,
+  type HistoryEntry,
   LiveSessions,
+  type NewPlacement,
+  type Placement,
+  placementOf,
   randomToken,
   type SessionStore,
   type SessionSummary,
   type Share,
+  type StoredSession,
   summarize,
 } from "../store.ts";
 import type { Database } from "./database.ts";
@@ -30,6 +35,10 @@ const toShare = (row: Record<string, unknown>): Share => ({
   public: row.public === true,
   createdAt: iso(row.created_at),
 });
+
+type PlacedRow = { data: Session; owner_id: string | null; workspace_id: string | null; private: boolean };
+
+const placed = (row: PlacedRow): Placement => ({ owner: row.owner_id, workspace: row.workspace_id, private: row.private === true });
 
 /** The sessions of an owner, in a form the owner index serves (IS NOT DISTINCT FROM would not use it). */
 const ownedBy = (owner: string | null) =>
@@ -60,31 +69,33 @@ export class PostgresSessionStore implements SessionStore {
   }
 
   async get(id: string, owner: string | null = null): Promise<Session | null> {
-    const cached = this.live.get(id, owner);
-    if (cached !== undefined) return cached;
-    const { rows } = await this.db.query<{ data: Session; owner_id: string | null }>("SELECT data, owner_id FROM sessions WHERE id = $1", [
-      id,
-    ]);
-    const row = rows[0];
-    // Loaded or saved by another request in the meantime: that object is the live one.
-    const loaded = this.live.get(id, owner);
-    if (loaded !== undefined) return loaded;
-    if (!row || row.owner_id !== owner) return null;
-    const session = normalizeSession(row.data);
-    this.live.keep(session, owner);
-    return session;
+    const found = await this.find(id);
+    return found && found.owner === owner ? found.session : null;
   }
 
-  save(session: Session, owner: string | null = null): Promise<void> {
-    const ownerId = this.live.keep(session, owner);
+  async find(id: string): Promise<StoredSession | null> {
+    const cached = this.live.find(id);
+    if (cached) return cached;
+    const { rows } = await this.db.query<PlacedRow>("SELECT data, owner_id, workspace_id, private FROM sessions WHERE id = $1", [id]);
+    const row = rows[0];
+    // Loaded or saved by another request in the meantime: that object is the live one.
+    const loaded = this.live.find(id);
+    if (loaded) return loaded;
+    if (!row) return null;
+    const session = normalizeSession(row.data);
+    return { ...this.live.keep(session, placed(row)), session };
+  }
+
+  save(session: Session, owner: string | null = null, placement?: NewPlacement): Promise<void> {
+    const kept = this.live.keep(session, placementOf(owner, placement));
     // The session as it is now: the engine goes on changing the object while the write waits its turn.
     const data = JSON.stringify(session, withoutNul);
     const { id, createdAt, updatedAt } = session;
     return this.serialized(id, async () => {
       await this.db.query(
-        `INSERT INTO sessions (id, owner_id, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO sessions (id, owner_id, workspace_id, private, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
-        [id, ownerId, data, createdAt, updatedAt],
+        [id, kept.owner, kept.workspace, kept.private, data, createdAt, updatedAt],
       );
     });
   }
@@ -96,6 +107,24 @@ export class PostgresSessionStore implements SessionStore {
       [...params, limit],
     );
     return rows.map((row) => summarize(normalizeSession(row.data)));
+  }
+
+  async history(limit: number, scope: { owner: string; workspace: string | null; mine?: boolean }): Promise<HistoryEntry[]> {
+    const where = scope.mine
+      ? "owner_id = $1 AND (workspace_id = $2 OR workspace_id IS NULL)"
+      : "(workspace_id = $2 AND (NOT private OR owner_id = $1)) OR (workspace_id IS NULL AND owner_id = $1)";
+    const { rows } = await this.db.query<PlacedRow>(
+      `SELECT data, owner_id, workspace_id, private FROM sessions WHERE ${where} ORDER BY updated_at DESC LIMIT $3`,
+      [scope.owner, scope.workspace, limit],
+    );
+    return rows.map((row) => ({ ...summarize(normalizeSession(row.data)), ...placed(row) }));
+  }
+
+  async setPrivate(id: string, isPrivate: boolean): Promise<void> {
+    await this.serialized(id, async () => {
+      await this.db.query("UPDATE sessions SET private = $2 WHERE id = $1", [id, isPrivate]);
+    });
+    this.live.setPrivate(id, isPrivate);
   }
 
   async all(owner: string | null = null): Promise<Session[]> {
