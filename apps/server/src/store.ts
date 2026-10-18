@@ -4,6 +4,11 @@ import { DatabaseSync } from "node:sqlite";
 import { isWorking, markInterrupted, normalizeSession, type Session } from "@quorumind/core";
 import type { ShareMode } from "./share.ts";
 
+export interface InterruptOptions {
+  staleBefore?: Date;
+  skip?: (sessionId: string) => boolean;
+}
+
 export interface SessionSummary {
   id: string;
   idea: string;
@@ -97,8 +102,10 @@ export interface SessionStore {
   /**
    * Fails the sessions a stopped server left working (isWorking), with the code "interrupted", so they can be
    * resumed. Called once at start-up, before serving: no session has a worker yet. Returns how many.
+   * `staleBefore` limits it to sessions not saved since that time, and `skip` leaves out those still running here:
+   * for a host whose previous process may still be finishing its work while the new one starts.
    */
-  markInterrupted(now?: Date): Promise<number>;
+  markInterrupted(now?: Date, options?: InterruptOptions): Promise<number>;
   /** Deletes the sessions nobody touched for the given number of days. Returns how many. */
   purgeOlderThan(days: number, now?: number): Promise<number>;
   /** Creates the share link of a session (one per session) or changes it. A new link is a client one, private. */
@@ -272,15 +279,16 @@ export class SqliteSessionStore implements SessionStore {
     this.db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
   }
 
-  async markInterrupted(now = new Date()): Promise<number> {
-    const rows = this.db.prepare("SELECT data FROM sessions WHERE json_extract(data, '$.phase') IN ('interview', 'debating')").all() as {
-      data: string;
-    }[];
+  async markInterrupted(now = new Date(), options: InterruptOptions = {}): Promise<number> {
+    const stale = options.staleBefore?.toISOString() ?? "9999";
+    const rows = this.db
+      .prepare("SELECT data FROM sessions WHERE json_extract(data, '$.phase') IN ('interview', 'debating') AND updated_at < ?")
+      .all(stale) as { data: string }[];
     const update = this.db.prepare("UPDATE sessions SET data = ?, updated_at = ? WHERE id = ?");
     let count = 0;
     for (const row of rows) {
       const session = normalizeSession(JSON.parse(row.data) as Session);
-      if (!isWorking(session)) continue;
+      if (!isWorking(session) || options.skip?.(session.id)) continue;
       markInterrupted(session, now);
       update.run(JSON.stringify(session), session.updatedAt, session.id);
       this.live.forget(session.id);

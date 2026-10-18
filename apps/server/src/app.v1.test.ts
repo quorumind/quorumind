@@ -319,6 +319,34 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(records.map((record) => record.task)).toEqual(["interview"]);
     });
 
+    it("interrupts the sessions working here when the server shuts down, without spending more", async () => {
+      storage = await backend.open();
+      store = storage.store;
+      const records: UsageRecord[] = [];
+      const app = createApp({
+        store,
+        brandingStore: storage.brandingStore,
+        bus: new EventBus(),
+        env: {},
+        mockDelayMs: 5,
+        hooks: {
+          identify: async () => ({ userId: "ada" }),
+          onUsage: (_user, _session, record) => {
+            records.push(record);
+          },
+          catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
+        },
+      });
+      const created = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM" }));
+      const { session } = (await created.json()) as { session: Session };
+      expect(app.isRunning(session.id)).toBe(true);
+
+      expect(await app.interruptAll()).toBe(1);
+      expect(app.isRunning(session.id)).toBe(false);
+      expect(records).toEqual([]);
+      expect(await store.get(session.id, "ada")).toMatchObject({ phase: "failed", error: { code: "interrupted" } });
+    });
+
     it("lets the person resume a session a restarted server left working", async () => {
       storage = await backend.open();
       // The server stopped in the middle of the first interview turn, and starts again.

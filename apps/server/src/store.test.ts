@@ -185,6 +185,23 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     expect((await storage.reopen().list(50, "ada")).filter((summary) => summary.phase === "failed")).toHaveLength(2);
   });
 
+  it("leaves the sessions saved recently, or still running here, to the process working on them", async () => {
+    const { store } = storage;
+    const old = newSession("Saved long ago", day(1));
+    const recent = newSession("Saved a moment ago", day(5));
+    const runningHere = newSession("Running in this process", day(1));
+    for (const session of [old, recent, runningHere]) await store.save(session, "ada");
+
+    const restarted = storage.reopen();
+    const marked = await restarted.markInterrupted(new Date(day(6)), {
+      staleBefore: new Date(day(3)),
+      skip: (id) => id === runningHere.id,
+    });
+    expect(marked).toBe(1);
+    const phases = await Promise.all([old, recent, runningHere].map((session) => restarted.get(session.id, "ada")));
+    expect(phases.map((session) => session?.phase)).toEqual(["failed", "interview", "interview"]);
+  });
+
   it("purges the sessions nobody touched for the retention period", async () => {
     const { store } = storage;
     const stale = newSession("Stale", day(1));

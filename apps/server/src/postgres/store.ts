@@ -6,6 +6,7 @@ import {
   type GalleryEntry,
   galleryOf,
   type HistoryEntry,
+  type InterruptOptions,
   LiveSessions,
   type NewPlacement,
   type Placement,
@@ -152,12 +153,15 @@ export class PostgresSessionStore implements SessionStore {
     return true;
   }
 
-  async markInterrupted(now = new Date()): Promise<number> {
-    const { rows } = await this.db.query<{ data: Session }>("SELECT data FROM sessions WHERE data->>'phase' IN ('interview', 'debating')");
+  async markInterrupted(now = new Date(), options: InterruptOptions = {}): Promise<number> {
+    const { rows } = await this.db.query<{ data: Session }>(
+      "SELECT data FROM sessions WHERE data->>'phase' IN ('interview', 'debating') AND ($1::timestamptz IS NULL OR updated_at < $1)",
+      [options.staleBefore?.toISOString() ?? null],
+    );
     let count = 0;
     for (const row of rows) {
       const session = normalizeSession(row.data);
-      if (!isWorking(session)) continue;
+      if (!isWorking(session) || options.skip?.(session.id)) continue;
       markInterrupted(session, now);
       const data = JSON.stringify(session, withoutNul);
       await this.serialized(session.id, async () => {

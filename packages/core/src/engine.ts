@@ -98,14 +98,21 @@ export class InvalidStateError extends Error {
   }
 }
 
-/** The person stopped the session: the work in flight was cancelled and can be resumed. */
+/**
+ * The work in flight was cancelled and the session can be resumed: the person stopped it ("stopped"), or the server
+ * is shutting down ("interrupted", when the signal is aborted with that reason).
+ */
 export class StoppedError extends Error {
-  readonly code = "stopped";
-  constructor() {
-    super("The session was stopped.");
+  readonly code: "stopped" | "interrupted";
+  constructor(code: "stopped" | "interrupted" = "stopped") {
+    super(code === "stopped" ? "The session was stopped." : "The server stopped while this session was working.");
     this.name = "StoppedError";
+    this.code = code;
   }
 }
+
+/** Why a signal stopped the work: the server's shutdown aborts with this reason. */
+export const INTERRUPTED = "interrupted";
 
 /** The models that made a call fail, for the interface to name them. */
 const failedCalls = new WeakMap<object, { provider: string; model: string }>();
@@ -625,8 +632,12 @@ export class DebateEngine {
     throw lastError;
   }
 
+  private stopped() {
+    return new StoppedError(this.signal?.reason === INTERRUPTED ? "interrupted" : "stopped");
+  }
+
   private checkStopped() {
-    if (this.signal?.aborted) throw new StoppedError();
+    if (this.signal?.aborted) throw this.stopped();
   }
 
   private checkBudget(session: Session) {
@@ -646,7 +657,7 @@ export class DebateEngine {
       await work();
     } catch (error) {
       session.phase = "failed";
-      session.error = sessionError(this.signal?.aborted ? new StoppedError() : error);
+      session.error = sessionError(this.signal?.aborted ? this.stopped() : error);
       await this.persist(session);
     }
   }

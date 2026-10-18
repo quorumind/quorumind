@@ -9,6 +9,7 @@ import {
   DEPTHS,
   DebateEngine,
   estimateDebateCost,
+  INTERRUPTED,
   InvalidStateError,
   isLocale,
   isLocalOnly,
@@ -371,8 +372,8 @@ export function createApp(deps: AppDeps) {
     const controller = new AbortController();
     const done = work(engineFor(session, controller.signal))
       .then(async () => {
-        // The person who stopped the session knows: no e-mail for it.
-        if (session.error?.code !== "stopped") await notify(session);
+        // The person who stopped the session knows, and an interrupted one resumes: no e-mail for either.
+        if (session.error?.code !== "stopped" && session.error?.code !== "interrupted") await notify(session);
         if (session.phase === "complete" && (await store.shareOf(session.id))?.mode === "client") await clientBrief(session);
       })
       .catch((error) => console.error(`Session ${session.id} failed:`, error))
@@ -872,7 +873,18 @@ export function createApp(deps: AppDeps) {
     return c.json({ error: "internal_error", message: "Something went wrong on the server." }, 500);
   });
 
-  return app;
+  /**
+   * Interrupts every session working in this process, for a server that is shutting down: the calls in flight are
+   * cancelled, nothing more is spent, and each session fails with the code "interrupted", ready to be resumed.
+   */
+  const interruptAll = async () => {
+    const running = [...workers.values()];
+    for (const worker of running) worker.controller.abort(INTERRUPTED);
+    await Promise.all(running.map((worker) => worker.done));
+    return running.length;
+  };
+
+  return Object.assign(app, { interruptAll, isRunning: (sessionId: string) => workers.has(sessionId) });
 }
 
 function markdown(c: { header(name: string, value: string): void; body(data: string): Response }, session: Session) {

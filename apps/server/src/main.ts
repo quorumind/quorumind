@@ -66,8 +66,13 @@ serve({ fetch: root.fetch, port, hostname }, (info) => {
   );
 });
 
+// Sessions still working are interrupted first, so the next start finds them ready to be resumed.
 const shutdown = () => {
-  storage.close().finally(() => process.exit(0));
+  api
+    .interruptAll()
+    .catch((error) => console.error("Interrupting the running sessions failed:", error))
+    .then(() => storage.close())
+    .finally(() => process.exit(0));
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
