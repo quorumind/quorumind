@@ -65,6 +65,19 @@ reverse proxy, never directly on the internet.
 | `QUORUMIND_LOCAL_ONLY=1` | 100 % local: only Ollama models are used, no data leaves the machine. |
 | `QUORUMIND_INTERVIEWER`, `QUORUMIND_ARBITER`, `QUORUMIND_SEAT_A` to `QUORUMIND_SEAT_D`, `QUORUMIND_DEVIL` | Assign any model to any role, as `anthropic:<model>`, `openai:<model>`, `gemini:<model>`, `openrouter:<model>`, `ollama:<model>` or `mock`. Seats C, D and the devil's advocate are off unless set (`QUORUMIND_DEVIL=none`). |
 | `PORT`, `HOST`, `QUORUMIND_DATA_DIR` | Server address and where sessions are stored (SQLite). |
+| `GITHUB_TOKEN` | Optional, for context import: raises the GitHub API limit and gives access to private repositories (read-only "Contents" and "Metadata" are enough). |
+| `QUORUMIND_ALLOW_PRIVATE_URLS=1` | Lets context import fetch pages on private networks (intranet, localhost). Off by default: only public addresses are fetched. Set it only on an instance whose users you trust. |
+
+### Context documents
+
+A session can carry up to 5 documents of 100 000 characters each: a PDF or Word (.docx)
+specification, a Markdown or text file, a web page, a GitHub repository (README, file tree,
+manifests, architecture notes and ADRs) or pasted text. Files are read on the server (10 MB at
+most; scanned PDFs need OCR first), web pages are fetched from public addresses only, through
+at most 3 redirects. The interviewer and proposers read the documents, critics and the arbiter
+an excerpt; they are always treated as data and masked like the rest when PII masking is on.
+API request bodies are capped at 512 KB, except session creation (4 MB, to carry the
+documents) and file uploads (10 MB).
 
 ## From a coding agent (MCP)
 
@@ -181,13 +194,13 @@ change makes debates better or worse.
 Available today: the full debate with up to four proposers and a devil's advocate, any model
 in any role (Claude, OpenAI, Gemini, Ollama), a cost cap, an interactive decision matrix, a
 debate map, reports rewritten for a CTO, an executive or a client, exports (Markdown, PDF,
-Word, ADR, coding-agent hand-off), resumable and shareable sessions, and the MCP server.
+Word, ADR, coding-agent hand-off), resumable and shareable sessions, context import (PDF or
+Word specifications, web pages, GitHub repositories) and the MCP server.
 
 Next:
 
-1. **Context import:** attach a PDF or Word spec, a web page or a GitHub repository.
-2. **Fact reliability:** optional web search for prices and versions, with cited sources.
-3. **Collaboration:** multi-user sessions and shared history.
+1. **Fact reliability:** optional web search for prices and versions, with cited sources.
+2. **Collaboration:** multi-user sessions and shared history.
 
 ## Hosted version
 

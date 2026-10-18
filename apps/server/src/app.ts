@@ -13,6 +13,8 @@ import {
   type Lineup,
   LOCALES,
   liveLineupFromEnv,
+  MAX_CONTEXT_CHARS,
+  MAX_CONTEXT_DOCUMENTS,
   MAX_ROUNDS,
   MODES,
   type ModelOption,
@@ -27,12 +29,13 @@ import {
   TEMPLATE_IDS,
   type UsageRecord,
 } from "@quorumind/core";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { BrandingStore } from "./branding.ts";
 import type { EventBus } from "./bus.ts";
+import { contextRoutes } from "./context/routes.ts";
 import { exportRoutes } from "./exports.ts";
 import type { Notifier } from "./notifier.ts";
 import type { SessionStore } from "./store.ts";
@@ -98,11 +101,16 @@ const ContextInput = z
       id: z.string().max(100),
       kind: z.enum(["file", "url", "github", "text"]),
       name: z.string().max(300),
-      text: z.string().max(200_000),
+      text: z.string().max(MAX_CONTEXT_CHARS),
+      source: z.string().max(2_000).optional(),
+      truncated: z.boolean().optional(),
     }),
   )
-  .max(5)
+  .max(MAX_CONTEXT_DOCUMENTS)
   .default([]);
+
+/** Request bodies are capped at 512 KB, except session creation, which carries the attached documents. */
+export const BODY_LIMITS = { api: 512 * 1024, session: 4 * 1024 * 1024 } as const;
 
 const NewSession = z.object({
   locale: z.string().refine(isLocale, "Unsupported language"),
@@ -124,7 +132,7 @@ const NewSession = z.object({
 function publicView(session: Session): Session {
   return {
     ...session,
-    context: session.context.map((doc) => ({ ...doc, text: "" })),
+    context: session.context.map(({ source: _source, ...doc }) => ({ ...doc, text: "" })),
     usage: [],
     notify: false,
   };
@@ -209,7 +217,14 @@ export function createApp(deps: AppDeps) {
   };
 
   const app = new Hono<{ Variables: { user: User | null } }>();
-  app.use("/api/*", bodyLimit({ maxSize: 512 * 1024 }));
+  const tooLarge = (c: Context) => c.json({ error: "too_large", message: "The request is too large." }, 413);
+  const apiLimit = bodyLimit({ maxSize: BODY_LIMITS.api, onError: tooLarge });
+  const sessionLimit = bodyLimit({ maxSize: BODY_LIMITS.session, onError: tooLarge });
+  // The import routes set their own limits (a 10 MB file upload, for instance).
+  app.use("/api/*", (c, next) => {
+    if (c.req.path.startsWith("/api/context/")) return next();
+    return (c.req.path === "/api/sessions" ? sessionLimit : apiLimit)(c, next);
+  });
 
   const open = ["/api/health", "/api/config", "/api/gallery"];
   app.use("/api/*", async (c, next) => {
@@ -498,6 +513,7 @@ export function createApp(deps: AppDeps) {
     });
   });
 
+  app.route("/", contextRoutes({ env }));
   app.route(
     "/",
     exportRoutes({

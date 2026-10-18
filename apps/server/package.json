@@ -13,6 +13,7 @@
     "@quorumind/core": "*",
     "hono": "4.13.12",
     "nodemailer": "^10.0.13",
+    "unpdf": "1.8.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
