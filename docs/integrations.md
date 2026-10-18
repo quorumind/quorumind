@@ -82,3 +82,6 @@ own sign-in: Quorumind never asks for, sees or stores a GitHub credential.
 MADR sections: context, considered options, decision outcome, consequences, links), named
 `0001-<project>.md`. With `?number=7`, the title is numbered the way ADR tools number theirs
 (`# 7. <decision>`) and the file is named `0007-<project>.md`.
+
+The `quorumind_adr` tool of the MCP server writes it straight into the repository's ADR folder,
+numbered after the last record (see its [README](../apps/mcp/README.md#decision-records)).

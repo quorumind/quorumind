@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -132,6 +132,7 @@ describe("MCP server on the recorded demo", () => {
   it("lists its tools and the report resource", async () => {
     const { tools } = await mcp.client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
+      "quorumind_adr",
       "quorumind_answer",
       "quorumind_confirm",
       "quorumind_handoff",
@@ -234,6 +235,38 @@ describe("MCP server on the recorded demo", () => {
     const written = await call(mcp, "quorumind_handoff", { session_id: sessionId, directory: "handoff" });
     expect(written.isError).toBeFalsy();
     for (const name of ["CLAUDE.md", "AGENTS.md", "PLAN.md"]) expect(existsSync(join(workdir, "handoff", name))).toBe(true);
+  });
+
+  it("records the decision in the repository's ADR folder, numbered after the last record", async (context) => {
+    if (!routes.adr) {
+      context.skip("This server has no adr.md route yet.");
+    }
+    const repo = join(workdir, "repo");
+    await mkdir(join(repo, "docs", "decisions"), { recursive: true });
+    await writeFile(join(repo, "docs", "decisions", "0006-use-postgresql.md"), "# 6. Use PostgreSQL\n");
+
+    const first = await call(mcp, "quorumind_adr", { session_id: sessionId, repository: "repo", name: "Booking platform" });
+    expect(first.isError).toBeFalsy();
+    const path = join(repo, "docs", "decisions", "0007-booking-platform.md");
+    expect((first.structuredContent as { path: string }).path).toBe(path);
+    const content = await readFile(path, "utf8");
+    expect(content).toMatch(/^# 7\. /);
+    expect(content).toContain("## ");
+    expect(content).toContain(sessionId);
+
+    const second = await call(mcp, "quorumind_adr", { session_id: sessionId, repository: "repo" });
+    expect((second.structuredContent as { path: string }).path).toBe(join(repo, "docs", "decisions", "0008-studio-booking-app.md"));
+    expect(await readFile(join(repo, "docs", "decisions", "0006-use-postgresql.md"), "utf8")).toBe("# 6. Use PostgreSQL\n");
+
+    const fresh = join(workdir, "fresh");
+    await mkdir(fresh);
+    const created = await call(mcp, "quorumind_adr", { session_id: sessionId, repository: fresh });
+    expect((created.structuredContent as { path: string }).path).toBe(join(fresh, "docs", "adr", "0001-studio-booking-app.md"));
+    expect(textOf(created)).toContain("a new folder");
+
+    const missing = await call(mcp, "quorumind_adr", { session_id: sessionId, repository: "nowhere" });
+    expect(missing.isError).toBe(true);
+    expect(textOf(missing)).toContain("is not a directory");
   });
 
   it("lists the sessions", async () => {

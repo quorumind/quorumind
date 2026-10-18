@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { type CallToolResult, McpServer, ResourceTemplate, type ServerContext } from "@modelcontextprotocol/server";
 import type { Answer, RequirementsSheet, Session } from "@quorumind/core";
 import { z } from "zod";
+import { AdrError, adrSlug, findAdrTarget, isDirectory, writeAdr } from "./adr.ts";
 import { QuorumindClient, QuorumindError, type SessionState } from "./client.ts";
 import { ContextFileError, MAX_FILE_CHARS, MAX_FILES, readContextFiles } from "./files.ts";
 import { formatSheet, formatUsd, formatVerdictSummary, interviewQuestions, renderSnapshot, snapshot, statusOf } from "./format.ts";
@@ -93,7 +94,7 @@ async function guarded(work: () => Promise<CallToolResult>): Promise<CallToolRes
               : "";
       return failure(`${error.message}${hint}`, { error: error.code, status: error.status });
     }
-    if (error instanceof ContextFileError || error instanceof ZipError) return failure(error.message);
+    if (error instanceof ContextFileError || error instanceof ZipError || error instanceof AdrError) return failure(error.message);
     throw error;
   }
 }
@@ -123,7 +124,8 @@ export function createMcpServer(options: McpOptions): McpServer {
         "Quorumind makes several AI models debate a software project before it is built, then an arbiter rules. " +
         "Use it before coding anything significant: quorumind_start, relay the interview questions to the user, " +
         "quorumind_answer, quorumind_review and quorumind_confirm the requirements sheet, answer the debate questions, " +
-        "then read quorumind_verdict and write the plan with quorumind_handoff. Each call returns what to do next.",
+        "then read quorumind_verdict, write the plan with quorumind_handoff and record the decision with quorumind_adr. " +
+        "Each call returns what to do next.",
     },
   );
 
@@ -484,6 +486,59 @@ export function createMcpServer(options: McpOptions): McpServer {
         return text(
           `Wrote ${written.join(", ")}.\n\nNext: read PLAN.md and follow it; CLAUDE.md and AGENTS.md hold the decisions coding agents must respect.`,
           { directory: target, files: written },
+        );
+      }),
+  );
+
+  server.registerTool(
+    "quorumind_adr",
+    {
+      title: "Record the decision as an ADR in the repository",
+      description:
+        "Write the decision of a finished debate as an Architecture Decision Record into the repository's ADR folder: the folder named by .adr-dir, " +
+        "else the first of docs/adr, docs/decisions, adr and doc/adr that exists (the one with the most records when several do), else docs/adr, created. " +
+        "The record is numbered after the highest existing one, with the same number of digits (NNNN-title.md), and never replaces a file.",
+      inputSchema: z.object({
+        session_id: SessionId,
+        repository: z
+          .string()
+          .min(1)
+          .default(".")
+          .describe("The repository root: absolute, or relative to the directory this MCP server runs in. Default: that directory."),
+        name: z
+          .string()
+          .trim()
+          .min(1)
+          .max(80)
+          .optional()
+          .describe("A few words for the file name, e.g. authentication (gives 0007-authentication.md). Default: the project name."),
+      }),
+      annotations: { destructiveHint: false, idempotentHint: false },
+    },
+    ({ session_id, repository, name }) =>
+      guarded(async () => {
+        const state = await client.getSession(session_id);
+        if (state.session.phase !== "complete") return refuse(state, "The ADR is written from the verdict, which is not ready.");
+        const root = resolve(cwd, repository);
+        if (!(await isDirectory(root))) return failure(`${root} is not a directory. Give the root of the repository.`);
+        const target = await findAdrTarget(root);
+        let record: { data: Buffer; name: string | null };
+        try {
+          record = await client.file(`/api/sessions/${encodeURIComponent(session_id)}/adr.md?number=${target.number}`);
+        } catch (error) {
+          if (isMissingRoute(error)) return failure("This Quorumind server cannot export an ADR yet: update it.");
+          throw error;
+        }
+        const served = record.name?.replace(/^\d+-/, "").replace(/\.md$/i, "");
+        const slug = adrSlug(name ?? served ?? state.session.sheet?.projectName ?? "decision");
+        const path = await writeAdr(target, slug, record.data);
+        const where = target.exists
+          ? `${target.relativeDirectory}, after ${target.count} existing record${target.count === 1 ? "" : "s"}`
+          : `${target.relativeDirectory}, a new folder`;
+        return text(
+          `Wrote ${path} (ADR ${target.number}, in ${where}).\n\n` +
+            "Next: commit it with the code it decides; when a later decision replaces it, mark it superseded instead of deleting it.",
+          { path, number: target.number, directory: target.directory, created: !target.exists },
         );
       }),
   );

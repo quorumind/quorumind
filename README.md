@@ -92,7 +92,8 @@ with a script that creates them through the GitHub CLI. Column mappings and impo
 Claude Code, Codex, Cursor and other MCP clients can run a debate before they code: the
 `quorumind-mcp` server in [`apps/mcp`](apps/mcp/README.md) starts a session, relays the
 interview to you, runs the debate on your Quorumind server and writes the verdict into the
-project as `CLAUDE.md`, `AGENTS.md` and `PLAN.md`.
+project as `CLAUDE.md`, `AGENTS.md` and `PLAN.md`, and the decision as a numbered ADR in the
+repository's ADR folder.
 
 ```bash
 npm start   # the Quorumind server, keep it running

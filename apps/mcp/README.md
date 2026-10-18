@@ -123,6 +123,7 @@ In `.cursor/mcp.json` at the project root (or `~/.cursor/mcp.json` for every pro
 | `quorumind_stop` | Stops a running session at once, without spending more; `quorumind_resume` continues it. |
 | `quorumind_verdict` | The verdict as a short summary, the full Markdown report, or an ADR. |
 | `quorumind_handoff` | Writes `CLAUDE.md`, `AGENTS.md` and `PLAN.md` into a directory; never replaces an existing file unless `overwrite` is true. |
+| `quorumind_adr` | Records the decision as an ADR in the repository's ADR folder, numbered after the last record; never replaces a file. See [Decision records](#decision-records). |
 | `quorumind_sessions` | Recent sessions (on the hosted version, the workspace's, with their author). |
 
 Every tool answers in short Markdown that ends on what to do next, plus the same facts as
@@ -132,13 +133,28 @@ asks for them.
 
 The report of a finished session is also a resource: `quorumind://sessions/{id}/report`.
 
+## Decision records
+
+`quorumind_adr` writes the verdict of a finished session as an Architecture Decision Record (the
+MADR sections: context, considered options, decision outcome, consequences, links) into the
+repository given as `repository` (default: the directory the MCP server runs in):
+
+- the folder is the one named by adr-tools' `.adr-dir` file, else the first of `docs/adr`,
+  `docs/decisions`, `adr` and `doc/adr` that exists (the one with the most records when several
+  do), else `docs/adr`, created;
+- the record takes the highest existing number plus one, with as many digits as the existing
+  records (four for the first one), and the `NNNN-title.md` convention: `name: "authentication"`
+  next to `0006-use-postgresql.md` gives `0007-authentication.md`, titled `# 7. <decision>`;
+- it never replaces a file: if the name is taken in the meantime, nothing is written.
+
 ## A typical run
 
 1. The agent calls `quorumind_start` with the idea and, say, `context_files: ["README.md", "docs/architecture.md"]`.
 2. It asks the user the interview questions and calls `quorumind_answer` until the requirements sheet is ready.
 3. It shows the sheet, calls `quorumind_confirm` with the user's corrections, and relays any
    question the debate pauses on with `quorumind_answer`.
-4. It reads `quorumind_verdict` and writes the plan with `quorumind_handoff`, then codes.
+4. It reads `quorumind_verdict`, writes the plan with `quorumind_handoff` and records the decision
+   with `quorumind_adr`, then codes.
 
 ## Development
 

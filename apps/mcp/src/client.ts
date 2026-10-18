@@ -134,6 +134,13 @@ export class QuorumindClient {
     return Buffer.from(await (await this.send("GET", path)).arrayBuffer());
   }
 
+  /** A download with the file name the server gives it (Content-Disposition), if any. */
+  async file(path: string): Promise<{ data: Buffer; name: string | null }> {
+    const response = await this.send("GET", path);
+    const name = /filename="([^"]+)"/.exec(response.headers.get("content-disposition") ?? "")?.[1] ?? null;
+    return { data: Buffer.from(await response.arrayBuffer()), name };
+  }
+
   /**
    * Follows the live event stream of a session until the signal aborts or the stream ends.
    * Rejects when the stream cannot be opened, so the caller can fall back to polling.
