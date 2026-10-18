@@ -148,6 +148,7 @@ describe("MCP server on the recorded demo", () => {
     expect(resourceTemplates.map((template) => template.uriTemplate)).toContain("quorumind://sessions/{id}/report");
   });
 
+  // A whole debate with polling takes a few seconds, more on a slow machine.
   it("drives a whole debate to the verdict", async () => {
     await writeFile(join(workdir, "NOTES.md"), "# Notes\nWe already run PostgreSQL.\n");
 
@@ -200,7 +201,7 @@ describe("MCP server on the recorded demo", () => {
 
     const routeStatus = async (file: string) => (await fetch(`${quorumind.url}/api/sessions/${sessionId}/${file}`)).status;
     routes = { adr: (await routeStatus("adr.md")) === 200, handoff: (await routeStatus("handoff.zip")) === 200 };
-  });
+  }, 30_000);
 
   it("returns the verdict as a summary and as the Markdown report", async () => {
     const summary = await call(mcp, "quorumind_verdict", { session_id: sessionId, format: "summary" });
