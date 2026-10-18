@@ -87,3 +87,33 @@ MADR sections: context, considered options, decision outcome, consequences, link
 
 The `quorumind_adr` tool of the MCP server writes it straight into the repository's ADR folder,
 numbered after the last record (see its [README](../apps/mcp/README.md#decision-records)).
+
+## Chat notifications
+
+A session can post a message in a Slack or Microsoft Teams channel when it waits for answers,
+when the verdict is ready and when it stops on an error: the project's name (or the start of
+the idea), the status and a link to the session. Unlike e-mail, which each person turns on per
+session, chat notifications go to the team's channel for every session.
+
+On a self-hosted server, set one or both of:
+
+| Variable | Webhook |
+| --- | --- |
+| `QUORUMIND_SLACK_WEBHOOK_URL` | A Slack [incoming webhook](https://api.slack.com/messaging/webhooks): `https://hooks.slack.com/services/...` |
+| `QUORUMIND_TEAMS_WEBHOOK_URL` | A Microsoft Teams incoming webhook (`https://<tenant>.webhook.office.com/...`) or a Teams workflow "when a Teams webhook request is received" (`https://<region>.logic.azure.com/...`) |
+
+`QUORUMIND_SLACK_WEBHOOK_URL_FILE` and `QUORUMIND_TEAMS_WEBHOOK_URL_FILE` read the address from a
+file instead (a Docker secret, for instance), and `QUORUMIND_PUBLIC_URL` is the address the
+links point to. Only https addresses on those hosts are accepted: the server refuses to start
+with any other, so a webhook setting can never make it call another address. A webhook address
+is a secret (anyone who has it can post in the channel): it is never logged, and a failed post
+is logged with the webhook's host only. Chat notifications are off in local-only mode
+(`QUORUMIND_LOCAL_ONLY`), which promises that nothing leaves the machine.
+
+Slack receives a message with blocks; Teams an Adaptive Card (version 1.4) with an "Open the
+session" button. The messages are in English, like the e-mails: they only point back to the
+interface, which speaks each person's language.
+
+A host embedding the server (the hosted version, with one webhook per workspace) passes its own
+`ChatNotifier` to `createApp` (`apps/server/src/chat.ts`), whose `webhooks(session, placement)`
+returns the webhooks of each session.

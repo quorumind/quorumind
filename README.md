@@ -66,6 +66,7 @@ reverse proxy, never directly on the internet.
 | `QUORUMIND_INTERVIEWER`, `QUORUMIND_ARBITER`, `QUORUMIND_SEAT_A` to `QUORUMIND_SEAT_D`, `QUORUMIND_DEVIL` | Assign any model to any role, as `anthropic:<model>`, `openai:<model>`, `gemini:<model>`, `openrouter:<model>`, `ollama:<model>` or `mock`. Seats C, D and the devil's advocate are off unless set (`QUORUMIND_DEVIL=none`). |
 | `PORT`, `HOST`, `QUORUMIND_DATA_DIR` | Server address and where sessions are stored (a SQLite file, created on first start). |
 | `DATABASE_URL` or `DATABASE_URL_FILE` | Stores the sessions in PostgreSQL instead of SQLite, as `postgres://user:password@host:5432/database` (`DATABASE_URL_FILE`: the path of a file holding it, such as a Docker secret). The server waits for the database to answer at start-up and creates or updates its tables itself. Existing SQLite data is not copied over. |
+| `QUORUMIND_SLACK_WEBHOOK_URL`, `QUORUMIND_TEAMS_WEBHOOK_URL` | Optional: a message in a Slack or Microsoft Teams channel, through an incoming webhook, when any session waits for answers, finishes or fails, with its title, its status and a link built from `QUORUMIND_PUBLIC_URL`. `_FILE` variants read the address from a file. See [docs/integrations.md](docs/integrations.md#chat-notifications). |
 | `GITHUB_TOKEN` | Optional, for context import: raises the GitHub API limit and gives access to private repositories (read-only "Contents" and "Metadata" are enough). |
 | `QUORUMIND_ALLOW_PRIVATE_URLS=1` | Lets context import fetch pages on private networks (intranet, localhost). Off by default: only public addresses are fetched. Set it only on an instance whose users you trust. |
 
@@ -84,8 +85,9 @@ documents) and file uploads (10 MB).
 
 A finished session exports its roadmap for issue trackers, from the export menu: a CSV file for
 Jira (an epic per phase, a story per step), a CSV file for Linear, and a bundle of GitHub issues
-with a script that creates them through the GitHub CLI. Column mappings and import steps:
-[docs/integrations.md](docs/integrations.md).
+with a script that creates them through the GitHub CLI. Sessions can also post to a Slack or
+Microsoft Teams channel when they wait for answers, finish or fail. Column mappings, import
+steps and the chat set-up: [docs/integrations.md](docs/integrations.md).
 
 ## From a coding agent (MCP)
 

@@ -6,6 +6,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createApp, retentionDays } from "./app.ts";
 import { EventBus } from "./bus.ts";
+import { chatNotifierFromEnv } from "./chat.ts";
 import { notifierFromEnv } from "./notifier.ts";
 import { openStorage } from "./storage.ts";
 
@@ -30,6 +31,7 @@ const api = createApp({
   bus: new EventBus(),
   env,
   notifier: notifierFromEnv(env),
+  chat: chatNotifierFromEnv(env),
   ...(demoDelay === undefined ? {} : { mockDelayMs: demoDelay }),
 });
 

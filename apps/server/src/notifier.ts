@@ -16,7 +16,8 @@ const SUBJECTS: Record<NotifyReason, string> = {
   failed: "Your Quorumind session stopped",
 };
 
-const BODIES: Record<NotifyReason, string> = {
+/** What each notification asks of the person, in e-mails and chat messages. */
+export const BODIES: Record<NotifyReason, string> = {
   complete: "The arbiter has ruled. Open the session to read the verdict and download the report.",
   awaiting_answers: "The models need information only you have before they can go on. Answer to resume the debate.",
   failed: "The session stopped on an error. Open it to resume from where it stopped.",

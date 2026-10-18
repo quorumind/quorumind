@@ -39,6 +39,7 @@ import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { type BrandingStore, SqliteBrandingStore } from "./branding.ts";
 import type { EventBus } from "./bus.ts";
+import type { ChatNotifier } from "./chat.ts";
 import { contextRoutes } from "./context/routes.ts";
 import { invalidRequest } from "./errors.ts";
 import { exportRoutes } from "./exports.ts";
@@ -170,6 +171,8 @@ export interface AppDeps {
   env: Env;
   hooks?: AppHooks;
   notifier?: Notifier | null;
+  /** Slack or Teams messages when a session waits, finishes or fails, whatever its e-mail setting. */
+  chat?: ChatNotifier | null;
   /** Delay between streamed chunks of the demo; 0 in tests. */
   mockDelayMs?: number;
   /** White-label branding of the exports; kept in memory when not given. */
@@ -335,8 +338,9 @@ export function createApp(deps: AppDeps) {
   };
 
   const notify = async (session: Session) => {
-    if (!deps.notifier || !session.notify) return;
     if (session.phase !== "complete" && session.phase !== "awaiting_answers" && session.phase !== "failed") return;
+    if (deps.chat) await deps.chat.notify(session, session.phase, await store.find(session.id));
+    if (!deps.notifier || !session.notify) return;
     const user = users.get(session.id) ?? null;
     const recipient = user && hooks.notifyRecipient ? await hooks.notifyRecipient(user) : null;
     await deps.notifier.notify(session, session.phase, recipient);
