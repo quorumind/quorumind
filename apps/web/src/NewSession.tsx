@@ -291,24 +291,34 @@ export function NewSession() {
   // A European-only debate never searches: no search engine keeps the queries in Europe.
   const researchAvailable = Boolean(config?.research?.kind) && !europeanOnly;
   const researchOn = researchAvailable && (webResearch ?? researchDefault);
+  // Until the person ticks or unticks it, the research is left to the server's default for these settings, both for
+  // the estimate and for the session: a default not known yet is never sent as "no research".
+  const researchChoice = webResearch === null ? undefined : researchOn;
   const language = i18n.language as Locale;
   useEffect(() => {
     if (!lineup) return;
+    let live = true;
     const timer = setTimeout(() => {
-      api.estimate(lineup, effectiveRounds, mode, depth, language, mode === "audit" && alternative, researchOn).then(
+      api.estimate(lineup, effectiveRounds, mode, depth, language, mode === "audit" && alternative, researchChoice).then(
         (body) => {
+          // An answer to settings changed since is dropped: the estimate on screen is the latest one's.
+          if (!live) return;
           setEstimate(body.estimateUsd);
           setPrice(body.price);
           if (body.research) setResearchDefault(body.research.default);
         },
         () => {
+          if (!live) return;
           setEstimate(null);
           setPrice(null);
         },
       );
     }, 250);
-    return () => clearTimeout(timer);
-  }, [lineup, effectiveRounds, mode, depth, language, alternative, researchOn]);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [lineup, effectiveRounds, mode, depth, language, alternative, researchChoice]);
 
   const allLocal = useMemo(() => {
     if (!config || !lineup) return false;
@@ -329,7 +339,7 @@ export function NewSession() {
         template,
         complianceTemplates: demo ? [] : complianceTemplates,
         europeanOnly: !demo && europeanOnly,
-        ...(demo ? {} : { webResearch: researchOn }),
+        ...(demo || researchChoice === undefined ? {} : { webResearch: researchChoice }),
         depth,
         rounds: effectiveRounds,
         budgetUsd: budgetUsd && budgetUsd > 0 ? budgetUsd : null,

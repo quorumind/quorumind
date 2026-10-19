@@ -1,7 +1,7 @@
 import type { ResearchSection, Session } from "@quorumind/core";
 import { engineName, type NumberedSource, numberedSources, refsOf, researchSection } from "@quorumind/core/research-report";
 import type { TFunction } from "i18next";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { ExternalIcon, SearchIcon } from "./Icons.tsx";
 
@@ -46,22 +46,40 @@ export function ClaimRefs({ session, ids }: { session: Session; ids: string[] | 
   return <SourceRefs refs={refsOf(ids, numberedSources(session))} />;
 }
 
+/** The address of a source, when it is a web page's: anything else is shown as text, never as a link. */
+function webAddress(url: string): URL | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function SourceList({ sources }: { sources: NumberedSource[] }) {
   const { t, i18n } = useTranslation();
   return (
     <ol className="sources">
-      {sources.map((source) => (
-        <li id={`source-${source.number}`} key={source.id}>
-          <a href={source.url} target="_blank" rel="noopener noreferrer">
-            {source.title}
-            <ExternalIcon />
-            <span className="visually-hidden">({t("research.newTab")})</span>
-          </a>
-          <span className="field-hint">
-            {new URL(source.url).hostname} · {t("research.retrieved", { date: formatDate(source.retrievedAt, i18n.language) })}
-          </span>
-        </li>
-      ))}
+      {sources.map((source) => {
+        const address = webAddress(source.url);
+        return (
+          <li id={`source-${source.number}`} key={source.id}>
+            {address ? (
+              <a href={address.href} target="_blank" rel="noopener noreferrer">
+                {source.title}
+                <ExternalIcon />
+                <span className="visually-hidden">({t("research.newTab")})</span>
+              </a>
+            ) : (
+              <span>{source.title}</span>
+            )}
+            <span className="field-hint">
+              {address ? `${address.hostname} · ` : ""}
+              {t("research.retrieved", { date: formatDate(source.retrievedAt, i18n.language) })}
+            </span>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -69,9 +87,11 @@ function SourceList({ sources }: { sources: NumberedSource[] }) {
 /** The facts of a research section with their references, then its numbered sources. */
 export function ResearchFacts({ section, claims = false }: { section: ResearchSection; claims?: boolean }) {
   const { t } = useTranslation();
+  // The verdict and a client report can both show one: each heading has an id of its own.
+  const titleId = useId();
   return (
-    <section className="stack research-panel" aria-labelledby="research-title">
-      <h2 className="heading" id="research-title">
+    <section className="stack research-panel" aria-labelledby={titleId}>
+      <h2 className="heading" id={titleId}>
         {t("research.title")}
       </h2>
       <p className="field-hint" style={{ margin: 0 }}>
@@ -127,6 +147,7 @@ export function ResearchCard({ session, searching }: { session: Session; searchi
   const research = session.research;
   if (!research) return null;
   const reason = missingReason(session, t);
+  const next = research.queries.findIndex((item) => item.searchedAt === null && item.error === null);
   return (
     <div className="message voice-arbiter research-card">
       <div className="message-head">
@@ -141,17 +162,18 @@ export function ResearchCard({ session, searching }: { session: Session; searchi
         {research.queries.length > 0 ? (
           <ul className="research-queries">
             {research.queries.map((query, index) => {
-              const current = searching && query.searchedAt === null && query.error === null;
-              const first = research.queries.findIndex((item) => item.searchedAt === null && item.error === null);
+              // The search under way: the first one not done yet.
+              const current = searching && index === next;
               return (
-                <li key={query.query}>
+                // biome-ignore lint/suspicious/noArrayIndexKey: two questions can lead to the same query.
+                <li key={`${index}-${query.query}`}>
                   <span>{query.question}</span>
                   <span className="field-hint">
                     {query.searchedAt !== null
                       ? t("research.pages", { count: query.sources.length })
                       : query.error !== null
                         ? t("research.notSearched")
-                        : current && index === first
+                        : current
                           ? t("research.searching")
                           : ""}
                   </span>
