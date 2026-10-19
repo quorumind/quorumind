@@ -14,6 +14,9 @@ import { NewFacts, UpdateLabel } from "./Revisions.tsx";
 type Draft = { id?: string; text: string; why: string; origin: "open_question" | "agency" };
 
 const PASSWORD_MIN = 4;
+/** How often the list of questionnaires is asked again while the client has not answered. */
+const POLL_MS = 30_000;
+const FOLLOW_UP_MS = 2_000;
 const linkOf = (token: string) => `${window.location.origin}${window.location.pathname}#/q/${token}`;
 const dateOf = (iso: string, language: string) => new Intl.DateTimeFormat(language, { dateStyle: "long" }).format(new Date(iso));
 
@@ -31,13 +34,15 @@ function QuestionnaireEditor({
   onSave: (settings: QuestionnaireSettings) => void;
   onCancel: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const id = useId();
   const [questions, setQuestions] = useState<Draft[]>(initial.length > 0 ? initial : [{ text: "", why: "", origin: "agency" }]);
   const [client, setClient] = useState(questionnaire?.client ?? "");
   const [message, setMessage] = useState(questionnaire?.message ?? "");
-  const [expiresIn, setExpiresIn] = useState<"7d" | "30d">("30d");
+  // A questionnaire sent keeps its date ("") until the agency extends it, e.g. once it expired unanswered.
+  const [expiresIn, setExpiresIn] = useState<"7d" | "30d" | "">(questionnaire ? "" : "30d");
   const [password, setPassword] = useState("");
+  const [removePassword, setRemovePassword] = useState(false);
   const filled = questions.filter((question) => question.text.trim());
   const tooShort = password.length > 0 && password.length < PASSWORD_MIN;
   const update = (index: number, change: Partial<Draft>) =>
@@ -54,8 +59,8 @@ function QuestionnaireEditor({
       })),
       client: client.trim() || null,
       message: message.trim() || null,
-      ...(questionnaire ? {} : { expiresIn }),
-      ...(password ? { password } : {}),
+      ...(expiresIn ? { expiresIn } : {}),
+      ...(removePassword ? { password: null } : password ? { password } : {}),
     });
   };
 
@@ -147,22 +152,27 @@ function QuestionnaireEditor({
         </span>
       </div>
       <div className="options">
-        {questionnaire ? null : (
-          <div className="field">
-            <label className="field-label" htmlFor={`${id}-expiry`}>
-              {t("client.expiryLabel")}
-            </label>
-            <select
-              id={`${id}-expiry`}
-              className="select"
-              value={expiresIn}
-              onChange={(event) => setExpiresIn(event.target.value as "7d" | "30d")}
-            >
-              <option value="30d">{t("client.expiry.30d")}</option>
-              <option value="7d">{t("client.expiry.7d")}</option>
-            </select>
-          </div>
-        )}
+        <div className="field">
+          <label className="field-label" htmlFor={`${id}-expiry`}>
+            {t("client.expiryLabel")}
+          </label>
+          <select
+            id={`${id}-expiry`}
+            className="select"
+            value={expiresIn}
+            onChange={(event) => setExpiresIn(event.target.value as "7d" | "30d" | "")}
+          >
+            {questionnaire ? (
+              <option value="">
+                {Date.parse(questionnaire.expiresAt) <= Date.now()
+                  ? t("errors.questionnaire_expired")
+                  : t("client.until", { date: dateOf(questionnaire.expiresAt, i18n.language) })}
+              </option>
+            ) : null}
+            <option value="30d">{t("client.expiry.30d")}</option>
+            <option value="7d">{t("client.expiry.7d")}</option>
+          </select>
+        </div>
         <div className="field">
           <label className="field-label" htmlFor={`${id}-password`}>
             {t("client.passwordLabel")}
@@ -174,6 +184,7 @@ function QuestionnaireEditor({
             autoComplete="new-password"
             maxLength={200}
             value={password}
+            disabled={removePassword}
             aria-invalid={tooShort}
             aria-describedby={`${id}-password-hint`}
             placeholder={questionnaire?.hasPassword ? t("share.passwordChange") : t("share.passwordNone")}
@@ -182,10 +193,23 @@ function QuestionnaireEditor({
           <span id={`${id}-password-hint`} className="field-hint">
             {t("share.passwordHint", { min: PASSWORD_MIN })}
           </span>
+          {questionnaire?.hasPassword ? (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={removePassword}
+                onChange={(event) => {
+                  setRemovePassword(event.target.checked);
+                  setPassword("");
+                }}
+              />
+              <span>{t("share.passwordRemove")}</span>
+            </label>
+          ) : null}
         </div>
       </div>
       <div className="row">
-        <button type="submit" className="button button-primary" disabled={pending || filled.length === 0 || tooShort}>
+        <button type="submit" className="button button-primary" disabled={pending || filled.length === 0 || (tooShort && !removePassword)}>
           {questionnaire ? t("client.saveChanges") : t("client.save")}
         </button>
         <button type="button" className="button button-quiet" onClick={onCancel}>
@@ -202,17 +226,22 @@ function QuestionnaireCard({
   questionnaire,
   price,
   pending,
+  requested,
   run,
   onEdit,
   onChange,
+  onRevise,
 }: {
   session: Session;
   questionnaire: Questionnaire;
   price: PriceQuote | null | undefined;
   pending: boolean;
+  /** A revision was asked for from these answers and is not shown as applied yet: no second one, which would be paid. */
+  requested: boolean;
   run: (work: () => Promise<void>) => Promise<void>;
   onEdit: () => void;
   onChange: () => void;
+  onRevise: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const link = linkOf(questionnaire.token);
@@ -274,8 +303,13 @@ function QuestionnaireCard({
           <button
             type="button"
             className="button button-primary"
-            disabled={pending || revising}
-            onClick={() => run(() => api.reviseFromAnswers(session.id, questionnaire.id).then(onChange))}
+            disabled={pending || revising || requested}
+            onClick={() =>
+              run(async () => {
+                await api.reviseFromAnswers(session.id, questionnaire.id);
+                onRevise();
+              })
+            }
           >
             <UpdateLabel price={price} />
           </button>
@@ -324,18 +358,48 @@ export function ClientLoop({
   const [editing, setEditing] = useState<"new" | "edit" | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // The questionnaires a revision was asked for, until the list shows it applied.
+  const [requested, setRequested] = useState<string[]>([]);
   const latest = questionnaires?.at(-1) ?? null;
   const revisions = session.revisions.length;
+  const revising = session.revising !== null;
 
   const load = useCallback(() => {
     api.questionnaires(session.id).then(
-      (body) => setQuestionnaires(body.questionnaires),
-      () => setQuestionnaires([]),
+      (body) => {
+        setLoadError(null);
+        setQuestionnaires(body.questionnaires);
+        setRequested((ids) => ids.filter((id) => !body.questionnaires.some((item) => item.id === id && item.appliedRevision)));
+      },
+      (caught: unknown) => setLoadError(failureText(t, caught)),
     );
-  }, [session.id]);
-  // A new revision may have been made from the answers.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reload when the number of revisions changes.
-  useEffect(load, [load, revisions]);
+  }, [session.id, t]);
+  // A revision made from the answers, or one that ended: the list says which questionnaire it was made from. The
+  // server records that just after the revision itself, so the list is asked again a moment later.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reload when the revisions change.
+  useEffect(() => {
+    load();
+    if (revising) return;
+    const again = setTimeout(load, FOLLOW_UP_MS);
+    return () => clearTimeout(again);
+  }, [load, revisions, revising]);
+  // The client answers on their side: while a questionnaire waits, the list is asked again now and then, and when
+  // the person comes back to the tab.
+  const waiting = latest?.status === "open";
+  useEffect(() => {
+    const visible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("focus", load);
+    const timer = waiting ? setInterval(load, POLL_MS) : null;
+    return () => {
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("focus", load);
+      if (timer !== null) clearInterval(timer);
+    };
+  }, [load, waiting]);
   useEffect(() => onClient(latest?.client ?? null), [latest?.client, onClient]);
 
   const run = async (work: () => Promise<void>) => {
@@ -376,6 +440,14 @@ export function ClientLoop({
           {error}
         </p>
       ) : null}
+      {loadError ? (
+        <div className="notice notice-error row" role="alert">
+          <span>{loadError}</span>
+          <button type="button" className="button button-secondary" onClick={load}>
+            {t("common.retry")}
+          </button>
+        </div>
+      ) : null}
       {editing ? (
         <QuestionnaireEditor
           key={editing}
@@ -391,9 +463,11 @@ export function ClientLoop({
           questionnaire={latest}
           price={price}
           pending={pending}
+          requested={requested.includes(latest.id)}
           run={run}
           onEdit={() => setEditing("edit")}
           onChange={load}
+          onRevise={() => setRequested((ids) => [...ids, latest.id])}
         />
       ) : questionnaires ? (
         <div>
