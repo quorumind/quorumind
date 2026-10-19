@@ -73,6 +73,8 @@ export interface NewSession {
   audit?: { documentIds: string[]; alternative: boolean } | null;
   context?: ContextDocument[];
   redact?: boolean;
+  /** Web research before the proposals; left out, the server's default applies. */
+  webResearch?: boolean;
 }
 
 /** An error answered by the Quorumind server, or the server being unreachable (status 0). */

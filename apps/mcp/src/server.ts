@@ -280,6 +280,12 @@ export function createMcpServer(options: McpOptions): McpServer {
             `Paths of up to ${MAX_FILES} local text files the models should read: README, architecture notes, schema, package.json... Absolute, or relative to the directory this MCP server runs in. Files longer than ${MAX_FILE_CHARS} characters are cut.`,
           ),
         redact: z.boolean().optional().describe("Mask e-mails, phone numbers, card numbers and secrets before anything reaches a model."),
+        web_research: z
+          .boolean()
+          .optional()
+          .describe(
+            "Check the facts the debate depends on (prices, current versions, end-of-life dates, rules, vendor limits) on the web before the proposals; the verdict then cites its sources. Only short, generic queries reach the search engine, never the documents. Left out, the server's default applies; off with European models only.",
+          ),
         alternative: z
           .boolean()
           .optional()
@@ -319,6 +325,7 @@ export function createMcpServer(options: McpOptions): McpServer {
             : {}),
           ...(documents.length > 0 ? { context: documents } : {}),
           ...(input.redact === undefined ? {} : { redact: input.redact }),
+          ...(input.web_research === undefined ? {} : { webResearch: input.web_research }),
         });
         const preface: string[] = [];
         if (options.demo) preface.push("Demo mode: a recorded debate is replayed, no model is called and nothing is billed.");

@@ -1,4 +1,14 @@
-import { auditOf, type InterviewQuestion, quoteCheck, type RequirementsSheet, type Session } from "@quorumind/core";
+import {
+  auditOf,
+  type InterviewQuestion,
+  numberedSources,
+  quoteCheck,
+  type RequirementsSheet,
+  refsOf,
+  researchNote,
+  researchSection,
+  type Session,
+} from "@quorumind/core";
 import type { PriceQuote, SessionCosts, SessionState } from "./client.ts";
 
 // Everything here is read by a coding agent: plain Markdown, short, and always ending on what to do next.
@@ -250,7 +260,31 @@ export function formatVerdictSummary(session: Session, costs: SessionCosts = {})
     for (const step of verdict.roadmap) lines.push(`- ${step.phase}: ${step.content} Done when: ${step.exitCriterion}`);
   }
   if (verdict.openQuestions.length > 0) lines.push("", "### Open questions", ...verdict.openQuestions.map((q) => `- ${q}`));
+  lines.push(...sourcesSummary(session));
   return lines.join("\n");
+}
+
+/**
+ * The facts the web research found and the verified claims, with the numbers of their sources, then the numbered
+ * sources with the day each was read; or the line that says why there are none.
+ */
+export function sourcesSummary(session: Session): string[] {
+  const english = { ...session, locale: "en" as const };
+  const section = researchSection(english);
+  if (!section) return ["", `_${researchNote(english)}_`];
+  const sources = numberedSources(session);
+  const verified = (session.verdict?.claims ?? []).filter((claim) => claim.confidence === "verified");
+  return [
+    "",
+    `### Facts checked on the web (${section.date}, ${section.engine})`,
+    ...section.facts.map((fact) => `- ${fact.fact} [${fact.refs.join(", ")}]`),
+    ...(verified.length > 0
+      ? ["", "### Verified claims", ...verified.map((claim) => `- ${claim.claim} [${refsOf(claim.sources, sources).join(", ")}]`)]
+      : []),
+    "",
+    "### Sources",
+    ...section.sources.map((source) => `${source.number}. ${source.title}: ${source.url} (retrieved ${source.retrievedAt.slice(0, 10)})`),
+  ];
 }
 
 const OPINIONS = { sound: "sound", sound_with_reservations: "sound, with reservations", not_sound: "not sound as it stands" } as const;
@@ -286,6 +320,7 @@ export function formatAuditSummary(session: Session): string {
   lines.push("", `### Timeline: ${audit.timeline.assessment}`, audit.timeline.comment);
   if (audit.questions.length > 0) lines.push("", "### Questions to ask the provider", ...audit.questions.map((q, i) => `${i + 1}. ${q}`));
   if (audit.negotiation.length > 0) lines.push("", "### Points to negotiate", ...audit.negotiation.map((point) => `- ${point}`));
+  lines.push(...sourcesSummary(session));
   return lines.join("\n");
 }
 

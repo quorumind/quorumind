@@ -218,6 +218,10 @@ describe("MCP server on the recorded demo", () => {
     const summary = await call(mcp, "quorumind_verdict", { session_id: sessionId, format: "summary" });
     expect(textOf(summary)).toContain("**Recommended: option A");
     expect(textOf(summary)).toContain("  Build cost: 12,300 EUR to 15,500 EUR, 47 to 59 person-days in 7 work packages");
+    // The demo replays its recorded web research: the facts, the verified claims and the sources, numbered.
+    expect(textOf(summary)).toContain("### Facts checked on the web");
+    expect(textOf(summary)).toContain("- Stripe charges 1.5% + €0.25 per payment with a standard EEA card [1]");
+    expect(textOf(summary)).toContain("1. Stripe pricing (France): https://stripe.com/fr/pricing (retrieved 2026-06-15)");
     const report = await call(mcp, "quorumind_verdict", { session_id: sessionId, format: "markdown" });
     expect(textOf(report)).toContain("_Decision report");
     const resource = await mcp.client.readResource({ uri: `quorumind://sessions/${sessionId}/report` });
@@ -355,6 +359,12 @@ describe("MCP server on the recorded demo", () => {
     } finally {
       await agent.close();
     }
+  });
+
+  it("starts a debate without web research when asked", async () => {
+    const started = await call(mcp, "quorumind_start", { idea: "A booking app for yoga studios", web_research: false });
+    expect(started.isError).toBeFalsy();
+    expect((await quorumind.store.get(snapOf(started).sessionId))?.webResearch).toBeNull();
   });
 
   it("lists the sessions", async () => {
