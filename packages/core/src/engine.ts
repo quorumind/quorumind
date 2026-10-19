@@ -24,7 +24,7 @@ import { COMPLIANCE_UPDATE, COMPLIANCE_VERDICT, settleCompliance, type VerdictWi
 import { checkFacts, debateCurrency, sessionCostings, sessionProfile } from "./costing.ts";
 import { partialStringField } from "./partial-json.ts";
 import { cappedCostOf, costOf, TASK_PROFILE, typicalCappedCost } from "./pricing.ts";
-import { fence, redact } from "./privacy.ts";
+import { fence, redact, withoutRates } from "./privacy.ts";
 import { currencyCode } from "./profile.ts";
 import {
   answersBlock,
@@ -356,21 +356,25 @@ export class DebateEngine {
     if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
     // The current revision as it stands: an adopted scenario brings its own requirements.
     const shown = currentView(session);
-    const brief = await this.call(session, "brief", null, this.providers.arbiter, {
+    // A client never reads the agency's day rates: the model that writes for one is not shown them either.
+    const client = audience === "client" && session.mode !== "audit";
+    const proposals = client ? clientProposals(currentProposals(shown)) : currentProposals(shown);
+    const verdict = stripSpeech(client ? withoutRates(session.verdict) : session.verdict);
+    const written = await this.call(session, "brief", null, this.providers.arbiter, {
       system: briefSystem(session.locale, audience),
       messages: [
         {
           role: "user",
           content: [
             requirementsBlock(requireSheet(shown)),
-            proposalsBlock(currentProposals(shown), computedCosts(shown)),
-            fence("debate", JSON.stringify({ verdict: stripSpeech(session.verdict) }, null, 2)),
+            proposalsBlock(proposals, computedCosts(shown)),
+            fence("debate", JSON.stringify({ verdict }, null, 2)),
             `Write the brief for this reader: ${audience}.`,
           ].join("\n\n"),
         },
       ],
     });
-    session.briefs[audience] = brief;
+    session.briefs[audience] = client ? withoutRates(written) : written;
     await this.persist(session);
   }
 
@@ -1328,6 +1332,16 @@ async function settleAll(calls: Promise<void>[]): Promise<void> {
   const results = await Promise.allSettled(calls);
   const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
   if (failure) throw failure.reason;
+}
+
+/** The proposals as a model writing for a client reads them: without the day rates, nor any text that states one. */
+function clientProposals(proposals: Record<string, Proposal>): Record<string, Proposal> {
+  return Object.fromEntries(
+    Object.entries(proposals).map(([seat, proposal]) => {
+      const clean = withoutRates(proposal);
+      return [seat, { ...clean, estimate: { ...clean.estimate, dayRates: [] } }];
+    }),
+  );
 }
 
 /** The build cost of each option as Quorumind priced it, for the models that read the proposals. */

@@ -2,6 +2,7 @@ import { agencyLabels } from "./agency-labels.ts";
 import { type AuditDeliverable, auditDeliverable, renderAuditClientReport } from "./audit-report.ts";
 import { deliveryChecks, type OptionChecks, proposalCosting, type Range } from "./costing.ts";
 import type { Locale } from "./locales.ts";
+import { withoutRates } from "./privacy.ts";
 import { rankOptions } from "./ranking.ts";
 import {
   budgetText,
@@ -83,8 +84,16 @@ export interface ClientDeliverable {
   research: ResearchSection | null;
 }
 
+/**
+ * What a client may read of a model-written value: everything but the sentences and items that state a rate. An audit
+ * keeps its text: the rates it examines are those of the document the person received, not the agency's.
+ */
+function forClient<T>(session: Pick<Session, "mode">, value: T): T {
+  return session.mode === "audit" ? value : withoutRates(value);
+}
+
 export function clientDeliverable(session: Session): ClientDeliverable {
-  const verdict = session.verdict;
+  const stored = session.verdict;
   const criteria = (session.sheet?.priorities ?? []).map(({ criterion, weight }) => ({ criterion, weight }));
   const base = {
     // The person's own words about the project stay private: the name the interview gave it, once there is one.
@@ -94,7 +103,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
     date: session.updatedAt,
     criteria,
   };
-  if (!verdict || session.phase !== "complete") {
+  if (!stored || session.phase !== "complete") {
     return {
       ...base,
       complete: false,
@@ -110,6 +119,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
       research: null,
     };
   }
+  const verdict = forClient(session, stored);
   const weights = Object.fromEntries(criteria.map((item) => [item.criterion, item.weight]));
   const ranking = rankOptions(verdict, weights);
   const proposals = currentProposals(session);
@@ -121,18 +131,23 @@ export function clientDeliverable(session: Session): ClientDeliverable {
     const monthly = monthlyRange(session, proposal);
     return {
       currency: costing.currency,
-      packages: costing.packages.map(({ name, description, days, cost }) => ({ name, description, days, cost })),
+      packages: costing.packages.map(({ name, description, days, cost }) => ({
+        name,
+        description: forClient(session, description),
+        days,
+        cost,
+      })),
       days: costing.days,
       total: costing.total,
       monthly: { low: monthly.low, high: monthly.high },
       buildWeeks: proposal.buildWeeks,
-      assumptions: costing.assumptions,
-      exclusions: costing.exclusions,
+      assumptions: forClient(session, costing.assumptions),
+      exclusions: forClient(session, costing.exclusions),
       checks: checks[optionSeat] ?? null,
     };
   };
   const seat = verdict.recommendation.seat;
-  const brief = session.briefs.client;
+  const brief = session.briefs.client ? forClient(session, session.briefs.client) : undefined;
   const revision = currentRevision(session);
   return {
     ...base,
@@ -154,7 +169,8 @@ export function clientDeliverable(session: Session): ClientDeliverable {
         { seat: optionSeat, title, feasibility, reason, conditions, scores, weightedScore: ranked.score, costing: costingOf(optionSeat) },
       ];
     }),
-    risks: verdict.risks,
+    // A risk whose statement gave a rate has nothing left to say.
+    risks: verdict.risks.filter((risk) => risk.risk.trim()),
     roadmap: verdict.roadmap,
     openQuestions: verdict.openQuestions,
     brief: brief ? { headline: brief.headline, summary: brief.summary, sections: brief.sections, nextSteps: brief.nextSteps } : null,
@@ -351,7 +367,7 @@ export function clientProposal(session: Session, options: { client?: string | nu
   const revision = verdict ? currentRevision(session) : null;
   const deliverable = clientDeliverable(session);
   const seat = verdict?.recommendation.seat ?? null;
-  const chosen = seat ? proposals[seat] : undefined;
+  const chosen = seat && proposals[seat] ? forClient(session, proposals[seat]) : undefined;
   const option = seat ? verdict?.options.find((item) => item.seat === seat) : undefined;
   const costing = deliverable.options.find((item) => item.seat === seat)?.costing ?? null;
   const t = reportLabels(session.locale);
@@ -377,8 +393,8 @@ export function clientProposal(session: Session, options: { client?: string | nu
             seat,
             title: chosen?.title ?? option?.title ?? seat,
             summary: chosen?.summary ?? "",
-            rationale: verdict.recommendation.rationale,
-            conditions: option?.conditions ?? [],
+            rationale: deliverable.recommendation?.rationale ?? "",
+            conditions: deliverable.options.find((item) => item.seat === seat)?.conditions ?? [],
             architecture: chosen?.architecture ?? [],
             stack: chosen?.stack ?? [],
             buildTime: chosen?.buildTime ?? null,
@@ -387,13 +403,13 @@ export function clientProposal(session: Session, options: { client?: string | nu
             buildCost: costing ? { ...costing.total, currency: costing.currency } : null,
           }
         : null,
-    rationale: verdict && !seat ? verdict.recommendation.rationale : null,
+    rationale: verdict && !seat ? (deliverable.recommendation?.rationale ?? null) : null,
     alternatives: deliverable.options
       .filter((item) => item.seat !== seat)
       .map((item) => ({
         seat: item.seat,
         title: proposals[item.seat]?.title ?? item.title,
-        summary: proposals[item.seat]?.summary ?? null,
+        summary: forClient(session, proposals[item.seat]?.summary ?? null),
         feasibility: item.feasibility,
         reason: item.reason,
         conditions: item.conditions,

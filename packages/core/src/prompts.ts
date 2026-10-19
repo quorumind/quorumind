@@ -228,7 +228,9 @@ export function briefSystem(locale: Locale, audience: Audience) {
 
 Rewrite the arbiter's verdict for ${AUDIENCES[audience]}.
 Change vocabulary, level of detail and length for this reader, never the substance: the same recommendation, figures, conditions and risks.
-Keep estimates marked as estimates. Use three to six short sections and end with the next steps.
+Keep estimates marked as estimates. Use three to six short sections and end with the next steps.${
+    audience === "client" ? "\nNever state a day rate, an hourly rate or the rate of a role: give amounts, days and weeks only." : ""
+  }
 
 ${DATA_RULE}
 ${STYLE_RULE}

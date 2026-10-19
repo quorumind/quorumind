@@ -67,6 +67,70 @@ const RULES: Rule[] = [
   [/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "[ip]", (match) => match.split(".").every((part) => Number(part) <= 255)],
 ];
 
+// Day rates stay with the agency: what a client reads gives amounts and days, never the rate behind them. Proposers
+// state the rates they assume, and the models that read them may repeat them anywhere in their text.
+
+const RATE_WORDS =
+  /\b(?:day|daily|hourly|blended)[ -]?rates?\b|\brates? (?:assumed|used)\b|\bassumed rates?\b|\bTJM\b|\btaux (?:journaliers?|horaires?)\b|\btarifs? (?:journaliers?|horaires?)\b|\bprix de (?:la )?journée\b|tagess[aä]tze?|stundens[aä]tze?|\btarifas? (?:diarias?|por hora)\b|\btariff[ae] (?:giornalier[ae]|orari[ae])\b|\btaxas? (?:diárias?|horárias?)\b|\bvalor da diária\b|日単価|日額|人日単価|人月単価|日费率|人天单价|人日单价|दैनिक दर|السعر اليومي|الأجر اليومي/iu;
+const MONEY = String.raw`(?:[€$£¥₹円元]|\b(?:eur|usd|gbp|chf|cad|aud|jpy|cny|inr|sar|aed|euros?|dollars?)\b)`;
+const AMOUNT = String.raw`\d[\d\s.,'’]*(?:k|万)?`;
+const PRICE = String.raw`(?:${MONEY}\s?${AMOUNT}|${AMOUNT}\s?${MONEY})`;
+// An amount directly followed by "per day" or "per hour", in the languages of the interface.
+const PRICE_PER_TIME = new RegExp(
+  String.raw`${PRICE}\s*(?:\/|\bper\b|\ba\b|\ban\b|\bpar\b|\bpro\b|\bal\b|\bpor\b|\bao\b|每)\s*(?:person[- ]?|man[- ]?|homme[- ]?)?(?:days?|jours?|journée|j|tag|día|dia|giorno|hours?|h|heures?|stunde|std|hora|ora|日|天|人日|小时)(?![\p{L}])`,
+  "iu",
+);
+// "Per day" first, then what it is billed: "each day is billed €700", "chaque jour est facturé 700 €", and the
+// Chinese, Japanese, Hindi and Arabic word order. "200 bookings a day cost €40" is not a rate: the verb must follow.
+const TIME_THEN_PRICE = new RegExp(
+  String.raw`\b(?:each|every|per|one|chaque|par|pro|jeder|cada|por|ogni) (?:person[- ])?(?:day|hour|jour|journée|heure|tag|stunde|día|hora|giorno|ora|dia)\b,? (?:(?:is|are|was|est|wird|es|è|é) )?(?:billed|charged|invoiced|costs?|factur\p{L}*|coûte|kostet|berechnet|cuesta|cobra\p{L}*|costa|fatturat\p{L}*|custa|faturad\p{L}*)\b[^.!?;:。]{0,10}?${PRICE}|(?:每人?[日天]|1日あたり|一日あたり|प्रति दिन|في اليوم|يوميًا|يوميا)\s*${PRICE}|${PRICE}\s*(?:daily|hourly)\b`,
+  "iu",
+);
+
+/** True when a text states a day rate or an hourly rate: a rate word, or an amount per day or per hour. */
+export function mentionsRate(text: string): boolean {
+  return RATE_WORDS.test(text) || PRICE_PER_TIME.test(text) || TIME_THEN_PRICE.test(text);
+}
+
+/** The items of a list that state no rate. */
+export function withoutRateItems(items: string[]): string[] {
+  return items.filter((item) => !mentionsRate(item));
+}
+
+/** A text without the sentences that state a rate; its lines are kept. */
+export function withoutRateSentences(text: string): string {
+  if (!mentionsRate(text)) return text;
+  return text
+    .split("\n")
+    .map((line) =>
+      // Sentences end with a full stop and a space, or with a full-width stop: "€0.25" is not cut.
+      line
+        .split(/(?<=[.!?])\s+|(?<=[。！？])/u)
+        .filter((sentence) => !mentionsRate(sentence))
+        .join(" ")
+        .replace(/(?<=[。！？]) /gu, ""),
+    )
+    .filter((line, index, lines) => line.trim() || (index > 0 && lines[index - 1]?.trim()))
+    .join("\n")
+    .trim();
+}
+
+/**
+ * A model-written value (a verdict, a proposal, a brief) without what states a rate: the sentences of every text, the
+ * items of every list of texts. Numbers and the shape are kept.
+ */
+export function withoutRates<T>(value: T): T {
+  if (typeof value === "string") return withoutRateSentences(value) as T;
+  if (Array.isArray(value)) {
+    const items = value.every((item) => typeof item === "string") ? withoutRateItems(value as string[]) : value;
+    return items.map((item) => withoutRates(item)) as T;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withoutRates(item)])) as T;
+  }
+  return value;
+}
+
 /** Masks personal data and secrets. Figures that matter to the debate (prices, dates, counts) survive. */
 export function redact(text: string): string {
   let out = text;
