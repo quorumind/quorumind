@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { createSession, type Session } from "@quorumind/core";
+import { createSession, DEMO_SCRIPT, firstRevision, type Session } from "@quorumind/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqliteBrandingStore } from "./branding.ts";
 import { loadMigrations, migrate } from "./postgres/migrate.ts";
@@ -318,7 +318,7 @@ describe("the PostgreSQL schema", () => {
     const db = await pgliteDatabase();
     try {
       const runs = await Promise.all([migrateSessions(db), migrateSessions(db)]);
-      expect(runs.flat()).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(runs.flat()).toEqual([1, 2, 3, 4, 5, 6, 7]);
       expect(await migrateSessions(db)).toEqual([]);
       const { rows } = await db.query("SELECT component, version, name FROM schema_migrations ORDER BY version");
       expect(rows).toEqual([
@@ -328,6 +328,7 @@ describe("the PostgreSQL schema", () => {
         { component: "quorumind", version: 4, name: "settings_updated_at" },
         { component: "quorumind", version: 5, name: "verdict_revisions" },
         { component: "quorumind", version: 6, name: "questionnaires" },
+        { component: "quorumind", version: 7, name: "decisions" },
       ]);
     } finally {
       await db.close();
@@ -346,7 +347,7 @@ describe("the PostgreSQL schema", () => {
         JSON.stringify(session),
         day(1),
       ]);
-      expect(await migrateSessions(db)).toEqual([2, 3, 4, 5, 6]);
+      expect(await migrateSessions(db)).toEqual([2, 3, 4, 5, 6, 7]);
       const store = new PostgresSessionStore(db);
       expect(await store.find(session.id)).toMatchObject({ owner: "ada", workspace: null, private: false });
       expect((await store.history(50, { owner: "ada", workspace: "team" })).map((entry) => entry.id)).toEqual([session.id]);
@@ -438,9 +439,22 @@ describe("share links made before their options", () => {
     try {
       await migrate(db, "quorumind", loadMigrations(fileURLToPath(new URL("./postgres/migrations/", import.meta.url))).slice(0, 2));
       const session = completed("Old link", day(1));
-      await new PostgresSessionStore(db).save(session);
+      session.verdict = DEMO_SCRIPT.verdict;
+      session.revisions = [firstRevision(DEMO_SCRIPT.verdict, day(1))];
+      // As a server of that time stored it: the session alone.
+      await db.query("INSERT INTO sessions (id, data, created_at, updated_at) VALUES ($1, $2, $3, $3)", [
+        session.id,
+        JSON.stringify(session),
+        day(1),
+      ]);
       await db.query("INSERT INTO shares (token, session_id, public, created_at) VALUES ('old-token', $1, true, $2)", [session.id, day(1)]);
-      expect(await migrateSessions(db)).toEqual([3, 4, 5, 6]);
+      expect(await migrateSessions(db)).toEqual([3, 4, 5, 6, 7]);
+      const store = new PostgresSessionStore(db);
+      // Its decision joins the register when the server starts.
+      expect(await store.decisions({ owner: null })).toEqual([]);
+      expect(await store.indexDecisions()).toBe(1);
+      expect(await store.indexDecisions()).toBe(0);
+      expect((await store.decisions({ owner: null })).map((entry) => [entry.sessionId, entry.status])).toEqual([[session.id, "proposed"]]);
       expect(await new PostgresSessionStore(db).shareOf(session.id)).toEqual({
         token: "old-token",
         public: true,

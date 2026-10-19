@@ -5,6 +5,7 @@ import {
   catalogFromEnv,
   clientDeliverable,
   createSession,
+  currentView,
   DEMO_IDEA,
   DEMO_LINEUP,
   DEPTHS,
@@ -53,6 +54,7 @@ import { type BrandingStore, SqliteBrandingStore } from "./branding.ts";
 import type { EventBus } from "./bus.ts";
 import type { ChatNotifier } from "./chat.ts";
 import { contextRoutes } from "./context/routes.ts";
+import { decisionRoutes, sendReviewReminders } from "./decisions.ts";
 import { invalidRequest } from "./errors.ts";
 import { EuropeanUnavailable, europeanConfig, europeanSession, NonEuropeanModel, wantsEuropean } from "./european.ts";
 import { exportRoutes } from "./exports.ts";
@@ -243,6 +245,8 @@ export interface AppDeps {
   mockDelayMs?: number;
   /** White-label branding of the exports and the organisation profile; kept in memory when not given. */
   brandingStore?: BrandingStore;
+  /** The address of the interface, for the links of the exports (the register's CSV); the request's origin otherwise. */
+  publicUrl?: string | null;
 }
 
 const AnswerList = z.array(z.object({ question: z.string().max(2_000), answer: z.string().max(4_000) })).max(20);
@@ -731,9 +735,10 @@ export function createApp(deps: AppDeps) {
     if (!access.mine && access.shared && hooks.authors && owner) access.author = (await hooks.authors([owner]))[owner] ?? null;
     return c.json({
       session: view(session),
-      // The build cost of each option priced from its work packages, and how it fits the budget and the deadline.
-      costings: sessionCostings(session),
-      checks: deliveryChecks(session),
+      // The build cost of each option priced from its work packages, and how it fits the budget and the deadline, for
+      // the current revision (an adopted scenario has numbers of its own).
+      costings: sessionCostings(currentView(session)),
+      checks: deliveryChecks(currentView(session)),
       busy: busy.has(id),
       share: await store.shareOf(id),
       feedback: await store.feedbackOf(id),
@@ -888,7 +893,8 @@ export function createApp(deps: AppDeps) {
       session.european = europeanSession(source, await catalogFor(user), envFor(user)).european;
     }
     session.interview = structuredClone(source.interview);
-    session.sheet = structuredClone(source.sheet);
+    // The requirements of the decision as it stands: an adopted scenario's, with its changes.
+    session.sheet = structuredClone(currentView(source).sheet);
     session.phase = "review";
     // The new debate follows the profile in force now, not the one the earlier decision was made with.
     session.profile = await profileFor(user, session);
@@ -946,15 +952,15 @@ export function createApp(deps: AppDeps) {
     const { session, share } = await openShare(c);
     if (share.mode === "full") return c.json({ share: shareInfo(share), session: publicView(session) });
     void writeClientBrief(session);
-    return c.json({ share: shareInfo(share), deliverable: clientDeliverable(session) });
+    return c.json({ share: shareInfo(share), deliverable: clientDeliverable(currentView(session)) });
   });
 
   app.get("/api/shared/:token/report.md", async (c) => {
     const { session, share } = await openShare(c);
-    if (share.mode === "full") return markdown(c, publicView(session));
+    if (share.mode === "full") return markdown(c, currentView(publicView(session)));
     c.header("Content-Type", "text/markdown; charset=utf-8");
     c.header("Content-Disposition", `attachment; filename="${slug(session)}-report.md"`);
-    return c.body(renderClientReport(clientDeliverable(session)));
+    return c.body(renderClientReport(clientDeliverable(currentView(session))));
   });
 
   // The password of a protected link, for an access token valid a few hours. Wrong passwords are counted per link
@@ -1012,7 +1018,7 @@ export function createApp(deps: AppDeps) {
   app.get("/api/sessions/:id/report.md", async (c) => {
     const session = await load(c.req.param("id"), c.get("user"));
     const revision = c.req.query("revision");
-    const shown = revision ? sessionAtRevision(session, Number(revision)) : session;
+    const shown = revision ? sessionAtRevision(session, Number(revision)) : currentView(session);
     if (!shown) throw new NotFound();
     return markdown(c, shown);
   });
@@ -1087,6 +1093,22 @@ export function createApp(deps: AppDeps) {
     }),
   );
 
+  const decisionDeps = {
+    store,
+    hooks,
+    access: accessOf,
+    editable,
+    startAction,
+    revise: (session: Session, request: Omit<RevisionRequest, "by">) => startRevision(session, request),
+    publish: (session: Session) => bus.publish(session.id, { type: "session", session }),
+    ownerOf,
+    scopeOf,
+    notifier: deps.notifier ?? null,
+    chat: deps.chat ?? null,
+    publicUrl: deps.publicUrl ?? null,
+  };
+  app.route("/", decisionRoutes(decisionDeps));
+
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((error, c) => {
     if (error instanceof NotFound) return c.json({ error: "not_found", message: "This session does not exist." }, 404);
@@ -1120,7 +1142,10 @@ export function createApp(deps: AppDeps) {
     return running.length;
   };
 
-  return Object.assign(app, { interruptAll, isRunning: (sessionId: string) => workers.has(sessionId) });
+  /** Sends the reminders of the decisions whose review date has come: run daily (hourly on the hosted version). */
+  const sendReminders = (now?: Date) => sendReviewReminders(decisionDeps, now);
+
+  return Object.assign(app, { interruptAll, sendReminders, isRunning: (sessionId: string) => workers.has(sessionId) });
 }
 
 function markdown(c: { header(name: string, value: string): void; body(data: string): Response }, session: Session) {

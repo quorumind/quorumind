@@ -173,7 +173,7 @@ describe("sessions ruled on before revisions", () => {
           session.updatedAt,
         ]);
       }
-      expect(await migrateSessions(db)).toEqual([5, 6]);
+      expect(await migrateSessions(db)).toEqual([5, 6, 7]);
       const { rows } = await db.query<{ data: Session }>("SELECT data FROM sessions WHERE id = $1", [session.id]);
       expect(rows[0]?.data.revisions).toEqual([
         {

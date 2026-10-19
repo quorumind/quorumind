@@ -3,6 +3,7 @@ import {
   Audience,
   BRAND_NAME_MAX,
   clientProposal,
+  currentView,
   isAccent,
   LOGO_MAX_DATA_URL,
   normalizeSession,
@@ -10,6 +11,8 @@ import {
   parseLogo,
   QUESTIONNAIRE_LIMITS,
   renderAdr,
+  renderComparison,
+  renderComparisonHtml,
   renderGithubIssues,
   renderHandoff,
   renderHtml,
@@ -87,12 +90,17 @@ export function exportRoutes(deps: ExportDeps) {
   type Ctx = Context<{ Variables: { user: User | null } }>;
   const notFound = (c: Ctx) => c.json({ error: "not_found", message: "This session does not exist." }, 404);
   const noVerdict = (c: Ctx) => c.json({ error: "wrong_phase", message: "The verdict is not ready yet." }, 409);
-  // ?revision=N: the session as it stood at an earlier revision of its verdict.
+  // ?revision=N: the session as it stood at an earlier revision of its verdict, or at one of its scenarios; without
+  // it, as its current revision shows it.
   const load = async (c: Ctx) => {
-    const found = await deps.getSession(c.req.param("id") ?? "", c.get("user"));
-    const session = found ? normalizeSession(found) : null;
+    const session = await loadSession(c);
     const revision = c.req.query("revision");
-    return session && revision ? sessionAtRevision(session, Number(revision)) : session;
+    if (!session) return null;
+    return revision ? sessionAtRevision(session, Number(revision)) : currentView(session);
+  };
+  const loadSession = async (c: Ctx) => {
+    const found = await deps.getSession(c.req.param("id") ?? "", c.get("user"));
+    return found ? normalizeSession(found) : null;
   };
   const branding = (c: Ctx) => deps.branding.get(deps.ownerOf(c.get("user")));
   const attachment = (c: Ctx, type: string, name: string) => {
@@ -194,6 +202,34 @@ export function exportRoutes(deps: ExportDeps) {
     if (!session.verdict) return noVerdict(c);
     attachment(c, MIME.zip, `${reportSlug(session)}-handoff.zip`);
     return c.body(zipFiles(renderHandoff(session), new Date(session.updatedAt)) as Uint8Array<ArrayBuffer>);
+  });
+
+  // Two versions side by side (?a=1&b=3): Markdown, or a printable page (?print=1 for the PDF).
+  const ComparedPair = z.object({ a: z.coerce.number().int().min(1), b: z.coerce.number().int().min(1) });
+  const missingRevision = (c: Ctx) => c.json({ error: "not_found", message: "There is no such revision." }, 404);
+
+  app.get("/api/sessions/:id/compare.md", async (c) => {
+    const session = await loadSession(c);
+    if (!session) return notFound(c);
+    const pair = ComparedPair.safeParse(c.req.query());
+    if (!pair.success) return c.json(invalidRequest(pair.error), 400);
+    const markdown = renderComparison(session, pair.data.a, pair.data.b);
+    if (!markdown) return missingRevision(c);
+    attachment(c, MIME.markdown, `${reportSlug(session)}-comparison-${pair.data.a}-${pair.data.b}.md`);
+    return c.body(markdown);
+  });
+
+  app.get("/api/sessions/:id/compare.html", async (c) => {
+    const session = await loadSession(c);
+    if (!session) return notFound(c);
+    const pair = ComparedPair.safeParse(c.req.query());
+    if (!pair.success) return c.json(invalidRequest(pair.error), 400);
+    const page = renderComparisonHtml(session, pair.data.a, pair.data.b, await branding(c), { print: c.req.query("print") === "1" });
+    if (!page) return missingRevision(c);
+    c.header("Content-Security-Policy", REPORT_CSP);
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("Cache-Control", "no-store");
+    return c.html(page);
   });
 
   app.get("/api/branding", async (c) => c.json({ branding: await branding(c) }));

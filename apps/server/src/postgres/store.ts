@@ -1,7 +1,11 @@
 import { fileURLToPath } from "node:url";
+import type { RegisterEntry } from "@quorumind/core";
 import { isWorking, markInterrupted, normalizeSession, type Session } from "@quorumind/core";
 import {
   applyShareSettings,
+  DECISION_LIST_LIMIT,
+  type DecisionQuery,
+  decisionRow,
   type Feedback,
   type GalleryEntry,
   galleryOf,
@@ -17,6 +21,7 @@ import {
   type SessionSummary,
   type Share,
   type ShareSettings,
+  type StoredDecision,
   type StoredQuestionnaire,
   type StoredSession,
   type StoredShare,
@@ -103,6 +108,7 @@ export class PostgresSessionStore implements SessionStore {
     const kept = this.live.keep(session, placementOf(owner, placement));
     // The session as it is now: the engine goes on changing the object while the write waits its turn.
     const data = JSON.stringify(session, withoutNul);
+    const decision = decisionRow(session);
     const { id, createdAt, updatedAt } = session;
     return this.serialized(id, async () => {
       await this.db.query(
@@ -110,7 +116,83 @@ export class PostgresSessionStore implements SessionStore {
          ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
         [id, kept.owner, kept.workspace, kept.private, data, createdAt, updatedAt],
       );
+      await this.indexDecision(id, kept, decision);
     });
+  }
+
+  /** Keeps a session's row of the register up to date: one once it has a verdict, none before. */
+  private async indexDecision(id: string, placement: Placement, row: ReturnType<typeof decisionRow>) {
+    if (!row) {
+      await this.db.query("DELETE FROM decisions WHERE session_id = $1", [id]);
+      return;
+    }
+    await this.db.query(
+      `INSERT INTO decisions (session_id, owner_id, workspace_id, private, status, decided_at, updated_at, review_on, reminded_for, entry)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (session_id) DO UPDATE SET status = excluded.status, decided_at = excluded.decided_at, updated_at = excluded.updated_at,
+         review_on = excluded.review_on, reminded_for = excluded.reminded_for, entry = excluded.entry`,
+      [
+        id,
+        placement.owner,
+        placement.workspace,
+        placement.private,
+        row.entry.status,
+        row.entry.decidedAt,
+        row.entry.updatedAt,
+        row.reviewOn,
+        row.remindedFor,
+        JSON.stringify(row.entry, withoutNul),
+      ],
+    );
+  }
+
+  async decisions(query: DecisionQuery): Promise<StoredDecision[]> {
+    const params: unknown[] = [];
+    const param = (value: unknown) => `$${params.push(value)}`;
+    const ownedBy = (owner: string | null) => (owner === null ? "owner_id IS NULL" : `owner_id = ${param(owner)}`);
+    const where: string[] = [];
+    if (query.workspace === undefined) where.push(ownedBy(query.owner));
+    else {
+      const owner = param(query.owner);
+      where.push(
+        `((workspace_id = ${param(query.workspace)} AND (NOT private OR owner_id = ${owner})) OR (workspace_id IS NULL AND owner_id = ${owner}))`,
+      );
+    }
+    if (query.status) where.push(`status = ${param(query.status)}`);
+    if (query.author !== undefined) where.push(ownedBy(query.author));
+    // Days as the verdict's own date says them, in UTC.
+    if (query.from) where.push(`(decided_at AT TIME ZONE 'UTC')::date >= ${param(query.from)}::date`);
+    if (query.to) where.push(`(decided_at AT TIME ZONE 'UTC')::date <= ${param(query.to)}::date`);
+    const limit = param(query.limit ?? DECISION_LIST_LIMIT);
+    const { rows } = await this.db.query<{ entry: RegisterEntry; owner_id: string | null; workspace_id: string | null; private: boolean }>(
+      `SELECT entry, owner_id, workspace_id, private FROM decisions WHERE ${where.join(" AND ")} ORDER BY updated_at DESC LIMIT ${limit}`,
+      params,
+    );
+    return rows.map((row) => ({ ...row.entry, owner: row.owner_id, workspace: row.workspace_id, private: row.private === true }));
+  }
+
+  async dueReviews(today: string): Promise<string[]> {
+    const { rows } = await this.db.query<{ session_id: string }>(
+      `SELECT session_id FROM decisions WHERE review_on IS NOT NULL AND review_on <= $1::date
+       AND (reminded_for IS NULL OR reminded_for <> review_on) AND status IN ('proposed', 'approved') ORDER BY review_on`,
+      [today],
+    );
+    return rows.map((row) => row.session_id);
+  }
+
+  async indexDecisions(): Promise<number> {
+    const { rows } = await this.db.query<{ id: string }>(
+      "SELECT id FROM sessions WHERE data->>'phase' = 'complete' AND NOT EXISTS (SELECT 1 FROM decisions WHERE session_id = sessions.id)",
+    );
+    let count = 0;
+    for (const { id } of rows) {
+      const found = await this.find(id);
+      const row = found ? decisionRow(found.session) : null;
+      if (!found || !row) continue;
+      await this.serialized(id, () => this.indexDecision(id, found, row));
+      count++;
+    }
+    return count;
   }
 
   async list(limit = 50, owner: string | null = null): Promise<SessionSummary[]> {
@@ -136,6 +218,7 @@ export class PostgresSessionStore implements SessionStore {
   async setPrivate(id: string, isPrivate: boolean): Promise<void> {
     await this.serialized(id, async () => {
       await this.db.query("UPDATE sessions SET private = $2 WHERE id = $1", [id, isPrivate]);
+      await this.db.query("UPDATE decisions SET private = $2 WHERE session_id = $1", [id, isPrivate]);
     });
     this.live.setPrivate(id, isPrivate);
   }

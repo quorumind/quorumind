@@ -1,6 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import {
   type Branding,
+  currentRevision,
   type PublicQuestionnaire,
   QUESTIONNAIRE_DAYS,
   QUESTIONNAIRE_LIMITS,
@@ -205,7 +206,7 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
       status: "open",
       submittedAt: null,
       submittedBy: null,
-      revision: session.revisions.at(-1)?.number ?? 1,
+      revision: currentRevision(session)?.number ?? 1,
       appliedRevision: null,
     };
     await deps.store.saveQuestionnaire(questionnaire);

@@ -24,6 +24,9 @@ const { store, brandingStore } = storage;
 // interrupted, and "Retry from where it stopped" resumes them.
 const interrupted = await store.markInterrupted();
 if (interrupted > 0) console.log(`${interrupted} session(s) were interrupted by the last stop of the server; they can be resumed.`);
+// The decisions reached before the register existed get their row in it.
+const indexed = await store.indexDecisions();
+if (indexed > 0) console.log(`${indexed} decision(s) added to the decision register.`);
 const demoDelay = env.QUORUMIND_DEMO_DELAY_MS ? Number(env.QUORUMIND_DEMO_DELAY_MS) : undefined;
 const api = createApp({
   store,
@@ -32,8 +35,21 @@ const api = createApp({
   env,
   notifier: notifierFromEnv(env),
   chat: chatNotifierFromEnv(env),
+  publicUrl: env.QUORUMIND_PUBLIC_URL ?? null,
   ...(demoDelay === undefined ? {} : { mockDelayMs: demoDelay }),
 });
+
+// The reminders of the decisions whose review date has come, by e-mail and in the chat channel: at start, then daily.
+const remind = async () => {
+  try {
+    const count = await api.sendReminders();
+    if (count > 0) console.log(`Sent the review reminders of ${count} decision(s).`);
+  } catch (error) {
+    console.error("The review reminders failed:", error);
+  }
+};
+void remind();
+setInterval(remind, 86_400_000).unref();
 
 // QUORUMIND_RETENTION_DAYS: sessions untouched for that long are deleted, at start and then daily.
 const retention = retentionDays(env);

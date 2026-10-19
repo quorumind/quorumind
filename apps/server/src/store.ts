@@ -1,7 +1,16 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { isWorking, markInterrupted, normalizeSession, type Questionnaire, type Session } from "@quorumind/core";
+import {
+  type DecisionStatus,
+  isWorking,
+  markInterrupted,
+  normalizeSession,
+  type Questionnaire,
+  type RegisterEntry,
+  registerEntry,
+  type Session,
+} from "@quorumind/core";
 import type { ShareMode } from "./share.ts";
 
 export interface InterruptOptions {
@@ -142,7 +151,45 @@ export interface SessionStore {
   /** Records the answers of an open questionnaire, once: false when it was submitted meanwhile, or is gone. */
   submitQuestionnaire(id: string, submission: Submission): Promise<boolean>;
   deleteQuestionnaire(id: string): Promise<void>;
+  /**
+   * The decision register: one row per session that reached a verdict, kept up to date by save, latest change first.
+   * A member of a workspace sees what its history shows (DecisionQuery).
+   */
+  decisions(query: DecisionQuery): Promise<StoredDecision[]>;
+  /** The sessions whose decision comes up for review on or before `today` (YYYY-MM-DD) and was not reminded of yet. */
+  dueReviews(today: string): Promise<string[]>;
+  /** Adds the register's rows of the sessions that reached their verdict before the register existed. Returns how many. */
+  indexDecisions(): Promise<number>;
   close(): Promise<void>;
+}
+
+/** A row of the register, with whose session it is and who else may read it. */
+export type StoredDecision = RegisterEntry & Placement;
+
+/** Rows of the register returned at most. */
+export const DECISION_LIST_LIMIT = 500;
+
+/**
+ * Whose decisions: an owner's (the single local user of a self-hosted server is null), or, with `workspace` set
+ * (even to null), those a member of the hosted version's workspaces sees, as in the history: the workspace's but the
+ * private ones of others, and the member's own outside any workspace. The filters keep a status, the sessions of one
+ * author, and the verdicts reached between two days (YYYY-MM-DD, both included).
+ */
+export interface DecisionQuery {
+  owner: string | null;
+  workspace?: string | null;
+  status?: DecisionStatus;
+  author?: string | null;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
+/** A session's row of the register, and the review its reminder follows; null before the verdict. */
+export function decisionRow(session: Session): { entry: RegisterEntry; reviewOn: string | null; remindedFor: string | null } | null {
+  const entry = registerEntry(session);
+  if (!entry) return null;
+  return { entry, reviewOn: entry.review.on, remindedFor: session.decision?.review.remindedFor ?? null };
 }
 
 /** The sessions in use, with their placement: one object per session, whatever reads or writes it. */
@@ -244,6 +291,21 @@ export class SqliteSessionStore implements SessionStore {
         applied_revision INTEGER
       );
       CREATE INDEX IF NOT EXISTS questionnaires_session ON questionnaires (session_id, created_at);
+      CREATE TABLE IF NOT EXISTS decisions (
+        session_id TEXT PRIMARY KEY,
+        owner_id TEXT,
+        workspace_id TEXT,
+        private INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL,
+        decided_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        review_on TEXT,
+        reminded_for TEXT,
+        entry TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS decisions_workspace ON decisions (workspace_id, updated_at);
+      CREATE INDEX IF NOT EXISTS decisions_owner ON decisions (owner_id, updated_at);
+      CREATE INDEX IF NOT EXISTS decisions_review ON decisions (review_on);
     `);
     const columns = this.db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
     if (!columns.some((column) => column.name === "owner_id")) this.db.exec("ALTER TABLE sessions ADD COLUMN owner_id TEXT");
@@ -291,6 +353,91 @@ export class SqliteSessionStore implements SessionStore {
         "INSERT INTO sessions (id, data, updated_at, owner_id, workspace_id, private) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
       )
       .run(session.id, JSON.stringify(session), session.updatedAt, kept.owner, kept.workspace, kept.private ? 1 : 0);
+    this.indexDecision(session, kept);
+  }
+
+  /** Keeps the session's row of the register up to date: one once it has a verdict, none before. */
+  private indexDecision(session: Session, placement: Placement) {
+    const row = decisionRow(session);
+    if (!row) {
+      this.db.prepare("DELETE FROM decisions WHERE session_id = ?").run(session.id);
+      return;
+    }
+    this.db
+      .prepare(
+        `INSERT INTO decisions (session_id, owner_id, workspace_id, private, status, decided_at, updated_at, review_on, reminded_for, entry)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(session_id) DO UPDATE SET status = excluded.status, decided_at = excluded.decided_at, updated_at = excluded.updated_at,
+           review_on = excluded.review_on, reminded_for = excluded.reminded_for, entry = excluded.entry`,
+      )
+      .run(
+        session.id,
+        placement.owner,
+        placement.workspace,
+        placement.private ? 1 : 0,
+        row.entry.status,
+        row.entry.decidedAt,
+        row.entry.updatedAt,
+        row.reviewOn,
+        row.remindedFor,
+        JSON.stringify(row.entry),
+      );
+  }
+
+  async decisions(query: DecisionQuery): Promise<StoredDecision[]> {
+    const where = [
+      query.workspace === undefined
+        ? "owner_id IS :owner"
+        : "((workspace_id = :workspace AND (private = 0 OR owner_id = :owner)) OR (workspace_id IS NULL AND owner_id = :owner))",
+    ];
+    const params: Record<string, string | number | null> = { owner: query.owner, limit: query.limit ?? DECISION_LIST_LIMIT };
+    if (query.workspace !== undefined) params.workspace = query.workspace;
+    if (query.status) {
+      where.push("status = :status");
+      params.status = query.status;
+    }
+    if (query.author !== undefined) {
+      where.push("owner_id IS :author");
+      params.author = query.author;
+    }
+    if (query.from) {
+      where.push("substr(decided_at, 1, 10) >= :from");
+      params.from = query.from;
+    }
+    if (query.to) {
+      where.push("substr(decided_at, 1, 10) <= :to");
+      params.to = query.to;
+    }
+    const rows = this.db
+      .prepare(
+        `SELECT entry, owner_id, workspace_id, private FROM decisions WHERE ${where.join(" AND ")} ORDER BY updated_at DESC LIMIT :limit`,
+      )
+      .all(params) as { entry: string; owner_id: string | null; workspace_id: string | null; private: number }[];
+    return rows.map((row) => ({ ...(JSON.parse(row.entry) as RegisterEntry), ...sqlitePlacement({ ...row, data: "" }) }));
+  }
+
+  async dueReviews(today: string): Promise<string[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT session_id FROM decisions WHERE review_on IS NOT NULL AND review_on <= ? AND (reminded_for IS NULL OR reminded_for <> review_on)
+         AND status IN ('proposed', 'approved') ORDER BY review_on`,
+      )
+      .all(today) as { session_id: string }[];
+    return rows.map((row) => row.session_id);
+  }
+
+  async indexDecisions(): Promise<number> {
+    const rows = this.db
+      .prepare(`SELECT id FROM sessions WHERE json_extract(data, '$.phase') = 'complete' AND id NOT IN (SELECT session_id FROM decisions)`)
+      .all() as { id: string }[];
+    let count = 0;
+    for (const { id } of rows) {
+      const found = await this.find(id);
+      if (!found || !decisionRow(found.session)) continue;
+      this.indexDecision(found.session, found);
+      count++;
+    }
+    return count;
   }
 
   async list(limit = 50, owner: string | null = null): Promise<SessionSummary[]> {
@@ -312,6 +459,7 @@ export class SqliteSessionStore implements SessionStore {
 
   async setPrivate(id: string, isPrivate: boolean): Promise<void> {
     this.db.prepare("UPDATE sessions SET private = ? WHERE id = ?").run(isPrivate ? 1 : 0, id);
+    this.db.prepare("UPDATE decisions SET private = ? WHERE session_id = ?").run(isPrivate ? 1 : 0, id);
     this.live.setPrivate(id, isPrivate);
   }
 
@@ -331,6 +479,7 @@ export class SqliteSessionStore implements SessionStore {
     this.db.prepare("DELETE FROM shares WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM questionnaires WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM feedback WHERE session_id = ?").run(id);
+    this.db.prepare("DELETE FROM decisions WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
   }
 
