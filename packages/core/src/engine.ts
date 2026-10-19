@@ -22,6 +22,7 @@ import { PRICE_REFERENCE, priceReferenceRule } from "./cloud-prices.ts";
 import { activeRequirements, complianceInterviewRule, complianceRule, withTemplateFlags } from "./compliance.ts";
 import { COMPLIANCE_UPDATE, COMPLIANCE_VERDICT, settleCompliance, type VerdictWithCompliance } from "./compliance-verdict.ts";
 import { checkFacts, debateCurrency, sessionCostings, sessionProfile } from "./costing.ts";
+import { InvalidStateError, requireSheet } from "./errors.ts";
 import { partialStringField } from "./partial-json.ts";
 import { cappedCostOf, costOf, TASK_PROFILE, typicalCappedCost } from "./pricing.ts";
 import { fence, redact, withoutRates } from "./privacy.ts";
@@ -167,20 +168,7 @@ export class BudgetExceededError extends Error {
   }
 }
 
-/**
- * Why an action does not fit where the session stands. wrong_phase: the session is not at the step the action
- * belongs to; the server adds its own codes (session_busy, not_running).
- */
-export class InvalidStateError extends Error {
-  readonly code: string;
-  readonly params: SessionError["params"];
-  constructor(message: string, code = "wrong_phase", params?: SessionError["params"]) {
-    super(message);
-    this.name = "InvalidStateError";
-    this.code = code;
-    this.params = params;
-  }
-}
+export { InvalidStateError } from "./errors.ts";
 
 /**
  * The work in flight was cancelled and the session can be resumed: the person stopped it ("stopped"), or the server
@@ -1484,11 +1472,6 @@ interface OutputSpec {
 /** What the roles that design an option also follow: the compliance requirements and the reference cloud prices. */
 function designRules(session: Session): string {
   return complianceRule(activeRequirements(session), "design") + priceReferenceRule() + researchRule(session, "design");
-}
-
-function requireSheet(session: Session) {
-  if (!session.sheet) throw new InvalidStateError("The requirements sheet is missing.");
-  return session.sheet;
 }
 
 function collectQuestions(session: Session, round: number): string[] {

@@ -2,6 +2,7 @@ import { auditedDocuments, backgroundDocuments, quoteCheck, quoteFacts } from ".
 import { priceReferenceRule } from "./cloud-prices.ts";
 import { activeRequirements, type ComplianceRole, complianceRule } from "./compliance.ts";
 import { checkFacts, debateCurrency, sessionCostings } from "./costing.ts";
+import { requireSheet } from "./errors.ts";
 import type { Locale } from "./locales.ts";
 import { fence } from "./privacy.ts";
 import {
@@ -22,7 +23,7 @@ import {
   STYLE_RULE,
 } from "./prompts.ts";
 import type { ChatMessage } from "./providers/types.ts";
-import type { CritiqueRound, Proposal, RequirementsSheet } from "./schemas.ts";
+import type { CritiqueRound, Proposal } from "./schemas.ts";
 import {
   allAnswers,
   alternativeSeat,
@@ -198,11 +199,6 @@ export function extractionBlock(session: Session): string {
 }
 
 const currencyBlock = (session: Session) => fence("rates", `Every amount you give is in ${debateCurrency(session)}.`);
-
-function requireSheet(session: Session): RequirementsSheet {
-  if (!session.sheet) throw new Error("The requirements sheet is missing.");
-  return session.sheet;
-}
 
 const join = (parts: string[]) => parts.filter(Boolean).join("\n\n");
 

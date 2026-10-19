@@ -3,8 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AuditCritiqueInput, AuditExtraction, AuditReport, AuditVerdict, AuditVerdictUpdate } from "./audit.ts";
 import { auditOf, findQuote, pricePosition, quoteCheck, quoteFacts, settleAudit, settleExtraction } from "./audit-check.ts";
+import { auditCritiquePrompt } from "./audit-prompts.ts";
 import { demoAuditAnswer } from "./demo-audit.ts";
-import { DebateEngine, type ProviderSet } from "./engine.ts";
+import { DebateEngine, type ProviderSet, sessionError } from "./engine.ts";
 import { MockProvider } from "./providers/mock.ts";
 import type { GenerateRequest, GenerateResult, LlmProvider } from "./providers/types.ts";
 import { toStrictJsonSchema } from "./schemas.ts";
@@ -297,6 +298,17 @@ describe("audit checks", () => {
     expect(findQuote([doc], "one month … The “warranty”")).toBe(false);
     expect(findQuote([doc], "The warranty lasts two months.")).toBe(false);
     expect(findQuote([doc], "  ")).toBe(false);
+  });
+
+  it("refuses a step without the requirements sheet as a session out of phase, like the engine", () => {
+    const session = { ...auditedSession(), sheet: null };
+    let error: unknown;
+    try {
+      auditCritiquePrompt(session, "A", 1, "critic");
+    } catch (caught) {
+      error = caught;
+    }
+    expect(sessionError(error)).toEqual({ code: "wrong_phase", message: "The requirements sheet is missing." });
   });
 
   it("finds a quote a model copied from the masked document of a session that masks personal data", () => {
