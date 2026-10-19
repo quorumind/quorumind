@@ -795,10 +795,7 @@ export class DebateEngine {
         }
         try {
           this.hooks.emit(session.id, { type: "speaking", task: "search", seat: null });
-          const result = await search.search(query.query, {
-            maxResults: MAX_RESULTS_PER_QUERY,
-            ...(this.signal ? { signal: this.signal } : {}),
-          });
+          const result = await this.searchOnce(session, search, query.query);
           // A search whose cost the engine does not report counts at its estimate, so that the research keeps to its budget.
           this.record(
             session,
@@ -836,6 +833,34 @@ export class DebateEngine {
       if (error instanceof StoppedError || this.signal?.aborted) throw error;
       if (error instanceof BudgetExceededError) return finish("skipped", { skipped: "budget" });
       await finish("failed", { error: sessionError(error) });
+    }
+  }
+
+  /**
+   * One search of the research, tried once more after a wait when the engine had a rate limit or an outage: a query
+   * that fails is not searched again, even after a resume. A search the person stopped is recorded at its estimate,
+   * since the engine may bill it.
+   */
+  private async searchOnce(session: Session, search: SearchProvider, query: string) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await search.search(query, { maxResults: MAX_RESULTS_PER_QUERY, ...(this.signal ? { signal: this.signal } : {}) });
+      } catch (error) {
+        if (this.signal?.aborted) {
+          this.record(
+            session,
+            "search",
+            null,
+            { model: search.name, usage: { inputTokens: 0, outputTokens: 0 }, costUsd: search.estimateUsd },
+            { failed: true, estimated: true },
+          );
+          throw this.stopped();
+        }
+        const delay = retryDelay(error, attempt, this.retryDelayMs);
+        // A search is tried twice at most: the research must not hold the debate.
+        if (delay === null || attempt > 0) throw error;
+        await this.pause(delay);
+      }
     }
   }
 

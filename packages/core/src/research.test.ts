@@ -84,7 +84,7 @@ function setup(
     search: options.search === undefined ? new CountingSearch() : options.search,
   };
   const events: EngineEvent[] = [];
-  const engine = new DebateEngine(providers, { emit: (_id, event) => events.push(event), save: () => {} });
+  const engine = new DebateEngine(providers, { emit: (_id, event) => events.push(event), save: () => {} }, { retryDelayMs: 0 });
   const session = createSession({
     locale: "en",
     idea: DEMO_IDEA,
@@ -308,8 +308,32 @@ describe("the research step", () => {
     await runToVerdict(engine, session);
     expect(session.research?.status).toBe("done");
     expect(session.research?.queries[1]?.error).toBe("The engine is down.");
+    // An outage is tried once more before the query is given up.
+    expect(search.queries.filter((query) => /postgres/i.test(query))).toHaveLength(2);
     // The demo's fact on PostgreSQL cites S2, which is now the Node.js page: the ids follow what was found.
     expect(session.sources).toHaveLength(3);
+  });
+
+  it("records a search stopped on its way at its estimate, since the engine may bill it", async () => {
+    const controller = new AbortController();
+    const hanging: SearchProvider = {
+      kind: "demo",
+      name: "hanging",
+      estimateUsd: 0.005,
+      search: (_query, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => reject(new ProviderError("The search was cancelled.", false)), { once: true });
+          controller.abort();
+        }),
+    };
+    const { providers, session } = setup({ search: hanging });
+    const engine = new DebateEngine(providers, { emit: () => {}, save: () => {} }, { signal: controller.signal });
+    await confirm(engine, session);
+    await engine.runDebate(session);
+    expect(session.error?.code).toBe("stopped");
+    expect(session.usage.filter((record) => record.task === "search")).toEqual([
+      expect.objectContaining({ model: "hanging", costUsd: 0.005, failed: true, estimated: true }),
+    ]);
   });
 
   it("never searches a query twice in a session, even when it is stopped and resumed", async () => {
