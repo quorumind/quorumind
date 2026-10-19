@@ -311,14 +311,12 @@
     "templateLabel": "项目类型",
     "templateNone": "其他",
     "contextLabel": "资料（可选）",
-    "settings": "辩论设置",
     "depth": "深度",
     "depthOption": {
       "quick": "快速",
       "standard": "标准",
-      "deep": "深入（更慢，费用更高）"
+      "deep": "深入"
     },
-    "role": "角色",
     "model": "模型",
     "viaGateway": "{{maker}}（经由 {{gateway}}）",
     "persona": "专家角色",
@@ -1053,5 +1051,63 @@
       "budget": "为使辩论不超出费用上限，已跳过网络调研。"
     },
     "engineDemo": "演示的录制结果"
+  },
+  "wizard": {
+    "steps": {
+      "need": "您的需求",
+      "context": "背景资料",
+      "panel": "参与模型",
+      "review": "确认"
+    },
+    "stepsLabel": "新会话的步骤",
+    "stepOf": "第 {{number}} 步，共 {{total}} 步",
+    "back": "上一步",
+    "next": "下一步",
+    "launchNow": "立即开始",
+    "launchNowHint": "跳过后续步骤：不添加资料，使用默认的参与模型和选项。",
+    "missingIdea": "请描述您的项目，然后继续。",
+    "missingNeed": "请说明该文件的用途，然后继续。",
+    "missingSolution": "请描述您的方案，然后继续。",
+    "missingDocument": "请附上要审核的文件，然后继续。",
+    "contextLead": "全部为可选项：辩论需要考虑的资料、链接和框架。如果没有要补充的内容，可以跳过此步骤。",
+    "profileSet": "各方案将遵循贵组织的资料：其技术、托管规则和日费率。",
+    "profileNone": "尚未设置组织资料：设置后，各方案将遵循您的技术、托管规则和日费率。",
+    "profileWorkspace": "如果您的工作区设有组织资料，各方案将遵循该资料。",
+    "profileLink": "打开设置",
+    "panelLead": "负责提出方案、互相批评和作出裁决的模型。默认设置适合大多数项目。",
+    "customize": "自定义参与模型",
+    "customizeDone": "返回确认页",
+    "debaters": "辩手",
+    "proposerHint": "设计自己的方案，批评其他方案，并修改自己的方案。",
+    "moderation": "辩论主持",
+    "moderationHint": "访谈者和仲裁者",
+    "interviewerHint": "在辩论开始前，向您询问辩论需要了解的信息。",
+    "arbiterHint": "对照您的要求权衡各方案，并作出裁决。",
+    "rounds": {
+      "one": {
+        "name": "一轮",
+        "hint": "每个方案接受一次批评，然后修改。速度最快。"
+      },
+      "two": {
+        "name": "两轮",
+        "hint": "对修改后的方案再批评一次：耗时更长，费用更高。"
+      },
+      "three": {
+        "name": "三轮",
+        "hint": "反复检验各方案，直到站得住脚：耗时最长，费用最高。"
+      }
+    },
+    "depthHint": {
+      "quick": "模型不做长时间思考就回答：更快，费用更低。",
+      "standard": "每个模型按常规方式思考。适合大多数项目。",
+      "deep": "模型在回答前充分思考：更慢，费用更高。"
+    },
+    "options": "选项",
+    "recap": "您的选择",
+    "recapNone": "未添加",
+    "recapDocuments": "资料：{{count}} 份",
+    "recapDepth": "深度：{{depth}}",
+    "edit": "修改",
+    "editStep": "修改：{{step}}"
   }
 }

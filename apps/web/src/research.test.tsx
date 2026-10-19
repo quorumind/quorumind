@@ -64,6 +64,7 @@ describe("the web research option of a new session", () => {
   it("is left to the server's default until the person changes it", async () => {
     const { calls } = stubApi({
       "GET /api/config": () => json(config),
+      "GET /api/profile": () => json({ profile: null }),
       "POST /api/estimate": () => json({ estimateUsd: null, price: null, research: { default: true } }),
       "POST /api/sessions": () => json({ session: { id: "new" } }),
       "GET /api/sessions": () => json({ sessions: [] }),
@@ -72,7 +73,7 @@ describe("the web research option of a new session", () => {
     fireEvent.change(await screen.findByLabelText("Your project idea"), { target: { value: "A booking app" } });
     await waitFor(() => expect(calls.some((call) => call.path === "/api/estimate")).toBe(true));
     expect(calls.find((call) => call.path === "/api/estimate")?.body).not.toHaveProperty("webResearch");
-    fireEvent.click(screen.getByRole("button", { name: /Start the interview/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Start now" }));
     await waitFor(() => expect(calls.some((call) => call.method === "POST" && call.path === "/api/sessions")).toBe(true));
     expect(calls.find((call) => call.method === "POST" && call.path === "/api/sessions")?.body).not.toHaveProperty("webResearch");
   });

@@ -3,6 +3,7 @@ import { isLocale, localeInfo } from "@quorumind/core/locales";
 import type { TFunction } from "i18next";
 
 const GATEWAYS: Record<string, string> = { openrouter: "OpenRouter" };
+const VENDORS: Record<string, string> = { anthropic: "Anthropic", openai: "OpenAI", gemini: "Google", ollama: "Ollama", mock: "Demo" };
 
 export function formatUsd(amount: number, locale: string) {
   return new Intl.NumberFormat(locale, {
@@ -33,6 +34,16 @@ export function formatMoney(amount: number, currency: string, locale: string) {
   } catch {
     return `${new Intl.NumberFormat(locale).format(amount)} ${currency}`;
   }
+}
+
+/** A model's name as people know it, without the vendor its label may end with: "gpt-5 (OpenAI)" is "gpt-5". */
+export function modelName(option: ModelOption): string {
+  return option.maker ? option.label : option.label.replace(/ \([^()]*\)$/, "");
+}
+
+/** Who makes a model, and the gateway that resells it when there is one: "Anthropic", "Mistral via OpenRouter". */
+export function vendorLabel(option: ModelOption, t: TFunction): string {
+  return option.maker ? groupLabel(option, t) : (VENDORS[option.provider] ?? option.provider);
 }
 
 /** Who serves a group of models in the pickers: the vendor, or the maker and the gateway that resells it. */

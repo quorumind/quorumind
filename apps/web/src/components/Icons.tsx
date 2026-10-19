@@ -144,6 +144,24 @@ export const DevilIcon = () => (
   </Icon>
 );
 
+/** The interviewer: a question in a speech bubble. */
+export const InterviewIcon = () => (
+  <Icon>
+    <path d="M4.5 5.5h15v10h-8l-4 3.5v-3.5h-3z" />
+    <path d="M10 9a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.2" />
+    <circle cx="12" cy="13.6" r="0.4" fill="currentColor" />
+  </Icon>
+);
+
+/** The arbiter: the scales that weigh the options. */
+export const ArbiterIcon = () => (
+  <Icon>
+    <path d="M12 4v16M8 20h8M5 7h14" />
+    <path d="M5 7l-2.5 6a2.5 2.5 0 0 0 5 0z" />
+    <path d="M19 7l-2.5 6a2.5 2.5 0 0 0 5 0z" />
+  </Icon>
+);
+
 /** The arbiter's probe: a beam on an angle nobody looked at. */
 export const ProbeIcon = () => (
   <Icon>

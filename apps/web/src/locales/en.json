@@ -311,14 +311,12 @@
     "templateLabel": "Kind of project",
     "templateNone": "Other",
     "contextLabel": "Documents (optional)",
-    "settings": "Debate settings",
     "depth": "Depth",
     "depthOption": {
       "quick": "Quick",
       "standard": "Standard",
-      "deep": "Deep (slower, costs more)"
+      "deep": "Deep"
     },
-    "role": "Role",
     "model": "Model",
     "viaGateway": "{{maker}} via {{gateway}}",
     "persona": "Expert role",
@@ -1053,5 +1051,63 @@
       "budget": "The web research was skipped to keep the debate within its cost cap."
     },
     "engineDemo": "the recorded results of the demo"
+  },
+  "wizard": {
+    "steps": {
+      "need": "Your need",
+      "context": "Context",
+      "panel": "The panel",
+      "review": "Summary"
+    },
+    "stepsLabel": "Steps of the new session",
+    "stepOf": "Step {{number}} of {{total}}",
+    "back": "Back",
+    "next": "Next",
+    "launchNow": "Start now",
+    "launchNowHint": "Skips the next steps: no documents, the default panel and options.",
+    "missingIdea": "Describe your project to continue.",
+    "missingNeed": "Say what the document is for to continue.",
+    "missingSolution": "Describe your solution to continue.",
+    "missingDocument": "Attach the document to audit to continue.",
+    "contextLead": "All optional: the documents, links and frameworks the debate should take into account. Skip this step if you have nothing to add.",
+    "profileSet": "The proposals follow your organisation profile: its technologies, hosting rules and day rates.",
+    "profileNone": "No organisation profile yet: with one, the proposals follow your technologies, hosting rules and day rates.",
+    "profileWorkspace": "The proposals follow your workspace's organisation profile, if it has one.",
+    "profileLink": "Open the settings",
+    "panelLead": "The models that propose, criticise and decide. The defaults suit most projects.",
+    "customize": "Customise the panel",
+    "customizeDone": "Back to the summary",
+    "debaters": "Debaters",
+    "proposerHint": "Designs its own solution, criticises the others and revises its own.",
+    "moderation": "Running the debate",
+    "moderationHint": "The interviewer and the arbiter",
+    "interviewerHint": "Asks you what the debate needs to know before it starts.",
+    "arbiterHint": "Weighs the options against your requirements and gives the verdict.",
+    "rounds": {
+      "one": {
+        "name": "One round",
+        "hint": "Each option is criticised once, then revised. The fastest."
+      },
+      "two": {
+        "name": "Two rounds",
+        "hint": "A second critique of the revised options: longer, and costs more."
+      },
+      "three": {
+        "name": "Three rounds",
+        "hint": "The options are tested until they hold: the longest and the most expensive."
+      }
+    },
+    "depthHint": {
+      "quick": "The models answer without long reasoning: faster and cheaper.",
+      "standard": "Each model reasons as usual. Suits most projects.",
+      "deep": "The models reason at length before answering: slower, and costs more."
+    },
+    "options": "Options",
+    "recap": "Your choices",
+    "recapNone": "Nothing added",
+    "recapDocuments": "Documents: {{count}}",
+    "recapDepth": "Depth: {{depth}}",
+    "edit": "Change",
+    "editStep": "Change: {{step}}"
   }
 }

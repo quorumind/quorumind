@@ -311,14 +311,12 @@
     "templateLabel": "Projektart",
     "templateNone": "Sonstiges",
     "contextLabel": "Dokumente (optional)",
-    "settings": "Debatteneinstellungen",
     "depth": "Tiefe",
     "depthOption": {
       "quick": "Schnell",
       "standard": "Standard",
-      "deep": "Gründlich (langsamer, teurer)"
+      "deep": "Gründlich"
     },
-    "role": "Rolle",
     "model": "Modell",
     "viaGateway": "{{maker}} über {{gateway}}",
     "persona": "Expertenrolle",
@@ -1053,5 +1051,63 @@
       "budget": "Die Websuche entfiel, damit die Debatte ihre Kostengrenze einhält."
     },
     "engineDemo": "die aufgezeichneten Ergebnisse der Demo"
+  },
+  "wizard": {
+    "steps": {
+      "need": "Ihr Bedarf",
+      "context": "Kontext",
+      "panel": "Das Gremium",
+      "review": "Übersicht"
+    },
+    "stepsLabel": "Schritte der neuen Sitzung",
+    "stepOf": "Schritt {{number}} von {{total}}",
+    "back": "Zurück",
+    "next": "Weiter",
+    "launchNow": "Direkt starten",
+    "launchNowHint": "Überspringt die weiteren Schritte: ohne Dokumente, mit dem Standardgremium und den Standardoptionen.",
+    "missingIdea": "Beschreiben Sie Ihr Projekt, um fortzufahren.",
+    "missingNeed": "Beschreiben Sie, wofür das Dokument gedacht ist, um fortzufahren.",
+    "missingSolution": "Beschreiben Sie Ihre Lösung, um fortzufahren.",
+    "missingDocument": "Hängen Sie das zu prüfende Dokument an, um fortzufahren.",
+    "contextLead": "Alles optional: die Dokumente, Links und Rahmenwerke, die die Debatte berücksichtigen soll. Überspringen Sie diesen Schritt, wenn Sie nichts hinzufügen möchten.",
+    "profileSet": "Die Vorschläge richten sich nach Ihrem Organisationsprofil: Technologien, Hosting-Regeln und Tagessätze.",
+    "profileNone": "Noch kein Organisationsprofil: Mit einem Profil richten sich die Vorschläge nach Ihren Technologien, Hosting-Regeln und Tagessätzen.",
+    "profileWorkspace": "Die Vorschläge richten sich nach dem Organisationsprofil Ihres Arbeitsbereichs, sofern vorhanden.",
+    "profileLink": "Einstellungen öffnen",
+    "panelLead": "Die Modelle, die vorschlagen, kritisieren und entscheiden. Die Standardeinstellungen passen für die meisten Projekte.",
+    "customize": "Gremium anpassen",
+    "customizeDone": "Zurück zur Übersicht",
+    "debaters": "Debattierende",
+    "proposerHint": "Entwirft eine eigene Lösung, kritisiert die der anderen und überarbeitet die eigene.",
+    "moderation": "Debattenleitung",
+    "moderationHint": "Der Interviewer und der Schiedsrichter",
+    "interviewerHint": "Fragt Sie, was die Debatte vor dem Start wissen muss.",
+    "arbiterHint": "Wägt die Optionen anhand Ihrer Anforderungen ab und fällt das Urteil.",
+    "rounds": {
+      "one": {
+        "name": "Eine Runde",
+        "hint": "Jede Option wird einmal kritisiert und dann überarbeitet. Am schnellsten."
+      },
+      "two": {
+        "name": "Zwei Runden",
+        "hint": "Eine zweite Kritik der überarbeiteten Optionen: dauert länger und kostet mehr."
+      },
+      "three": {
+        "name": "Drei Runden",
+        "hint": "Die Optionen werden geprüft, bis sie standhalten: dauert am längsten und kostet am meisten."
+      }
+    },
+    "depthHint": {
+      "quick": "Die Modelle antworten ohne langes Nachdenken: schneller und günstiger.",
+      "standard": "Jedes Modell denkt wie gewohnt nach. Passt für die meisten Projekte.",
+      "deep": "Die Modelle denken gründlich nach, bevor sie antworten: langsamer und teurer."
+    },
+    "options": "Optionen",
+    "recap": "Ihre Auswahl",
+    "recapNone": "Nichts hinzugefügt",
+    "recapDocuments": "Dokumente: {{count}}",
+    "recapDepth": "Tiefe: {{depth}}",
+    "edit": "Ändern",
+    "editStep": "Ändern: {{step}}"
   }
 }

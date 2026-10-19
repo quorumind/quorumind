@@ -6,6 +6,7 @@ import type { Session } from "@quorumind/core/session";
 import type { EuropeanGateway, EuropeanPolicy } from "@quorumind/core/sovereignty";
 import { useTranslation } from "react-i18next";
 import { contentLanguage } from "../format.ts";
+import { Switch } from "./Controls.tsx";
 
 /** The compliance templates to combine with the project type: several can be chosen. */
 export function CompliancePicker({
@@ -58,23 +59,20 @@ export function EuropeanToggle({
   const { t } = useTranslation();
   const required = policy === "required";
   return (
-    <label className="check">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={required || (!available && !checked)}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span>
-        {t("european.label")}
-        <span className="field-hint">
+    <Switch
+      label={t("european.label")}
+      hint={
+        <>
           {t("european.hint")}
           {gateway ? ` ${t(gateway === "eu" ? "european.gatewayEu" : "european.gatewayGlobal")}` : ""}
           {required ? ` ${t("european.required")}` : ""}
           {!available ? ` ${t("european.unavailable")}` : ""}
-        </span>
-      </span>
-    </label>
+        </>
+      }
+      checked={checked}
+      disabled={required || (!available && !checked)}
+      onChange={onChange}
+    />
   );
 }
 

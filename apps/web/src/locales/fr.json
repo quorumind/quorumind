@@ -311,14 +311,12 @@
     "templateLabel": "Type de projet",
     "templateNone": "Autre",
     "contextLabel": "Documents (facultatif)",
-    "settings": "Paramètres du débat",
     "depth": "Profondeur",
     "depthOption": {
       "quick": "Rapide",
       "standard": "Standard",
-      "deep": "Approfondi (plus lent, plus cher)"
+      "deep": "Approfondi"
     },
-    "role": "Rôle",
     "model": "Modèle",
     "viaGateway": "{{maker}} via {{gateway}}",
     "persona": "Rôle d'expert",
@@ -1053,5 +1051,63 @@
       "budget": "La recherche sur le web a été omise pour que le débat reste dans son plafond de coût."
     },
     "engineDemo": "les résultats enregistrés de la démo"
+  },
+  "wizard": {
+    "steps": {
+      "need": "Votre besoin",
+      "context": "Contexte",
+      "panel": "Le panel",
+      "review": "Récapitulatif"
+    },
+    "stepsLabel": "Étapes de la nouvelle session",
+    "stepOf": "Étape {{number}} sur {{total}}",
+    "back": "Retour",
+    "next": "Suivant",
+    "launchNow": "Lancer directement",
+    "launchNowHint": "Passe les étapes suivantes : sans documents, avec le panel et les options par défaut.",
+    "missingIdea": "Décrivez votre projet pour continuer.",
+    "missingNeed": "Dites à quoi doit servir le document pour continuer.",
+    "missingSolution": "Décrivez votre solution pour continuer.",
+    "missingDocument": "Joignez le document à auditer pour continuer.",
+    "contextLead": "Tout est facultatif : les documents, liens et cadres dont le débat doit tenir compte. Passez cette étape si vous n'avez rien à ajouter.",
+    "profileSet": "Les propositions suivent le profil de votre organisation : ses technologies, ses règles d'hébergement et ses tarifs journaliers.",
+    "profileNone": "Pas encore de profil d'organisation : avec un profil, les propositions suivent vos technologies, vos règles d'hébergement et vos tarifs journaliers.",
+    "profileWorkspace": "Les propositions suivent le profil d'organisation de votre espace de travail, s'il en a un.",
+    "profileLink": "Ouvrir les paramètres",
+    "panelLead": "Les modèles qui proposent, critiquent et tranchent. Les réglages par défaut conviennent à la plupart des projets.",
+    "customize": "Personnaliser le panel",
+    "customizeDone": "Revenir au résumé",
+    "debaters": "Débatteurs",
+    "proposerHint": "Conçoit sa propre solution, critique celles des autres et révise la sienne.",
+    "moderation": "Animation du débat",
+    "moderationHint": "L'intervieweur et l'arbitre",
+    "interviewerHint": "Vous pose les questions dont le débat a besoin avant de commencer.",
+    "arbiterHint": "Compare les options à vos exigences et rend le verdict.",
+    "rounds": {
+      "one": {
+        "name": "Un tour",
+        "hint": "Chaque option est critiquée une fois, puis révisée. Le plus rapide."
+      },
+      "two": {
+        "name": "Deux tours",
+        "hint": "Une seconde critique des options révisées : plus long, et plus cher."
+      },
+      "three": {
+        "name": "Trois tours",
+        "hint": "Les options sont éprouvées jusqu'à ce qu'elles tiennent : le plus long et le plus cher."
+      }
+    },
+    "depthHint": {
+      "quick": "Les modèles répondent sans longue réflexion : plus rapide et moins cher.",
+      "standard": "Chaque modèle raisonne comme d'habitude. Convient à la plupart des projets.",
+      "deep": "Les modèles réfléchissent longuement avant de répondre : plus lent, et plus cher."
+    },
+    "options": "Options",
+    "recap": "Vos choix",
+    "recapNone": "Rien d'ajouté",
+    "recapDocuments": "Documents : {{count}}",
+    "recapDepth": "Profondeur : {{depth}}",
+    "edit": "Modifier",
+    "editStep": "Modifier : {{step}}"
   }
 }
