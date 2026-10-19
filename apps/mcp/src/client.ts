@@ -6,7 +6,9 @@ import type {
   EngineEvent,
   Mode,
   OptionChecks,
+  RegisterEntry,
   RequirementsSheet,
+  ScenarioChange,
   Session,
   TemplateId,
 } from "@quorumind/core";
@@ -44,6 +46,9 @@ export interface SessionSummary {
   mine?: boolean;
   author?: { name: string | null; email: string | null } | null;
 }
+
+/** A row of the decision register, as the server sends it. */
+export type DecisionRow = RegisterEntry & { author: { name: string | null; email: string | null } | null; mine: boolean; canEdit: boolean };
 
 export interface QuorumindConfig {
   locales: { code: string }[];
@@ -145,6 +150,22 @@ export class QuorumindClient {
   /** Stops the work in flight; answers once it has stopped, with the session as it was left. */
   async stop(id: string) {
     return (await this.json<{ session: Session }>("POST", `/api/sessions/${encodeURIComponent(id)}/stop`, {})).session;
+  }
+
+  /** Starts a "what if" scenario: a revision of the verdict of its own. Returns its number. */
+  async createScenario(id: string, input: { title: string; question: string | null; changes: ScenarioChange[]; basedOn?: number }) {
+    return (await this.json<{ revision: number }>("POST", `/api/sessions/${encodeURIComponent(id)}/scenarios`, input)).revision;
+  }
+
+  async decisions(filters: { status?: string; author?: string } = {}) {
+    const query = new URLSearchParams(Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+    return (await this.json<{ decisions: DecisionRow[] }>("GET", `/api/decisions${query ? `?${query}` : ""}`)).decisions;
+  }
+
+  /** A step of the decision register: approve the current version, or ask for its approval. */
+  async decide(id: string, action: "approve" | "request", input: { comment: string | null; name: string | null }) {
+    return (await this.json<{ decision: RegisterEntry }>("POST", `/api/sessions/${encodeURIComponent(id)}/decision/${action}`, input))
+      .decision;
   }
 
   async text(path: string) {

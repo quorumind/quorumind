@@ -135,11 +135,16 @@ describe("MCP server on the recorded demo", () => {
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "quorumind_adr",
       "quorumind_answer",
+      "quorumind_approve",
+      "quorumind_compare",
       "quorumind_confirm",
+      "quorumind_decisions",
       "quorumind_handoff",
       "quorumind_issues",
       "quorumind_resume",
       "quorumind_review",
+      "quorumind_scenario",
+      "quorumind_scenarios",
       "quorumind_sessions",
       "quorumind_start",
       "quorumind_status",
@@ -355,6 +360,47 @@ describe("MCP server on the recorded demo", () => {
   it("lists the sessions", async () => {
     const listed = await call(mcp, "quorumind_sessions", {});
     expect(textOf(listed)).toContain(sessionId);
+  });
+
+  it("tries a what-if scenario, lists it and compares it with the verdict", async () => {
+    const tried = await call(mcp, "quorumind_scenario", {
+      session_id: sessionId,
+      title: "Budget cut",
+      build_budget_percent: -30,
+      team_delta: 2,
+    });
+    expect(tried.isError).toBeFalsy();
+    expect(textOf(tried)).toContain('Scenario 2 "Budget cut" is ruled on.');
+    expect(textOf(tried)).toContain("| Build budget | **€20,000** | **€14,000** |");
+    expect(tried.structuredContent).toMatchObject({ revision: 2, basedOn: 1, recommendation: "A" });
+
+    const listed = await call(mcp, "quorumind_scenarios", { session_id: sessionId });
+    expect(textOf(listed)).toContain("The session shows revision 1.");
+    expect(textOf(listed)).toContain('- 2. "Budget cut", from revision 1: Team size +2; Build budget -30%. Recommends option A.');
+
+    const compared = await call(mcp, "quorumind_compare", { session_id: sessionId, a: 1, b: 2 });
+    expect(textOf(compared)).toContain("Comparison of two versions");
+    const missing = await call(mcp, "quorumind_compare", { session_id: sessionId, a: 1, b: 9 });
+    expect(missing.isError).toBe(true);
+    const nothing = await call(mcp, "quorumind_scenario", { session_id: sessionId, title: "Nothing" });
+    expect(nothing.isError).toBe(true);
+  }, 30_000);
+
+  it("lists the decision register and records an approval", async () => {
+    const proposed = await call(mcp, "quorumind_decisions", {});
+    expect(textOf(proposed)).toContain(`\`${sessionId}\``);
+    expect(textOf(proposed)).toContain("proposed");
+    expect(textOf(await call(mcp, "quorumind_decisions", { status: "approved" }))).toBe("No decision matches.");
+
+    const approved = await call(mcp, "quorumind_approve", { session_id: sessionId, name: "Ada", comment: "Go" });
+    expect(textOf(approved)).toBe("Approved: revision 1 by Ada. The report and the ADR now say so.");
+    expect(textOf(await call(mcp, "quorumind_decisions", { status: "approved" }))).toMatch(
+      /approved, approved by Ada on \d{4}-\d{2}-\d{2}/,
+    );
+    const again = await call(mcp, "quorumind_approve", { session_id: sessionId });
+    expect(again.isError).toBe(true);
+    const adr = await call(mcp, "quorumind_verdict", { session_id: sessionId, format: "adr" });
+    expect(textOf(adr)).toContain("Accepted, approved by Ada on");
   });
 
   it("explains what is wrong instead of failing", async () => {

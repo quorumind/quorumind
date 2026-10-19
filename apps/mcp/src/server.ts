@@ -1,7 +1,16 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { type CallToolResult, McpServer, ResourceTemplate, type ServerContext } from "@modelcontextprotocol/server";
-import type { Answer, GithubIssuePlan, RequirementsSheet, Session } from "@quorumind/core";
+import {
+  type Answer,
+  changeText,
+  currentRevision,
+  type GithubIssuePlan,
+  type RequirementsSheet,
+  type ScenarioChange,
+  type Session,
+  scenariosOf,
+} from "@quorumind/core";
 import { z } from "zod";
 import { AdrError, adrSlug, findAdrTarget, isDirectory, writeAdr } from "./adr.ts";
 import { QuorumindClient, QuorumindError, type SessionState } from "./client.ts";
@@ -146,6 +155,24 @@ async function guarded(work: () => Promise<CallToolResult>): Promise<CallToolRes
   }
 }
 
+/** The structured changes of a scenario, from the tool's flat arguments. */
+function scenarioChanges(input: {
+  team_delta?: number | undefined;
+  build_budget_percent?: number | undefined;
+  run_budget_percent?: number | undefined;
+  deadline_delta?: number | undefined;
+  deadline_unit: "week" | "month";
+  new_constraints: string[];
+}): ScenarioChange[] {
+  const changes: ScenarioChange[] = [];
+  if (input.team_delta) changes.push({ kind: "team", delta: input.team_delta });
+  if (input.build_budget_percent) changes.push({ kind: "budget", target: "build", percent: input.build_budget_percent });
+  if (input.run_budget_percent) changes.push({ kind: "budget", target: "run", percent: input.run_budget_percent });
+  if (input.deadline_delta) changes.push({ kind: "deadline", delta: input.deadline_delta, unit: input.deadline_unit });
+  for (const text of input.new_constraints) if (text.trim()) changes.push({ kind: "constraint", text: text.trim() });
+  return changes;
+}
+
 /** Sends MCP progress notifications when the client asked for them with a progress token. */
 function progressReporter(ctx: ServerContext): ((message: string) => void) | undefined {
   const token = ctx.mcpReq._meta?.progressToken;
@@ -173,6 +200,7 @@ export function createMcpServer(options: McpOptions): McpServer {
         "Use it before coding anything significant: quorumind_start, relay the interview questions to the user, " +
         "quorumind_answer, quorumind_review and quorumind_confirm the requirements sheet, answer the debate questions, " +
         "then read quorumind_verdict, write the plan with quorumind_handoff and record the decision with quorumind_adr. " +
+        "Try variants with quorumind_scenario, compare versions with quorumind_compare, and keep track of decisions with quorumind_decisions and quorumind_approve. " +
         "Each call returns what to do next.",
     },
   );
@@ -650,6 +678,180 @@ export function createMcpServer(options: McpOptions): McpServer {
         const created = await createGithubIssues(plan, run, { cwd, repo: repo ?? null });
         const lines = created.map((issue) => `- ${issue.url} ${issue.title}`);
         return text(`Created ${created.length} issues:\n${lines.join("\n")}`, { action, count, created });
+      }),
+  );
+
+  /** Waits until the revision with this number is made, or failed, or the wait cap is reached. */
+  const revisionMade = async (id: string, number: number, ctx: ServerContext) => {
+    const deadline = Date.now() + waitMs;
+    const pollMs = options.pollMs ?? 1_000;
+    for (;;) {
+      const state = await client.getSession(id);
+      const { session } = state;
+      if (session.revisions.some((revision) => revision.number === number)) return { state, outcome: "made" as const };
+      if (session.revising?.number === number && session.revising.error) return { state, outcome: "failed" as const };
+      if (Date.now() >= deadline || ctx.mcpReq.signal.aborted) return { state, outcome: "timeout" as const };
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+    }
+  };
+
+  server.registerTool(
+    "quorumind_scenario",
+    {
+      title: "Try a what-if scenario",
+      description:
+        'From a finished debate, ask "what if": the arbiter rules again on the same options with changed facts, and the budget and deadline checks are computed with the changed numbers. ' +
+        "Give the change in plain words (question), as structured changes (team_delta: people added, build_budget_percent / run_budget_percent: -30 for 30% less, deadline_delta with deadline_unit: -2 months for two months earlier, new_constraints), or both. " +
+        "The scenario is kept beside the verdict and does not replace it. It is priced like an update of the verdict. Waits for the ruling, then returns the comparison with the version it branched from.",
+      inputSchema: z.object({
+        session_id: SessionId,
+        title: z.string().min(1).max(120).describe('A short name, e.g. "Budget cut".'),
+        question: z.string().max(4_000).optional().describe("The what-if in the user's own words."),
+        team_delta: z.number().int().min(-1_000).max(1_000).optional(),
+        build_budget_percent: z.number().min(-95).max(500).optional(),
+        run_budget_percent: z.number().min(-95).max(500).optional(),
+        deadline_delta: z.number().int().min(-104).max(104).optional(),
+        deadline_unit: z.enum(["week", "month"]).default("month"),
+        new_constraints: z.array(z.string().min(1).max(300)).max(5).default([]),
+        based_on: z.number().int().min(1).optional().describe("The revision to branch from; the current one by default."),
+      }),
+    },
+    (input, ctx) =>
+      guarded(async () => {
+        const changes = scenarioChanges(input);
+        const question = input.question?.trim() || null;
+        const number = await client.createScenario(input.session_id, {
+          title: input.title.trim(),
+          question,
+          changes,
+          ...(input.based_on === undefined ? {} : { basedOn: input.based_on }),
+        });
+        const { state, outcome } = await revisionMade(input.session_id, number, ctx);
+        if (outcome === "timeout") {
+          return text(`Scenario ${number} is still being ruled on. Call quorumind_scenarios later to find it.`, {
+            revision: number,
+            status: "working",
+          });
+        }
+        if (outcome === "failed") {
+          return failure(
+            `Scenario ${number} failed: ${state.session.revising?.error?.message ?? "unknown error"}. The verdict is unchanged.`,
+            {
+              revision: number,
+              status: "failed",
+            },
+          );
+        }
+        const made = state.session.revisions.find((revision) => revision.number === number);
+        const base = made?.basedOn ?? 1;
+        const comparison = await client.text(`/api/sessions/${encodeURIComponent(input.session_id)}/compare.md?a=${base}&b=${number}`);
+        const ruling = made?.verdict.speech.trim();
+        return text([`Scenario ${number} "${input.title}" is ruled on.`, ruling ? `\n${ruling}\n` : "", comparison].join("\n"), {
+          revision: number,
+          basedOn: base,
+          recommendation: made?.verdict.recommendation.seat ?? null,
+        });
+      }),
+  );
+
+  server.registerTool(
+    "quorumind_scenarios",
+    {
+      title: "List the what-if scenarios",
+      description: "List the scenarios of a session with their changes and recommendation, and the revision the session currently shows.",
+      inputSchema: z.object({ session_id: SessionId }),
+      annotations: { readOnlyHint: true },
+    },
+    ({ session_id }) =>
+      guarded(async () => {
+        const { session } = await client.getSession(session_id);
+        const current = currentRevision(session)?.number ?? null;
+        const scenarios = scenariosOf(session).map((revision) => ({
+          number: revision.number,
+          title: revision.scenario?.title ?? "",
+          basedOn: revision.basedOn,
+          changes: (revision.scenario?.changes ?? []).map((change) => changeText(change, "en")),
+          question: revision.scenario?.question ?? null,
+          recommendation: revision.verdict.recommendation.seat,
+          adopted: session.adopted === revision.number,
+        }));
+        if (scenarios.length === 0) return text("No scenario yet. Try one with quorumind_scenario.", { current, scenarios });
+        const lines = scenarios.map(
+          (item) =>
+            `- ${item.number}. "${item.title}"${item.adopted ? " (adopted)" : ""}, from revision ${item.basedOn}: ${[...item.changes, item.question ?? ""].filter(Boolean).join("; ")}. Recommends ${item.recommendation ? `option ${item.recommendation}` : "no option"}.`,
+        );
+        return text([`The session shows revision ${current}.`, ...lines].join("\n"), { current, scenarios });
+      }),
+  );
+
+  server.registerTool(
+    "quorumind_compare",
+    {
+      title: "Compare two versions of the decision",
+      description:
+        "Two revisions or scenarios of a session side by side, in Markdown: recommendation, requirements, each option's feasibility, scores, costs and budget and deadline checks, compliance, risks. Values that differ are in bold.",
+      inputSchema: z.object({
+        session_id: SessionId,
+        a: z.number().int().min(1).describe("The first revision's number."),
+        b: z.number().int().min(1).describe("The second revision's number."),
+      }),
+      annotations: { readOnlyHint: true },
+    },
+    ({ session_id, a, b }) =>
+      guarded(async () => text(await client.text(`/api/sessions/${encodeURIComponent(session_id)}/compare.md?a=${a}&b=${b}`))),
+  );
+
+  server.registerTool(
+    "quorumind_decisions",
+    {
+      title: "The decision register",
+      description:
+        "List the decisions of the workspace (or of this server): each session that reached a verdict, its recommendation, its status (proposed, approved, rejected, superseded), who approved it and when to revisit it.",
+      inputSchema: z.object({
+        status: z.enum(["proposed", "approved", "rejected", "superseded"]).optional(),
+        mine: z.boolean().default(false).describe("Only the decisions of sessions the user started."),
+      }),
+      annotations: { readOnlyHint: true },
+    },
+    ({ status, mine }) =>
+      guarded(async () => {
+        const decisions = await client.decisions({ ...(status ? { status } : {}), ...(mine ? { author: "me" } : {}) });
+        if (decisions.length === 0) return text("No decision matches.", { decisions });
+        const lines = decisions.map((item) => {
+          const approval = item.approval ? `, approved by ${item.approval.name ?? "someone"} on ${item.approval.at.slice(0, 10)}` : "";
+          const review = item.review.on ? `, revisit on ${item.review.on}` : "";
+          const choice = item.recommendation ? `option ${item.recommendation.seat} (${item.recommendation.title})` : "no feasible option";
+          return `- \`${item.sessionId}\` ${item.title}: ${choice}, ${item.status}${approval}${review}`;
+        });
+        return text(lines.join("\n"), { decisions });
+      }),
+  );
+
+  server.registerTool(
+    "quorumind_approve",
+    {
+      title: "Approve a decision",
+      description:
+        "Record in the decision register that the user approves the version of the decision the session shows (the adopted scenario, or the latest revision). " +
+        "Only do this when the user explicitly says they approve. With request_only, ask the people who may approve instead (for a member who may not). " +
+        "On a self-hosted server, name is the approver's name to record.",
+      inputSchema: z.object({
+        session_id: SessionId,
+        comment: z.string().max(1_000).optional(),
+        name: z.string().max(120).optional(),
+        request_only: z.boolean().default(false),
+      }),
+    },
+    ({ session_id, comment, name, request_only }) =>
+      guarded(async () => {
+        const decision = await client.decide(session_id, request_only ? "request" : "approve", {
+          comment: comment?.trim() || null,
+          name: name?.trim() || null,
+        });
+        const message = request_only
+          ? "Approval requested: those who may approve the decision were told."
+          : `Approved: revision ${decision.approval?.revision ?? decision.revision.number}${decision.approval?.name ? ` by ${decision.approval.name}` : ""}. The report and the ADR now say so.`;
+        return text(message, { decision });
       }),
   );
 

@@ -125,6 +125,11 @@ In `.cursor/mcp.json` at the project root (or `~/.cursor/mcp.json` for every pro
 | `quorumind_handoff` | Writes `CLAUDE.md`, `AGENTS.md` and `PLAN.md` into a directory; never replaces an existing file unless `overwrite` is true. |
 | `quorumind_adr` | Records the decision as an ADR in the repository's ADR folder, numbered after the last record; never replaces a file. See [Decision records](#decision-records). |
 | `quorumind_issues` | Turns the roadmap into GitHub issues: prints the `gh` commands, or runs them with the GitHub CLI. See [GitHub issues](#github-issues). |
+| `quorumind_scenario` | Tries a what-if on a finished debate (team size, budgets, deadline, new constraints, or a question in plain words) and returns its comparison with the version it branched from. Priced like an update of the verdict. |
+| `quorumind_scenarios` | Lists the scenarios of a session, with their changes, their recommendation and the one adopted. |
+| `quorumind_compare` | Two revisions or scenarios side by side, in Markdown, the differences in bold. |
+| `quorumind_decisions` | The decision register: each decision's recommendation, status, approver and review date. |
+| `quorumind_approve` | Records the user's approval of the version a session shows, or asks for it (`request_only`). Only when the user says so. |
 | `quorumind_sessions` | Recent sessions (on the hosted version, the workspace's, with their author). |
 
 Every tool answers in short Markdown that ends on what to do next, plus the same facts as
