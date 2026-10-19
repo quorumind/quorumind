@@ -3,6 +3,7 @@ import type { RegisterEntry } from "@quorumind/core";
 import { isWorking, markInterrupted, normalizeSession, type Session } from "@quorumind/core";
 import {
   applyShareSettings,
+  type CacheLimits,
   DECISION_LIST_LIMIT,
   type DecisionQuery,
   decisionRow,
@@ -74,11 +75,13 @@ const ownedBy = (owner: string | null) =>
  */
 export class PostgresSessionStore implements SessionStore {
   private readonly db: Database;
-  private readonly live = new LiveSessions();
+  private readonly live: LiveSessions;
   private readonly writes = new Map<string, Promise<void>>();
 
-  constructor(db: Database) {
+  /** `cache` bounds the sessions kept in memory (CACHE_LIMITS by default). */
+  constructor(db: Database, options: { cache?: CacheLimits } = {}) {
     this.db = db;
+    this.live = new LiveSessions(options.cache);
   }
 
   /** Runs the writes of a session one after the other. */

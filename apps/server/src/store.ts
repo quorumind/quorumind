@@ -100,7 +100,9 @@ export interface NewPlacement {
 /**
  * Where sessions are kept, with their share links and feedback. SQLite by default (SqliteSessionStore, a file in
  * the data directory), PostgreSQL when DATABASE_URL is set (postgres/store.ts). Live session objects are kept in
- * memory so the engine and the HTTP handlers always share the same instance.
+ * memory so the engine and the HTTP handlers always share the same instance (LiveSessions, bounded). That state is per
+ * process: processes that serve the same sessions must share one database, and a session's work runs in the process
+ * that started it (one at a time, as the session's claim in app.ts ensures within a process).
  *
  * Self-hosted, every session belongs to the single local user (owner null). The hosted version passes an owner id
  * to every call, and a session is only visible to its owner, or to the members of the workspace it was started in
@@ -195,43 +197,84 @@ export function decisionRow(session: Session): { entry: RegisterEntry; reviewOn:
 /** Session ids deleted in this process that are remembered, so that a late save of one of them is ignored. */
 const TOMBSTONES = 10_000;
 
-/** The sessions in use, with their placement: one object per session, whatever reads or writes it. */
+/** How many sessions stay in memory, and for how long one nobody uses stays there. */
+export interface CacheLimits {
+  /** Sessions kept at most; the least recently used go first. */
+  size: number;
+  /** A session nobody read or wrote for that long is read again from the database. */
+  idleMs: number;
+}
+
+export const CACHE_LIMITS: CacheLimits = { size: 500, idleMs: 10 * 60_000 };
+
+interface Entry {
+  session: Session;
+  placement: Placement;
+  used: number;
+}
+
+/**
+ * The sessions in use, with their placement: one object per session, whatever reads or writes it, so the engine and
+ * the HTTP handlers share the same instance. Bounded: the least recently used sessions go once there are more than
+ * `size`, and those nobody used for `idleMs` are read again from the database, except the sessions some model work is
+ * changing (isWorking), which stay. The objects are per process: several processes on one PostgreSQL database each
+ * keep their own, which is why one session's work must run in one process at a time.
+ */
 export class LiveSessions {
-  private readonly sessions = new Map<string, Session>();
-  private readonly placements = new Map<string, Placement>();
+  private readonly entries = new Map<string, Entry>();
   /** Objects read from the database or written to it: a save of one updates its row and never creates it again. */
   private readonly persisted = new WeakSet<Session>();
   /** Sessions deleted here, oldest first. Session ids are never reused. */
   private readonly deleted = new Set<string>();
+  private readonly limits: CacheLimits;
+  private readonly now: () => number;
+  private pruned = 0;
+
+  constructor(limits: CacheLimits = CACHE_LIMITS, now: () => number = Date.now) {
+    this.limits = limits;
+    this.now = now;
+  }
+
+  /** The entry of a session in memory, marked as used; idle ones are dropped first. */
+  private entry(id: string): Entry | undefined {
+    this.prune();
+    const entry = this.entries.get(id);
+    if (!entry) return undefined;
+    entry.used = this.now();
+    // The most recently used last.
+    this.entries.delete(id);
+    this.entries.set(id, entry);
+    return entry;
+  }
 
   /** The live session if it is in memory: null when someone else owns it, undefined when it is not loaded. */
   get(id: string, owner: string | null): Session | null | undefined {
-    const session = this.sessions.get(id);
-    if (!session) return undefined;
-    return this.placements.get(id)?.owner === owner ? session : null;
+    const entry = this.entry(id);
+    if (!entry) return undefined;
+    return entry.placement.owner === owner ? entry.session : null;
   }
 
   /** The live session, whoever owns it. */
   peek(id: string): Session | undefined {
-    return this.sessions.get(id);
+    return this.entry(id)?.session;
   }
 
   /** The live session with its placement, or undefined when it is not loaded. */
   find(id: string): StoredSession | undefined {
-    const session = this.sessions.get(id);
-    const placement = this.placements.get(id);
-    return session && placement ? { ...placement, session } : undefined;
+    const entry = this.entry(id);
+    return entry ? { ...entry.placement, session: entry.session } : undefined;
   }
 
   /** The placement of a session in memory. */
   placementOf(id: string): Placement | undefined {
-    return this.placements.get(id);
+    return this.entries.get(id)?.placement;
   }
 
   /** Keeps a session in memory with its placement, as the database has it. */
   keep(session: Session, placement: Placement): Placement {
-    this.placements.set(session.id, placement);
-    this.sessions.set(session.id, session);
+    this.entries.delete(session.id);
+    this.entries.set(session.id, { session, placement, used: this.now() });
+    this.evict();
     return placement;
   }
 
@@ -247,7 +290,8 @@ export class LiveSessions {
    */
   written(session: Session, placement: Placement) {
     this.persisted.add(session);
-    if (this.sessions.get(session.id) === session) this.placements.set(session.id, placement);
+    const entry = this.entries.get(session.id);
+    if (entry?.session === session) entry.placement = placement;
   }
 
   /** Whether this object came from the database or was written to it. */
@@ -260,14 +304,13 @@ export class LiveSessions {
   }
 
   setPrivate(id: string, isPrivate: boolean) {
-    const placement = this.placements.get(id);
-    if (placement) this.placements.set(id, { ...placement, private: isPrivate });
+    const entry = this.entries.get(id);
+    if (entry) entry.placement = { ...entry.placement, private: isPrivate };
   }
 
   /** Drops a session from memory; `deleted` also ignores its later saves. */
   forget(id: string, deleted = false) {
-    this.sessions.delete(id);
-    this.placements.delete(id);
+    this.entries.delete(id);
     if (!deleted) return;
     this.deleted.add(id);
     if (this.deleted.size > TOMBSTONES) this.deleted.delete(this.deleted.values().next().value as string);
@@ -275,7 +318,31 @@ export class LiveSessions {
 
   /** Drops a session whose first write failed, unless another object replaced it meanwhile. */
   forgetUnstored(session: Session) {
-    if (this.sessions.get(session.id) === session && !this.persisted.has(session)) this.forget(session.id);
+    if (this.entries.get(session.id)?.session === session && !this.persisted.has(session)) this.forget(session.id);
+  }
+
+  /** How many sessions are in memory. */
+  get size(): number {
+    return this.entries.size;
+  }
+
+  /** The least recently used sessions go, beyond the limit; the working ones stay. */
+  private evict() {
+    if (this.entries.size <= this.limits.size) return;
+    for (const [id, entry] of this.entries) {
+      if (this.entries.size <= this.limits.size) break;
+      if (!isWorking(entry.session)) this.entries.delete(id);
+    }
+  }
+
+  /** The sessions nobody used for a while go, at most once a minute; the working ones stay. */
+  private prune() {
+    const now = this.now();
+    if (now - this.pruned < 60_000) return;
+    this.pruned = now;
+    for (const [id, entry] of this.entries) {
+      if (now - entry.used >= this.limits.idleMs && !isWorking(entry.session)) this.entries.delete(id);
+    }
   }
 }
 
@@ -322,9 +389,11 @@ export const placementOf = (owner: string | null, placement: NewPlacement | unde
 /** Sessions are stored as JSON documents in SQLite, in a file of the data directory. */
 export class SqliteSessionStore implements SessionStore {
   readonly db: DatabaseSync;
-  private readonly live = new LiveSessions();
+  private readonly live: LiveSessions;
 
-  constructor(path: string) {
+  /** `cache` bounds the sessions kept in memory (CACHE_LIMITS by default). */
+  constructor(path: string, options: { cache?: CacheLimits } = {}) {
+    this.live = new LiveSessions(options.cache);
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
     this.db.exec(`

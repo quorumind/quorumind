@@ -286,6 +286,9 @@ const ContextInput = z
   .max(MAX_CONTEXT_DOCUMENTS)
   .default([]);
 
+/** Sessions whose acting user is remembered at most. */
+const MAX_USERS = 10_000;
+
 /** How often visits to a client link may try again to write its missing client brief. */
 const BRIEF_RETRY_MS = 15 * 60_000;
 
@@ -413,7 +416,17 @@ export function createApp(deps: AppDeps) {
   let draining = false;
   /** The usage records already reported to AppHooks.onUsage, whichever engine saw them. */
   const reportedUsage = new WeakSet<UsageRecord>();
+  /** Who acts for each session (its spending checks, usage records and notifications), the most recent last. */
   const users = new Map<string, User | null>();
+  /** Bounded: the oldest entries go, except those of the sessions some work holds. */
+  const rememberUser = (id: string, user: User | null) => {
+    users.delete(id);
+    users.set(id, user);
+    for (const key of users.keys()) {
+      if (users.size <= MAX_USERS) break;
+      if (!claims.has(key)) users.delete(key);
+    }
+  };
   const passwords = new PasswordAttempts();
   const mockOptions = deps.mockDelayMs === undefined ? {} : { mockDelayMs: deps.mockDelayMs };
 
@@ -794,7 +807,7 @@ export function createApp(deps: AppDeps) {
       notify: input.notify && Boolean(deps.notifier),
     });
     session.profile = await profileFor(user, session);
-    users.set(session.id, user);
+    rememberUser(session.id, user);
     return withClaim(session, async (held) => {
       await authorize(session);
       // Its models are set up before it is saved: a missing API key leaves nothing behind.
@@ -829,7 +842,7 @@ export function createApp(deps: AppDeps) {
   /** A session the caller may read. */
   const load = async (id: string, user: User | null) => {
     const { session, access } = await accessOf(id, user);
-    if (!users.has(id) && access.mine) users.set(id, user);
+    if (!users.has(id) && access.mine) rememberUser(id, user);
     return session;
   };
 
@@ -840,7 +853,7 @@ export function createApp(deps: AppDeps) {
   const editable = async (id: string, user: User | null) => {
     const found = await accessOf(id, user);
     if (!found.access.canEdit) throw new ReadOnly();
-    users.set(id, user);
+    rememberUser(id, user);
     return found;
   };
   const loadForEdit = async (id: string, user: User | null) => (await editable(id, user)).session;
@@ -890,7 +903,7 @@ export function createApp(deps: AppDeps) {
     const id = c.req.param("id");
     const user = c.get("user");
     const { session, owner, access } = await accessOf(id, user);
-    if (!users.has(id) && access.mine) users.set(id, user);
+    if (!users.has(id) && access.mine) rememberUser(id, user);
     if (!access.mine && access.shared && hooks.authors && owner) access.author = (await hooks.authors([owner]))[owner] ?? null;
     return c.json({
       session: view(session),
@@ -1015,7 +1028,7 @@ export function createApp(deps: AppDeps) {
       if (cached) return c.json({ brief: cached });
       // Writing a new one calls a model: for those who may change the session.
       if (!access.canEdit) throw new ReadOnly();
-      users.set(session.id, c.get("user"));
+      rememberUser(session.id, c.get("user"));
       await authorize(session);
       await engineFor(session, held.controller.signal).writeBrief(session, audience);
       return c.json({ brief: session.briefs[audience] });
@@ -1061,7 +1074,7 @@ export function createApp(deps: AppDeps) {
     session.phase = "review";
     // The new debate follows the profile in force now, not the one the earlier decision was made with.
     session.profile = await profileFor(user, session);
-    users.set(session.id, user);
+    rememberUser(session.id, user);
     // In the caller's workspace, whoever started the original; a private session's copy stays private.
     const workspace = (await scopeOf(user))?.workspace ?? null;
     await store.save(session, ownerOf(user), { workspace, private: isPrivate && workspace !== null });

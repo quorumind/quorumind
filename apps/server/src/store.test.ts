@@ -9,7 +9,7 @@ import { SqliteBrandingStore } from "./branding.ts";
 import { loadMigrations, migrate } from "./postgres/migrate.ts";
 import { pgliteDatabase } from "./postgres/pglite.ts";
 import { migrateSessions, PostgresSessionStore } from "./postgres/store.ts";
-import { MissingSession, SqliteSessionStore } from "./store.ts";
+import { CACHE_LIMITS, LiveSessions, MissingSession, SqliteSessionStore } from "./store.ts";
 import { BACKENDS, type TestStorage, testDatabase } from "./testing.ts";
 
 const mock = { provider: "mock" as const, model: "mock" };
@@ -396,6 +396,64 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     await brandingStore.delete("ada");
     expect((await brandingStore.get("ada")).name).toBeNull();
     expect((await brandingStore.get()).name).toBe("Agency");
+  });
+});
+
+describe.each(BACKENDS)("the sessions kept in memory on $name", (backend) => {
+  let storage: TestStorage;
+  beforeEach(async () => {
+    storage = await backend.open();
+  });
+  afterEach(() => storage.close());
+
+  const bounded = (size: number) =>
+    storage.db
+      ? new PostgresSessionStore(storage.db, { cache: { size, idleMs: CACHE_LIMITS.idleMs } })
+      : new SqliteSessionStore((storage.store as SqliteSessionStore).db.location() ?? ":memory:", {
+          cache: { size, idleMs: CACHE_LIMITS.idleMs },
+        });
+
+  it("are bounded: the least recently used go, the working ones stay", async () => {
+    const store = bounded(2);
+    try {
+      const working = newSession("Working");
+      working.phase = "debating";
+      const [first, second, third] = [completed("First"), completed("Second"), completed("Third")];
+      for (const session of [working, first, second, third]) await store.save(session as Session);
+      // The working session and the two most recent stay the same objects.
+      expect(await store.get(working.id)).toBe(working);
+      expect(await store.get(third?.id ?? "")).toBe(third);
+      // The first one was read again from the database: an equal, new object.
+      const reread = await store.get(first?.id ?? "");
+      expect(reread).toEqual(first);
+      expect(reread).not.toBe(first);
+      // An evicted object saved later still updates its row, and becomes the live one again.
+      (first as Session).idea = "First, renamed";
+      await store.save(first as Session);
+      expect((await storage.reopen().get(first?.id ?? ""))?.idea).toBe("First, renamed");
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+describe("the live sessions", () => {
+  it("read a session nobody used for a while again from the database, but not one that works", () => {
+    let now = 1_000_000;
+    const live = new LiveSessions({ size: 10, idleMs: 120_000 }, () => now);
+    const placement = { owner: null, workspace: null, private: false };
+    const idle = completed("Idle");
+    const working = newSession("Working");
+    working.phase = "debating";
+    live.keep(idle, placement);
+    live.keep(working, placement);
+    now += 60_000;
+    expect(live.peek(idle.id)).toBe(idle);
+    now += 200_000;
+    // Another process may have changed the idle one: it is read again.
+    expect(live.peek(idle.id)).toBeUndefined();
+    expect(live.peek(working.id)).toBe(working);
+    expect(live.size).toBe(1);
   });
 });
 
