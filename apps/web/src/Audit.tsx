@@ -6,6 +6,7 @@ import { debateCurrency } from "@quorumind/core/costing";
 import { formatMoney } from "@quorumind/core/report";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Segmented } from "./components/Controls.tsx";
 import { CheckIcon, WarningIcon } from "./components/Icons.tsx";
 import { contentLanguage } from "./format.ts";
 
@@ -33,17 +34,19 @@ function Findings({ audit }: { audit: AuditDeliverable }) {
     <section className="stack">
       <div className="row audit-findings-head">
         <h2 className="heading">{w.a.findings}</h2>
-        <fieldset className="segmented">
-          <legend className="visually-hidden">{t("audit.filter")}</legend>
-          <button type="button" aria-pressed={shown === null} onClick={() => setShown(null)}>
-            {t("audit.all", { count: count(null) })}
-          </button>
-          {SEVERITIES.filter((severity) => count(severity) > 0).map((severity) => (
-            <button key={severity} type="button" aria-pressed={shown === severity} onClick={() => setShown(severity)}>
-              {w.severity(severity)} · {count(severity)}
-            </button>
-          ))}
-        </fieldset>
+        <Segmented
+          legend={t("audit.filter")}
+          options={[
+            { key: "all", value: null, label: t("audit.all", { count: count(null) }) },
+            ...SEVERITIES.filter((severity) => count(severity) > 0).map((severity) => ({
+              key: severity,
+              value: severity,
+              label: `${w.severity(severity)} · ${count(severity)}`,
+            })),
+          ]}
+          value={shown}
+          onChange={setShown}
+        />
       </div>
       <p className="field-hint" style={{ margin: 0 }}>
         {w.a.severityLegend}

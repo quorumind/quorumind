@@ -2,6 +2,7 @@ import { createContext, lazy, type ReactNode, Suspense, useCallback, useContext,
 import { useTranslation } from "react-i18next";
 import { authorName } from "./access.tsx";
 import { api, type SessionSummary } from "./api.ts";
+import { Segmented } from "./components/Controls.tsx";
 import {
   CrossIcon,
   GalleryIcon,
@@ -153,15 +154,16 @@ function Sidebar({ current }: { current: string | null }) {
       <nav className="session-list" aria-label={t("nav.sessions")}>
         <h2 className="label muted">{t("nav.sessions")}</h2>
         {shared ? (
-          <fieldset className="segmented history-filter">
-            <legend className="visually-hidden">{t("workspace.filter")}</legend>
-            <button type="button" aria-pressed={!mine} onClick={() => setMine(false)}>
-              {t("workspace.everyone")}
-            </button>
-            <button type="button" aria-pressed={mine} onClick={() => setMine(true)}>
-              {t("workspace.mine")}
-            </button>
-          </fieldset>
+          <Segmented
+            className="history-filter"
+            legend={t("workspace.filter")}
+            options={[
+              { key: "everyone", value: false, label: t("workspace.everyone") },
+              { key: "mine", value: true, label: t("workspace.mine") },
+            ]}
+            value={mine}
+            onChange={setMine}
+          />
         ) : null}
         {sessions.length === 0 ? (
           <p className="field-hint">{t("nav.noSessions")}</p>

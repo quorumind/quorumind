@@ -40,6 +40,13 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-full: 999px;
+  /* Every single-line control (field, select, button) is this tall, so a row of them lines up. */
+  --control-h: 44px;
+  --control-h-sm: 36px;
+  /* The fill of the main action: the thesis blue in light; in dark, a deeper blue than the thesis text color, so
+     the button reads as solid rather than pastel, with white text at 4.5:1 or more. */
+  --primary: var(--thesis);
+  --on-primary: var(--on-thesis);
 
   color-scheme: light;
 }
@@ -65,6 +72,8 @@
     --infeasible-soft: #3a1222;
     --voice-3: #c6a0ee;
     --voice-4: #c3d25a;
+    --primary: #4a5fd8;
+    --on-primary: #ffffff;
     color-scheme: dark;
   }
 }
@@ -89,6 +98,8 @@
   --infeasible-soft: #3a1222;
   --voice-3: #c6a0ee;
   --voice-4: #c3d25a;
+  --primary: #4a5fd8;
+  --on-primary: #ffffff;
   color-scheme: dark;
 }
 
@@ -176,6 +187,11 @@ a {
 :lang(hi) .label {
   letter-spacing: 0;
   text-transform: none;
+}
+
+/* Hidden means hidden, whatever display a class gives the element. */
+[hidden] {
+  display: none !important;
 }
 
 .visually-hidden {
@@ -349,25 +365,15 @@ main[tabindex="-1"]:focus {
   border-block-start: 1px solid var(--line);
 }
 
-.sidebar-foot .select {
-  flex: 1;
-  min-inline-size: 0;
-}
-
-.select,
 .icon-button {
-  block-size: 36px;
+  block-size: var(--control-h-sm);
   border: 1px solid var(--line);
   background: var(--surface-raised);
   border-radius: var(--radius-md);
-  padding-inline: var(--space-3);
-}
-
-.icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: 36px;
+  inline-size: var(--control-h-sm);
   padding: 0;
   cursor: pointer;
 }
@@ -568,8 +574,8 @@ h3 {
 }
 
 .button-primary {
-  background: var(--thesis);
-  color: var(--on-thesis);
+  background: var(--primary);
+  color: var(--on-primary);
 }
 
 .button-secondary {
@@ -598,13 +604,54 @@ h3 {
   color: var(--ink-muted);
 }
 
+/* Fields and selects share one look: the same height, border, fill and focus ring, whatever their type. */
 .input,
+.select,
 .textarea {
   inline-size: 100%;
   border: 1px solid var(--line);
   background: var(--surface-raised);
+  color: var(--ink);
   border-radius: var(--radius-md);
   padding: var(--space-3);
+  transition: border-color 160ms ease;
+}
+
+.input,
+.select {
+  block-size: var(--control-h);
+  min-block-size: var(--control-h);
+  padding-block: 0;
+  line-height: normal;
+}
+
+.select {
+  padding-inline: var(--space-3);
+  cursor: pointer;
+}
+
+.input:hover:not(:disabled):not(:focus),
+.select:hover:not(:disabled),
+.textarea:hover:not(:disabled):not(:focus) {
+  border-color: color-mix(in srgb, var(--ink-muted) 55%, var(--line));
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  cursor: not-allowed;
+  color: var(--ink-muted);
+  background: var(--surface);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: color-mix(in srgb, var(--ink-muted) 80%, transparent);
+}
+
+.input[aria-invalid="true"],
+.select[aria-invalid="true"] {
+  border-color: var(--infeasible);
 }
 
 .textarea {
@@ -613,8 +660,97 @@ h3 {
 }
 
 .input:focus-visible,
+.select:focus-visible,
 .textarea:focus-visible {
   outline-offset: 0;
+  border-color: var(--focus-ring);
+}
+
+.sidebar-foot .select {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: var(--control-h-sm);
+  min-block-size: var(--control-h-sm);
+}
+
+/* Where the browser can style a select's list, it takes the theme's colors and type rather than the system's. */
+@supports (appearance: base-select) {
+  .select,
+  .select::picker(select) {
+    appearance: base-select;
+  }
+
+  .select {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  /* A chevron rather than the default triangle, like the other disclosures of the interface. */
+  .select::picker-icon {
+    content: "";
+    inline-size: 7px;
+    block-size: 7px;
+    margin-inline-start: auto;
+    margin-block-start: -3px;
+    /* Physical sides: the chevron points down in both directions of writing. */
+    border-right: 1.5px solid var(--ink-muted);
+    border-bottom: 1.5px solid var(--ink-muted);
+    transform: rotate(45deg);
+    transition: transform 160ms ease;
+  }
+
+  .select:open::picker-icon {
+    margin-block-start: 3px;
+    transform: rotate(225deg);
+  }
+
+  .select::picker(select) {
+    margin-block: var(--space-1);
+    padding: var(--space-1);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-raised);
+    color: var(--ink);
+    box-shadow: var(--shadow-lift);
+    max-block-size: min(60dvh, 420px);
+  }
+
+  .select option {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    min-block-size: 36px;
+    gap: var(--space-2);
+  }
+
+  .select option:hover,
+  .select option:focus-visible {
+    background: var(--thesis-soft);
+    outline: none;
+  }
+
+  .select option:checked {
+    font-weight: 600;
+  }
+
+  .select option::checkmark {
+    color: var(--thesis);
+  }
+
+  .select option:disabled {
+    color: var(--ink-muted);
+  }
+
+  .select optgroup {
+    padding-block-start: var(--space-1);
+  }
+
+  .select optgroup legend {
+    padding: var(--space-2) var(--space-3) var(--space-1);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
 }
 
 .chip {
@@ -648,6 +784,12 @@ button.chip:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   padding: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: var(--space-4);
+  }
 }
 
 .stack {
@@ -1359,7 +1501,14 @@ th {
 }
 
 .button-primary:not(:disabled):hover {
-  box-shadow: 0 8px 22px -10px var(--thesis);
+  box-shadow: 0 8px 22px -10px var(--primary);
+}
+
+/* A main action not available yet reads as such, without fading into a pastel of itself. */
+.button-primary:disabled {
+  opacity: 1;
+  background: var(--line);
+  color: var(--ink-muted);
 }
 
 .button-primary::after {
@@ -2092,6 +2241,88 @@ details.settings[open] > div {
   transform: rotate(45deg);
 }
 
+/* A switch: an option that is on or off, its name and what it does beside it. */
+
+.switch-list {
+  display: grid;
+}
+
+.switch-list > * + * {
+  border-block-start: 1px solid var(--line);
+}
+
+.switch-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-3);
+  cursor: pointer;
+}
+
+.switch-row[data-disabled] {
+  cursor: not-allowed;
+}
+
+.switch-text {
+  display: grid;
+  gap: 2px;
+  min-inline-size: 0;
+  max-inline-size: 62ch;
+}
+
+.switch-label {
+  font-weight: 600;
+}
+
+.switch {
+  appearance: none;
+  flex: none;
+  position: relative;
+  inline-size: 44px;
+  block-size: 24px;
+  margin: 0;
+  margin-block-start: 1px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--ink-muted) 60%, var(--line));
+  background: var(--line);
+  cursor: inherit;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+.switch::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 35%, transparent);
+  transition: transform 200ms var(--ease-out);
+}
+
+.switch:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.switch:checked::before {
+  transform: translateX(20px);
+  background: #ffffff;
+}
+
+[dir="rtl"] .switch:checked::before {
+  transform: translateX(-20px);
+}
+
+.switch:disabled {
+  opacity: 0.5;
+}
+
 .check {
   display: flex;
   gap: var(--space-3);
@@ -2399,6 +2630,7 @@ details.settings[open] > div {
   align-items: center;
 }
 
+/* A segmented control: buttons of a fieldset, the chosen one pressed (aria-pressed) and filled with the primary color. */
 .segmented {
   display: inline-flex;
   padding: 3px;
@@ -2408,6 +2640,7 @@ details.settings[open] > div {
   background: var(--surface);
   gap: 2px;
   flex-wrap: wrap;
+  min-inline-size: 0;
 }
 
 .segmented button {
@@ -2421,19 +2654,24 @@ details.settings[open] > div {
   border-radius: var(--radius-full);
   cursor: pointer;
   transition:
-    background-color 200ms ease,
+    background-color 200ms var(--ease-out),
     color 200ms ease,
     box-shadow 200ms ease;
 }
 
-.segmented button:hover {
+.segmented button:hover:not([aria-pressed="true"]) {
   color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
 }
 
 .segmented button[aria-pressed="true"] {
-  background: var(--surface-raised);
-  color: var(--ink);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent);
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+.segmented button:focus-visible {
+  outline-offset: 1px;
 }
 
 .brief {

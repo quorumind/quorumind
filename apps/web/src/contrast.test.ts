@@ -1,4 +1,6 @@
 /** @vitest-environment happy-dom */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { brandStyle } from "./ClientQuestionnaire.tsx";
 import { blend, contrastRatio, luminance, readableOn, TEXT_CONTRAST, textOn } from "./contrast.ts";
@@ -60,5 +62,33 @@ describe("an agency's accent on its client's page", () => {
   it("is left out when it is not a color", () => {
     expect(brandStyle({ name: null, logoDataUrl: null, accent: "red; background: url(x)" })).toBeUndefined();
     expect(brandStyle({ name: null, logoDataUrl: null, accent: null })).toBeUndefined();
+  });
+});
+
+describe("the interface's own colors", () => {
+  const css = readFileSync(join(import.meta.dirname, "styles.css"), "utf8");
+  /** The custom properties of the first rule with this selector, color values resolved through var(). */
+  const tokens = (selector: string): Record<string, string> => {
+    const start = css.indexOf(`${selector} {`);
+    const body = css.slice(start, css.indexOf("}", start));
+    return Object.fromEntries([...body.matchAll(/(--[\w-]+):\s*([^;]+);/g)].map((match) => [match[1], (match[2] ?? "").trim()]));
+  };
+  const light = tokens(":root");
+  const dark = { ...light, ...tokens(':root[data-theme="dark"]') };
+  const value = (theme: Record<string, string>, name: string): string => {
+    const raw = theme[name] ?? "";
+    const reference = /^var\((--[\w-]+)\)$/.exec(raw);
+    return reference ? value(theme, reference[1] as string) : raw;
+  };
+
+  it("writes on the main action's fill at 4.5:1 or more, in both themes", () => {
+    for (const theme of [light, dark]) {
+      expect(contrastRatio(value(theme, "--on-primary"), value(theme, "--primary"))).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    }
+  });
+
+  it("gives the dark theme's main action a fill of its own, not the pastel of its text color", () => {
+    expect(value(dark, "--primary")).not.toBe(value(dark, "--thesis"));
+    expect(luminance(value(dark, "--primary"))).toBeLessThan(luminance(value(dark, "--thesis")));
   });
 });

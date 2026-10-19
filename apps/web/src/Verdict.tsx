@@ -11,6 +11,7 @@ import { api, type Feedback, type PriceQuote } from "./api.ts";
 import { ClientLoop } from "./ClientLoop.tsx";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ComplianceSection } from "./components/ComplianceOptions.tsx";
+import { Segmented } from "./components/Controls.tsx";
 import { ExportMenu } from "./components/ExportMenu.tsx";
 import { CheckIcon, CrossIcon, DownloadIcon, MapIcon, SparkIcon, WarningIcon } from "./components/Icons.tsx";
 import { ClaimRefs, SourcesPanel } from "./components/Sources.tsx";
@@ -81,17 +82,15 @@ function Briefs({ session, readOnly }: { session: Session; readOnly: boolean }) 
           <SparkIcon />
           {t("brief.title")}
         </h2>
-        <fieldset className="segmented">
-          <legend className="visually-hidden">{t("brief.title")}</legend>
-          <button type="button" aria-pressed={audience === null} onClick={() => setAudience(null)}>
-            {t("brief.full")}
-          </button>
-          {available.map((value) => (
-            <button key={value} type="button" aria-pressed={audience === value} onClick={() => setAudience(value)}>
-              {t(`brief.audience.${value}`)}
-            </button>
-          ))}
-        </fieldset>
+        <Segmented
+          legend={t("brief.title")}
+          options={[
+            { key: "full", value: null, label: t("brief.full") },
+            ...available.map((value) => ({ key: value, value, label: t(`brief.audience.${value}`) })),
+          ]}
+          value={audience}
+          onChange={setAudience}
+        />
       </div>
       {audience && brief ? (
         <article className="card brief stack">
@@ -403,15 +402,15 @@ function FeedbackBox({ session, feedback }: { session: Session; feedback: Feedba
       {kind === "rating" ? (
         <div className="row">
           <span className="title">{t("feedback.question")}</span>
-          <fieldset className="segmented">
-            <legend className="visually-hidden">{t("feedback.question")}</legend>
-            <button type="button" aria-pressed={helpful === true} onClick={() => setHelpful(true)}>
-              {t("feedback.yes")}
-            </button>
-            <button type="button" aria-pressed={helpful === false} onClick={() => setHelpful(false)}>
-              {t("feedback.no")}
-            </button>
-          </fieldset>
+          <Segmented
+            legend={t("feedback.question")}
+            options={[
+              { key: "yes", value: true as boolean | null, label: t("feedback.yes") },
+              { key: "no", value: false, label: t("feedback.no") },
+            ]}
+            value={helpful}
+            onChange={setHelpful}
+          />
         </div>
       ) : (
         <span className="title">{t("feedback.errorTitle")}</span>
