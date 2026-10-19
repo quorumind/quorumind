@@ -239,6 +239,29 @@ describe("verdict revisions", () => {
     expect(made.every((record) => record.revision === 2)).toBe(true);
   });
 
+  it("fail rather than drop an adoption made while they were being ruled on", async () => {
+    const session = await completed();
+    let adopting = true;
+    const arbiter: LlmProvider = {
+      kind: "mock",
+      model: "mock",
+      generate: async (request) => {
+        // A scenario is adopted while the arbiter rules on an edit of the decision's own line.
+        if (request.task === "reassess" && adopting) {
+          adopting = false;
+          session.adopted = 1;
+        }
+        return new MockProvider({ chunkDelayMs: 0 }).generate(request);
+      },
+    };
+    const engine = engineWith({ ...demoProviders(), arbiter });
+    await engine.beginRevision(session, answers);
+    expect(await engine.runRevision(session)).toBe(false);
+    expect(session.revising?.error?.code).toBe("verdict_changed");
+    expect(session.adopted).toBe(1);
+    expect(session.revisions).toHaveLength(1);
+  });
+
   it("stop as interrupted without failing the session when the server stops", async () => {
     const session = await completed();
     await engineWith().beginRevision(session, answers);

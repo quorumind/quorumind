@@ -428,6 +428,8 @@ export class DebateEngine {
     const pending = session.revising;
     if (!pending || pending.error || !session.verdict) throw new InvalidStateError("No revision is waiting to be made.");
     const scenario = pending.reason === "scenario" ? (pending.scenario ?? null) : null;
+    // What the revision starts from: the decision must still be that one when the new ruling arrives.
+    const startedFrom = { verdict: session.verdict, adopted: session.adopted };
     this.scope = { attempt: pending.id, revision: pending.number, budgetUsd: options.budgetUsd ?? null };
     try {
       const work = revisionWork(session, pending);
@@ -444,6 +446,9 @@ export class DebateEngine {
       const output =
         session.mode === "audit" ? auditUpdateOutput(requirements.length > 0) : revisionSchema(scenario !== null, requirements.length > 0);
       const { costs, schedules, ...verdict } = await this.call(session, "reassess", null, this.providers.arbiter, prompt, output);
+      if (session.verdict !== startedFrom.verdict || session.adopted !== startedFrom.adopted) {
+        throw new InvalidStateError("The decision changed while this revision was being made: ask for it again.", "verdict_changed");
+      }
       settleVerdict(session, verdict);
       if ("compliance" in verdict) settleCompliance(verdict as VerdictWithCompliance, requirements);
       const seats = new Set(verdict.options.map((option) => option.seat));
