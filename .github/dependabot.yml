@@ -17,3 +17,13 @@ updates:
       interval: monthly
     cooldown:
       default-days: 14
+  # The Node base image of the Dockerfile, on its major version (a new one is moved to by hand, with CI)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 14
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
