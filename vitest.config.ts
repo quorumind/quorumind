@@ -8,5 +8,7 @@ export default defineConfig({
     // The API tests take whole debates through the routes, on SQLite and on PostgreSQL (PGlite, compiled to
     // WebAssembly): a second or two each alone, several times that when every test file runs at once on a busy machine.
     testTimeout: 30_000,
+    // The first PostgreSQL test of each worker creates and migrates its template database in a hook.
+    hookTimeout: 30_000,
   },
 });
