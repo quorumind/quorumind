@@ -68,16 +68,14 @@ import type { Notifier } from "./notifier.ts";
 import { profileRoutes } from "./profile.ts";
 import { questionnaireRoutes } from "./questionnaires.ts";
 import {
-  AttemptLimiter,
   accessToken,
   hashPassword,
-  SHARE_ATTEMPT_LIMITS,
+  PasswordAttempts,
   SHARE_EXPIRIES,
   SHARE_MODES,
   SHARE_PASSWORD,
   type ShareExpiry,
   validAccess,
-  verifyPassword,
 } from "./share.ts";
 import {
   type Placement,
@@ -415,7 +413,7 @@ export function createApp(deps: AppDeps) {
   /** The usage records already reported to AppHooks.onUsage, whichever engine saw them. */
   const reportedUsage = new WeakSet<UsageRecord>();
   const users = new Map<string, User | null>();
-  const attempts = { link: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.link), caller: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.caller) };
+  const passwords = new PasswordAttempts();
   const mockOptions = deps.mockDelayMs === undefined ? {} : { mockDelayMs: deps.mockDelayMs };
 
   // Ollama discovery takes a network call: done once, then reused.
@@ -1127,8 +1125,8 @@ export function createApp(deps: AppDeps) {
     return c.body(renderClientReport(clientDeliverable(currentView(session))));
   });
 
-  // The password of a protected link, for an access token valid a few hours. Wrong passwords are counted per link
-  // and per caller.
+  // The password of a protected link, for an access token valid a few hours. Attempts are counted per link and per
+  // caller, before the password is checked.
   app.post("/api/shared/:token/access", async (c) => {
     const token = c.req.param("token");
     const found = await store.shared(token);
@@ -1136,14 +1134,11 @@ export function createApp(deps: AppDeps) {
     const { share } = found;
     if (share.expiresAt !== null && Date.parse(share.expiresAt) <= Date.now()) throw new ShareRefused(410, "share_expired");
     if (share.passwordHash === null) return c.json({ access: null, expiresAt: null });
-    const caller = `${token}:${(c.env as { incoming?: IncomingMessage } | undefined)?.incoming?.socket.remoteAddress ?? "local"}`;
-    if (!attempts.link.allows(token) || !attempts.caller.allows(caller)) throw new ShareRefused(429, "too_many_attempts");
+    const caller = (c.env as { incoming?: IncomingMessage } | undefined)?.incoming?.socket.remoteAddress ?? "local";
     const { password } = AccessInput.parse(await c.req.json());
-    if (!(await verifyPassword(password, share.passwordHash))) {
-      attempts.link.fail(token);
-      attempts.caller.fail(caller);
-      throw new ShareRefused(401, "wrong_password");
-    }
+    const checked = await passwords.check(token, caller, password, share.passwordHash);
+    if (checked === "limited") throw new ShareRefused(429, "too_many_attempts");
+    if (checked === "wrong") throw new ShareRefused(401, "wrong_password");
     return c.json(accessToken(share.token, share.passwordHash));
   });
 

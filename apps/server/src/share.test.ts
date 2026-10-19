@@ -185,6 +185,27 @@ describe.each(BACKENDS)("share links on $name", (each) => {
     expect(await limited.json()).toMatchObject({ error: "too_many_attempts" });
   });
 
+  it("count guesses sent all at once, before checking any of them", async () => {
+    const app = await makeApp();
+    const session = await completeDemo(app);
+    const { share } = (await (await app.request(`/api/sessions/${session.id}/share`, json({ password: "right one" }))).json()) as ShareBody;
+    const guesses = await Promise.all(
+      Array.from({ length: 60 }, (_, i) => app.request(`/api/shared/${share.token}/access`, json({ password: `guess ${i}` }))),
+    );
+    const statuses = guesses.map((response) => response.status);
+    expect(statuses.filter((status) => status === 401)).toHaveLength(SHARE_ATTEMPT_LIMITS.caller.perWindow);
+    expect(statuses.filter((status) => status === 429)).toHaveLength(60 - SHARE_ATTEMPT_LIMITS.caller.perWindow);
+  });
+
+  it("give a right password its attempt back, so that many visitors may open the link", async () => {
+    const app = await makeApp();
+    const session = await completeDemo(app);
+    const { share } = (await (await app.request(`/api/sessions/${session.id}/share`, json({ password: "right one" }))).json()) as ShareBody;
+    for (let i = 0; i < SHARE_ATTEMPT_LIMITS.link.perWindow + 5; i++) {
+      expect((await app.request(`/api/shared/${share.token}/access`, json({ password: "right one" }))).status).toBe(200);
+    }
+  });
+
   it("expire, and can be made to last", async () => {
     const app = await makeApp();
     const session = await completeDemo(app);

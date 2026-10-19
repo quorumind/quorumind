@@ -213,6 +213,19 @@ describe.each(BACKENDS)("questionnaires on $name", (backend) => {
     for (let i = 0; i < SHARE_ATTEMPT_LIMITS.caller.perWindow - 1; i++) expect((await access(`guess ${i}`)).status).toBe(401);
     expect(await (await access("another one")).json()).toMatchObject({ error: "too_many_attempts" });
 
+    // Guesses sent all at once are counted before any is checked.
+    const other = await createQuestionnaire(app, session, { password: "open sesame" });
+    const guesses = await Promise.all(
+      Array.from({ length: 40 }, (_, i) =>
+        app.request(`/api/questionnaire/${other.token}/access`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: `guess ${i}` }),
+        }),
+      ),
+    );
+    expect(guesses.filter((response) => response.status === 401)).toHaveLength(SHARE_ATTEMPT_LIMITS.caller.perWindow);
+
     // An expired link answers 410, until the agency reopens it for another 30 days.
     const stored = (await storage?.store.questionnaire({ id: questionnaire.id })) as StoredQuestionnaire;
     await storage?.store.saveQuestionnaire({ ...stored, passwordHash: null, expiresAt: new Date(Date.now() - 1_000).toISOString() });

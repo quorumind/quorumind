@@ -17,16 +17,7 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { User } from "./app.ts";
 import type { BrandingStore } from "./branding.ts";
-import {
-  AttemptLimiter,
-  type AttemptLimits,
-  accessToken,
-  hashPassword,
-  SHARE_ATTEMPT_LIMITS,
-  SHARE_PASSWORD,
-  validAccess,
-  verifyPassword,
-} from "./share.ts";
+import { AttemptLimiter, type AttemptLimits, accessToken, hashPassword, PasswordAttempts, SHARE_PASSWORD, validAccess } from "./share.ts";
 import { publicQuestionnaire, randomToken, type SessionStore, type StoredQuestionnaire, type StoredSession } from "./store.ts";
 
 // The questionnaire an agency sends its client from a completed session. The agency writes it from the verdict's open
@@ -137,9 +128,8 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
   const limits = {
     reads: new AttemptLimiter(QUESTIONNAIRE_RATE_LIMITS.reads),
     submissions: new AttemptLimiter(QUESTIONNAIRE_RATE_LIMITS.submissions),
-    passwordsPerLink: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.link),
-    passwordsPerCaller: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.caller),
   };
+  const passwords = new PasswordAttempts();
   const callerOf = (c: Context<Env>) => (c.env as { incoming?: IncomingMessage } | undefined)?.incoming?.socket.remoteAddress ?? "local";
   const refuse = (c: Context<Env>, status: 401 | 404 | 409 | 410 | 429, error: string, message: string) =>
     c.json({ error, message }, status);
@@ -332,23 +322,18 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
     return word(c, opened.found.session, opened.questionnaire, await deps.branding.get(opened.found.owner));
   });
 
-  // The password of a protected link, for an access token valid a few hours. Wrong ones are counted per link and caller.
+  // The password of a protected link, for an access token valid a few hours. Attempts are counted per link and caller,
+  // before the password is checked.
   app.post("/api/questionnaire/:token/access", async (c) => {
     const token = c.req.param("token");
     const questionnaire = await deps.store.questionnaire({ token });
     if (!questionnaire) return missing(c);
     if (expired(questionnaire)) return refuse(c, 410, "questionnaire_expired", "This questionnaire link has expired.");
     if (questionnaire.passwordHash === null) return c.json({ access: null, expiresAt: null });
-    const caller = `${token}:${callerOf(c)}`;
-    if (!limits.passwordsPerLink.allows(token) || !limits.passwordsPerCaller.allows(caller)) {
-      return refuse(c, 429, "too_many_attempts", "Too many wrong passwords. Wait a few minutes and try again.");
-    }
     const { password } = AccessInput.parse(await c.req.json());
-    if (!(await verifyPassword(password, questionnaire.passwordHash))) {
-      limits.passwordsPerLink.fail(token);
-      limits.passwordsPerCaller.fail(caller);
-      return refuse(c, 401, "wrong_password", "The password is not right.");
-    }
+    const checked = await passwords.check(token, callerOf(c), password, questionnaire.passwordHash);
+    if (checked === "limited") return refuse(c, 429, "too_many_attempts", "Too many wrong passwords. Wait a few minutes and try again.");
+    if (checked === "wrong") return refuse(c, 401, "wrong_password", "The password is not right.");
     return c.json(accessToken(questionnaire.token, questionnaire.passwordHash));
   });
 

@@ -99,6 +99,14 @@ export class AttemptLimiter {
     if (this.failures.size > 10_000) this.prune();
   }
 
+  /** Gives back the latest attempt of this key, one that turned out to be right. */
+  refund(key: string) {
+    const recent = this.recent(key);
+    recent.pop();
+    if (recent.length > 0) this.failures.set(key, recent);
+    else this.failures.delete(key);
+  }
+
   private recent(key: string): number[] {
     const now = this.now();
     return (this.failures.get(key) ?? []).filter((time) => now - time < this.limits.windowMs);
@@ -106,5 +114,33 @@ export class AttemptLimiter {
 
   private prune() {
     for (const key of this.failures.keys()) if (this.recent(key).length === 0) this.failures.delete(key);
+  }
+}
+
+/**
+ * The password of a protected link (a share link or a questionnaire), checked within the limits per link and per
+ * caller. Each attempt counts before the password is checked: guesses sent at the same time all count, where counting
+ * the failures once known let every concurrent guess through. A right password gives its attempt back, so a link
+ * opened by many people is not locked by their visits.
+ */
+export class PasswordAttempts {
+  private readonly link: AttemptLimiter;
+  private readonly caller: AttemptLimiter;
+
+  constructor(limits: { link: AttemptLimits; caller: AttemptLimits } = SHARE_ATTEMPT_LIMITS, now: () => number = Date.now) {
+    this.link = new AttemptLimiter(limits.link, now);
+    this.caller = new AttemptLimiter(limits.caller, now);
+  }
+
+  /** "limited" when the link or the caller used up its attempts for now, nothing checked. */
+  async check(link: string, caller: string, password: string, hash: string): Promise<"right" | "wrong" | "limited"> {
+    const callerKey = `${link}:${caller}`;
+    if (!this.link.allows(link) || !this.caller.allows(callerKey)) return "limited";
+    this.link.fail(link);
+    this.caller.fail(callerKey);
+    if (!(await verifyPassword(password, hash))) return "wrong";
+    this.link.refund(link);
+    this.caller.refund(callerKey);
+    return "right";
   }
 }
