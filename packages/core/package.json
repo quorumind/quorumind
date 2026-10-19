@@ -33,7 +33,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",
     "docx": "9.8.1",
-    "openai": "7.25.0",
+    "openai": "7.28.0",
     "zod": "4.6.5"
   }
 }
