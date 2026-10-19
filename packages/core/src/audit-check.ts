@@ -5,6 +5,7 @@
 import type { AuditCritiqueInput, AuditExtraction, AuditedVerdict, AuditFinding, AuditReport, ChecklistItem } from "./audit.ts";
 import { AUDIT_CHECKLIST } from "./audit-constants.ts";
 import { availableWeeks } from "./costing.ts";
+import { redact } from "./privacy.ts";
 import { currencyCode } from "./profile.ts";
 import type { Proposal, Severity, Verdict } from "./schemas.ts";
 import { type ContextDocument, type Session, USER_SEAT } from "./session.ts";
@@ -50,8 +51,7 @@ export function findQuote(documents: ContextDocument[], quote: string): boolean 
     .map((part) => part.replace(/^["'\s]+|["'\s]+$/g, ""))
     .filter((part) => part.length > 0);
   if (parts.length === 0) return false;
-  return documents.some((doc) => {
-    const text = normalize(doc.text);
+  const inOrder = (text: string) => {
     let from = 0;
     for (const part of parts) {
       const at = text.indexOf(part, from);
@@ -59,7 +59,10 @@ export function findQuote(documents: ContextDocument[], quote: string): boolean 
       from = at + part.length;
     }
     return true;
-  });
+  };
+  // A session that masks personal data shows the models the document masked: their quotes carry "[email]", "[iban]"…
+  const masked = /\[(?:email|iban|card|phone|ip|secret)\]/.test(quote);
+  return documents.some((doc) => inOrder(normalize(doc.text)) || (masked && inOrder(normalize(redact(doc.text)))));
 }
 
 /** Keeps a quote only when it is really in the documents: a passage shown as quoted is always the document's own. */

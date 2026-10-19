@@ -44,6 +44,14 @@ function luhn(number: string): boolean {
   return sum % 10 === 0;
 }
 
+// A French SIRET (14 digits, "123 456 789 00012") passes the Luhn check by design: it is a company's public number, not
+// a card. A 14-digit card is written in groups of 4, 6 and 4.
+function looksLikeCard(match: string): boolean {
+  const number = digits(match);
+  if (number.length === 14 && !/^\d{4}[ -]\d{6}[ -]\d{4}$/.test(match)) return false;
+  return luhn(number);
+}
+
 function looksLikePhone(match: string): boolean {
   const count = digits(match).length;
   if (count < 9 || count > 15) return false;
@@ -62,7 +70,7 @@ const RULES: Rule[] = [
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[secret]"],
   [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[email]"],
   [/\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g, "[iban]"],
-  [/\b\d(?:[ -]?\d){12,18}\b/g, "[card]", (match) => luhn(digits(match))],
+  [/\b\d(?:[ -]?\d){12,18}\b/g, "[card]", looksLikeCard],
   [/(?<![\w.])(?:\+|\(|\b)\d[\d ().-]{7,}\d(?![\w.])/g, "[phone]", looksLikePhone],
   [/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "[ip]", (match) => match.split(".").every((part) => Number(part) <= 255)],
 ];

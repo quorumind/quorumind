@@ -299,6 +299,18 @@ describe("audit checks", () => {
     expect(findQuote([doc], "  ")).toBe(false);
   });
 
+  it("finds a quote a model copied from the masked document of a session that masks personal data", () => {
+    const doc: ContextDocument = {
+      id: "1",
+      kind: "text",
+      name: "doc",
+      text: "Contact: jane@studio.fr, IBAN FR76 3000 6000 0112 3456 7890 189.",
+    };
+    expect(findQuote([doc], "Contact: [email], IBAN [iban].")).toBe(true);
+    expect(findQuote([doc], "Contact: jane@studio.fr")).toBe(true);
+    expect(findQuote([doc], "Contact: [email], IBAN FR00.")).toBe(false);
+  });
+
   it("recomputes the document's figures", () => {
     const session = auditedSession();
     const check = quoteCheck(session);
