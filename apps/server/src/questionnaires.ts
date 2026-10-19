@@ -1,4 +1,3 @@
-import type { IncomingMessage } from "node:http";
 import {
   type Branding,
   currentRevision,
@@ -27,9 +26,13 @@ import { publicQuestionnaire, randomToken, type SessionStore, type StoredQuestio
 
 type Env = { Variables: { user: User | null } };
 
-/** Requests through questionnaire links, per caller; submissions per caller and per link. */
+/**
+ * Requests through questionnaire links: reads per link and caller, and per caller across links (against scans);
+ * submissions per caller and per link.
+ */
 export const QUESTIONNAIRE_RATE_LIMITS = {
   reads: { perWindow: 120, windowMs: 15 * 60_000 },
+  readsPerCaller: { perWindow: 600, windowMs: 15 * 60_000 },
   submissions: { perWindow: 10, windowMs: 15 * 60_000 },
 } as const satisfies Record<string, AttemptLimits>;
 
@@ -51,6 +54,8 @@ export interface QuestionnaireDeps {
   ): Promise<{ number: number }>;
   /** Tells the agency the client answered (e-mail, host hook); its failure is logged, never the client's problem. */
   answered(found: StoredSession, questionnaire: StoredQuestionnaire): Promise<void>;
+  /** The client's address, which the limits count by (caller.ts). */
+  callerOf(c: Context): string;
 }
 
 const Question = z.object({
@@ -127,10 +132,11 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
   const app = new Hono<Env>();
   const limits = {
     reads: new AttemptLimiter(QUESTIONNAIRE_RATE_LIMITS.reads),
+    readsPerCaller: new AttemptLimiter(QUESTIONNAIRE_RATE_LIMITS.readsPerCaller),
     submissions: new AttemptLimiter(QUESTIONNAIRE_RATE_LIMITS.submissions),
   };
   const passwords = new PasswordAttempts();
-  const callerOf = (c: Context<Env>) => (c.env as { incoming?: IncomingMessage } | undefined)?.incoming?.socket.remoteAddress ?? "local";
+  const callerOf = (c: Context<Env>) => deps.callerOf(c);
   const refuse = (c: Context<Env>, status: 401 | 404 | 409 | 410 | 429, error: string, message: string) =>
     c.json({ error, message }, status);
 
@@ -293,8 +299,13 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
 
   /** The questionnaire behind a link, when it still works and the visitor may open it. */
   const openLink = async (c: Context<Env>) => {
-    if (!limits.reads.hit(callerOf(c)))
+    // Per link and caller: one client that reloads a page does not lock the others out of theirs.
+    const caller = callerOf(c);
+    if (!limits.readsPerCaller.allows(caller) || !limits.reads.allows(`${c.req.param("token") ?? ""}:${caller}`)) {
       return { refused: refuse(c, 429, "rate_limited", "Too many requests. Try again in a few minutes.") };
+    }
+    limits.readsPerCaller.fail(caller);
+    limits.reads.fail(`${c.req.param("token") ?? ""}:${caller}`);
     const questionnaire = await deps.store.questionnaire({ token: c.req.param("token") ?? "" });
     const found = questionnaire ? await deps.store.find(questionnaire.sessionId) : null;
     if (!questionnaire || !found) return { refused: missing(c) };

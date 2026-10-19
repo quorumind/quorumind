@@ -1,4 +1,3 @@
-import type { IncomingMessage } from "node:http";
 import {
   Audience,
   COMPLIANCE_TEMPLATE_IDS,
@@ -57,6 +56,7 @@ import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { type BrandingStore, SqliteBrandingStore } from "./branding.ts";
 import type { EventBus } from "./bus.ts";
+import { clientAddress, trustedProxies } from "./caller.ts";
 import type { ChatNotifier } from "./chat.ts";
 import { contextRoutes } from "./context/routes.ts";
 import { decisionRoutes, sendReviewReminders } from "./decisions.ts";
@@ -428,6 +428,8 @@ export function createApp(deps: AppDeps) {
     }
   };
   const passwords = new PasswordAttempts();
+  /** The reverse proxies in front of the server, whose X-Forwarded-For gives the client's address (caller.ts). */
+  const proxies = trustedProxies(env);
   const mockOptions = deps.mockDelayMs === undefined ? {} : { mockDelayMs: deps.mockDelayMs };
 
   // Ollama discovery takes a network call: done once, then reused.
@@ -1148,7 +1150,7 @@ export function createApp(deps: AppDeps) {
     const { share } = found;
     if (share.expiresAt !== null && Date.parse(share.expiresAt) <= Date.now()) throw new ShareRefused(410, "share_expired");
     if (share.passwordHash === null) return c.json({ access: null, expiresAt: null });
-    const caller = (c.env as { incoming?: IncomingMessage } | undefined)?.incoming?.socket.remoteAddress ?? "local";
+    const caller = clientAddress(c, proxies);
     const { password } = AccessInput.parse(await c.req.json());
     const checked = await passwords.check(token, caller, password, share.passwordHash);
     if (checked === "limited") throw new ShareRefused(429, "too_many_attempts");
@@ -1254,6 +1256,7 @@ export function createApp(deps: AppDeps) {
       editable,
       revise: async (session, { inputs }, onMade) => startRevision(session, { reason: "client_answers", inputs }, onMade),
       answered,
+      callerOf: (c) => clientAddress(c, proxies),
     }),
   );
   app.route(

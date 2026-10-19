@@ -3,6 +3,7 @@ import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { User } from "../app.ts";
+import { clientAddress, trustedProxies } from "../caller.ts";
 import { invalidRequest } from "../errors.ts";
 import { ContextError } from "./errors.ts";
 import { extractFile, MAX_FILE_BYTES } from "./file.ts";
@@ -46,9 +47,10 @@ export function contextRoutes(options: ContextRouteOptions = {}) {
   const limiter = options.limiter ?? new ImportLimiter();
   const app = new Hono<Env>();
 
-  // The signed-in account when there is one, else the client's address: behind a reverse proxy every
-  // visitor shares the proxy's address, and so one budget.
-  const callerOf = (c: Context<Env>) => c.get("user")?.userId ?? c.env?.incoming?.socket.remoteAddress ?? "local";
+  // The signed-in account when there is one, else the client's address: behind a reverse proxy, the one the proxy
+  // forwards when QUORUMIND_TRUST_PROXY says how many there are (otherwise every visitor shares the proxy's budget).
+  const hops = trustedProxies(env);
+  const callerOf = (c: Context<Env>) => c.get("user")?.userId ?? clientAddress(c, hops);
   const done = async (c: Context<Env>, work: () => Promise<ImportedDocument>) => c.json({ document: await limiter.run(callerOf(c), work) });
 
   app.post("/api/context/file", bodyLimit({ maxSize: CONTEXT_BODY_LIMITS.file, onError: tooLarge }), async (c) => {

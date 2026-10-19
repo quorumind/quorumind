@@ -235,10 +235,15 @@ describe.each(BACKENDS)("questionnaires on $name", (backend) => {
     await app.request(`/api/sessions/${session.id}/questionnaires/${questionnaire.id}/reopen`, send({}));
     expect((await open(app, questionnaire.token)).status).toBe(200);
 
-    for (let i = 0; i < QUESTIONNAIRE_RATE_LIMITS.reads.perWindow; i++) await open(app, "unknown-token");
+    // Reads are counted per link and caller: a page opened too often is refused, the caller's other links are not.
+    for (let i = 0; i < QUESTIONNAIRE_RATE_LIMITS.reads.perWindow; i++) await open(app, questionnaire.token);
     const flooded = await open(app, questionnaire.token);
     expect(flooded.status).toBe(429);
     expect(await flooded.json()).toMatchObject({ error: "rate_limited" });
+    expect((await open(app, other.token)).status).toBe(401);
+    // And per caller across links, against a scan of tokens.
+    for (let i = 0; i < QUESTIONNAIRE_RATE_LIMITS.readsPerCaller.perWindow; i++) await open(app, `unknown-${i}`);
+    expect((await open(app, other.token)).status).toBe(429);
   });
 
   it("belong to their agency: only those who may change the session manage them", async () => {
