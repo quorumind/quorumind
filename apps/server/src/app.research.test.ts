@@ -112,6 +112,35 @@ describe("web research", () => {
     expect(withResearch - without).toBeLessThanOrEqual(0.3 + 1e-9);
   });
 
+  it("costs nothing in the estimate of a European-only debate, which searches nothing", async () => {
+    setModelPrice("anthropic/claude-opus-5.5", { input: 4, output: 20 });
+    setModelPrice("mistralai/mistral-large-4-0", { input: 2, output: 6 });
+    const app = await makeApp({ ...SEARCH, QUORUMIND_SEARCH: "openrouter" });
+    const lineup = { interviewer: CATALOG[0], arbiter: CATALOG[0], seats: { A: CATALOG[0], B: CATALOG[1] } };
+    const estimate = async (body: Record<string, unknown>) =>
+      (await (await app.request("/api/estimate", json({ lineup, rounds: 1, mode: "standard", depth: "standard", ...body }))).json()) as {
+        estimateUsd: { high: number };
+        research: { default: boolean };
+      };
+    const plain = await estimate({ webResearch: false });
+    const european = await estimate({ europeanOnly: true });
+    expect(european.research.default).toBe(false);
+    expect((await estimate({ europeanOnly: true, webResearch: true })).estimateUsd.high).toBe(plain.estimateUsd.high);
+  });
+
+  it("keeps its cost cap from those who must not see provider costs, and from share links", async () => {
+    const hooks: AppHooks = {
+      identify: async () => ({ userId: "ada" }),
+      catalog: async () => CATALOG,
+      providerEnv: () => ({ ...SEARCH, ...CLOSED, QUORUMIND_SEARCH: "openrouter" }),
+      hideProviderCosts: true,
+    };
+    const app = await makeApp({}, hooks);
+    const { session } = await create(app, {});
+    expect(session.webResearch).toEqual({ maxQueries: 6, budgetUsd: null });
+    expect((await storage?.store.find(session.id))?.session.webResearch?.budgetUsd).toBe(0.3);
+  });
+
   it("is kept when a session is forked, and the demo has it ticked", async () => {
     const app = await makeApp({ ...SEARCH, QUORUMIND_SEARCH: "openrouter" });
     expect((await create(app, { demo: true })).session.webResearch).toEqual({ maxQueries: 6, budgetUsd: 0.3 });

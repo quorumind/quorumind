@@ -207,6 +207,8 @@ describe.each(BACKENDS)("share links on $name", (each) => {
       expect(body).not.toContain(secret);
     const { session } = JSON.parse(body) as { session: Session };
     expect(session.decision?.approval?.by).toEqual({ id: null, name: "Ada" });
+    // The demo has web research ticked: its cost cap is a provider cost, like the session's.
+    expect(session.webResearch).toMatchObject({ budgetUsd: null });
     expect(session.profile).toMatchObject({ name: "Atelier", hosting: { euOnly: true }, roles: [{ name: "Senior developer" }] });
     const report = await (await app.request(`/api/shared/${share.token}/report.md`)).text();
     for (const secret of ["Margin 35", "client pays late", "Fine by me"]) expect(report).not.toContain(secret);

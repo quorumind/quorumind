@@ -378,6 +378,7 @@ function publicView(session: Session): Session {
     context: session.context.map(({ source: _source, ...doc }) => ({ ...doc, text: "" })),
     usage: [],
     budgetUsd: null,
+    ...withoutResearchCosts(session),
     error: session.error ? { code: session.error.code, message: "" } : null,
     notify: false,
     profile: session.profile
@@ -419,11 +420,21 @@ const ShareInput = z.object({
 });
 const AccessInput = z.object({ password: z.string().max(SHARE_PASSWORD.max) });
 
+/** The web research without its cost cap, and without a failure message that names it in dollars. */
+function withoutResearchCosts(session: Session): Pick<Session, "webResearch" | "research"> {
+  const { research } = session;
+  return {
+    webResearch: session.webResearch ? { ...session.webResearch, budgetUsd: null } : null,
+    research: research?.error?.code === "budget_exceeded" ? { ...research, error: { code: research.error.code, message: "" } } : research,
+  };
+}
+
 /** A session as sent to someone who must not see what the providers charge (AppHooks.hideProviderCosts). */
 function withoutProviderCosts(session: Session): Session {
   return {
     ...session,
     budgetUsd: null,
+    ...withoutResearchCosts(session),
     usage: session.usage.map((record) => ({ ...record, costUsd: null })),
     // The engine's message and parameters name the cap in dollars; the error code is enough to explain it.
     error: session.error?.code === "budget_exceeded" ? { code: session.error.code, message: "" } : session.error,
@@ -610,7 +621,8 @@ export function createApp(deps: AppDeps) {
         ? (estimateRevisionCost({ arbiterModel: session.arbiter.model, criticModel: critic })?.high ?? 0.5)
         : session.verdict
           ? 0.05
-          : (estimateFor(session, researchEstimate(user, session.interviewer.model, session.webResearch))?.high ?? 1);
+          : (estimateFor(session, session.european ? 0 : researchEstimate(user, session.interviewer.model, session.webResearch))?.high ??
+            1);
     const answer = await hooks.authorizeSpend(user, session, estimate, purchase);
     if (!answer.ok) throw new PaymentRequired(answer.code, answer.reason);
   };
@@ -752,12 +764,15 @@ export function createApp(deps: AppDeps) {
         depth: NewSession.shape.depth,
         locale: NewSession.shape.locale.default("en"),
         webResearch: NewSession.shape.webResearch,
+        europeanOnly: NewSession.shape.europeanOnly,
       })
       .parse(await c.req.json());
     const user = c.get("user");
     const research = researchOf(user, input);
+    // A European-only debate searches nothing: off by default, and nothing to pay for even when asked.
+    const european = wantsEuropean(await europeanPolicyOf(user), input.europeanOnly);
     const researchUsd =
-      (input.webResearch ?? research.default) && research.kind
+      !european && (input.webResearch ?? research.default) && research.kind
         ? researchEstimate(user, input.lineup.interviewer.model, research.limits)
         : 0;
     return c.json({
@@ -766,7 +781,7 @@ export function createApp(deps: AppDeps) {
         : estimateFor({ ...input.lineup, rounds: input.rounds, mode: input.mode, audit: input.audit }, researchUsd),
       price: await priceOf(user, { mode: input.mode, depth: input.depth, locale: input.locale as Session["locale"] }, null),
       // Whether these settings have web research ticked by default (e.g. by price tier).
-      research: { kind: research.kind, default: research.default },
+      research: { kind: research.kind, default: research.default && !european },
     });
   });
 
