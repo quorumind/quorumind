@@ -287,6 +287,32 @@ describe.each(BACKENDS)("on $name", (backend) => {
       expect((await act(app, second.id, "supersede", "ada", { by: first.id })).body.decision).toMatchObject({ status: "superseded" });
     });
 
+    it("let a reader ask for an approval, without sending the same request again and again", async () => {
+      const { app, mails, posts } = await makeApp(backend, teamHooks());
+      const session = await ruled(app);
+      mails.length = 0;
+      posts.length = 0;
+      for (let i = 0; i < 3; i++) expect((await act(app, session.id, "request", "carol")).status).toBe(200);
+      expect(posts.filter((post) => post.reason === "approval_requested")).toHaveLength(1);
+      expect(mails.filter((mail) => mail.reason === "approval_requested")).toHaveLength(1);
+    });
+
+    it("show a reader the questionnaires of a session without their links", async () => {
+      const { app } = await makeApp(backend, teamHooks());
+      const session = await ruled(app);
+      const created = await app.request(`/api/sessions/${session.id}/questionnaires`, send({}, "ada"));
+      expect(created.status).toBe(201);
+      const listed = async (user: string) =>
+        (
+          (await (await app.request(`/api/sessions/${session.id}/questionnaires`, { headers: as(user) })).json()) as {
+            questionnaires: { token: string }[];
+          }
+        ).questionnaires;
+      expect((await listed("ada"))[0]?.token).not.toBe("");
+      expect((await listed("bob"))[0]?.token).not.toBe("");
+      expect((await listed("carol"))[0]?.token).toBe("");
+    });
+
     it("records the name typed on a self-hosted server, and refuses before the verdict", async () => {
       const { app } = await makeApp(backend, {});
       const created = await app.request("/api/sessions", {

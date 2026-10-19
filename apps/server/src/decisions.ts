@@ -118,6 +118,9 @@ const ListInput = z.object({
   lang: z.string().optional(),
 });
 
+/** An approval asked for again within this time sends no new message: anyone who may read a session may ask. */
+const APPROVAL_REMINDER_MS = 60 * 60_000;
+
 const Pair = z.object({ a: z.coerce.number().int().min(1), b: z.coerce.number().int().min(1) });
 
 /** A row of the register as the caller gets it: with who started it and whether the caller may change it. */
@@ -219,6 +222,9 @@ export function decisionRoutes(deps: DecisionDeps) {
     const found = await deps.access(c.req.param("id"), user);
     const input = ActionInput.parse(await c.req.json().catch(() => ({})));
     const session = found.session;
+    // Asked again while a request is still recent: recorded, but those who may approve are not told again.
+    const previous = session.decision?.request?.at;
+    const recent = previous !== undefined && Date.now() - Date.parse(previous) < APPROVAL_REMINDER_MS;
     try {
       requestApproval(session, await actorOf(user, input.name), input.comment, new Date().toISOString());
     } catch (error) {
@@ -226,6 +232,7 @@ export function decisionRoutes(deps: DecisionDeps) {
       throw error;
     }
     const decision = await saved(session);
+    if (recent) return c.json({ decision });
     // Those who may approve hear it in the team's channel; the author by e-mail, unless they asked.
     await deps.chat?.notify(session, "approval_requested", found);
     if (deps.notifier && found.owner !== deps.ownerOf(user)) {

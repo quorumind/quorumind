@@ -161,10 +161,11 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
     expiresAt: questionnaire.expiresAt,
   });
 
-  const word = async (c: Context<Env>, session: Session, questionnaire: StoredQuestionnaire, branding: Branding) => {
+  /** The Word version; `withLink` false leaves out the link, for a reader of the session who may not answer. */
+  const word = async (c: Context<Env>, session: Session, questionnaire: StoredQuestionnaire, branding: Branding, withLink = true) => {
     const origin = new URL(c.req.url).origin;
     const document = await renderQuestionnaireDocx(clientView(session, questionnaire), branding, {
-      url: `${origin}/#/q/${questionnaire.token}`,
+      url: withLink ? `${origin}/#/q/${questionnaire.token}` : null,
     });
     c.header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     c.header("Content-Disposition", `attachment; filename="${reportSlug(session)}-questionnaire.docx"`);
@@ -174,9 +175,20 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
 
   // The agency's side: write, send, follow and use the questionnaires of a session.
 
+  /** Whether the caller may change the session, and so use the links of its questionnaires. */
+  const mayEdit = (id: string, user: User | null) =>
+    deps.editable(id, user).then(
+      () => true,
+      () => false,
+    );
+
+  // A member who may only read the session sees its questionnaires without their links: a link answers as the client.
   app.get("/api/sessions/:id/questionnaires", async (c) => {
-    const session = await deps.readable(c.req.param("id"), c.get("user"));
-    return c.json({ questionnaires: (await deps.store.questionnairesOf(session.id)).map(publicQuestionnaire) });
+    const user = c.get("user");
+    const session = await deps.readable(c.req.param("id"), user);
+    const canEdit = await mayEdit(session.id, user);
+    const questionnaires = (await deps.store.questionnairesOf(session.id)).map(publicQuestionnaire);
+    return c.json({ questionnaires: canEdit ? questionnaires : questionnaires.map((questionnaire) => ({ ...questionnaire, token: "" })) });
   });
 
   // A new questionnaire: the verdict's open questions unless others are given, for 30 days unless said otherwise.
@@ -292,7 +304,8 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
     const questionnaire = await deps.store.questionnaire({ id: c.req.param("qid") });
     if (questionnaire?.sessionId !== session.id) return missing(c);
     const found = await deps.store.find(session.id);
-    return word(c, session, questionnaire, await deps.branding.get(found?.owner ?? null));
+    const withLink = await mayEdit(session.id, c.get("user"));
+    return word(c, session, questionnaire, await deps.branding.get(found?.owner ?? null), withLink);
   });
 
   // The client's side, through the link: no account, the token is the permission.
