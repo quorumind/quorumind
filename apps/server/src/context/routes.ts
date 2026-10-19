@@ -70,7 +70,11 @@ export function contextRoutes(options: ContextRouteOptions = {}) {
     const { url } = UrlBody.parse(await c.req.json());
     return done(c, () =>
       parseGithubUrl(url)
-        ? fetchGithub(url, { token: env.GITHUB_TOKEN || undefined, ...(options.githubFetch ? { fetch: options.githubFetch } : {}) })
+        ? fetchGithub(url, {
+            token: env.GITHUB_TOKEN || undefined,
+            allowPrivate: env.GITHUB_TOKEN_PRIVATE === "1",
+            ...(options.githubFetch ? { fetch: options.githubFetch } : {}),
+          })
         : fetchUrl(url, fetchOptions),
     );
   });

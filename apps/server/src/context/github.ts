@@ -86,8 +86,13 @@ export function parseGithubUrl(input: string): GithubTarget | null {
 }
 
 export interface GithubOptions {
-  /** GITHUB_TOKEN: a higher rate limit, and private repositories. */
+  /** GITHUB_TOKEN: a higher rate limit, and private repositories when allowPrivate is set. */
   token?: string | undefined;
+  /**
+   * Imports the private repositories the token can read (GITHUB_TOKEN_PRIVATE=1). Off by default: the token is the
+   * server's, and anybody who can import would read what it reads. For a server whose users may all see them.
+   */
+  allowPrivate?: boolean;
   fetch?: typeof fetch;
   timeoutMs?: number;
 }
@@ -100,6 +105,7 @@ interface RepoInfo {
   homepage: string | null;
   topics?: string[];
   license: { spdx_id: string | null; name: string } | null;
+  private?: boolean;
   archived: boolean;
   fork: boolean;
   stargazers_count: number;
@@ -172,10 +178,11 @@ export async function fetchGithub(input: string, options: GithubOptions = {}): P
   };
 
   const repo = await api<RepoInfo>(base);
-  if (!repo) {
+  // A private repository the server's token can read answers as one that does not exist, unless the host allows it.
+  if (!repo || (repo.private !== false && options.token && !options.allowPrivate)) {
     throw new ContextError(
       "not_found",
-      "This repository does not exist, or it is private (set GITHUB_TOKEN to import private repositories).",
+      "This repository does not exist, or it is private (set GITHUB_TOKEN and GITHUB_TOKEN_PRIVATE=1 to import private repositories).",
     );
   }
 

@@ -620,6 +620,7 @@ describe("GitHub import", () => {
     homepage: null,
     topics: ["booking"],
     license: { spdx_id: "MIT", name: "MIT License" },
+    private: false,
     archived: false,
     fork: false,
     stargazers_count: 42,
@@ -701,6 +702,20 @@ describe("GitHub import", () => {
       expect(call[0].startsWith("https://api.github.com/")).toBe(true);
       expect((call[1].headers as Record<string, string>).Authorization).toBe("Bearer test-token");
     }
+  });
+
+  it("imports a private repository only when the host allows it, since the token is the server's", async () => {
+    const json = (body: unknown) => () => new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+    const fetch = mockGithub({
+      "https://api.github.com/repos/acme/studio": json({ ...repo, private: true }),
+      "https://api.github.com/repos/acme/studio/contents/README.md?ref=main": () => new Response("# Private studio"),
+    });
+    expect(await codeOf(fetchGithub("https://github.com/acme/studio", { fetch, token: "test-token" }))).toBe("not_found");
+    // A repository GitHub does not say is public counts as private.
+    const unknown = mockGithub({ "https://api.github.com/repos/acme/studio": json({ ...repo, private: undefined }) });
+    expect(await codeOf(fetchGithub("https://github.com/acme/studio", { fetch: unknown, token: "test-token" }))).toBe("not_found");
+    const document = await fetchGithub("https://github.com/acme/studio", { fetch, token: "test-token", allowPrivate: true });
+    expect(document.text).toContain("# Private studio");
   });
 
   it("imports one folder of a branch whose name has a slash", async () => {

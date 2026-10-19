@@ -37,3 +37,7 @@ something when they come from another site (their `Origin`, `Sec-Fetch-Site` or
 `Referer` says so) or carry a body that is not JSON (multipart for file uploads). Reaching
 the server by another name, a LAN address for instance, needs that name in
 `QUORUMIND_ALLOWED_HOSTS`. Every response forbids framing and content sniffing.
+
+`GITHUB_TOKEN` belongs to the server, not to the person importing: it is used for public
+repositories only, unless `GITHUB_TOKEN_PRIVATE=1` says every user may read the private
+repositories it can read.

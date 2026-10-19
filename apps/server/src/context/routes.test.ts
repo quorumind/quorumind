@@ -78,6 +78,25 @@ describe("context import routes", () => {
     expect(githubFetch).toHaveBeenCalledWith("https://api.github.com/repos/acme/missing", expect.anything());
   });
 
+  it("uses the server's GitHub token for public repositories only, unless private access is enabled", async () => {
+    const githubFetch = vi.fn(async (input: string | URL | Request) =>
+      String(input) === "https://api.github.com/repos/acme/secret"
+        ? new Response(
+            JSON.stringify({ full_name: "acme/secret", html_url: "https://github.com/acme/secret", default_branch: "main", private: true }),
+          )
+        : new Response("", { status: 404 }),
+    );
+    const url = json({ url: "https://github.com/acme/secret" });
+    const shared = contextRoutes({ env: { GITHUB_TOKEN: "server-token" }, githubFetch });
+    const refused = await shared.request("/api/context/url", url);
+    expect(refused.status).toBe(422);
+    expect(await refused.json()).toMatchObject({ error: "not_found" });
+    const single = contextRoutes({ env: { GITHUB_TOKEN: "server-token", GITHUB_TOKEN_PRIVATE: "1" }, githubFetch });
+    const imported = await single.request("/api/context/url", url);
+    expect(imported.status).toBe(200);
+    expect(await imported.json()).toMatchObject({ document: { kind: "github", name: "acme/secret" } });
+  });
+
   it("throttles each caller", async () => {
     let now = 0;
     const limiter = new ImportLimiter({ perWindow: 2, windowMs: 60_000, concurrent: 2 }, () => now);
