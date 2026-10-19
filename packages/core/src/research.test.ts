@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEMO_LINEUP, providersFor } from "./config.ts";
 import { DEMO_IDEA, DEMO_SCRIPT, DEMO_SHEET } from "./demo.ts";
@@ -23,7 +25,7 @@ import { RESEARCH_LABELS } from "./research-labels.ts";
 import { researchNote, researchSection } from "./research-report.ts";
 import type { Verdict } from "./schemas.ts";
 import { OpenRouterSearch, RecordedSearch, type SearchProvider } from "./search.ts";
-import { createSession, normalizeSession, type Session } from "./session.ts";
+import { createSession, type NewSessionInput, normalizeSession, type Session } from "./session.ts";
 
 const RESEARCH: ResearchSettings = { maxQueries: 6, budgetUsd: 0.3 };
 
@@ -65,7 +67,14 @@ class Recorder implements LlmProvider {
   }
 }
 
-function setup(options: { search?: SearchProvider | null; research?: ResearchSettings | null; budgetUsd?: number | null } = {}) {
+function setup(
+  options: {
+    search?: SearchProvider | null;
+    research?: ResearchSettings | null;
+    budgetUsd?: number | null;
+    input?: Partial<NewSessionInput>;
+  } = {},
+) {
   const recorder = new Recorder();
   const providers: ProviderSet = {
     interviewer: recorder,
@@ -83,6 +92,7 @@ function setup(options: { search?: SearchProvider | null; research?: ResearchSet
     ...DEMO_LINEUP,
     webResearch: options.research === undefined ? RESEARCH : options.research,
     budgetUsd: options.budgetUsd ?? null,
+    ...options.input,
   });
   return { engine, session, recorder, events, providers };
 }
@@ -340,6 +350,49 @@ describe("the research step", () => {
     expect(session.phase).toBe("complete");
     expect(session.research).toMatchObject({ status: "failed", error: { code: "provider_refused" } });
     expect(researchNote(session)).toBe(RESEARCH_LABELS.en.methodFailed);
+  });
+});
+
+describe("the facts with their sources", () => {
+  it("reach the rulings of a revision and of a what-if scenario", async () => {
+    const { engine, session, recorder } = setup();
+    await runToVerdict(engine, session);
+    await engine.beginRevision(session, {
+      reason: "scenario",
+      inputs: { facts: [], note: "What if the budget were 30% lower?", questionnaireId: null },
+      by: null,
+      scenario: {
+        title: "Leaner",
+        question: "What if the budget were 30% lower?",
+        changes: [{ kind: "budget", target: "build", percent: -30 }],
+      },
+    });
+    expect(await engine.runRevision(session)).toBe(true);
+    const ruling = recorder.requests.findLast((request) => request.task === "reassess");
+    expect(ruling?.messages[0]?.content).toContain("<research>");
+    expect(ruling?.system).toContain('Mark a claim "verified" only when a fact of <research> supports it');
+    expect(session.verdict?.claims.filter((claim) => claim.confidence === "verified").every((claim) => claim.sources.length > 0)).toBe(
+      true,
+    );
+  });
+
+  it("reach the alternative, the findings and the ruling of an audit", async () => {
+    const quote = readFileSync(join(import.meta.dirname, "../../../bench/fixtures/web-agency-quote.md"), "utf8");
+    const { engine, session, recorder } = setup({
+      input: {
+        mode: "audit",
+        context: [{ id: "quote", kind: "file", name: "Quote.pdf", text: quote, source: "Quote.pdf" }],
+        audit: { alternative: true },
+      },
+    });
+    await runToVerdict(engine, session);
+    expect(session.phase).toBe("complete");
+    expect(session.research?.status).toBe("done");
+    for (const task of ["proposal", "critique", "verdict"] as const) {
+      const request = recorder.requests.findLast((item) => item.task === task);
+      expect(request?.messages[0]?.content, task).toContain("<research>");
+      expect(request?.system, task).toContain("<research>");
+    }
   });
 });
 
