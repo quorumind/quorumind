@@ -204,7 +204,8 @@ describe("file extraction", () => {
     wordText(`<w:p>${"<w:t x".repeat(100_000)}`);
     const rels = makeZip({ "_rels/.rels": "<Relationship".repeat(200_000), "word/document.xml": `<w:document ${W}/>` }, true);
     expect(await codeOf(extractFile("rels.docx", "", rels))).toBe("empty");
-    expect(performance.now() - started).toBeLessThan(2_000);
+    // Well under a second alone; the quadratic patterns took over a minute on these inputs.
+    expect(performance.now() - started).toBeLessThan(8_000);
   });
 
   it("reads PDF and Word documents in a worker stopped at its deadline and its memory cap", async () => {

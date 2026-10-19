@@ -180,7 +180,8 @@ describe.each(BACKENDS)("on $name", (backend) => {
   });
 
   it("waits at shutdown for the work that is not a worker, a brief being written", async () => {
-    const { app, ruled } = await open({}, 5);
+    // The spending check waits: the brief holds the claim meanwhile.
+    const { app, ruled } = await open();
     const id = await ruled();
     const brief = app.request(`/api/sessions/${id}/brief`, send({ audience: "executive" }));
     for (let i = 0; i < 400 && !app.isRunning(id); i++) await pause(1);
