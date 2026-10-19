@@ -5,11 +5,17 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  AUDIT_CHECKLIST,
+  AUDIT_OPINIONS,
+  auditedDocuments,
+  auditOf,
   createSession,
+  criticSeats,
   currentProposals,
   DEMO_LINEUP,
   DebateEngine,
   EMPTY_PROFILE,
+  findQuote,
   isPriceReferenceStale,
   type Lineup,
   type Locale,
@@ -19,6 +25,7 @@ import {
   type ProfileRole,
   proposalCosting,
   providersFor,
+  quoteCheck,
   type Session,
   sessionProfile,
   totalCost,
@@ -27,6 +34,11 @@ import {
 
 interface Fixture {
   id: string;
+  /** An audit: the document, a file next to the fixture, is examined against the need the idea states. */
+  mode?: "audit";
+  document?: { name: string; file: string };
+  /** The audit also sketches an alternative from the need alone. */
+  alternative?: boolean;
   locale: Locale;
   idea: string;
   interviewAnswers: string[];
@@ -39,6 +51,8 @@ interface Fixture {
     currency: string;
     /** The build budget the interviewer must record (checked with live models). */
     buildBudget?: number;
+    /** What the audit must find in the document's figures, and the checklist items it must report missing. */
+    audit?: { statedTotal: number; linesTotal: number; totalGap: number; lines: number; mismatches: number; missing: string[] };
   };
 }
 
@@ -62,7 +76,25 @@ async function run(fixture: Fixture) {
   const profile: OrgProfile | null = fixture.profile
     ? { ...EMPTY_PROFILE, ...fixture.profile, roles: withRoleIds(fixture.profile.roles), updatedAt: null }
     : null;
-  const session = createSession({ locale: fixture.locale, idea: fixture.idea, demo: !live, budgetUsd: 5, ...lineup, profile });
+  const document = fixture.document
+    ? [
+        {
+          id: "document",
+          kind: "file" as const,
+          name: fixture.document.name,
+          text: readFileSync(join(here, "fixtures", fixture.document.file), "utf8"),
+        },
+      ]
+    : [];
+  const session = createSession({
+    locale: fixture.locale,
+    idea: fixture.idea,
+    demo: !live,
+    budgetUsd: 5,
+    ...lineup,
+    profile,
+    ...(fixture.mode ? { mode: fixture.mode, context: document, audit: { alternative: fixture.alternative ?? false } } : {}),
+  });
   const started = Date.now();
 
   await engine.startInterview(session);
@@ -100,6 +132,7 @@ function check(session: Session, fixture: Fixture): Check[] {
   add("reaches a verdict", session.phase === "complete", session.error?.message);
   const verdict = session.verdict;
   if (!verdict || !session.sheet) return checks;
+  if (fixture.mode === "audit") return [...checks, ...auditChecks(session, fixture)];
   const seats = Object.keys(session.seats);
   add(
     "judges every option",
@@ -186,6 +219,63 @@ function check(session: Session, fixture: Fixture): Check[] {
 // The proposers read the reference cloud prices: say when they are out of date (npm run prices:check).
 if (isPriceReferenceStale())
   console.warn(`Warning: the reference cloud prices date from ${PRICE_REFERENCE.asOf}; run npm run prices:check.`);
+
+/** What every audit must give: an opinion, findings quoting the document, the checklist, the figures recomputed, questions. */
+function auditChecks(session: Session, fixture: Fixture): Check[] {
+  const checks: Check[] = [];
+  const add = (name: string, passed: boolean, detail?: string) => checks.push({ name, passed, ...(detail ? { detail } : {}) });
+  const audit = auditOf(session.verdict);
+  if (!audit) return [{ name: "gives an audit", passed: false }];
+  add("gives an overall opinion", (AUDIT_OPINIONS as readonly string[]).includes(audit.opinion), audit.opinion);
+  add(
+    "gives findings with severities",
+    audit.findings.length > 0 && audit.findings.every((finding) => ["blocking", "major", "minor"].includes(finding.severity)),
+  );
+  const documents = auditedDocuments(session);
+  const quotable = audit.findings.filter((finding) => finding.category !== "missing");
+  const quoted = quotable.filter((finding) => finding.quote);
+  add("quotes the document when it can", quoted.length * 2 >= quotable.length, `${quoted.length} of ${quotable.length}`);
+  const misquoted = audit.findings.filter((finding) => finding.quote && !findQuote(documents, finding.quote));
+  add("quotes only passages of the document", misquoted.length === 0, misquoted.map((finding) => finding.quote).join(" | "));
+  add(
+    "covers the whole checklist",
+    AUDIT_CHECKLIST.every((item) => audit.coverage.some((entry) => entry.item === item)),
+  );
+  for (const item of fixture.expect.audit?.missing ?? []) {
+    const status = audit.coverage.find((entry) => entry.item === item)?.status;
+    add(`reports "${item}" as missing`, status === "missing", status);
+  }
+  add("lists questions to ask the provider", audit.questions.length >= 3, String(audit.questions.length));
+  add("lists points to negotiate", audit.negotiation.length > 0);
+  const market = audit.price.market;
+  add("gives the market range as an estimated range", market === null || (market.low <= market.high && market.basis.trim().length > 0));
+  const critics = criticSeats(session);
+  add(
+    "has every critic examine the document",
+    critics.every((seat) => session.debate.some((entry) => entry.kind === "critiques" && entry.seat === seat && entry.round === 1)),
+  );
+  add(
+    "rules on the document and its alternative only",
+    (session.verdict?.options ?? []).every((option) => option.seat === "U" || (fixture.alternative && option.seat === "A")),
+  );
+  const expected = fixture.expect.audit;
+  const check = quoteCheck(session);
+  if (expected) {
+    add(
+      "recomputes the price from the days and rates",
+      check !== null &&
+        check.lines.length === expected.lines &&
+        check.statedTotal === expected.statedTotal &&
+        check.linesTotal === expected.linesTotal &&
+        check.totalGap === expected.totalGap &&
+        check.mismatches === expected.mismatches,
+      JSON.stringify(check && { ...check, lines: check.lines.length }),
+    );
+  }
+  add("gives every amount in one currency", session.currency === fixture.expect.currency, String(session.currency));
+  add("records the cost of every call", session.usage.length > 0 && session.usage.every((record) => record.inputTokens >= 0));
+  return checks;
+}
 
 const fixtures = readdirSync(join(here, "fixtures"))
   .filter((file) => file.endsWith(".json"))

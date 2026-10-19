@@ -1,0 +1,26 @@
+{
+  "id": "web-agency-audit",
+  "mode": "audit",
+  "locale": "en",
+  "idea": "A booking website for our 12 yoga studios: members book classes, buy passes and get e-mail and SMS reminders. A web agency quotes 38,000 EUR: is it consistent, and what is missing?",
+  "document": { "name": "Quote Q-2026-117.md", "file": "web-agency-quote.md" },
+  "alternative": true,
+  "interviewAnswers": [
+    "Around 20,000 EUR to build and at most 400 EUR a month to run.",
+    "We must launch before September. Member data must stay in the EU.",
+    "SMS reminders are a must. Nobody technical in-house: the agency would maintain it."
+  ],
+  "debateAnswers": ["The agency maintains it; we want to be free to change provider later."],
+  "expect": {
+    "hardConstraintKeywords": ["EU"],
+    "currency": "EUR",
+    "audit": {
+      "statedTotal": 38000,
+      "linesTotal": 36600,
+      "totalGap": 1400,
+      "lines": 6,
+      "mismatches": 1,
+      "missing": ["ownership"]
+    }
+  }
+}
