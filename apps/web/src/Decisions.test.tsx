@@ -69,4 +69,19 @@ describe("the decision register", () => {
     expect((within(period).getByLabelText("From") as HTMLInputElement).value).toBe("");
     expect(screen.queryByRole("button", { name: "Clear the filters" })).toBeNull();
   });
+
+  it("says when no decision matches, and offers to clear the filters", async () => {
+    stubApi({
+      "GET /api/decisions": ({ url }) =>
+        json({ authors: [], shared: false, decisions: url.searchParams.get("status") ? [] : [row("one", "A decision")] }),
+    });
+    render(<Register />);
+    await screen.findByText("A decision");
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "rejected" } });
+    expect(await screen.findByText("No decision matches these filters.")).toBeTruthy();
+    const clear = screen.getAllByRole("button", { name: "Clear the filters" });
+    expect(clear).toHaveLength(2);
+    fireEvent.click(clear[1] as HTMLElement);
+    expect(await screen.findByText("A decision")).toBeTruthy();
+  });
 });

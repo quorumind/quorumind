@@ -526,6 +526,12 @@ h3 {
   letter-spacing: -0.015em;
 }
 
+/* A title that is a whole sentence (a session named after its idea) is set a step smaller. */
+.display.display-long {
+  font-size: clamp(22px, 2.6vw, 28px);
+  line-height: 1.25;
+}
+
 .heading {
   font-size: 22px;
   line-height: 28px;
@@ -590,8 +596,10 @@ h3 {
   padding-inline: var(--space-2);
 }
 
+/* A field keeps its label and its control together at the top, however tall its row: fields side by side line up. */
 .field {
   display: grid;
+  align-content: start;
   gap: var(--space-2);
 }
 
@@ -741,15 +749,23 @@ h3 {
     color: var(--ink-muted);
   }
 
+  /* A group's name is set small and muted above its options, which keep the list's own size and color. */
   .select optgroup {
-    padding-block-start: var(--space-1);
-  }
-
-  .select optgroup legend {
-    padding: var(--space-2) var(--space-3) var(--space-1);
+    padding: var(--space-2) var(--space-3) 0;
     font-size: 12px;
     font-weight: 600;
     color: var(--ink-muted);
+  }
+
+  .select optgroup option {
+    margin-inline: calc(-1 * var(--space-3));
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .select optgroup option:checked {
+    font-weight: 600;
   }
 }
 
@@ -1061,6 +1077,7 @@ button.chip:hover {
 
 .question:first-of-type {
   border-block-start: 0;
+  padding-block-start: 0;
 }
 
 .question-text {
@@ -1138,6 +1155,55 @@ td {
   vertical-align: top;
 }
 
+/* A row's cells line up on their first line, whatever the size of their text (figures are set smaller). */
+tbody th,
+tbody td {
+  vertical-align: baseline;
+}
+
+/* Data reads at one size in every table: the cells and the rows' names. */
+td {
+  font-size: 14px;
+}
+
+/* An empty list: what it would hold, said calmly, and the step that fills it. */
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-6);
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--ink-muted);
+}
+
+.empty-state p {
+  margin: 0;
+  max-inline-size: 48ch;
+}
+
+.empty-state-icon {
+  display: grid;
+  place-items: center;
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: var(--radius-full);
+  background: var(--thesis-soft);
+  color: var(--thesis);
+}
+
+.empty-state-icon svg {
+  inline-size: 24px;
+  block-size: 24px;
+}
+
+/* A cell's note under its status chip. */
+.cell-note {
+  display: block;
+  margin-block-start: var(--space-1);
+}
+
 tbody tr:last-child td,
 tbody tr:last-child th {
   border-block-end: 0;
@@ -1147,6 +1213,11 @@ th {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-muted);
+}
+
+th[scope="row"] {
+  font-size: 14px;
+  color: var(--ink);
 }
 
 .score {
@@ -1213,6 +1284,7 @@ th {
   padding: 0;
   margin: 0;
   display: grid;
+  align-content: start;
   gap: var(--space-3);
   counter-reset: phase;
 }
@@ -2675,9 +2747,11 @@ button.stepper-link:hover .stepper-name {
   inline-size: 18px;
   block-size: 18px;
   border-radius: var(--radius-full);
-  background: var(--surface-raised);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 35%, transparent);
-  transition: transform 200ms var(--ease-out);
+  /* Off, the knob is the muted ink: it stands out from the track in both themes. */
+  background: var(--ink-muted);
+  transition:
+    transform 200ms var(--ease-out),
+    background-color 200ms ease;
 }
 
 .switch:checked {
@@ -3182,12 +3256,20 @@ button.stepper-link:hover .stepper-name {
   gap: var(--space-2) var(--space-6);
 }
 
+/* Each criterion's name above its slider, so names of any length line up. */
 .weight {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px 16px;
+  grid-template-columns: minmax(0, 1fr) 16px;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   font-size: 14px;
+}
+
+.weight > span:first-child {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .weight input[type="range"] {
@@ -3257,6 +3339,7 @@ tbody tr[data-rank="1"] th {
 
 .map-topic {
   display: grid;
+  align-content: start;
   gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--line);
@@ -3505,9 +3588,6 @@ tbody tr[data-rank="1"] th {
     block-size: 1px;
     overflow: hidden;
     clip-path: inset(50%);
-  }
-  .weight {
-    grid-template-columns: minmax(0, 1fr) 120px 16px;
   }
 }
 
@@ -4173,13 +4253,22 @@ button.chip:active {
 }
 
 .input-pair {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-2);
 }
 
-.input-pair .input {
-  flex: 1;
-  min-inline-size: 0;
+.input-pair .select {
+  inline-size: auto;
+}
+
+/* A group of fields is named a step above its fields' own labels. */
+.sheet-group > legend,
+.profile-group > legend {
+  padding: 0;
+  margin-block-end: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 17px;
 }
 
 .profile-notice {

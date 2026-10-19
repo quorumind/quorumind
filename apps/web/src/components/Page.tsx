@@ -35,3 +35,16 @@ export function PageHeading({ title, className = "display", children }: { title:
     </h1>
   );
 }
+
+/** What an empty list says, with the icon of what it would hold and the step that fills it. */
+export function EmptyState({ icon, children, action }: { icon: ReactNode; children: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="empty-state">
+      <span className="empty-state-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <p>{children}</p>
+      {action}
+    </div>
+  );
+}

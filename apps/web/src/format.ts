@@ -36,6 +36,11 @@ export function formatMoney(amount: number, currency: string, locale: string) {
   }
 }
 
+/** "Label: value", with the no-break space French puts before a colon. */
+export function labelled(label: string, value: string, language: string): string {
+  return `${label}${language === "fr" ? " :" : ":"} ${value}`;
+}
+
 /** A model's name as people know it, without the vendor its label may end with: "gpt-5 (OpenAI)" is "gpt-5". */
 export function modelName(option: ModelOption): string {
   return option.maker ? option.label : option.label.replace(/ \([^()]*\)$/, "");

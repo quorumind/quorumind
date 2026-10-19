@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type GalleryItem } from "./api.ts";
+import { GalleryIcon, PlusIcon } from "./components/Icons.tsx";
 import { Skeleton } from "./components/Logo.tsx";
-import { PageHeading } from "./components/Page.tsx";
+import { EmptyState, PageHeading } from "./components/Page.tsx";
 
 /** Debates their owners chose to publish: real reports anyone can read. */
 export function Gallery() {
@@ -33,7 +34,19 @@ export function Gallery() {
           <Skeleton lines={3} card />
         </div>
       ) : null}
-      {items?.length === 0 ? <p className="notice">{t("gallery.empty")}</p> : null}
+      {items?.length === 0 ? (
+        <EmptyState
+          icon={<GalleryIcon />}
+          action={
+            <a className="button button-secondary" href="#/">
+              <PlusIcon />
+              {t("nav.newSession")}
+            </a>
+          }
+        >
+          {t("gallery.empty")}
+        </EmptyState>
+      ) : null}
       <div className="gallery">
         {items?.map((item) => (
           <a key={item.token} className="card gallery-card" href={`#/shared/${item.token}`}>

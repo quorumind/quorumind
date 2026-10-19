@@ -82,7 +82,7 @@ export function ComplianceSection({ session }: { session: Session }) {
   const section = complianceRows(session);
   if (!section) return null;
   const labels = complianceLabels(session.locale as Locale);
-  const tone = { met: "", partly: "severity-major", not_met: "severity-blocking", not_applicable: "severity-minor" } as const;
+  const tone = { met: "status-done", partly: "severity-major", not_met: "severity-blocking", not_applicable: "severity-minor" } as const;
   return (
     <section className="stack" {...contentLanguage(session.locale)}>
       <h2 className="heading">{labels.heading}</h2>
@@ -114,8 +114,8 @@ export function ComplianceSection({ session }: { session: Session }) {
                     <td key={seat}>
                       <span className={`chip ${check ? tone[check.status] : "severity-minor"}`}>
                         {statusName(check?.status ?? null, session)}
-                      </span>{" "}
-                      {check?.reason}
+                      </span>
+                      {check?.reason ? <span className="cell-note">{check.reason}</span> : null}
                     </td>
                   );
                 })}

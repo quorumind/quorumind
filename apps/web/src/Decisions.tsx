@@ -5,8 +5,8 @@ import { type FormEvent, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authorName, useCanEdit } from "./access.tsx";
 import { api, type DecisionAction, type DecisionFilters, type DecisionRow } from "./api.ts";
-import { CheckIcon, CrossIcon, DownloadIcon } from "./components/Icons.tsx";
-import { PageHeading } from "./components/Page.tsx";
+import { CheckIcon, CrossIcon, DownloadIcon, RegisterIcon } from "./components/Icons.tsx";
+import { EmptyState, PageHeading } from "./components/Page.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText } from "./errors.ts";
 
@@ -486,7 +486,20 @@ export function Register() {
       <p className={rows === null ? undefined : "visually-hidden"} role="status">
         {rows === null ? (error ? "" : t("register.loading")) : t("register.count", { count: rows.length })}
       </p>
-      {rows?.length === 0 ? <p>{t("register.empty")}</p> : null}
+      {rows?.length === 0 ? (
+        <EmptyState
+          icon={<RegisterIcon />}
+          action={
+            filtered ? (
+              <button type="button" className="button button-secondary" onClick={() => setFilters({})}>
+                {t("register.clear")}
+              </button>
+            ) : null
+          }
+        >
+          {t("register.empty")}
+        </EmptyState>
+      ) : null}
       {rows && rows.length > 0 ? (
         <div className="table-wrap">
           <table className="register-table">

@@ -4,6 +4,7 @@ import { AuditView, auditHeadline } from "./Audit.tsx";
 import { DownloadIcon, SparkIcon } from "./components/Icons.tsx";
 import { ResearchFacts } from "./components/Sources.tsx";
 import { CheckBadges, dayRange, moneyRange } from "./costing.tsx";
+import { labelled } from "./format.ts";
 import { FeasibilityChip, Score } from "./Verdict.tsx";
 
 /**
@@ -132,7 +133,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
                         <span className="field-hint">{option.reason}</span>
                         {option.conditions.length > 0 ? (
                           <span className="field-hint">
-                            {t("verdict.conditions")}: {option.conditions.join(" · ")}
+                            {labelled(t("verdict.conditions"), option.conditions.join(" · "), i18n.language)}
                           </span>
                         ) : null}
                       </div>
@@ -281,9 +282,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
                   <div>
                     <strong>{phase.phase}</strong>
                     <div>{phase.content}</div>
-                    <div className="field-hint">
-                      {t("verdict.exit")}: {phase.exitCriterion}
-                    </div>
+                    <div className="field-hint">{labelled(t("verdict.exit"), phase.exitCriterion, i18n.language)}</div>
                   </div>
                 </li>
               ))}

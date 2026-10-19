@@ -238,7 +238,7 @@ export function SessionBody({
           ) : null}
         </div>
         <div className="session-title-row">
-          <PageHeading title={title} />
+          <PageHeading title={title} className={title.length > 60 ? "display display-long" : "display"} />
           {readOnly ? null : <SessionActions session={session} share={share} onShare={onShare ?? (() => undefined)} />}
         </div>
         {readOnly || !onAccess ? null : <AccessLine id={session.id} access={access} onChange={onAccess} />}

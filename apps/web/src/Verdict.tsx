@@ -19,6 +19,7 @@ import { CheckBadges, CostingTable, moneyRange, monthlyCurrency } from "./costin
 import { seatName } from "./Debate.tsx";
 import { DecisionPanel } from "./Decisions.tsx";
 import { failureText } from "./errors.ts";
+import { labelled } from "./format.ts";
 import { RevisionBar, WhatChanged } from "./Revisions.tsx";
 import { ComparePanel, ScenarioForm } from "./Scenarios.tsx";
 import { useFlip } from "./useFlip.ts";
@@ -231,7 +232,7 @@ function Matrix({ session }: { session: Session }) {
                       <span className="field-hint">{option.reason}</span>
                       {option.conditions.length > 0 ? (
                         <span className="field-hint">
-                          {t("verdict.conditions")}: {option.conditions.join(" · ")}
+                          {labelled(t("verdict.conditions"), option.conditions.join(" · "), i18n.language)}
                         </span>
                       ) : null}
                     </div>
@@ -468,7 +469,7 @@ export const Verdict = memo(function Verdict({
   revisionPrice?: PriceQuote | null;
   providerCosts?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const canEdit = useCanEdit();
   // The revision on screen: the current one (the adopted scenario, or the latest revision) unless the person picks
   // another one.
@@ -604,9 +605,7 @@ export const Verdict = memo(function Verdict({
                   <div>
                     <strong>{phase.phase}</strong>
                     <div>{phase.content}</div>
-                    <div className="field-hint">
-                      {t("verdict.exit")}: {phase.exitCriterion}
-                    </div>
+                    <div className="field-hint">{labelled(t("verdict.exit"), phase.exitCriterion, i18n.language)}</div>
                   </div>
                 </li>
               ))}
