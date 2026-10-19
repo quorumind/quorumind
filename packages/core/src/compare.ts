@@ -83,7 +83,7 @@ export interface OptionDiff {
 export interface RevisionComparison {
   left: ComparedSide;
   right: ComparedSide;
-  /** Every option of either side, in the order of the debate. */
+  /** Every option of either side, in the order of their seats. */
   seats: string[];
   /** The criteria of the priorities, then any other one scored. */
   criteria: string[];
@@ -169,7 +169,7 @@ export function compareRevisions(session: Session, a: number, b: number): Revisi
   const left = side(session, leftView, leftRevision);
   const right = side(session, rightView, rightRevision);
 
-  const seats = [...new Set([...left.options, ...right.options].map((option) => option.seat))];
+  const seats = [...new Set([...left.options, ...right.options].map((option) => option.seat))].sort();
   const priorities = (rightView.sheet?.priorities ?? []).map((priority) => priority.criterion);
   const scored = [...left.options, ...right.options].flatMap((option) => Object.keys(option.scores));
   const criteria = [...new Set([...priorities, ...scored])];
