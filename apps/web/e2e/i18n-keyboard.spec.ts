@@ -51,7 +51,7 @@ test("the keyboard reaches the content, the dialogs keep and give back the focus
 
 test("a navigation names the tab and moves the focus to the new page's heading", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "Decision register" }).click();
+  await page.getByRole("link", { name: "Decisions" }).click();
   const heading = page.getByRole("heading", { level: 1, name: "Decision register" });
   await expect(heading).toBeFocused();
   await expect(page).toHaveTitle("Decision register · Quorumind");
