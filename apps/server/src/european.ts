@@ -42,15 +42,15 @@ export function wantsEuropean(policy: EuropeanPolicy, requested: boolean | undef
  * European, or the European default of the catalog.
  */
 export function europeanSession(lineup: Lineup | null, catalog: ModelOption[], env: Env): { lineup: Lineup; european: EuropeanMode } {
-  const chosen = lineup ?? europeanLineup(catalog);
+  const chosen = lineup ?? europeanLineup(catalog, env);
   if (!chosen) throw new EuropeanUnavailable();
-  const refused = nonEuropeanModels(chosen);
+  const refused = nonEuropeanModels(chosen, env);
   if (refused.length > 0) throw new NonEuropeanModel(refused);
   return { lineup: chosen, european: { gateway: europeanGateway(chosen, env) } };
 }
 
 /** The European-only part of /api/config: the policy, the default lineup and how OpenRouter would be reached. */
 export function europeanConfig(policy: EuropeanPolicy, catalog: ModelOption[], env: Env) {
-  const lineup = europeanLineup(catalog);
+  const lineup = europeanLineup(catalog, env);
   return { policy, lineup, gateway: lineup ? europeanGateway(lineup, env) : null };
 }

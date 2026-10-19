@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEMO_LINEUP, type ModelOption, providerFor, providersFor } from "./config.ts";
+import { catalogFromEnv, DEMO_LINEUP, type ModelOption, providerFor, providersFor } from "./config.ts";
 import { renderReport } from "./report.ts";
 import { createSession } from "./session.ts";
 import {
@@ -10,6 +10,8 @@ import {
   europeanLineup,
   europeanPolicyFromEnv,
   isEuropean,
+  isOllamaCloudModel,
+  isOnPremisesUrl,
   nonEuropeanModels,
 } from "./sovereignty.ts";
 
@@ -156,5 +158,60 @@ describe("European routing of OpenRouter requests", () => {
     await providers.arbiter.generate(request);
     await providers.proposers.B?.generate(request);
     for (const [, init] of fetchMock.mock.calls) expect(JSON.parse(String(init?.body)).provider.only).toEqual(["mistral/eu"]);
+  });
+});
+
+describe("Ollama on the premises", () => {
+  it("tells the machine and private networks from public addresses", () => {
+    for (const url of [
+      "http://127.0.0.1:11434",
+      "http://localhost:11434",
+      "http://ollama:11434",
+      "http://10.0.3.7:11434",
+      "http://172.20.0.2:11434",
+      "http://192.168.1.20:11434",
+      "http://gpu.lan:11434",
+      "http://[::1]:11434",
+      "http://[fd12:3456::1]:11434",
+      "http://host.docker.internal:11434",
+    ]) {
+      expect(isOnPremisesUrl(url), url).toBe(true);
+    }
+    for (const url of [
+      "https://ollama.example.com",
+      "http://203.0.113.9:11434",
+      "http://172.32.0.1:11434",
+      "https://ollama.com",
+      "not a url",
+    ]) {
+      expect(isOnPremisesUrl(url), url).toBe(false);
+    }
+  });
+
+  it("never counts a model Ollama hosts, nor an Ollama away from the premises, as European", () => {
+    expect(isOllamaCloudModel("gpt-oss:120b-cloud")).toBe(true);
+    expect(isOllamaCloudModel("qwen3-coder:480b-cloud")).toBe(true);
+    expect(isOllamaCloudModel("llama-x")).toBe(false);
+    expect(isEuropean({ provider: "ollama", model: "gpt-oss:120b-cloud" })).toBe(false);
+    const local = { provider: "ollama" as const, model: "llama-x" };
+    expect(isEuropean(local, {})).toBe(true);
+    expect(isEuropean(local, { OLLAMA_BASE_URL: "http://192.168.1.20:11434" })).toBe(true);
+    expect(isEuropean(local, { OLLAMA_BASE_URL: "https://ollama.example.com" })).toBe(false);
+    // A server the organisation runs at a public address, said so explicitly.
+    expect(isEuropean(local, { OLLAMA_BASE_URL: "https://ollama.example.com", QUORUMIND_OLLAMA_ON_PREMISES: "1" })).toBe(true);
+    const lineup = europeanLineup([option("ollama", "llama-x")])!;
+    expect(nonEuropeanModels(lineup, { OLLAMA_BASE_URL: "https://ollama.example.com" })).toEqual(["ollama:llama-x"]);
+    // A catalog entry built for a remote Ollama says it is not local: the interface filters it out without the environment.
+    expect(europeanCatalog([{ ...option("ollama", "llama-x"), local: false }])).toEqual([]);
+  });
+
+  it("marks hosted and remote Ollama models as not local in the catalog", async () => {
+    const env = { OLLAMA_MODELS: "llama-x,gpt-oss:120b-cloud" };
+    expect((await catalogFromEnv(env)).map((entry) => [entry.model, entry.local])).toEqual([
+      ["llama-x", true],
+      ["gpt-oss:120b-cloud", false],
+    ]);
+    const remote = await catalogFromEnv({ ...env, OLLAMA_BASE_URL: "https://ollama.example.com" });
+    expect(remote.every((entry) => !entry.local)).toBe(true);
   });
 });

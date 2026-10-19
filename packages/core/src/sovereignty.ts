@@ -42,7 +42,8 @@ export const EUROPEAN_SOURCES: readonly EuropeanSource[] = [
     hosting: "on_premises",
     reason:
       "Open-weight models run by Ollama on the machine or the servers that run Quorumind: on the premises, the prompts do not " +
-      "leave that infrastructure, whoever made the model.",
+      "leave that infrastructure, whoever made the model. Only when Ollama listens on the machine or a private network, and " +
+      "never for the models Ollama hosts itself (named …-cloud).",
   },
   {
     provider: "mock",
@@ -55,6 +56,53 @@ export const EUROPEAN_SOURCES: readonly EuropeanSource[] = [
 /** OpenRouter's EU region: prompts and completions are processed in Europe (Business and Enterprise plans). */
 export const OPENROUTER_EU_HOST = "eu.openrouter.ai";
 
+/** Where Ollama listens unless OLLAMA_BASE_URL says otherwise: the machine itself. */
+const LOCAL_OLLAMA = "http://127.0.0.1:11434";
+
+/** An Ollama model that Ollama's hosted service runs ("gpt-oss:120b-cloud"): the prompts leave the premises. */
+export function isOllamaCloudModel(model: string): boolean {
+  return /[:-]cloud$/i.test(model.trim());
+}
+
+/**
+ * Whether an address is on the premises: the machine itself, a private network (10/8, 172.16/12, 192.168/16, link-local,
+ * the shared range VPNs use, IPv6 unique-local), or a host of the local network (a name without a dot, as Docker
+ * Compose names its services, or under .local, .internal, .lan, .home.arpa).
+ */
+export function isOnPremisesUrl(url: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  } catch {
+    return false;
+  }
+  if (host === "localhost" || host.endsWith(".localhost") || host === "host.docker.internal") return true;
+  if (/\.(local|internal|lan|home\.arpa)$/.test(host)) return true;
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (ipv4) {
+    const [a = 0, b = 0] = ipv4.slice(1, 3).map(Number);
+    return (
+      a === 127 ||
+      a === 10 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254) ||
+      (a === 100 && b >= 64 && b <= 127)
+    );
+  }
+  if (host.includes(":")) return host === "::1" || /^f[cd][0-9a-f]{0,2}:/.test(host) || /^fe[89ab][0-9a-f]?:/.test(host);
+  return !host.includes(".");
+}
+
+/**
+ * Whether the Ollama of this server runs on the premises: OLLAMA_BASE_URL on the machine or a private network, or
+ * QUORUMIND_OLLAMA_ON_PREMISES=1 for a server the organisation runs at a public address.
+ */
+export function ollamaOnPremises(env: Env): boolean {
+  const optIn = env.QUORUMIND_OLLAMA_ON_PREMISES?.trim().toLowerCase();
+  return optIn === "1" || optIn === "true" || isOnPremisesUrl(env.OLLAMA_BASE_URL || LOCAL_OLLAMA);
+}
+
 function sourceOf(participant: Pick<Participant, "provider" | "model">): EuropeanSource | null {
   return (
     EUROPEAN_SOURCES.find(
@@ -64,13 +112,22 @@ function sourceOf(participant: Pick<Participant, "provider" | "model">): Europea
   );
 }
 
-export function isEuropean(participant: Pick<Participant, "provider" | "model">): boolean {
+/**
+ * Whether a European-only debate may use this model. An Ollama model counts as on the premises only when it is not one
+ * of Ollama's hosted models, and, given the environment, when Ollama runs on the premises; a catalog entry that says it
+ * is not local is not either.
+ */
+export function isEuropean(participant: Pick<Participant, "provider" | "model"> & { local?: boolean }, env?: Env): boolean {
+  if (participant.provider === "ollama") {
+    if (isOllamaCloudModel(participant.model) || participant.local === false) return false;
+    if (env && !ollamaOnPremises(env)) return false;
+  }
   return sourceOf(participant) !== null;
 }
 
 /** The models of a catalog that a European-only debate may use, in the catalog's order. */
-export function europeanCatalog<T extends Pick<ModelOption, "provider" | "model">>(catalog: T[]): T[] {
-  return catalog.filter(isEuropean);
+export function europeanCatalog<T extends Pick<ModelOption, "provider" | "model"> & { local?: boolean }>(catalog: T[], env?: Env): T[] {
+  return catalog.filter((entry) => isEuropean(entry, env));
 }
 
 /** The OpenRouter endpoint a European-only request to this model is pinned to; null when it needs none. */
@@ -84,11 +141,11 @@ function everyone(lineup: ParticipantLineup): Participant[] {
 }
 
 /** The models of a lineup that a European-only debate may not use, as "provider:model", without repeats. */
-export function nonEuropeanModels(lineup: ParticipantLineup): string[] {
+export function nonEuropeanModels(lineup: ParticipantLineup, env?: Env): string[] {
   return [
     ...new Set(
       everyone(lineup)
-        .filter((participant) => !isEuropean(participant))
+        .filter((participant) => !isEuropean(participant, env))
         .map((p) => `${p.provider}:${p.model}`),
     ),
   ];
@@ -98,8 +155,8 @@ export function nonEuropeanModels(lineup: ParticipantLineup): string[] {
  * The default lineup of a European-only debate: the first European model interviews and rules, and faces a model of
  * another maker when there is one, else another model. Null when the catalog has no European model.
  */
-export function europeanLineup(catalog: ModelOption[]): Lineup | null {
-  const options = europeanCatalog(catalog).filter((option) => option.provider !== "mock");
+export function europeanLineup(catalog: ModelOption[], env?: Env): Lineup | null {
+  const options = europeanCatalog(catalog, env).filter((option) => option.provider !== "mock");
   const first = options[0];
   if (!first) return null;
   const makerOf = (option: ModelOption) => option.maker ?? option.provider;

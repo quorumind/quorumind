@@ -16,7 +16,7 @@ import {
 import type { LlmProvider, ProviderKind } from "./providers/types.ts";
 import { searchFromEnv } from "./research.ts";
 import type { Participant, Seat } from "./session.ts";
-import { europeanEndpoint, europeanOpenRouterBaseUrl } from "./sovereignty.ts";
+import { europeanEndpoint, europeanOpenRouterBaseUrl, isOllamaCloudModel, ollamaOnPremises } from "./sovereignty.ts";
 
 export const SEATS = ["A", "B"] as const;
 
@@ -116,7 +116,12 @@ function labelFor(provider: ProviderKind, model: string): string {
 }
 
 function option(provider: ProviderKind, model: string): ModelOption {
-  return { provider, model, label: labelFor(provider, model), local: provider === "ollama" || provider === "mock" };
+  return { provider, model, label: labelFor(provider, model), local: provider === "mock" };
+}
+
+/** An Ollama model: local unless Ollama hosts it ("…-cloud") or runs away from the premises. */
+function ollamaOption(model: string, env: Env): ModelOption {
+  return { ...option("ollama", model), local: !isOllamaCloudModel(model) && ollamaOnPremises(env) };
 }
 
 /** An OpenRouter model, named as OpenRouter lists it when known, else after its id. */
@@ -171,7 +176,7 @@ function staticCatalog(env: Env): ModelOption[] {
   }
   for (const model of list(env.OLLAMA_MODELS)) {
     setModelPrice(model, FREE);
-    options.push(option("ollama", model));
+    options.push(ollamaOption(model, env));
   }
   return options;
 }
@@ -254,7 +259,7 @@ export async function catalogFromEnv(env: Env, fetchImpl: FetchLike = fetch): Pr
   if (ollamaEnabled(env) && !env.OLLAMA_MODELS) {
     for (const model of await discoverOllamaModels(env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL, fetchImpl)) {
       setModelPrice(model, FREE);
-      options.push(option("ollama", model));
+      options.push(ollamaOption(model, env));
     }
   }
   return options;
