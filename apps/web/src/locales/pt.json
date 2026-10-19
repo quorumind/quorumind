@@ -250,7 +250,8 @@
     "notFound": "Esta sessão não existe.",
     "back": "Voltar ao início",
     "cancel": "Cancelar",
-    "close": "Fechar"
+    "close": "Fechar",
+    "retry": "Tentar novamente"
   },
   "tabs": {
     "verdict": "Veredito",
@@ -531,7 +532,8 @@
     "stopLead": "Os modelos param na hora e nada mais é gasto. O que já foi feito é mantido: você pode retomar de onde parou.",
     "stopCancel": "Deixar continuar",
     "stopConfirm": "Parar agora",
-    "deleteBusy": "Pare a sessão antes de excluí-la."
+    "deleteBusy": "Pare a sessão antes de excluí-la.",
+    "detailsFailed": "Ainda não foi possível carregar suas permissões nesta sessão; por enquanto, ela é exibida somente para leitura."
   },
   "gallery": {
     "title": "Galeria",

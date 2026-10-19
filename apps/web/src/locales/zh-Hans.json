@@ -250,7 +250,8 @@
     "notFound": "此会话不存在。",
     "back": "返回首页",
     "cancel": "取消",
-    "close": "关闭"
+    "close": "关闭",
+    "retry": "重试"
   },
   "tabs": {
     "verdict": "结论",
@@ -531,7 +532,8 @@
     "stopLead": "模型会立即停止，不会再产生任何费用。已完成的部分会保留：您可以从中断处继续。",
     "stopCancel": "继续运行",
     "stopConfirm": "立即停止",
-    "deleteBusy": "请先停止会话再删除。"
+    "deleteBusy": "请先停止会话再删除。",
+    "detailsFailed": "尚未能加载您对此会话的权限，因此暂时以只读方式显示。"
   },
   "gallery": {
     "title": "展示区",

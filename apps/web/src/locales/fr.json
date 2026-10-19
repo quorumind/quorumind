@@ -250,7 +250,8 @@
     "notFound": "Cette session n'existe pas.",
     "back": "Retour à l'accueil",
     "cancel": "Annuler",
-    "close": "Fermer"
+    "close": "Fermer",
+    "retry": "Réessayer"
   },
   "tabs": {
     "verdict": "Verdict",
@@ -531,7 +532,8 @@
     "stopLead": "Les modèles s'arrêtent aussitôt et plus rien n'est dépensé. Le travail déjà fait est conservé : vous pourrez reprendre là où elle s'est arrêtée.",
     "stopCancel": "La laisser continuer",
     "stopConfirm": "Arrêter maintenant",
-    "deleteBusy": "Arrêtez la session avant de la supprimer."
+    "deleteBusy": "Arrêtez la session avant de la supprimer.",
+    "detailsFailed": "Vos droits sur cette session n'ont pas encore pu être chargés : elle s'affiche en lecture seule pour l'instant."
   },
   "gallery": {
     "title": "Galerie",

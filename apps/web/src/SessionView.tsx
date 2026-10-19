@@ -1,6 +1,6 @@
 import type { Session } from "@quorumind/core";
 import { totalCost } from "@quorumind/core/session";
-import { type KeyboardEvent, useContext, useEffect, useState } from "react";
+import { type KeyboardEvent, useCallback, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
 import { AccessContext, AccessLine, FULL_ACCESS } from "./access.tsx";
@@ -16,6 +16,7 @@ import { Review } from "./Review.tsx";
 import { SessionActions } from "./SessionActions.tsx";
 import { SheetView } from "./SheetView.tsx";
 import { type LiveSpeech, useSession } from "./useSession.ts";
+import { useSessionDetails } from "./useSessionDetails.ts";
 import { Verdict } from "./Verdict.tsx";
 
 const STEPS = ["interview", "review", "debating", "complete"] as const;
@@ -60,59 +61,42 @@ function defaultTab(session: Session): Tab {
 export function SessionView({ id }: { id: string }) {
   const { session, live, connected, missing } = useSession(id);
   const { upsert } = useSessions();
-  const [extras, setExtras] = useState<{
-    share: Share | null;
-    feedback: Feedback[];
-    price: PriceQuote | null;
-    revisionPrice: PriceQuote | null;
-    providerCosts: boolean;
-    access: SessionAccess | null;
-  }>({
-    share: null,
-    feedback: [],
-    price: null,
-    revisionPrice: null,
-    // Known once the session is loaded: a hosted session never shows a provider cost, even briefly.
-    providerCosts: false,
-    access: null,
-  });
-  const title = session ? (session.sheet?.projectName ?? session.idea) : "";
+  const { details, failed, retry, update } = useSessionDetails(id, session);
+  const title = session ? sessionTitle(session) : "";
   useEffect(() => {
     if (session) upsert({ id: session.id, idea: title, phase: session.phase, updatedAt: session.updatedAt });
   }, [session, title, upsert]);
-  useEffect(() => {
-    api.session(id).then(
-      (body) =>
-        setExtras({
-          share: body.share,
-          feedback: body.feedback,
-          price: body.price,
-          revisionPrice: body.revisionPrice ?? null,
-          providerCosts: body.providerCosts,
-          access: body.access ?? FULL_ACCESS,
-        }),
-      () => undefined,
-    );
-  }, [id]);
-  // Read-only until the server says what this person may do with the session.
+  const onShare = useCallback((share: Share | null) => update({ share }), [update]);
+  const onAccess = useCallback((access: SessionAccess) => update({ access }), [update]);
+  // Read-only until the server says what this person may do with the session; if it cannot be asked, the page says so.
   return (
-    <AccessContext.Provider value={extras.access ?? { ...FULL_ACCESS, canEdit: false }}>
+    <AccessContext.Provider value={details?.access ?? PENDING_ACCESS}>
       <SessionBody
         session={session}
         live={live}
         connected={connected}
         missing={missing}
-        share={extras.share}
-        onShare={(share) => setExtras((current) => ({ ...current, share }))}
-        onAccess={(access) => setExtras((current) => ({ ...current, access }))}
-        feedback={extras.feedback}
-        price={extras.price}
-        revisionPrice={extras.revisionPrice}
-        providerCosts={extras.providerCosts}
+        share={details?.share ?? null}
+        onShare={onShare}
+        onAccess={onAccess}
+        feedback={details?.feedback ?? NO_FEEDBACK}
+        price={details?.price ?? null}
+        revisionPrice={details?.revisionPrice ?? null}
+        // Known once the details are loaded: a hosted session never shows a provider cost, even briefly.
+        providerCosts={details?.providerCosts ?? false}
+        detailsFailed={failed && details === null}
+        onRetryDetails={retry}
       />
     </AccessContext.Provider>
   );
 }
+
+/** While the server has not said what the person may do: their own session, read-only for now. */
+const PENDING_ACCESS: SessionAccess = { ...FULL_ACCESS, canEdit: false };
+const NO_FEEDBACK: Feedback[] = [];
+
+/** The name of a session: its project's, or the idea it started from. */
+export const sessionTitle = (session: Session) => session.sheet?.projectName?.trim() || session.idea;
 
 /** The body of a session page: its header, its tabs and the tab shown. Read-only for a share link. */
 export function SessionBody({
@@ -129,6 +113,8 @@ export function SessionBody({
   price = null,
   revisionPrice = null,
   providerCosts = true,
+  detailsFailed = false,
+  onRetryDetails,
 }: {
   session: Session | null;
   live: LiveSpeech;
@@ -147,6 +133,9 @@ export function SessionBody({
   revisionPrice?: PriceQuote | null;
   /** False when provider costs are not shown (the host sets a price of its own). */
   providerCosts?: boolean;
+  /** What the person may do with the session could not be loaded yet: it is shown read-only meanwhile. */
+  detailsFailed?: boolean;
+  onRetryDetails?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const access = useContext(AccessContext);
@@ -156,7 +145,7 @@ export function SessionBody({
   const [tab, setTab] = useState<Tab | null>(null);
 
   const phase = session?.phase;
-  const title = session ? (session.sheet?.projectName ?? session.idea) : "";
+  const title = session ? sessionTitle(session) : "";
   // Follow the session: each new phase opens the tab where things happen.
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the phase changes.
   useEffect(() => setTab(null), [phase]);
@@ -258,6 +247,17 @@ export function SessionBody({
               {t("session.fromEarlier")}
             </a>
           </p>
+        ) : null}
+        {detailsFailed && !readOnly ? (
+          <div className="notice notice-error row" role="alert">
+            <span>{t("session.detailsFailed")}</span>
+            {onRetryDetails ? (
+              <button type="button" className="button button-secondary" onClick={onRetryDetails}>
+                <RetryIcon />
+                {t("common.retry")}
+              </button>
+            ) : null}
+          </div>
         ) : null}
         {!connected ? (
           <p className="notice" role="status">

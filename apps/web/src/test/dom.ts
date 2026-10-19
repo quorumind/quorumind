@@ -12,6 +12,41 @@ afterEach(() => {
   window.location.hash = "";
 });
 
+/** The EventSources the page opened, to send them the session's events. */
+export class FakeEventSource {
+  static opened: FakeEventSource[] = [];
+  readyState = 0;
+  onopen: (() => void) | null = null;
+  onmessage: ((message: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  readonly url: string;
+  constructor(url: string) {
+    this.url = url;
+    FakeEventSource.opened.push(this);
+  }
+  open() {
+    this.readyState = 1;
+    this.onopen?.();
+  }
+  send(event: unknown) {
+    this.onmessage?.({ data: JSON.stringify(event) });
+  }
+  close() {
+    this.readyState = 2;
+  }
+}
+
+/** Replaces the browser's EventSource for one test; returns the latest one opened. */
+export function stubEventSource() {
+  FakeEventSource.opened = [];
+  vi.stubGlobal("EventSource", FakeEventSource);
+  return () => {
+    const source = FakeEventSource.opened.at(-1);
+    if (!source) throw new Error("No EventSource was opened");
+    return source;
+  };
+}
+
 /** A JSON response of the API. */
 export function json(body: unknown, status = 200): Response {
   return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

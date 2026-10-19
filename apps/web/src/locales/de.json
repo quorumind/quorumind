@@ -250,7 +250,8 @@
     "notFound": "Diese Sitzung existiert nicht.",
     "back": "Zurück zum Start",
     "cancel": "Abbrechen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "retry": "Erneut versuchen"
   },
   "tabs": {
     "verdict": "Urteil",
@@ -531,7 +532,8 @@
     "stopLead": "Die Modelle hören sofort auf und es fallen keine weiteren Kosten an. Was schon erledigt ist, bleibt erhalten: Sie können dort fortsetzen, wo sie angehalten hat.",
     "stopCancel": "Weiterlaufen lassen",
     "stopConfirm": "Jetzt anhalten",
-    "deleteBusy": "Halten Sie die Sitzung an, bevor Sie sie löschen."
+    "deleteBusy": "Halten Sie die Sitzung an, bevor Sie sie löschen.",
+    "detailsFailed": "Ihre Berechtigungen für diese Sitzung konnten noch nicht geladen werden. Sie wird deshalb vorerst schreibgeschützt angezeigt."
   },
   "gallery": {
     "title": "Galerie",

@@ -250,7 +250,8 @@
     "notFound": "This session does not exist.",
     "back": "Back to home",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Try again"
   },
   "tabs": {
     "verdict": "Verdict",
@@ -531,7 +532,8 @@
     "stopLead": "The models stop at once and nothing more is spent. What is already done is kept: you can resume from where it stopped.",
     "stopCancel": "Keep it running",
     "stopConfirm": "Stop now",
-    "deleteBusy": "Stop the session before deleting it."
+    "deleteBusy": "Stop the session before deleting it.",
+    "detailsFailed": "What you may do with this session could not be loaded yet, so it is shown read-only for now."
   },
   "gallery": {
     "title": "Gallery",

@@ -250,7 +250,8 @@
     "notFound": "Esta sesión no existe.",
     "back": "Volver al inicio",
     "cancel": "Cancelar",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "retry": "Reintentar"
   },
   "tabs": {
     "verdict": "Veredicto",
@@ -531,7 +532,8 @@
     "stopLead": "Los modelos se detienen de inmediato y no se gasta nada más. Lo ya hecho se conserva: podrá reanudarla desde donde se detuvo.",
     "stopCancel": "Dejar que continúe",
     "stopConfirm": "Detener ahora",
-    "deleteBusy": "Detenga la sesión antes de eliminarla."
+    "deleteBusy": "Detenga la sesión antes de eliminarla.",
+    "detailsFailed": "Aún no se han podido cargar sus permisos sobre esta sesión, así que por ahora se muestra en solo lectura."
   },
   "gallery": {
     "title": "Galería",
