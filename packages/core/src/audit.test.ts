@@ -205,12 +205,17 @@ describe("audit sessions", () => {
   it("asks at most two interview turns", async () => {
     const { engine, session, recorder } = setup();
     // The scripted interviewer would keep asking: the engine makes it conclude after two answers.
-    recorder.overrides.set("interview_turn", (answer) => ({ ...(answer as object), status: "ask", sheet: null }));
+    const asking = { id: "q", text: "Anything else?", why: "To be sure.", examples: ["No"] };
+    recorder.overrides.set("interview_turn", (answer) => ({ ...(answer as object), status: "ask", questions: [asking], sheet: null }));
     await engine.startInterview(session);
     await engine.answerInterview(session, [{ question: "Budget?", answer: "€15,000" }]);
     await engine.answerInterview(session, [{ question: "Deadline?", answer: "September" }]);
     const last = recorder.requests.at(-1);
     expect(last?.system).toContain("You have asked enough questions");
+    // An interviewer that still gives no sheet past the limit fails the step, to be resumed, rather than asking on.
+    expect(session.phase).toBe("failed");
+    expect(session.error?.message).toBe("The interview answer is not usable: the requirements sheet is missing.");
+    expect(session.interview.filter((entry) => entry.kind === "interviewer")).toHaveLength(2);
   });
 
   it("revises the audit with the provider's answers", async () => {

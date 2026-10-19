@@ -587,20 +587,37 @@ export class DebateEngine {
     const userTurns = session.interview.filter((entry) => entry.kind === "user").length;
     const express = session.mode === "express";
     const audit = session.mode === "audit";
-    const turn = await this.call(session, "interview", null, this.providers.interviewer, {
-      system:
-        interviewerSystem(session.locale, {
-          forceDone: userTurns >= (express ? 1 : audit ? AUDIT_INTERVIEW_TURNS : MAX_INTERVIEW_TURNS),
-          express,
-          template: session.template,
-          challenge: session.mode === "challenge",
-          audit,
-          today: new Date().toISOString().slice(0, 10),
-        }) + complianceInterviewRule(session.complianceTemplates),
-      messages,
-    });
+    const forceDone = userTurns >= (express ? 1 : audit ? AUDIT_INTERVIEW_TURNS : MAX_INTERVIEW_TURNS);
+    const turn = await this.call(
+      session,
+      "interview",
+      null,
+      this.providers.interviewer,
+      {
+        system:
+          interviewerSystem(session.locale, {
+            forceDone,
+            express,
+            template: session.template,
+            challenge: session.mode === "challenge",
+            audit,
+            today: new Date().toISOString().slice(0, 10),
+          }) + complianceInterviewRule(session.complianceTemplates),
+        messages,
+      },
+      undefined,
+      // The turn limit is a hard stop: past it, the sheet is due. A turn must ask something, or end with the sheet.
+      (answer) =>
+        answer.status === "done" || forceDone
+          ? answer.sheet
+            ? null
+            : "the requirements sheet is missing."
+          : answer.questions.length > 0
+            ? null
+            : "it asks no question.",
+    );
     session.interview.push({ kind: "interviewer", data: turn });
-    if (turn.status === "done" && turn.sheet) {
+    if ((turn.status === "done" || forceDone) && turn.sheet) {
       session.sheet = withTemplateFlags(turn.sheet, session.complianceTemplates);
       session.phase = "review";
     }
@@ -1103,6 +1120,8 @@ export class DebateEngine {
     prompt: { system: string; messages: ChatMessage[] },
     // Another schema for the task, whose answer extends the usual one (the verdict with its compliance assessment).
     override?: OutputSpec,
+    // What the answer must also be, beyond its schema: the reason it is not, or null. It is tried again like an invalid one.
+    check?: (answer: z.infer<(typeof SCHEMAS)[K]["zod"]>) => string | null,
   ): Promise<z.infer<(typeof SCHEMAS)[K]["zod"]>> {
     const spec: OutputSpec = override ?? SCHEMAS[task];
     const messages = session.redact
@@ -1156,6 +1175,8 @@ export class DebateEngine {
         );
         const parsed = spec.zod.safeParse(JSON.parse(result.text));
         if (!parsed.success) throw new ProviderError(`The ${task} answer does not match its schema.`, true);
+        const wrong = check?.(parsed.data as z.infer<(typeof SCHEMAS)[K]["zod"]>) ?? null;
+        if (wrong) throw new ProviderError(`The ${task} answer is not usable: ${wrong}`, true);
         this.hooks.emit(session.id, { type: "spoke", task, seat });
         return parsed.data as z.infer<(typeof SCHEMAS)[K]["zod"]>;
       } catch (error) {

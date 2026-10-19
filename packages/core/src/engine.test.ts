@@ -357,6 +357,27 @@ describe("failures", () => {
     expect(session.phase).toBe("awaiting_answers");
   });
 
+  it("tries again an interview turn that asks nothing and gives no sheet, rather than leaving nothing to answer", async () => {
+    let calls = 0;
+    const mock = new MockProvider({ chunkDelayMs: 0 });
+    const empty: LlmProvider = {
+      kind: "mock",
+      model: "mock",
+      async generate(request, onDelta) {
+        calls++;
+        const result = await mock.generate(request, onDelta);
+        if (calls > 1) return result;
+        return { ...result, text: JSON.stringify({ ...JSON.parse(result.text), status: "ask", questions: [], sheet: null }) };
+      },
+    };
+    const { engine, session } = setup({ interviewer: empty, arbiter: mock, proposers: { A: mock, B: mock } });
+    await engine.startInterview(session);
+    expect(calls).toBe(2);
+    expect(session.error).toBeNull();
+    const turn = session.interview[0];
+    expect(turn?.kind === "interviewer" && turn.data.questions.length).toBeGreaterThan(0);
+  });
+
   it("retries once when an answer is not valid JSON", async () => {
     let calls = 0;
     const mock = new MockProvider({ chunkDelayMs: 0 });
