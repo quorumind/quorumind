@@ -330,7 +330,8 @@ export const ShieldIcon = () => (
 /** A door with an arrow leaving it: signing out. */
 export const SignOutIcon = () => (
   <Icon className="flip-rtl">
-    <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10" />
+    <path d="M14 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H14" />
+    <path d="M10 12h10M16.5 8.5L20 12l-3.5 3.5" />
   </Icon>
 );
 
