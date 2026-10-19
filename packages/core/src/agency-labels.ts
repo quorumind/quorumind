@@ -130,13 +130,13 @@ export const AGENCY_LABELS: Record<Locale, AgencyLabels> = {
     questionnaire: "Questionnaire",
     questionsAbout: "Questions sur {project}",
     questionnaireIntro:
-      "Pour finaliser notre recommandation, nous avons besoin de quelques réponses de votre part. Répondez à ce que vous pouvez  « nous ne savons pas encore  est aussi une réponse utile.",
+      "Pour finaliser notre recommandation, nous avons besoin de quelques réponses de votre part. Répondez à ce que vous pouvez : « nous ne savons pas encore » est aussi une réponse utile.",
     question: "Question {number}",
     whyAsked: "Pourquoi nous le demandons",
     yourAnswer: "Votre réponse",
     comment: "Commentaire (facultatif)",
     replyBy: "Merci de répondre avant le {date}.",
-    replyOnline: "Vous pouvez aussi répondre en ligne  {url}",
+    replyOnline: "Vous pouvez aussi répondre en ligne : {url}",
   },
   es: {
     revision: "Revisión {number}",
