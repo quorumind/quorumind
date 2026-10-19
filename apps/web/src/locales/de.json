@@ -251,7 +251,8 @@
     "back": "Zurück zum Start",
     "cancel": "Abbrechen",
     "close": "Schließen",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "copyFailed": "Kopieren nicht möglich: Der Link ist markiert, kopieren Sie ihn mit der Tastatur."
   },
   "tabs": {
     "verdict": "Urteil",

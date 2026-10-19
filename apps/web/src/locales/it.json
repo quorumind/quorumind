@@ -251,7 +251,8 @@
     "back": "Torna alla home",
     "cancel": "Annulla",
     "close": "Chiudi",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "copyFailed": "Copia non riuscita: il link è selezionato, copialo con la tastiera."
   },
   "tabs": {
     "verdict": "Verdetto",

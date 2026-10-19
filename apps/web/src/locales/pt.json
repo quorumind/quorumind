@@ -251,7 +251,8 @@
     "back": "Voltar ao início",
     "cancel": "Cancelar",
     "close": "Fechar",
-    "retry": "Tentar novamente"
+    "retry": "Tentar novamente",
+    "copyFailed": "Não foi possível copiar: o link está selecionado, copie-o com o teclado."
   },
   "tabs": {
     "verdict": "Veredito",

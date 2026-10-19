@@ -251,7 +251,8 @@
     "back": "Back to home",
     "cancel": "Cancel",
     "close": "Close",
-    "retry": "Try again"
+    "retry": "Try again",
+    "copyFailed": "Could not copy: the link is selected, copy it with your keyboard."
   },
   "tabs": {
     "verdict": "Verdict",

@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { type KeyboardEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Share, ShareExpiry, ShareMode, ShareSettings } from "../api.ts";
 
@@ -40,6 +40,15 @@ export function ShareOptions({
   const applyPassword = () => {
     onApply({ password });
     setPassword("");
+  };
+  const create = () => onApply({ mode, expiresIn: expiry, ...(password ? { password } : {}) });
+  // Enter in the password field does what its button does: set the password, or create the protected link.
+  const onPasswordKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    if (pending) return;
+    if (share && password.length >= PASSWORD_MIN) applyPassword();
+    else if (!share && !tooShort) create();
   };
 
   return (
@@ -99,6 +108,7 @@ export function ShareOptions({
             aria-invalid={tooShort}
             aria-describedby={`${id}-password-hint`}
             onChange={(event) => setPassword(event.target.value)}
+            onKeyDown={onPasswordKey}
           />
           {share ? (
             <button
@@ -125,12 +135,7 @@ export function ShareOptions({
 
       {share ? null : (
         <div>
-          <button
-            type="button"
-            className="button button-primary"
-            disabled={pending || tooShort}
-            onClick={() => onApply({ mode, expiresIn: expiry, ...(password ? { password } : {}) })}
-          >
+          <button type="button" className="button button-primary" disabled={pending || tooShort} onClick={create}>
             {t("share.create")}
           </button>
         </div>

@@ -251,7 +251,8 @@
     "back": "返回首页",
     "cancel": "取消",
     "close": "关闭",
-    "retry": "重试"
+    "retry": "重试",
+    "copyFailed": "无法复制：链接已选中，请用键盘复制。"
   },
   "tabs": {
     "verdict": "结论",

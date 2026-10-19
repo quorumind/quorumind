@@ -3,7 +3,8 @@ import { QUESTIONNAIRE_LIMITS } from "@quorumind/core/questionnaire";
 import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type PriceQuote, type Questionnaire, type QuestionnaireSettings } from "./api.ts";
-import { CheckIcon, DownloadIcon, PlusIcon, TrashIcon } from "./components/Icons.tsx";
+import { CopyField } from "./components/CopyField.tsx";
+import { DownloadIcon, PlusIcon, TrashIcon } from "./components/Icons.tsx";
 import { failureText } from "./errors.ts";
 import { NewFacts, UpdateLabel } from "./Revisions.tsx";
 
@@ -214,7 +215,6 @@ function QuestionnaireCard({
   onChange: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [copied, setCopied] = useState(false);
   const link = linkOf(questionnaire.token);
   const answered = questionnaire.answers.filter((answer) => answer.answer.trim() || answer.comment?.trim());
   const revising = Boolean(session.revising && !session.revising.error);
@@ -233,28 +233,7 @@ function QuestionnaireCard({
         </span>
         {questionnaire.submittedBy === "agency" ? <span className="field-hint">{t("client.byAgency")}</span> : null}
       </div>
-      <div className="copy-row">
-        <input className="input mono" readOnly value={link} aria-label={t("client.link")} onFocus={(event) => event.target.select()} />
-        <button
-          type="button"
-          className="button button-secondary"
-          onClick={() => {
-            navigator.clipboard.writeText(link).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            });
-          }}
-        >
-          {copied ? (
-            <span className="copied">
-              <CheckIcon />
-              {t("client.copied")}
-            </span>
-          ) : (
-            t("client.copy")
-          )}
-        </button>
-      </div>
+      <CopyField value={link} label={t("client.link")} copy={t("client.copy")} copied={t("client.copied")} />
       <p className="field-hint" style={{ margin: 0 }}>
         <a href={api.questionnaireWordUrl(session.id, questionnaire.id)} download>
           <DownloadIcon /> {t("client.word")}
