@@ -44,6 +44,22 @@ describe("error messages", () => {
     expect(sessionErrorText(t, { code: "provider_refused", message: "" }, false, "en")).toBe(t("errors.provider_refused"));
   });
 
+  it("explains a request refused for a provider failure on a hosted service as the service's own", async () => {
+    const refused = (code: string) => failureText(t, new ApiError(503, code, "English"));
+    try {
+      stubApi({ "GET /api/config": () => json({ providerCosts: false }) });
+      await api.config();
+      for (const code of ["provider_auth", "provider_quota", "provider_unavailable"])
+        expect(refused(code)).toBe(t("errors.provider_hosted"));
+      expect(refused("provider_refused")).toBe(t("errors.provider_refused"));
+    } finally {
+      // Self-hosted again, learnt this time from a session.
+      stubApi({ "GET /api/sessions/s1": () => json({ session: {}, providerCosts: true }) });
+      await api.session("s1");
+    }
+    expect(refused("provider_unavailable")).toBe(t("errors.provider_unavailable"));
+  });
+
   it("explains a revision stopped because the verdict changed meanwhile", () => {
     const error = { code: "verdict_changed", message: "The decision changed while this revision was being made." };
     expect(sessionErrorText(t, error, true, "en")).toBe(t("errors.verdict_changed"));

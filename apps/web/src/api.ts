@@ -225,8 +225,20 @@ export interface QuestionnaireView {
 
 const questionnaireHeaders = (access: string | null) => (access ? { "X-Questionnaire-Access": access } : undefined);
 
+/**
+ * Whether the server shows what the providers charge: false on a hosted service, whose customers have no provider key
+ * nor account of their own. Learnt from the server's configuration and from each session it sends; true until then.
+ */
+let providerCostsShown = true;
+export const showsProviderCosts = () => providerCostsShown;
+const learnProviderCosts = <T extends { providerCosts: boolean }>(body: T): T => {
+  // A server older than the field shows them.
+  if (typeof body.providerCosts === "boolean") providerCostsShown = body.providerCosts;
+  return body;
+};
+
 export const api = {
-  config: () => request<AppConfig>("/api/config"),
+  config: () => request<AppConfig>("/api/config").then(learnProviderCosts),
   /** `alternative`: an audit that sketches an alternative, which costs one more proposal. `webResearch`: left out, the default. */
   estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale, alternative = false, webResearch?: boolean) =>
     request<{ estimateUsd: Estimate; price: PriceQuote | null; research?: { default: boolean } }>(
@@ -253,7 +265,7 @@ export const api = {
       revisionPrice?: PriceQuote | null;
       providerCosts: boolean;
       access?: SessionAccess;
-    }>(`/api/sessions/${id}`),
+    }>(`/api/sessions/${id}`).then(learnProviderCosts),
   /** A revision of the verdict from facts the person states. */
   revise: (id: string, input: { facts: { question: string | null; answer: string; comment: string | null }[]; note: string | null }) =>
     request<{ accepted: true; revision: number }>(`/api/sessions/${id}/revisions`, post(input)),
