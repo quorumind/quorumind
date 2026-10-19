@@ -71,8 +71,13 @@ export const PERSONAS = {
 export type PersonaId = keyof typeof PERSONAS;
 export const PERSONA_IDS = Object.keys(PERSONAS) as PersonaId[];
 
+/** True for the id of a preset persona; never for a name every object has, such as "constructor". */
+export function isPresetPersona(persona: string): persona is PersonaId {
+  return Object.hasOwn(PERSONAS, persona);
+}
+
 /** A preset id becomes its description; free text is kept, shortened. */
 export function personaDescription(persona: string | null): string | null {
   if (!persona) return null;
-  return persona in PERSONAS ? PERSONAS[persona as PersonaId] : persona.slice(0, 200);
+  return isPresetPersona(persona) ? PERSONAS[persona] : persona.slice(0, 200);
 }

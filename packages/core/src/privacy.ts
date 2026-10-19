@@ -16,6 +16,7 @@ const DATA_TAGS = [
   "extraction",
   "research",
   "sources",
+  "persona",
 ];
 const TAG_PATTERN = new RegExp(`<(/?)(${DATA_TAGS.join("|")})\\b`, "gi");
 
