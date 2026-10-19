@@ -63,6 +63,7 @@ import { decisionRoutes, sendReviewReminders } from "./decisions.ts";
 import { invalidRequest } from "./errors.ts";
 import { EuropeanUnavailable, europeanConfig, europeanSession, NonEuropeanModel, wantsEuropean } from "./european.ts";
 import { exportRoutes } from "./exports.ts";
+import { localGuard } from "./guard.ts";
 import type { Notifier } from "./notifier.ts";
 import { profileRoutes } from "./profile.ts";
 import { questionnaireRoutes } from "./questionnaires.ts";
@@ -565,6 +566,9 @@ export function createApp(deps: AppDeps) {
   };
 
   const app = new Hono<{ Variables: { user: User | null } }>();
+  // Without sign-in, the server trusts whoever reaches it: it refuses foreign host names (DNS rebinding), requests
+  // from other sites and bodies that are not JSON (cross-site requests). With sign-in, the host protects its own.
+  if (!hooks.identify) app.use("/api/*", localGuard(env, deps.publicUrl ?? null));
   const tooLarge = (c: Context) => c.json({ error: "too_large", message: "The request is too large." }, 413);
   const apiLimit = bodyLimit({ maxSize: BODY_LIMITS.api, onError: tooLarge });
   const sessionLimit = bodyLimit({ maxSize: BODY_LIMITS.session, onError: tooLarge });

@@ -28,3 +28,12 @@ server's environment (`.env`) and are never sent to the browser.
 The context import fetches, from the server, the web pages and GitHub repositories a user names.
 It refuses local and private addresses, but anything else the server can reach is fetched: run it
 where that is acceptable.
+
+Because the server trusts whoever reaches it, it also defends itself against the browser of
+its own user. It answers only for `localhost`, `127.0.0.1`, `[::1]`, the host of
+`QUORUMIND_PUBLIC_URL` and the names listed in `QUORUMIND_ALLOWED_HOSTS` (a page that
+rebinds its own domain name to 127.0.0.1 is refused), and it refuses requests that change
+something when they come from another site (their `Origin`, `Sec-Fetch-Site` or
+`Referer` says so) or carry a body that is not JSON (multipart for file uploads). Reaching
+the server by another name, a LAN address for instance, needs that name in
+`QUORUMIND_ALLOWED_HOSTS`. Every response forbids framing and content sniffing.

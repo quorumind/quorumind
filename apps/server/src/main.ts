@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import { createApp, retentionDays } from "./app.ts";
 import { EventBus } from "./bus.ts";
 import { chatNotifierFromEnv } from "./chat.ts";
+import { securityHeaders } from "./guard.ts";
 import { notifierFromEnv } from "./notifier.ts";
 import { openStorage } from "./storage.ts";
 
@@ -67,6 +68,7 @@ if (retention !== null) {
 }
 
 const root = new Hono();
+root.use("*", securityHeaders);
 root.route("/", api);
 
 if (existsSync(webDist)) {
