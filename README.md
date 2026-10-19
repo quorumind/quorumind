@@ -138,6 +138,17 @@ flowchart LR
 6. **Revisions.** Send the open questions to your client as a questionnaire (a link that needs
    no account, or a Word file), then update the recommendation with the answers: only the
    arbiter rules again, and every report says which revision it shows and what changed.
+7. **What if.** Try a variant of the facts (two more developers, a budget 30% lower, a deadline
+   two months earlier, a new hard constraint, or a question in your own words): the arbiter
+   rules on the same options, and the budget and deadline checks are computed with the new
+   numbers. Scenarios are kept beside the verdict, can branch from any revision, and one can be
+   adopted as the decision. Any two versions can be compared side by side, in the app or as a
+   Markdown, web or PDF document.
+8. **Decision register.** Every session that reached a verdict has a row: its recommendation,
+   its status (proposed, approved, rejected, superseded), who approved which version and when,
+   a short note and a review date. Approving takes the right to change the session; others can
+   ask for an approval. The report and the ADR state the approval, the register exports as CSV,
+   and on the review date a reminder goes out by e-mail and to the chat channel (checked daily).
 
 ## Roles
 
@@ -219,7 +230,8 @@ in any role (Claude, OpenAI, Gemini, Ollama), a cost cap, an interactive decisio
 debate map, reports rewritten for a CTO, an executive or a client, exports (Markdown, PDF,
 Word, ADR, coding-agent hand-off, Jira, Linear and GitHub issues), resumable and shareable sessions, context import (PDF or
 Word specifications, web pages, GitHub repositories), client questionnaires, revisions of the
-verdict, an editable client proposal (Word, PDF) and the MCP server.
+verdict, what-if scenarios and the comparison of two versions, a decision register with
+approvals and review reminders, an editable client proposal (Word, PDF) and the MCP server.
 
 Next:
 
