@@ -1,5 +1,15 @@
 import OpenAI from "openai";
-import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError, providerErrorCode } from "./types.ts";
+import {
+  type GenerateRequest,
+  type GenerateResult,
+  type LlmProvider,
+  ProviderError,
+  type ProviderErrorOptions,
+  providerErrorCode,
+} from "./types.ts";
+
+/** The part of the SDK client the provider uses: a test passes a fake one. */
+export type OpenAiClient = Pick<OpenAI, "responses">;
 
 export interface OpenAiOptions {
   apiKey?: string;
@@ -11,19 +21,26 @@ export interface OpenAiOptions {
    * reasoning reject the parameter. Enabled with OPENAI_REASONING=1.
    */
   reasoning?: boolean;
+  /** The SDK client to call instead of one made from the key and the address. */
+  client?: OpenAiClient;
 }
+
+// Error codes of a failed response, or of an error event in the middle of a stream, that trying again may get past.
+const TRANSIENT_CODES = new Set(["server_error", "rate_limit_exceeded", "server_overloaded", "timeout", "internal_error"]);
 
 export class OpenAiProvider implements LlmProvider {
   readonly kind = "openai" as const;
   readonly model: string;
-  private readonly client: OpenAI;
+  private readonly client: OpenAiClient;
   private readonly reasoning: boolean;
 
   constructor(options: OpenAiOptions) {
-    this.client = new OpenAI({
-      ...(options.apiKey ? { apiKey: options.apiKey } : {}),
-      ...(options.baseURL ? { baseURL: options.baseURL } : {}),
-    });
+    this.client =
+      options.client ??
+      new OpenAI({
+        ...(options.apiKey ? { apiKey: options.apiKey } : {}),
+        ...(options.baseURL ? { baseURL: options.baseURL } : {}),
+      });
     this.model = options.model;
     this.reasoning = options.reasoning ?? false;
   }
@@ -50,36 +67,72 @@ export class OpenAiProvider implements LlmProvider {
       }
       const response = await stream.finalResponse();
       const usage = response.usage ? { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens } : undefined;
+      // An incomplete or failed answer is billed all the same: the error carries what it cost.
+      const billed: ProviderErrorOptions = usage ? { usage, model: response.model } : {};
       if (response.status === "incomplete") {
-        // An incomplete answer is billed all the same: the error carries what it cost.
         const reason = response.incomplete_details?.reason;
-        throw new ProviderError(`The answer is incomplete (${reason ?? "unknown reason"}).`, true, {
-          code: reason === "content_filter" ? "provider_refused" : "provider_error",
-          ...(usage ? { usage, model: response.model } : {}),
+        // A filtered answer would be filtered again: only one cut by the token limit is worth another try.
+        const refused = reason === "content_filter";
+        throw new ProviderError(`The answer is incomplete (${reason ?? "unknown reason"}).`, !refused, {
+          code: refused ? "provider_refused" : "provider_error",
+          ...billed,
+        });
+      }
+      if (response.status === "failed") {
+        const code = response.error?.code ?? null;
+        throw new ProviderError(`OpenAI could not answer: ${response.error?.message ?? code ?? "unknown error"}`, transient(code), {
+          code: errorCode(code),
+          ...billed,
         });
       }
       return { text: response.output_text, model: response.model, usage: usage ?? { inputTokens: 0, outputTokens: 0 } };
     } catch (error) {
       if (error instanceof ProviderError) throw error;
-      if (error instanceof OpenAI.AuthenticationError) {
-        throw new ProviderError("The OpenAI API key was rejected.", false, { cause: error, code: "provider_auth" });
-      }
-      if (error instanceof OpenAI.BadRequestError) {
-        throw new ProviderError(`OpenAI rejected the request: ${error.message}`, false, { cause: error });
-      }
-      if (error instanceof OpenAI.RateLimitError) {
-        throw new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, { cause: error, code: "provider_rate_limit" });
-      }
-      if (error instanceof OpenAI.InternalServerError) {
-        throw new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, { cause: error, code: "provider_unavailable" });
-      }
-      if (error instanceof OpenAI.APIError) {
-        throw new ProviderError(`OpenAI API error ${error.status}: ${error.message}`, false, {
-          cause: error,
-          code: typeof error.status === "number" ? providerErrorCode(error.status) : "provider_error",
-        });
-      }
-      throw new ProviderError("Could not reach the OpenAI API.", true, { cause: error, code: "provider_unavailable" });
+      throw openAiError(error);
     }
   }
+}
+
+const transient = (code: string | null | undefined) => typeof code === "string" && TRANSIENT_CODES.has(code);
+
+function errorCode(code: string | null | undefined): ProviderErrorOptions["code"] {
+  if (code === "rate_limit_exceeded") return "provider_rate_limit";
+  return transient(code) ? "provider_unavailable" : "provider_error";
+}
+
+/** The ProviderError of what the SDK threw, retryable when trying again may succeed. */
+export function openAiError(error: unknown): ProviderError {
+  const options = (code: ProviderErrorOptions["code"]): ProviderErrorOptions => ({ cause: error, ...(code ? { code } : {}) });
+  // The SDK's connection and abort errors extend APIError: they are told apart first.
+  if (error instanceof OpenAI.APIUserAbortError) return new ProviderError("The request was cancelled.", false, options(undefined));
+  if (error instanceof OpenAI.APIConnectionError) {
+    return new ProviderError(`Could not reach the OpenAI API: ${error.message}`, true, options("provider_unavailable"));
+  }
+  if (error instanceof OpenAI.AuthenticationError || error instanceof OpenAI.PermissionDeniedError) {
+    return new ProviderError("The OpenAI API key was rejected.", false, options("provider_auth"));
+  }
+  if (error instanceof OpenAI.BadRequestError) {
+    return new ProviderError(`OpenAI rejected the request: ${error.message}`, false, options(undefined));
+  }
+  if (error instanceof OpenAI.RateLimitError) {
+    // A 429 also says the account has no credit left: waiting does not help then.
+    if (error.code === "insufficient_quota") {
+      return new ProviderError(`The OpenAI account is out of credits: ${error.message}`, false, options("provider_quota"));
+    }
+    return new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, options("provider_rate_limit"));
+  }
+  if (error instanceof OpenAI.InternalServerError) {
+    return new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, options("provider_unavailable"));
+  }
+  if (error instanceof OpenAI.APIError) {
+    if (typeof error.status !== "number") {
+      // An error event in the middle of the stream.
+      const code = error.code ?? error.type ?? null;
+      return new ProviderError(`OpenAI stopped the answer: ${error.message}`, transient(code), options(errorCode(code)));
+    }
+    const status = error.status;
+    const retryable = status === 408 || status === 409 || status === 429 || status >= 500;
+    return new ProviderError(`OpenAI API error ${status}: ${error.message}`, retryable, options(providerErrorCode(status)));
+  }
+  return new ProviderError("Could not reach the OpenAI API.", true, options("provider_unavailable"));
 }
