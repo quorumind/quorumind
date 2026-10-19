@@ -280,12 +280,14 @@
     "mode": {
       "standard": "对比方案",
       "express": "快速意见",
-      "challenge": "挑战我的想法"
+      "challenge": "挑战我的想法",
+      "audit": "审核文件"
     },
     "modeHint": {
       "standard": "模型分别设计相互竞争的方案，互相批评，最后由仲裁者裁决。",
       "express": "五个问题，一轮简短辩论：快速获得对某个想法的初步意见。",
-      "challenge": "带上您自己的方案：在您拍板之前，模型只负责找出其中的漏洞。"
+      "challenge": "带上您自己的方案：在您拍板之前，模型只负责找出其中的漏洞。",
+      "audit": "供应商的报价单或方案：模型对照您的需求进行核查，并告诉您应该问什么。"
     },
     "solutionLabel": "您的方案",
     "solutionPlaceholder": "描述您打算构建什么、如何构建：技术栈、托管、团队、时间表…",
@@ -318,7 +320,19 @@
     "estimateUnknown": "部分模型无法估算费用；辩论进行时会显示实际费用。",
     "local": "数据不会离开本机",
     "startChallenge": "挑战我的方案",
-    "importing": "请等待文档导入完成后再开始。"
+    "importing": "请等待文档导入完成后再开始。",
+    "audit": {
+      "explain": "请附上您从供应商处收到的文件：报价单、工作说明书、架构文档或技术方案。用几句话说明它的用途：访谈只会询问文件中没有说明的内容。您将得到总体意见、附有相关原文的问题、核对过的价格，以及一份可以发给供应商的问题清单。",
+      "documentsTitle": "要审核的文件",
+      "documentsLead": "支持 PDF、Word、文本或网页。您也可以附上自己的文件，例如需求说明：对这些文件请取消勾选“审核对象”。",
+      "audited": "审核对象",
+      "noneAudited": "请至少为一份文件勾选“审核对象”。",
+      "needLabel": "它的用途是什么？",
+      "needPlaceholder": "例如：为我们 12 家瑜伽馆做一个预约网站，9 月前上线，预算 15 万元",
+      "alternative": "勾勒一个替代方案以作比较",
+      "alternativeHint": "模型不阅读文件，仅根据您的需求设计自己的方案：一个独立的数量级参考。会多一次调用。",
+      "start": "审核文件"
+    }
   },
   "persona": {
     "cloud_architect": "云架构师",
@@ -655,7 +669,8 @@
     "not_approved": "此版本的决策尚未获批准。",
     "closed": "此决策已关闭。请先重新打开。",
     "not_closed": "此决策已处于打开状态。",
-    "self_superseding": "决策不能取代自身。"
+    "self_superseding": "决策不能取代自身。",
+    "audit_document_missing": "请附上要审核的文件：报价单、工作说明书或方案。"
   },
   "costing": {
     "title": "按工作包测算成本",
@@ -978,5 +993,12 @@
     "noRecommendation": "没有可行的方案",
     "superseding": "取代它的决策",
     "revisits": "重新审视先前的决策"
+  },
+  "audit": {
+    "filter": "按严重程度筛选问题",
+    "all": "全部 · {{count}}",
+    "copy": "复制问题",
+    "copied": "问题已复制：粘贴到您的回复中即可。",
+    "copyFailed": "无法复制问题：请选中后手动复制。"
   }
 }

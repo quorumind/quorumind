@@ -31,6 +31,7 @@ const ERROR_CODES = [
   "live_unavailable",
   "idea_missing",
   "challenge_missing",
+  "audit_document_missing",
   "invalid_lineup",
   "session_busy",
   "wrong_phase",

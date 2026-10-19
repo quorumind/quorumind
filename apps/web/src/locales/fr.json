@@ -280,12 +280,14 @@
     "mode": {
       "standard": "Comparer des solutions",
       "express": "Avis rapide",
-      "challenge": "Challenger mon idée"
+      "challenge": "Challenger mon idée",
+      "audit": "Auditer un document"
     },
     "modeHint": {
       "standard": "Les modèles conçoivent des options concurrentes, se critiquent mutuellement et l'arbitre tranche.",
       "express": "Cinq questions, un tour court : un premier avis rapide sur une idée.",
-      "challenge": "Apportez votre propre solution : les modèles ne font qu'en traquer les failles avant que vous vous engagiez."
+      "challenge": "Apportez votre propre solution : les modèles ne font qu'en traquer les failles avant que vous vous engagiez.",
+      "audit": "Un devis ou une proposition d'un prestataire : les modèles le confrontent à votre besoin et vous disent quoi demander."
     },
     "solutionLabel": "Votre solution",
     "solutionPlaceholder": "Décrivez ce que vous prévoyez de construire et comment : technologies, hébergement, équipe, calendrier…",
@@ -318,7 +320,19 @@
     "estimateUnknown": "L'estimation du coût n'est pas disponible pour certains de ces modèles ; le coût réel s'affiche pendant le débat.",
     "local": "Rien ne quitte cette machine",
     "startChallenge": "Challenger ma solution",
-    "importing": "Attendez la fin de l'import des documents avant de commencer."
+    "importing": "Attendez la fin de l'import des documents avant de commencer.",
+    "audit": {
+      "explain": "Joignez le document reçu d'un prestataire : devis, description des prestations, architecture ou proposition technique. Dites en quelques lignes à quoi il doit servir : l'entretien ne demande que ce que le document ne dit pas. Vous obtenez un avis, les constats avec les passages concernés, le prix vérifié et une liste de questions à envoyer au prestataire.",
+      "documentsTitle": "Document à auditer",
+      "documentsLead": "PDF, Word, texte ou page web. Vous pouvez aussi joindre vos propres documents, comme votre cahier des charges : décochez « Audité » pour ceux-là.",
+      "audited": "Audité",
+      "noneAudited": "Cochez « Audité » pour au moins un document.",
+      "needLabel": "À quoi doit-il servir ?",
+      "needPlaceholder": "ex. Un site de réservation pour nos 12 studios de yoga, à lancer avant septembre avec un budget de 20 000 €",
+      "alternative": "Esquisser une alternative pour comparer",
+      "alternativeHint": "Un modèle conçoit sa propre approche à partir de votre seul besoin, sans lire le document : un ordre de grandeur indépendant. Cela coûte un appel de plus.",
+      "start": "Auditer le document"
+    }
   },
   "persona": {
     "cloud_architect": "Architecte cloud",
@@ -655,7 +669,8 @@
     "not_approved": "Cette version de la décision n'est pas approuvée.",
     "closed": "Cette décision est close. Rouvrez-la d'abord.",
     "not_closed": "Cette décision est déjà ouverte.",
-    "self_superseding": "Une décision ne peut pas se remplacer elle-même."
+    "self_superseding": "Une décision ne peut pas se remplacer elle-même.",
+    "audit_document_missing": "Joignez le document à auditer : un devis, une description des prestations ou une proposition."
   },
   "costing": {
     "title": "Chiffrage par lot",
@@ -978,5 +993,12 @@
     "noRecommendation": "Aucune option n'est faisable",
     "superseding": "Remplacé par",
     "revisits": "Revient sur une décision antérieure"
+  },
+  "audit": {
+    "filter": "Filtrer les constats par gravité",
+    "all": "Tous · {{count}}",
+    "copy": "Copier les questions",
+    "copied": "Questions copiées : collez-les dans votre réponse.",
+    "copyFailed": "Les questions n'ont pas pu être copiées : sélectionnez-les et copiez-les à la main."
   }
 }

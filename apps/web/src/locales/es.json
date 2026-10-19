@@ -280,12 +280,14 @@
     "mode": {
       "standard": "Comparar soluciones",
       "express": "Opinión rápida",
-      "challenge": "Poner a prueba mi idea"
+      "challenge": "Poner a prueba mi idea",
+      "audit": "Auditar un documento"
     },
     "modeHint": {
       "standard": "Los modelos diseñan opciones que compiten entre sí, se critican mutuamente y el árbitro decide.",
       "express": "Cinco preguntas y una ronda corta: una primera opinión rápida sobre una idea.",
-      "challenge": "Traiga su propia solución: los modelos solo buscan sus fallos antes de que usted se comprometa."
+      "challenge": "Traiga su propia solución: los modelos solo buscan sus fallos antes de que usted se comprometa.",
+      "audit": "Un presupuesto o una propuesta de un proveedor: los modelos lo contrastan con su necesidad y le dicen qué preguntar."
     },
     "solutionLabel": "Su solución",
     "solutionPlaceholder": "Describa qué piensa construir y cómo: tecnologías, alojamiento, equipo, plazos…",
@@ -318,7 +320,19 @@
     "estimateUnknown": "La estimación de coste no está disponible para algunos de estos modelos; el coste real se muestra a medida que avanza el debate.",
     "local": "Nada sale de esta máquina",
     "startChallenge": "Poner a prueba mi solución",
-    "importing": "Espere a que terminen de importarse los documentos antes de empezar."
+    "importing": "Espere a que terminen de importarse los documentos antes de empezar.",
+    "audit": {
+      "explain": "Adjunte el documento que recibió de un proveedor: un presupuesto, una descripción de los servicios, una arquitectura o una propuesta técnica. Diga en pocas líneas para qué debe servir: la entrevista solo pregunta lo que el documento no dice. Obtendrá una opinión, las observaciones con los pasajes a los que se refieren, el precio comprobado y una lista de preguntas para enviar al proveedor.",
+      "documentsTitle": "Documento que auditar",
+      "documentsLead": "PDF, Word, texto o una página web. También puede adjuntar sus propios documentos, como su pliego de requisitos: desmarque «Auditado» en ellos.",
+      "audited": "Auditado",
+      "noneAudited": "Marque «Auditado» en al menos un documento.",
+      "needLabel": "¿Para qué debe servir?",
+      "needPlaceholder": "p. ej., una web de reservas para nuestros 12 estudios de yoga, que se lance antes de septiembre con un presupuesto de 20.000 €",
+      "alternative": "Esbozar una alternativa para comparar",
+      "alternativeHint": "Un modelo diseña su propio enfoque solo a partir de su necesidad, sin leer el documento: un orden de magnitud independiente. Cuesta una llamada más.",
+      "start": "Auditar el documento"
+    }
   },
   "persona": {
     "cloud_architect": "Arquitecto cloud",
@@ -655,7 +669,8 @@
     "not_approved": "Esta versión de la decisión no está aprobada.",
     "closed": "Esta decisión está cerrada. Reábrala primero.",
     "not_closed": "Esta decisión ya está abierta.",
-    "self_superseding": "Una decisión no puede sustituirse a sí misma."
+    "self_superseding": "Una decisión no puede sustituirse a sí misma.",
+    "audit_document_missing": "Adjunte el documento que auditar: un presupuesto, una descripción de los servicios o una propuesta."
   },
   "costing": {
     "title": "Presupuesto por paquete de trabajo",
@@ -978,5 +993,12 @@
     "noRecommendation": "Ninguna opción es viable",
     "superseding": "Sustituido por",
     "revisits": "Reconsidera una decisión anterior"
+  },
+  "audit": {
+    "filter": "Filtrar las observaciones por gravedad",
+    "all": "Todas · {{count}}",
+    "copy": "Copiar las preguntas",
+    "copied": "Preguntas copiadas: péguelas en su respuesta.",
+    "copyFailed": "No se pudieron copiar las preguntas: selecciónelas y cópielas a mano."
   }
 }

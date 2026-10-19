@@ -1,5 +1,6 @@
 import type { ClientDeliverable } from "@quorumind/core";
 import { useTranslation } from "react-i18next";
+import { AuditView, auditHeadline } from "./Audit.tsx";
 import { DownloadIcon, SparkIcon } from "./components/Icons.tsx";
 import { CheckBadges, dayRange, moneyRange } from "./costing.tsx";
 import { FeasibilityChip, Score } from "./Verdict.tsx";
@@ -16,6 +17,31 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
       <div className="narrow stack">
         {deliverable.title ? <h1 className="display">{deliverable.title}</h1> : null}
         <p className="notice">{t("share.notReady")}</p>
+      </div>
+    );
+  }
+  // An audit shows its opinion of the document and its findings, not a comparison of options.
+  if (deliverable.audit) {
+    const audit = auditHeadline(deliverable.audit);
+    return (
+      <div className="stack-lg" style={{ marginBlockEnd: "var(--space-12)" }}>
+        {deliverable.title ? <h1 className="display">{deliverable.title}</h1> : null}
+        <section className="verdict-panel">
+          <span className="label muted">{t("role.arbiter")}</span>
+          <h2 className="display">{audit.opinion}</h2>
+          <p className="title" style={{ margin: 0 }}>
+            {audit.hint}
+          </p>
+          <p style={{ margin: 0, maxInlineSize: "70ch" }}>{recommendation.rationale}</p>
+          {deliverable.summary ? <p style={{ margin: 0, maxInlineSize: "70ch" }}>{deliverable.summary}</p> : null}
+          <div className="row">
+            <a className="button button-secondary" href={reportUrl} download>
+              <DownloadIcon />
+              {t("verdict.download")}
+            </a>
+          </div>
+        </section>
+        <AuditView audit={deliverable.audit} />
       </div>
     );
   }

@@ -1,9 +1,11 @@
 import type { Audience, Feasibility, Session, TopicStatus } from "@quorumind/core";
+import { auditDeliverable } from "@quorumind/core/audit-report";
 import { deliveryChecks, proposalCosting } from "@quorumind/core/costing";
 import { rankOptions } from "@quorumind/core/ranking";
 import { currentProposals, currentRevision, sessionAtRevision } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AuditView, auditHeadline } from "./Audit.tsx";
 import { useCanEdit } from "./access.tsx";
 import { api, type Feedback, type PriceQuote } from "./api.ts";
 import { ClientLoop } from "./ClientLoop.tsx";
@@ -458,6 +460,9 @@ export function Verdict({
   const verdict = session.verdict;
   if (!verdict) return null;
   const proposals = currentProposals(session);
+  // An audit leads with its opinion of the document, then its findings, instead of a comparison of options.
+  const audit = session.mode === "audit" ? auditDeliverable(session) : null;
+  const headline = audit ? auditHeadline(audit) : null;
   const recommended = verdict.recommendation.seat;
   const recommendedTitle = recommended
     ? recommended === "U"
@@ -477,8 +482,12 @@ export function Verdict({
       />
       <section className="verdict-panel">
         <span className="label muted">{t("role.arbiter")}</span>
-        <h2 className="display">{recommendedTitle}</h2>
-        {recommended && proposals[recommended] ? (
+        <h2 className="display">{headline ? headline.opinion : recommendedTitle}</h2>
+        {headline ? (
+          <p className="title" style={{ margin: 0 }}>
+            {headline.hint}
+          </p>
+        ) : recommended && proposals[recommended] ? (
           <p className="title" style={{ margin: 0 }}>
             {proposals[recommended].title}
           </p>
@@ -503,6 +512,7 @@ export function Verdict({
               briefs={(Object.keys(session.briefs ?? {}) as ("cto" | "executive" | "client")[]).sort()}
               revision={shown === latest ? null : shown}
               client={client}
+              audit={audit !== null}
             />
           )}
         </div>
@@ -511,11 +521,12 @@ export function Verdict({
       <WhatChanged session={live} number={shown} />
       {readOnly ? null : <DecisionPanel session={live} />}
 
+      {audit ? <AuditView audit={audit} /> : null}
       <Briefs session={session} readOnly={readOnly} />
-      <Matrix session={session} />
-      <CostingSection session={session} />
+      {audit ? null : <Matrix session={session} />}
+      {audit ? null : <CostingSection session={session} />}
       <ComplianceSection session={session} />
-      {recommended && proposals[recommended]?.components?.length ? (
+      {!audit && recommended && proposals[recommended]?.components?.length ? (
         <section className="stack">
           <h2 className="heading">{t("verdict.architecture")}</h2>
           <ArchitectureDiagram

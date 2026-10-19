@@ -4,6 +4,7 @@ import { PERSONA_IDS } from "@quorumind/core/templates";
 import type { TFunction } from "i18next";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DocumentRead } from "./Audit.tsx";
 import { useCanEdit } from "./access.tsx";
 import { api } from "./api.ts";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
@@ -177,6 +178,12 @@ function CritiqueDetails({ round }: { round: CritiqueRound }) {
             <span className="muted">{t("debate.on", { seat: critique.target })}</span>
           </div>
           <strong>{critique.point}</strong>
+          {/* The passage of an audited document the finding is about, checked word for word. */}
+          {"quote" in critique && typeof critique.quote === "string" && critique.quote ? (
+            <blockquote className="audit-quote-inline" dir="auto">
+              {critique.quote}
+            </blockquote>
+          ) : null}
           <span>{critique.argument}</span>
           <span className="field-hint">{critique.requirement}</span>
         </div>
@@ -342,7 +349,11 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
       case "proposal":
         items.push(
           <Message key={key} session={session} seat={entry.seat} speech={entry.data.speech}>
-            <ProposalDetails session={session} proposal={entry.data} />
+            {session.mode === "audit" && entry.seat === "U" && session.audit?.extraction ? (
+              <DocumentRead session={session} />
+            ) : (
+              <ProposalDetails session={session} proposal={entry.data} />
+            )}
           </Message>,
         );
         break;

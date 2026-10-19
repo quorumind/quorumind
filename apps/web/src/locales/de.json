@@ -280,12 +280,14 @@
     "mode": {
       "standard": "Lösungen vergleichen",
       "express": "Schnelle Einschätzung",
-      "challenge": "Meine Idee prüfen"
+      "challenge": "Meine Idee prüfen",
+      "audit": "Dokument prüfen"
     },
     "modeHint": {
       "standard": "Die Modelle entwerfen konkurrierende Optionen, kritisieren sich gegenseitig, und der Schiedsrichter entscheidet.",
       "express": "Fünf Fragen, eine kurze Runde: eine schnelle erste Einschätzung zu einer Idee.",
-      "challenge": "Bringen Sie Ihre eigene Lösung mit: Die Modelle suchen nur nach ihren Schwächen, bevor Sie sich festlegen."
+      "challenge": "Bringen Sie Ihre eigene Lösung mit: Die Modelle suchen nur nach ihren Schwächen, bevor Sie sich festlegen.",
+      "audit": "Ein Angebot oder Konzept eines Anbieters: Die Modelle prüfen es an Ihrem Bedarf und sagen Ihnen, was Sie fragen sollten."
     },
     "solutionLabel": "Ihre Lösung",
     "solutionPlaceholder": "Beschreiben Sie, was Sie bauen möchten und wie: Technologien, Hosting, Team, Zeitplan…",
@@ -318,7 +320,19 @@
     "estimateUnknown": "Für einige dieser Modelle ist keine Kostenschätzung verfügbar; die tatsächlichen Kosten werden während der Debatte angezeigt.",
     "local": "Nichts verlässt dieses Gerät",
     "startChallenge": "Meine Lösung prüfen",
-    "importing": "Warten Sie, bis die Dokumente importiert sind, bevor Sie beginnen."
+    "importing": "Warten Sie, bis die Dokumente importiert sind, bevor Sie beginnen.",
+    "audit": {
+      "explain": "Hängen Sie das Dokument an, das Sie von einem Anbieter erhalten haben: ein Angebot, eine Leistungsbeschreibung, eine Architektur oder ein technisches Konzept. Beschreiben Sie in wenigen Zeilen, wofür es gedacht ist: Das Interview fragt nur, was das Dokument nicht sagt. Sie erhalten ein Urteil, die Befunde mit den betroffenen Stellen, den geprüften Preis und eine Liste von Fragen an den Anbieter.",
+      "documentsTitle": "Zu prüfendes Dokument",
+      "documentsLead": "PDF, Word, Text oder eine Webseite. Sie können auch eigene Dokumente anhängen, etwa Ihr Lastenheft: Entfernen Sie dort das Häkchen bei „Wird geprüft“.",
+      "audited": "Wird geprüft",
+      "noneAudited": "Setzen Sie bei mindestens einem Dokument das Häkchen „Wird geprüft“.",
+      "needLabel": "Wofür ist es gedacht?",
+      "needPlaceholder": "z. B. Eine Buchungswebsite für unsere 12 Yogastudios, Start vor September, Budget 20.000 €",
+      "alternative": "Eine Alternative zum Vergleich skizzieren",
+      "alternativeHint": "Ein Modell entwirft allein aus Ihrem Bedarf einen eigenen Ansatz, ohne das Dokument zu lesen: eine unabhängige Größenordnung. Das kostet einen Aufruf mehr.",
+      "start": "Dokument prüfen"
+    }
   },
   "persona": {
     "cloud_architect": "Cloud-Architekt",
@@ -655,7 +669,8 @@
     "not_approved": "Diese Version der Entscheidung ist nicht genehmigt.",
     "closed": "Diese Entscheidung ist abgeschlossen. Öffnen Sie sie zuerst wieder.",
     "not_closed": "Diese Entscheidung ist bereits offen.",
-    "self_superseding": "Eine Entscheidung kann sich nicht selbst ersetzen."
+    "self_superseding": "Eine Entscheidung kann sich nicht selbst ersetzen.",
+    "audit_document_missing": "Hängen Sie das zu prüfende Dokument an: ein Angebot, eine Leistungsbeschreibung oder ein Konzept."
   },
   "costing": {
     "title": "Kalkulation nach Arbeitspaketen",
@@ -978,5 +993,12 @@
     "noRecommendation": "Keine Option ist umsetzbar",
     "superseding": "Ersetzt durch",
     "revisits": "Greift eine frühere Entscheidung wieder auf"
+  },
+  "audit": {
+    "filter": "Befunde nach Schwere filtern",
+    "all": "Alle · {{count}}",
+    "copy": "Fragen kopieren",
+    "copied": "Fragen kopiert: Fügen Sie sie in Ihre Antwort ein.",
+    "copyFailed": "Die Fragen konnten nicht kopiert werden: Markieren und kopieren Sie sie von Hand."
   }
 }

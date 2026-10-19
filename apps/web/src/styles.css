@@ -1578,7 +1578,7 @@ th {
 
 .mode-options {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
@@ -3525,4 +3525,108 @@ button.chip:active {
   .compare-table th[scope="row"] {
     inline-size: auto;
   }
+}
+
+/* Audit of a document */
+
+.audit-explain {
+  margin: 0;
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.context-mark {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.audit-findings-head {
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.audit-findings {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-finding {
+  display: grid;
+  gap: var(--space-2);
+  border-inline-start: 4px solid var(--line);
+}
+
+.audit-finding-blocking {
+  border-inline-start-color: var(--infeasible);
+}
+
+.audit-finding-major {
+  border-inline-start-color: var(--conditional);
+}
+
+.audit-quote {
+  margin: 0;
+}
+
+.audit-quote blockquote,
+.audit-quote-inline {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 3px solid var(--line);
+  background: var(--surface);
+  font-style: italic;
+  white-space: pre-line;
+}
+
+.audit-coverage {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-coverage li {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.audit-coverage li .field-hint {
+  display: block;
+}
+
+.audit-coverage-covered .audit-coverage-icon {
+  color: var(--feasible);
+}
+
+.audit-coverage-partial .audit-coverage-icon {
+  color: var(--conditional);
+}
+
+.audit-coverage-missing .audit-coverage-icon {
+  color: var(--infeasible);
+}
+
+.audit-gap {
+  color: var(--infeasible);
+  font-weight: 700;
+}
+
+.audit-facts,
+.audit-terms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.audit-facts dd,
+.audit-terms dd {
+  margin: 0;
 }

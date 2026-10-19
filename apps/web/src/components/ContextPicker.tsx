@@ -10,6 +10,11 @@ export interface ContextPickerProps {
   disabled?: boolean;
   /** Told when imports start and when the last one ends: a session must not start without its documents. */
   onBusyChange?(busy: boolean): void;
+  /** Replaces the title and the explanation, for a picker that stands for something else (the documents to audit). */
+  title?: string;
+  lead?: string;
+  /** A choice made for each document, such as being the document under audit: its label and the documents it holds for. */
+  marked?: { label: string; ids: string[]; onToggle(id: string): void };
 }
 
 type Kind = ContextDocument["kind"];
@@ -125,7 +130,7 @@ const CloseGlyph = () => (
  * Attaches context documents to a session: uploaded files, web pages or GitHub repositories, pasted text.
  * The documents are extracted on the server and kept by the parent through `value` and `onChange`.
  */
-export function ContextPicker({ value, onChange, disabled = false, onBusyChange }: ContextPickerProps) {
+export function ContextPicker({ value, onChange, disabled = false, onBusyChange, title, lead, marked }: ContextPickerProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const [pending, setPending] = useState<Pending[]>([]);
@@ -304,10 +309,10 @@ export function ContextPicker({ value, onChange, disabled = false, onBusyChange 
   return (
     <fieldset className="context-picker" disabled={disabled} aria-describedby={`${id}-note`}>
       <legend className="context-legend">
-        <span className="field-label">{t("context.title")}</span>
+        <span className="field-label">{title ?? t("context.title")}</span>
         <span className="field-hint">{t("context.count", { used: value.length, max: CONTEXT_LIMITS.documents })}</span>
       </legend>
-      <p className="field-hint context-lead">{t("context.lead")}</p>
+      <p className="field-hint context-lead">{lead ?? t("context.lead")}</p>
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: dropping is a shortcut; the button inside does the same from the keyboard. */}
       <div
@@ -449,6 +454,12 @@ export function ContextPicker({ value, onChange, disabled = false, onBusyChange 
                     {document.name}
                   </span>
                   <span className="context-size">{t("context.characters", { size: numbers.format(document.text.length) })}</span>
+                  {marked ? (
+                    <label className="check context-mark">
+                      <input type="checkbox" checked={marked.ids.includes(document.id)} onChange={() => marked.onToggle(document.id)} />
+                      <span>{marked.label}</span>
+                    </label>
+                  ) : null}
                   <span className="context-actions">
                     <button
                       type="button"

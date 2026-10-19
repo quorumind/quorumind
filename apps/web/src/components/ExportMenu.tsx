@@ -32,6 +32,9 @@ const ITEMS: ExportItem[] = [
   { key: "github", path: "github-issues.zip", needsVerdict: true },
 ];
 
+/** What an audit exports: its report, in each format. */
+const AUDIT_EXPORTS: ExportKey[] = ["markdown", "pdf", "word"];
+
 const ChevronIcon = () => (
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
     <path d="M6.5 9.5L12 15l5.5-5.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -63,6 +66,7 @@ export function ExportMenu({
   briefs = [],
   revision = null,
   client = null,
+  audit = false,
 }: {
   sessionId: string;
   hasVerdict: boolean;
@@ -71,6 +75,8 @@ export function ExportMenu({
   revision?: number | null;
   /** Who the client proposal is prepared for. */
   client?: string | null;
+  /** An audit: its report in each format, without the documents of a decision (ADR, hand-off, client proposal, roadmap). */
+  audit?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -82,7 +88,7 @@ export function ExportMenu({
   const base = `/api/sessions/${encodeURIComponent(sessionId)}`;
   // The reader versions already written in the app, as printable documents.
   const entries: ExportItem[] = [
-    ...ITEMS,
+    ...(audit ? ITEMS.filter((item) => AUDIT_EXPORTS.includes(item.key as ExportKey)) : ITEMS),
     ...briefs.map((audience) => ({
       key: `brief-${audience}` as const,
       path: `report.html?print=1&audience=${audience}`,

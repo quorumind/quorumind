@@ -280,12 +280,14 @@
     "mode": {
       "standard": "Compare solutions",
       "express": "Quick opinion",
-      "challenge": "Challenge my idea"
+      "challenge": "Challenge my idea",
+      "audit": "Audit a document"
     },
     "modeHint": {
       "standard": "The models design competing options, criticise each other and the arbiter rules.",
       "express": "Five questions, one short round: a fast first opinion on an idea.",
-      "challenge": "Bring your own solution: the models only hunt for its flaws before you commit."
+      "challenge": "Bring your own solution: the models only hunt for its flaws before you commit.",
+      "audit": "A quote or a proposal from a provider: the models check it against your need and tell you what to ask."
     },
     "solutionLabel": "Your solution",
     "solutionPlaceholder": "Describe what you plan to build and how: stack, hosting, team, timeline…",
@@ -318,7 +320,19 @@
     "estimateUnknown": "The cost estimate is unavailable for some of these models; the real cost is shown as the debate runs.",
     "local": "Nothing leaves this machine",
     "startChallenge": "Challenge my solution",
-    "importing": "Wait for the documents to finish importing before you start."
+    "importing": "Wait for the documents to finish importing before you start.",
+    "audit": {
+      "explain": "Attach the document you received from a provider: a quote, a statement of work, an architecture or a technical proposal. Say in a few lines what it is for: the interview only asks what the document does not tell. You get an opinion, the findings with the passages they are about, the price checked, and a list of questions to send the provider.",
+      "documentsTitle": "Document to audit",
+      "documentsLead": "PDF, Word, text or a web page. You can attach your own documents too, such as your specification: untick “Under audit” for those.",
+      "audited": "Under audit",
+      "noneAudited": "Tick “Under audit” for at least one document.",
+      "needLabel": "What is it for?",
+      "needPlaceholder": "e.g. A booking website for our 12 yoga studios, to launch before September with a budget of €20,000",
+      "alternative": "Sketch an alternative for comparison",
+      "alternativeHint": "A model designs its own approach from your need alone, without reading the document: an independent order of magnitude. It costs one more call.",
+      "start": "Audit the document"
+    }
   },
   "persona": {
     "cloud_architect": "Cloud architect",
@@ -655,7 +669,8 @@
     "not_approved": "This version of the decision is not approved.",
     "closed": "This decision is closed. Reopen it first.",
     "not_closed": "This decision is already open.",
-    "self_superseding": "A decision cannot supersede itself."
+    "self_superseding": "A decision cannot supersede itself.",
+    "audit_document_missing": "Attach the document to audit: a quote, a statement of work or a proposal."
   },
   "costing": {
     "title": "Costing by work package",
@@ -978,5 +993,12 @@
     "noRecommendation": "No option is feasible",
     "superseding": "Superseded by",
     "revisits": "Revisits an earlier decision"
+  },
+  "audit": {
+    "filter": "Filter the findings by severity",
+    "all": "All · {{count}}",
+    "copy": "Copy the questions",
+    "copied": "Questions copied: paste them into your reply.",
+    "copyFailed": "The questions could not be copied: select them and copy them by hand."
   }
 }

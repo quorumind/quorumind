@@ -280,12 +280,14 @@
     "mode": {
       "standard": "Confronta soluzioni",
       "express": "Parere rapido",
-      "challenge": "Metti alla prova la mia idea"
+      "challenge": "Metti alla prova la mia idea",
+      "audit": "Esamina un documento"
     },
     "modeHint": {
       "standard": "I modelli progettano opzioni concorrenti, si criticano a vicenda e l'arbitro decide.",
       "express": "Cinque domande, un solo turno breve: un primo parere rapido su un'idea.",
-      "challenge": "Porta la tua soluzione: i modelli ne cercano solo i difetti, prima che tu ti impegni."
+      "challenge": "Porta la tua soluzione: i modelli ne cercano solo i difetti, prima che tu ti impegni.",
+      "audit": "Un preventivo o una proposta di un fornitore: i modelli lo confrontano con la tua esigenza e ti dicono cosa chiedere."
     },
     "solutionLabel": "La tua soluzione",
     "solutionPlaceholder": "Descrivi cosa intendi realizzare e come: tecnologie, hosting, team, tempi…",
@@ -318,7 +320,19 @@
     "estimateUnknown": "La stima dei costi non è disponibile per alcuni di questi modelli; il costo reale viene mostrato durante il dibattito.",
     "local": "Nulla lascia questo computer",
     "startChallenge": "Metti alla prova la mia soluzione",
-    "importing": "Attendi che i documenti finiscano di essere importati prima di iniziare."
+    "importing": "Attendi che i documenti finiscano di essere importati prima di iniziare.",
+    "audit": {
+      "explain": "Allega il documento che hai ricevuto da un fornitore: un preventivo, una descrizione dei servizi, un'architettura o una proposta tecnica. Scrivi in poche righe a cosa deve servire: l'intervista chiede solo ciò che il documento non dice. Ricevi un giudizio, i rilievi con i passaggi a cui si riferiscono, il prezzo verificato e un elenco di domande da inviare al fornitore.",
+      "documentsTitle": "Documento da esaminare",
+      "documentsLead": "PDF, Word, testo o pagina web. Puoi allegare anche i tuoi documenti, come il tuo capitolato: per quelli togli la spunta a «In esame».",
+      "audited": "In esame",
+      "noneAudited": "Spunta «In esame» per almeno un documento.",
+      "needLabel": "A cosa deve servire?",
+      "needPlaceholder": "es. Un sito di prenotazione per i nostri 12 studi di yoga, da lanciare prima di settembre con un budget di 20.000 €",
+      "alternative": "Abbozza un'alternativa per confronto",
+      "alternativeHint": "Un modello progetta un proprio approccio solo a partire dalla tua esigenza, senza leggere il documento: un ordine di grandezza indipendente. Costa una chiamata in più.",
+      "start": "Esamina il documento"
+    }
   },
   "persona": {
     "cloud_architect": "Architetto cloud",
@@ -655,7 +669,8 @@
     "not_approved": "Questa versione della decisione non è approvata.",
     "closed": "Questa decisione è chiusa. Prima riaprila.",
     "not_closed": "Questa decisione è già aperta.",
-    "self_superseding": "Una decisione non può sostituire se stessa."
+    "self_superseding": "Una decisione non può sostituire se stessa.",
+    "audit_document_missing": "Allega il documento da esaminare: un preventivo, una descrizione dei servizi o una proposta."
   },
   "costing": {
     "title": "Stima per pacchetto di lavoro",
@@ -978,5 +993,12 @@
     "noRecommendation": "Nessuna opzione è fattibile",
     "superseding": "Sostituito da",
     "revisits": "Rivede una decisione precedente"
+  },
+  "audit": {
+    "filter": "Filtra i rilievi per gravità",
+    "all": "Tutti · {{count}}",
+    "copy": "Copia le domande",
+    "copied": "Domande copiate: incollale nella tua risposta.",
+    "copyFailed": "Non è stato possibile copiare le domande: selezionale e copiale a mano."
   }
 }

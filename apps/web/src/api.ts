@@ -139,6 +139,8 @@ export interface NewSessionInput {
   budgetUsd: number | null;
   lineup: Lineup | null;
   challenge: string | null;
+  /** Audit mode: the attached documents under audit, and whether to sketch an alternative. */
+  audit?: { documentIds: string[]; alternative: boolean } | null;
   context: ContextDocument[];
   redact: boolean;
   notify: boolean;
@@ -218,8 +220,12 @@ const questionnaireHeaders = (access: string | null) => (access ? { "X-Questionn
 
 export const api = {
   config: () => request<AppConfig>("/api/config"),
-  estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale) =>
-    request<{ estimateUsd: Estimate; price: PriceQuote | null }>("/api/estimate", post({ lineup, rounds, mode, depth, locale })),
+  /** `alternative`: an audit that sketches an alternative, which costs one more proposal. */
+  estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale, alternative = false) =>
+    request<{ estimateUsd: Estimate; price: PriceQuote | null }>(
+      "/api/estimate",
+      post({ lineup, rounds, mode, depth, locale, ...(alternative ? { audit: { alternative } } : {}) }),
+    ),
   sessions: (mine = false) => request<{ sessions: SessionSummary[]; shared?: boolean }>(`/api/sessions${mine ? "?mine=1" : ""}`),
   session: (id: string) =>
     request<{

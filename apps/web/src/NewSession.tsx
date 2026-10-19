@@ -14,7 +14,7 @@ import { Skeleton } from "./components/Logo.tsx";
 import { failureText } from "./errors.ts";
 import { formatPrice, formatUsd, groupLabel } from "./format.ts";
 
-const MODES: Mode[] = ["standard", "express", "challenge"];
+const MODES: Mode[] = ["standard", "express", "challenge", "audit"];
 const MODE_ICONS = { standard: CompareIcon, express: BoltIcon, challenge: TargetIcon, audit: AuditIcon } as const;
 const DEPTHS: Depth[] = ["quick", "standard", "deep"];
 const SEAT_KEYS = ["A", "B", "C", "D"] as const;
@@ -255,6 +255,9 @@ export function NewSession() {
   const [complianceTemplates, setComplianceTemplates] = useState<ComplianceTemplateId[]>([]);
   const [europeanOnly, setEuropeanOnly] = useState(false);
   const [context, setContext] = useState<ContextDocument[]>([]);
+  // Audit mode: every attached document is under audit unless the person marks it as background.
+  const [background, setBackground] = useState<string[]>([]);
+  const [alternative, setAlternative] = useState(false);
   const [lineup, setLineup] = useState<Lineup | null>(null);
   const [depth, setDepth] = useState<Depth>("standard");
   const [rounds, setRounds] = useState(1);
@@ -285,7 +288,7 @@ export function NewSession() {
   useEffect(() => {
     if (!lineup) return;
     const timer = setTimeout(() => {
-      api.estimate(lineup, effectiveRounds, mode, depth, language).then(
+      api.estimate(lineup, effectiveRounds, mode, depth, language, mode === "audit" && alternative).then(
         (body) => {
           setEstimate(body.estimateUsd);
           setPrice(body.price);
@@ -297,7 +300,7 @@ export function NewSession() {
       );
     }, 250);
     return () => clearTimeout(timer);
-  }, [lineup, effectiveRounds, mode, depth, language]);
+  }, [lineup, effectiveRounds, mode, depth, language, alternative]);
 
   const allLocal = useMemo(() => {
     if (!config || !lineup) return false;
@@ -323,6 +326,7 @@ export function NewSession() {
         budgetUsd: budgetUsd && budgetUsd > 0 ? budgetUsd : null,
         lineup: demo ? null : lineup,
         challenge: mode === "challenge" ? solution.trim() : null,
+        audit: mode === "audit" && !demo ? { documentIds: audited, alternative } : null,
         context: demo ? [] : context,
         redact,
         notify,
@@ -346,7 +350,26 @@ export function NewSession() {
   };
 
   const live = config?.live ?? null;
-  const ready = Boolean(live && idea.trim() && (mode !== "challenge" || solution.trim()));
+  const audited = context.filter((document) => !background.includes(document.id)).map((document) => document.id);
+  const toggleAudited = (id: string) =>
+    setBackground((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  const documents = (
+    <ContextPicker
+      value={context}
+      onChange={setContext}
+      disabled={!live}
+      onBusyChange={setImporting}
+      {...(mode === "audit"
+        ? {
+            title: t("setup.audit.documentsTitle"),
+            lead: t("setup.audit.documentsLead"),
+            marked: { label: t("setup.audit.audited"), ids: audited, onToggle: toggleAudited },
+          }
+        : {})}
+    />
+  );
+
+  const ready = Boolean(live && idea.trim() && (mode !== "challenge" || solution.trim()) && (mode !== "audit" || audited.length > 0));
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (ready && !importing) start(false);
@@ -382,16 +405,28 @@ export function NewSession() {
           </div>
         </fieldset>
 
+        {mode === "audit" ? (
+          <div className="stack audit-setup">
+            <p className="notice audit-explain">{t("setup.audit.explain")}</p>
+            {documents}
+            {context.length > 0 && audited.length === 0 ? (
+              <p className="notice notice-error" role="alert">
+                {t("setup.audit.noneAudited")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="field">
           <label className="field-label" htmlFor="idea">
-            {t("home.ideaLabel")}
+            {t(mode === "audit" ? "setup.audit.needLabel" : "home.ideaLabel")}
           </label>
           <textarea
             id="idea"
             className="textarea"
             rows={3}
             maxLength={4000}
-            placeholder={t("home.ideaPlaceholder")}
+            placeholder={t(mode === "audit" ? "setup.audit.needPlaceholder" : "home.ideaPlaceholder")}
             value={idea}
             onChange={(event) => setIdea(event.target.value)}
             disabled={!live}
@@ -447,7 +482,7 @@ export function NewSession() {
           />
         ) : null}
 
-        <ContextPicker value={context} onChange={setContext} disabled={!live} onBusyChange={setImporting} />
+        {mode === "audit" ? null : documents}
 
         {live && config?.european ? (
           <EuropeanToggle
@@ -509,6 +544,15 @@ export function NewSession() {
                   </div>
                 ) : null}
               </div>
+              {mode === "audit" ? (
+                <label className="check">
+                  <input type="checkbox" checked={alternative} onChange={(event) => setAlternative(event.target.checked)} />
+                  <span>
+                    {t("setup.audit.alternative")}
+                    <span className="field-hint">{t("setup.audit.alternativeHint")}</span>
+                  </span>
+                </label>
+              ) : null}
               <LineupEditor config={editorConfig ?? config} lineup={lineup} onChange={setLineup} />
               <label className="check">
                 <input type="checkbox" checked={redact} onChange={(event) => setRedact(event.target.checked)} />
@@ -559,7 +603,7 @@ export function NewSession() {
             disabled={!ready || pending !== null || importing}
             aria-describedby={importing ? "importing-note" : undefined}
           >
-            {t(mode === "challenge" ? "setup.startChallenge" : "home.start")}
+            {t(mode === "challenge" ? "setup.startChallenge" : mode === "audit" ? "setup.audit.start" : "home.start")}
             <ArrowIcon />
           </button>
           {importing ? (
