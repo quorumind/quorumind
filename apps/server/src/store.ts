@@ -192,10 +192,17 @@ export function decisionRow(session: Session): { entry: RegisterEntry; reviewOn:
   return { entry, reviewOn: entry.review.on, remindedFor: session.decision?.review.remindedFor ?? null };
 }
 
+/** Session ids deleted in this process that are remembered, so that a late save of one of them is ignored. */
+const TOMBSTONES = 10_000;
+
 /** The sessions in use, with their placement: one object per session, whatever reads or writes it. */
 export class LiveSessions {
   private readonly sessions = new Map<string, Session>();
   private readonly placements = new Map<string, Placement>();
+  /** Objects read from the database or written to it: a save of one updates its row and never creates it again. */
+  private readonly persisted = new WeakSet<Session>();
+  /** Sessions deleted here, oldest first. Session ids are never reused. */
+  private readonly deleted = new Set<string>();
 
   /** The live session if it is in memory: null when someone else owns it, undefined when it is not loaded. */
   get(id: string, owner: string | null): Session | null | undefined {
@@ -216,14 +223,40 @@ export class LiveSessions {
     return session && placement ? { ...placement, session } : undefined;
   }
 
-  /**
-   * Keeps a session in memory and returns its placement. A session keeps the owner and workspace it was first saved
-   * with: the engine saves without them.
-   */
+  /** The placement of a session in memory. */
+  placementOf(id: string): Placement | undefined {
+    return this.placements.get(id);
+  }
+
+  /** Keeps a session in memory with its placement, as the database has it. */
   keep(session: Session, placement: Placement): Placement {
-    if (!this.placements.has(session.id)) this.placements.set(session.id, placement);
+    this.placements.set(session.id, placement);
     this.sessions.set(session.id, session);
-    return this.placements.get(session.id) ?? placement;
+    return placement;
+  }
+
+  /** Keeps a session read from the database, or just written to it: the object saved last is the live one. */
+  stored(session: Session, placement: Placement) {
+    this.persisted.add(session);
+    this.keep(session, placement);
+  }
+
+  /**
+   * Records that a write of this object, queued earlier, went through, with the placement the database has. Another
+   * object saved since stays the live one.
+   */
+  written(session: Session, placement: Placement) {
+    this.persisted.add(session);
+    if (this.sessions.get(session.id) === session) this.placements.set(session.id, placement);
+  }
+
+  /** Whether this object came from the database or was written to it. */
+  wasStored(session: Session): boolean {
+    return this.persisted.has(session);
+  }
+
+  isDeleted(id: string): boolean {
+    return this.deleted.has(id);
   }
 
   setPrivate(id: string, isPrivate: boolean) {
@@ -231,9 +264,51 @@ export class LiveSessions {
     if (placement) this.placements.set(id, { ...placement, private: isPrivate });
   }
 
-  forget(id: string) {
+  /** Drops a session from memory; `deleted` also ignores its later saves. */
+  forget(id: string, deleted = false) {
     this.sessions.delete(id);
     this.placements.delete(id);
+    if (!deleted) return;
+    this.deleted.add(id);
+    if (this.deleted.size > TOMBSTONES) this.deleted.delete(this.deleted.values().next().value as string);
+  }
+
+  /** Drops a session whose first write failed, unless another object replaced it meanwhile. */
+  forgetUnstored(session: Session) {
+    if (this.sessions.get(session.id) === session && !this.persisted.has(session)) this.forget(session.id);
+  }
+}
+
+/**
+ * A string as both databases store it: lone UTF-16 surrogates (half of a pair, which PostgreSQL's JSON refuses) become
+ * U+FFFD, and NUL characters (which its text refuses) are dropped. SQLite stores the same, so both behave alike.
+ */
+export function storable(text: string): string {
+  return HAS_LONE_SURROGATE.test(text) || text.includes("\0") ? text.replace(LONE_SURROGATES, "�").replaceAll("\0", "") : text;
+}
+
+const HAS_LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+const LONE_SURROGATES = new RegExp(HAS_LONE_SURROGATE.source, "g");
+
+/** The JSON of a value as both databases store it: every string and every key storable. */
+export function storedJson(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) => {
+    if (typeof item === "string") return storable(item);
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      const keys = Object.keys(item);
+      if (keys.some((key) => storable(key) !== key)) {
+        return Object.fromEntries(Object.entries(item).map(([key, entry]) => [storable(key), entry]));
+      }
+    }
+    return item;
+  });
+}
+
+/** A share link, a feedback or a questionnaire for a session that does not exist (any more). */
+export class MissingSession extends Error {
+  constructor(id: string) {
+    super(`Session ${id} does not exist.`);
+    this.name = "MissingSession";
   }
 }
 
@@ -340,19 +415,47 @@ export class SqliteSessionStore implements SessionStore {
   async find(id: string): Promise<StoredSession | null> {
     const cached = this.live.find(id);
     if (cached) return cached;
-    const row = this.db.prepare("SELECT data, owner_id, workspace_id, private FROM sessions WHERE id = ?").get(id) as SqliteRow | undefined;
-    if (!row) return null;
-    const session = normalizeSession(JSON.parse(row.data) as Session);
-    return { ...this.live.keep(session, sqlitePlacement(row)), session };
+    const found = this.read(id);
+    if (!found) return null;
+    this.live.stored(found.session, found);
+    return found;
   }
 
+  /** A session as the database has it, without keeping it in memory. */
+  private read(id: string): StoredSession | null {
+    const row = this.db.prepare("SELECT data, owner_id, workspace_id, private FROM sessions WHERE id = ?").get(id) as SqliteRow | undefined;
+    if (!row) return null;
+    return { ...sqlitePlacement(row), session: normalizeSession(JSON.parse(row.data) as Session) };
+  }
+
+  /**
+   * Writes a session. A session keeps the owner and workspace it was first saved with: the engine saves without them.
+   * The save of a session deleted meanwhile does nothing: an object read or written before only updates its row,
+   * and the sessions deleted here are remembered.
+   */
   async save(session: Session, owner: string | null = null, placement?: NewPlacement): Promise<void> {
-    const kept = this.live.keep(session, placementOf(owner, placement));
-    this.db
-      .prepare(
-        "INSERT INTO sessions (id, data, updated_at, owner_id, workspace_id, private) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
-      )
-      .run(session.id, JSON.stringify(session), session.updatedAt, kept.owner, kept.workspace, kept.private ? 1 : 0);
+    if (this.live.isDeleted(session.id)) return;
+    const wanted = placementOf(owner, placement);
+    const data = storedJson(session);
+    const row = (
+      this.live.wasStored(session)
+        ? this.db
+            .prepare("UPDATE sessions SET data = ?, updated_at = ? WHERE id = ? RETURNING owner_id, workspace_id, private")
+            .get(data, session.updatedAt, session.id)
+        : this.db
+            .prepare(
+              `INSERT INTO sessions (id, data, updated_at, owner_id, workspace_id, private) VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at RETURNING owner_id, workspace_id, private`,
+            )
+            .get(session.id, data, session.updatedAt, wanted.owner, wanted.workspace, wanted.private ? 1 : 0)
+    ) as Omit<SqliteRow, "data"> | undefined;
+    if (!row) {
+      // Deleted by another store on the same database.
+      this.live.forget(session.id, true);
+      return;
+    }
+    const kept = sqlitePlacement({ ...row, data: "" });
+    this.live.stored(session, kept);
     this.indexDecision(session, kept);
   }
 
@@ -380,7 +483,7 @@ export class SqliteSessionStore implements SessionStore {
         row.entry.updatedAt,
         row.reviewOn,
         row.remindedFor,
-        JSON.stringify(row.entry),
+        storedJson(row.entry),
       );
   }
 
@@ -432,7 +535,8 @@ export class SqliteSessionStore implements SessionStore {
       .all() as { id: string }[];
     let count = 0;
     for (const { id } of rows) {
-      const found = await this.find(id);
+      // Read without being kept in memory: a batch over every completed session.
+      const found = this.live.find(id) ?? this.read(id);
       if (!found || !decisionRow(found.session)) continue;
       this.indexDecision(found.session, found);
       count++;
@@ -475,7 +579,7 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   private remove(id: string) {
-    this.live.forget(id);
+    this.live.forget(id, true);
     this.db.prepare("DELETE FROM shares WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM questionnaires WHERE session_id = ?").run(id);
     this.db.prepare("DELETE FROM feedback WHERE session_id = ?").run(id);
@@ -496,7 +600,7 @@ export class SqliteSessionStore implements SessionStore {
       const session = normalizeSession(JSON.parse(row.data) as Session);
       if (!isWorking(session) || options.skip?.(session.id)) continue;
       markInterrupted(session, now);
-      update.run(JSON.stringify(session), session.updatedAt, session.id);
+      update.run(storedJson(session), session.updatedAt, session.id);
       this.live.forget(session.id);
       count++;
     }
@@ -510,9 +614,15 @@ export class SqliteSessionStore implements SessionStore {
     return rows.length;
   }
 
+  /** Refuses a row about a session that does not exist, as the foreign keys of PostgreSQL do. */
+  private mustExist(sessionId: string) {
+    if (!this.db.prepare("SELECT 1 FROM sessions WHERE id = ?").get(sessionId)) throw new MissingSession(sessionId);
+  }
+
   async share(sessionId: string, settings: ShareSettings): Promise<Share> {
     const existing = this.storedShareOf(sessionId);
     const next = applyShareSettings(existing, settings);
+    if (!existing) this.mustExist(sessionId);
     if (existing) {
       this.db
         .prepare("UPDATE shares SET public = ?, mode = ?, expires_at = ?, password_hash = ? WHERE token = ?")
@@ -562,13 +672,14 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   async addFeedback(feedback: Feedback): Promise<void> {
+    this.mustExist(feedback.sessionId);
     this.db
       .prepare("INSERT INTO feedback (session_id, helpful, kind, comment, created_at) VALUES (?, ?, ?, ?, ?)")
       .run(
         feedback.sessionId,
         feedback.helpful === null ? null : feedback.helpful ? 1 : 0,
         feedback.kind,
-        feedback.comment,
+        storable(feedback.comment),
         feedback.createdAt,
       );
   }
@@ -603,6 +714,7 @@ export class SqliteSessionStore implements SessionStore {
   }
 
   async saveQuestionnaire(q: StoredQuestionnaire): Promise<void> {
+    this.mustExist(q.sessionId);
     this.db
       .prepare(
         `INSERT INTO questionnaires (id, token, session_id, created_at, updated_at, expires_at, password_hash, client, message, questions,
@@ -621,10 +733,10 @@ export class SqliteSessionStore implements SessionStore {
         q.updatedAt,
         q.expiresAt,
         q.passwordHash,
-        q.client,
-        q.message,
-        JSON.stringify(q.questions),
-        JSON.stringify(q.answers),
+        q.client === null ? null : storable(q.client),
+        q.message === null ? null : storable(q.message),
+        storedJson(q.questions),
+        storedJson(q.answers),
         q.status,
         q.submittedAt,
         q.submittedBy,
@@ -639,7 +751,7 @@ export class SqliteSessionStore implements SessionStore {
         `UPDATE questionnaires SET status = 'submitted', answers = ?, submitted_at = ?, submitted_by = ?, updated_at = ?, applied_revision = NULL
          WHERE id = ? AND status = 'open'`,
       )
-      .run(JSON.stringify(submission.answers), submission.submittedAt, submission.submittedBy, submission.submittedAt, id);
+      .run(storedJson(submission.answers), submission.submittedAt, submission.submittedBy, submission.submittedAt, id);
     return Number(result.changes) === 1;
   }
 

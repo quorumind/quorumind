@@ -78,6 +78,7 @@ import {
   validAccess,
 } from "./share.ts";
 import {
+  MissingSession,
   type Placement,
   publicQuestionnaire,
   type SessionStore,
@@ -1273,7 +1274,10 @@ export function createApp(deps: AppDeps) {
 
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((error, c) => {
-    if (error instanceof NotFound) return c.json({ error: "not_found", message: "This session does not exist." }, 404);
+    // MissingSession: deleted while the request was on its way.
+    if (error instanceof NotFound || error instanceof MissingSession) {
+      return c.json({ error: "not_found", message: "This session does not exist." }, 404);
+    }
     if (error instanceof ReadOnly) return c.json({ error: "read_only", message: error.message }, 403);
     if (error instanceof InvalidStateError) {
       return c.json({ error: error.code, message: error.message, ...(error.params ? { params: error.params } : {}) }, 409);

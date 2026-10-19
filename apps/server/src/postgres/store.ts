@@ -12,6 +12,7 @@ import {
   type HistoryEntry,
   type InterruptOptions,
   LiveSessions,
+  MissingSession,
   type NewPlacement,
   type Placement,
   placementOf,
@@ -26,9 +27,11 @@ import {
   type StoredSession,
   type StoredShare,
   type Submission,
+  storable,
+  storedJson,
   summarize,
 } from "../store.ts";
-import type { Database } from "./database.ts";
+import type { Database, Queryable } from "./database.ts";
 import { loadMigrations, migrate } from "./migrate.ts";
 
 /** Creates or updates the tables of the sessions, the share links, the feedback and the settings. */
@@ -38,9 +41,8 @@ export function migrateSessions(db: Database): Promise<number[]> {
 
 export const iso = (value: unknown): string => (value instanceof Date ? value.toISOString() : String(value));
 
-/** PostgreSQL refuses the NUL character in text and JSON; an imported document may hold one. */
-const withoutNul = (_key: string, value: unknown) =>
-  typeof value === "string" && value.includes("\0") ? value.replaceAll("\0", "") : value;
+/** A foreign key refused the row: its session does not exist. */
+const isMissingSession = (error: unknown) => (error as { code?: unknown } | null)?.code === "23503";
 
 const SHARE_COLUMNS = "shares.token, shares.public, shares.created_at, shares.mode, shares.expires_at, shares.password_hash";
 
@@ -56,7 +58,11 @@ const toShare = (row: Record<string, unknown>): StoredShare => ({
 
 type PlacedRow = { data: Session; owner_id: string | null; workspace_id: string | null; private: boolean };
 
-const placed = (row: PlacedRow): Placement => ({ owner: row.owner_id, workspace: row.workspace_id, private: row.private === true });
+const placed = (row: Omit<PlacedRow, "data">): Placement => ({
+  owner: row.owner_id,
+  workspace: row.workspace_id,
+  private: row.private === true,
+});
 
 /** The sessions of an owner, in a form the owner index serves (IS NOT DISTINCT FROM would not use it). */
 const ownedBy = (owner: string | null) =>
@@ -91,6 +97,13 @@ export class PostgresSessionStore implements SessionStore {
     return found && found.owner === owner ? found.session : null;
   }
 
+  /** A session as the database has it, without keeping it in memory. */
+  private async read(id: string): Promise<StoredSession | null> {
+    const { rows } = await this.db.query<PlacedRow>("SELECT data, owner_id, workspace_id, private FROM sessions WHERE id = $1", [id]);
+    const row = rows[0];
+    return row ? { ...placed(row), session: normalizeSession(row.data) } : null;
+  }
+
   async find(id: string): Promise<StoredSession | null> {
     const cached = this.live.find(id);
     if (cached) return cached;
@@ -101,32 +114,61 @@ export class PostgresSessionStore implements SessionStore {
     if (loaded) return loaded;
     if (!row) return null;
     const session = normalizeSession(row.data);
-    return { ...this.live.keep(session, placed(row)), session };
+    this.live.stored(session, placed(row));
+    return { ...placed(row), session };
   }
 
+  /**
+   * Writes a session. A session keeps the owner and workspace it was first saved with: the engine saves without them.
+   * The save of a session deleted meanwhile does nothing: an object read or written before only updates its row, and
+   * the sessions deleted here are remembered. A first write that fails leaves nothing in memory.
+   */
   save(session: Session, owner: string | null = null, placement?: NewPlacement): Promise<void> {
-    const kept = this.live.keep(session, placementOf(owner, placement));
-    // The session as it is now: the engine goes on changing the object while the write waits its turn.
-    const data = JSON.stringify(session, withoutNul);
-    const decision = decisionRow(session);
     const { id, createdAt, updatedAt } = session;
+    if (this.live.isDeleted(id)) return Promise.resolve();
+    const wanted = placementOf(owner, placement);
+    const update = this.live.wasStored(session);
+    // Kept at once, so that every request reads this object while the write waits its turn.
+    this.live.keep(session, this.live.placementOf(id) ?? wanted);
+    // The session as it is now: the engine goes on changing the object while the write waits its turn.
+    const data = storedJson(session);
+    const decision = decisionRow(session);
     return this.serialized(id, async () => {
-      await this.db.query(
-        `INSERT INTO sessions (id, owner_id, workspace_id, private, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
-        [id, kept.owner, kept.workspace, kept.private, data, createdAt, updatedAt],
-      );
-      await this.indexDecision(id, kept, decision);
+      if (this.live.isDeleted(id)) return;
+      let row: Omit<PlacedRow, "data"> | undefined;
+      try {
+        row = await this.db.transaction(async (tx) => {
+          const { rows } = update
+            ? await tx.query<Omit<PlacedRow, "data">>(
+                "UPDATE sessions SET data = $2, updated_at = $3 WHERE id = $1 RETURNING owner_id, workspace_id, private",
+                [id, data, updatedAt],
+              )
+            : await tx.query<Omit<PlacedRow, "data">>(
+                `INSERT INTO sessions (id, owner_id, workspace_id, private, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                 ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at RETURNING owner_id, workspace_id, private`,
+                [id, wanted.owner, wanted.workspace, wanted.private, data, createdAt, updatedAt],
+              );
+          const saved = rows[0];
+          if (saved) await this.indexDecision(tx, id, placed(saved), decision);
+          return saved;
+        });
+      } catch (error) {
+        this.live.forgetUnstored(session);
+        throw error;
+      }
+      // Deleted by another process.
+      if (!row) this.live.forget(id, true);
+      else this.live.written(session, placed(row));
     });
   }
 
   /** Keeps a session's row of the register up to date: one once it has a verdict, none before. */
-  private async indexDecision(id: string, placement: Placement, row: ReturnType<typeof decisionRow>) {
+  private async indexDecision(db: Queryable, id: string, placement: Placement, row: ReturnType<typeof decisionRow>) {
     if (!row) {
-      await this.db.query("DELETE FROM decisions WHERE session_id = $1", [id]);
+      await db.query("DELETE FROM decisions WHERE session_id = $1", [id]);
       return;
     }
-    await this.db.query(
+    await db.query(
       `INSERT INTO decisions (session_id, owner_id, workspace_id, private, status, decided_at, updated_at, review_on, reminded_for, entry)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (session_id) DO UPDATE SET status = excluded.status, decided_at = excluded.decided_at, updated_at = excluded.updated_at,
@@ -141,7 +183,7 @@ export class PostgresSessionStore implements SessionStore {
         row.entry.updatedAt,
         row.reviewOn,
         row.remindedFor,
-        JSON.stringify(row.entry, withoutNul),
+        storedJson(row.entry),
       ],
     );
   }
@@ -186,10 +228,11 @@ export class PostgresSessionStore implements SessionStore {
     );
     let count = 0;
     for (const { id } of rows) {
-      const found = await this.find(id);
+      // Read without being kept in memory: a batch over every completed session.
+      const found = this.live.find(id) ?? (await this.read(id));
       const row = found ? decisionRow(found.session) : null;
       if (!found || !row) continue;
-      await this.serialized(id, () => this.indexDecision(id, found, row));
+      await this.serialized(id, () => this.indexDecision(this.db, id, found, row));
       count++;
     }
     return count;
@@ -231,7 +274,7 @@ export class PostgresSessionStore implements SessionStore {
 
   async delete(id: string, owner: string | null = null): Promise<boolean> {
     if (!(await this.get(id, owner))) return false;
-    this.live.forget(id);
+    this.live.forget(id, true);
     // Its share link and feedback go with it (ON DELETE CASCADE).
     await this.serialized(id, async () => {
       await this.db.query("DELETE FROM sessions WHERE id = $1", [id]);
@@ -250,7 +293,7 @@ export class PostgresSessionStore implements SessionStore {
       const session = normalizeSession(row.data);
       if (!isWorking(session) || options.skip?.(session.id)) continue;
       markInterrupted(session, now);
-      const data = JSON.stringify(session, withoutNul);
+      const data = storedJson(session);
       await this.serialized(session.id, async () => {
         await this.db.query("UPDATE sessions SET data = $1, updated_at = $2 WHERE id = $3", [data, session.updatedAt, session.id]);
       });
@@ -263,19 +306,21 @@ export class PostgresSessionStore implements SessionStore {
   async purgeOlderThan(days: number, now = Date.now()): Promise<number> {
     const cutoff = new Date(now - days * 86_400_000).toISOString();
     const { rows } = await this.db.query<{ id: string }>("DELETE FROM sessions WHERE updated_at < $1 RETURNING id", [cutoff]);
-    for (const { id } of rows) this.live.forget(id);
+    for (const { id } of rows) this.live.forget(id, true);
     return rows.length;
   }
 
   async share(sessionId: string, settings: ShareSettings): Promise<Share> {
     // One link per session: a second call changes it and keeps its token.
     const next = applyShareSettings(await this.storedShareOf(sessionId), settings);
-    const { rows } = await this.db.query(
-      `INSERT INTO shares (token, session_id, public, created_at, mode, expires_at, password_hash) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    const { rows } = await this.refusingOrphans(sessionId, () =>
+      this.db.query(
+        `INSERT INTO shares (token, session_id, public, created_at, mode, expires_at, password_hash) VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (session_id) DO UPDATE
        SET public = excluded.public, mode = excluded.mode, expires_at = excluded.expires_at, password_hash = excluded.password_hash
        RETURNING ${SHARE_COLUMNS.replaceAll("shares.", "")}`,
-      [next.token, sessionId, next.public, next.createdAt, next.mode, next.expiresAt, next.passwordHash],
+        [next.token, sessionId, next.public, next.createdAt, next.mode, next.expiresAt, next.passwordHash],
+      ),
     );
     return publicShare(toShare(rows[0] as Record<string, unknown>));
   }
@@ -315,14 +360,26 @@ export class PostgresSessionStore implements SessionStore {
     return galleryOf(rows.map((row) => ({ token: row.token, session: normalizeSession(row.data) })));
   }
 
+  /** A foreign key that refuses the row of a session that does not exist answers MissingSession, as on SQLite. */
+  private async refusingOrphans<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
+    try {
+      return await work();
+    } catch (error) {
+      if (isMissingSession(error)) throw new MissingSession(sessionId);
+      throw error;
+    }
+  }
+
   async addFeedback(feedback: Feedback): Promise<void> {
-    await this.db.query("INSERT INTO feedback (session_id, helpful, kind, comment, created_at) VALUES ($1, $2, $3, $4, $5)", [
-      feedback.sessionId,
-      feedback.helpful,
-      feedback.kind,
-      feedback.comment.replaceAll("\0", ""),
-      feedback.createdAt,
-    ]);
+    await this.refusingOrphans(feedback.sessionId, () =>
+      this.db.query("INSERT INTO feedback (session_id, helpful, kind, comment, created_at) VALUES ($1, $2, $3, $4, $5)", [
+        feedback.sessionId,
+        feedback.helpful,
+        feedback.kind,
+        storable(feedback.comment),
+        feedback.createdAt,
+      ]),
+    );
   }
 
   async feedbackOf(sessionId: string): Promise<Feedback[]> {
@@ -347,32 +404,34 @@ export class PostgresSessionStore implements SessionStore {
   }
 
   async saveQuestionnaire(q: StoredQuestionnaire): Promise<void> {
-    await this.db.query(
-      `INSERT INTO questionnaires (id, token, session_id, created_at, updated_at, expires_at, password_hash, client, message, questions,
+    await this.refusingOrphans(q.sessionId, () =>
+      this.db.query(
+        `INSERT INTO questionnaires (id, token, session_id, created_at, updated_at, expires_at, password_hash, client, message, questions,
          answers, status, submitted_at, submitted_by, revision, applied_revision)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        ON CONFLICT (id) DO UPDATE SET updated_at = excluded.updated_at, expires_at = excluded.expires_at,
          password_hash = excluded.password_hash, client = excluded.client, message = excluded.message, questions = excluded.questions,
          answers = excluded.answers, status = excluded.status, submitted_at = excluded.submitted_at, submitted_by = excluded.submitted_by,
          revision = excluded.revision, applied_revision = excluded.applied_revision`,
-      [
-        q.id,
-        q.token,
-        q.sessionId,
-        q.createdAt,
-        q.updatedAt,
-        q.expiresAt,
-        q.passwordHash,
-        q.client,
-        q.message,
-        JSON.stringify(q.questions, withoutNul),
-        JSON.stringify(q.answers, withoutNul),
-        q.status,
-        q.submittedAt,
-        q.submittedBy,
-        q.revision,
-        q.appliedRevision,
-      ].map((value) => (typeof value === "string" ? value.replaceAll("\0", "") : value)),
+        [
+          q.id,
+          q.token,
+          q.sessionId,
+          q.createdAt,
+          q.updatedAt,
+          q.expiresAt,
+          q.passwordHash,
+          q.client,
+          q.message,
+          storedJson(q.questions),
+          storedJson(q.answers),
+          q.status,
+          q.submittedAt,
+          q.submittedBy,
+          q.revision,
+          q.appliedRevision,
+        ].map((value) => (typeof value === "string" ? storable(value) : value)),
+      ),
     );
   }
 
@@ -380,7 +439,7 @@ export class PostgresSessionStore implements SessionStore {
     const { rowCount } = await this.db.query(
       `UPDATE questionnaires SET status = 'submitted', answers = $2, submitted_at = $3, submitted_by = $4, updated_at = $3, applied_revision = NULL
        WHERE id = $1 AND status = 'open'`,
-      [id, JSON.stringify(submission.answers, withoutNul), submission.submittedAt, submission.submittedBy],
+      [id, storedJson(submission.answers), submission.submittedAt, submission.submittedBy],
     );
     return rowCount === 1;
   }

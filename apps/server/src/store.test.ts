@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -9,7 +9,7 @@ import { SqliteBrandingStore } from "./branding.ts";
 import { loadMigrations, migrate } from "./postgres/migrate.ts";
 import { pgliteDatabase } from "./postgres/pglite.ts";
 import { migrateSessions, PostgresSessionStore } from "./postgres/store.ts";
-import { SqliteSessionStore } from "./store.ts";
+import { MissingSession, SqliteSessionStore } from "./store.ts";
 import { BACKENDS, type TestStorage, testDatabase } from "./testing.ts";
 
 const mock = { provider: "mock" as const, model: "mock" };
@@ -298,6 +298,92 @@ describe.each(BACKENDS)("the session store on $name", (backend) => {
     ]);
   });
 
+  it("never brings a deleted session back through a late save", async () => {
+    const { store } = storage;
+    const session = newSession("Deleted");
+    await store.save(session, "ada", { workspace: "w1", private: true });
+    expect(await store.delete(session.id, "ada")).toBe(true);
+    // The engine, a reminder or a decision route still holds the object, and saves it.
+    session.idea = "Saved after the delete";
+    await store.save(session);
+    await store.save(structuredClone(session));
+    expect(await store.find(session.id)).toBeNull();
+    expect(await storage.reopen().find(session.id)).toBeNull();
+    expect(await store.decisions({ owner: "ada" })).toEqual([]);
+
+    // Deleted through another store on the same database (another process): the save finds no row to update.
+    const other = newSession("Deleted elsewhere");
+    await store.save(other, "ada");
+    const elsewhere = storage.reopen();
+    expect(await elsewhere.delete(other.id, "ada")).toBe(true);
+    await store.save(other);
+    expect(await storage.reopen().find(other.id)).toBeNull();
+    expect(await store.find(other.id)).toBeNull();
+    await store.save(other);
+    expect(await storage.reopen().find(other.id)).toBeNull();
+  });
+
+  it("stores lone surrogates and NUL characters alike on both databases", async () => {
+    const { store } = storage;
+    const session = newSession("Broken \ud800 pair and a NUL\0 here");
+    session.context = [{ id: "doc", kind: "text", name: "Notes \udc00", text: "a\ud83d\ude00b \ud83d end", truncated: false }];
+    (session as unknown as { extra: Record<string, string> }).extra = { "key \udbff": "value" };
+    await store.save(session, "ada");
+    const read = (await storage.reopen().find(session.id))?.session as Session & { extra?: Record<string, string> };
+    expect(read.idea).toBe("Broken \ufffd pair and a NUL here");
+    expect(read.context[0]).toMatchObject({ name: "Notes \ufffd", text: "a\ud83d\ude00b \ufffd end" });
+    await store.addFeedback({ sessionId: session.id, helpful: true, kind: "rating", comment: "Odd \udfff\0", createdAt: day(1) });
+    expect((await storage.reopen().feedbackOf(session.id))[0]?.comment).toBe("Odd \ufffd");
+  });
+
+  it("forgets a session whose first write failed", async () => {
+    const { store } = storage;
+    const refuse = storage.db
+      ? async () => {
+          await storage.db?.exec(`CREATE FUNCTION refuse() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$;
+            CREATE TRIGGER refuse BEFORE INSERT ON sessions FOR EACH ROW EXECUTE FUNCTION refuse();`);
+          return async () => storage.db?.exec("DROP TRIGGER refuse ON sessions");
+        }
+      : async () => {
+          const db = (store as SqliteSessionStore).db;
+          db.exec("CREATE TRIGGER refuse BEFORE INSERT ON sessions BEGIN SELECT RAISE(ABORT, 'refused'); END");
+          return async () => db.exec("DROP TRIGGER refuse");
+        };
+    const restore = await refuse();
+    const session = newSession("Never written");
+    await expect(store.save(session, "ada")).rejects.toThrow();
+    await restore();
+    expect(await store.find(session.id)).toBeNull();
+  });
+
+  it("refuses a share link, a feedback or a questionnaire for a session that does not exist", async () => {
+    const { store } = storage;
+    await expect(store.share("missing", {})).rejects.toBeInstanceOf(MissingSession);
+    await expect(
+      store.addFeedback({ sessionId: "missing", helpful: null, kind: "rating", comment: "", createdAt: day(1) }),
+    ).rejects.toBeInstanceOf(MissingSession);
+    await expect(
+      store.saveQuestionnaire({
+        id: "q",
+        sessionId: "missing",
+        token: "t",
+        createdAt: day(1),
+        updatedAt: day(1),
+        expiresAt: day(30),
+        passwordHash: null,
+        client: null,
+        message: null,
+        questions: [],
+        answers: [],
+        status: "open",
+        submittedAt: null,
+        submittedBy: null,
+        revision: 1,
+        appliedRevision: null,
+      }),
+    ).rejects.toBeInstanceOf(MissingSession);
+  });
+
   it("keeps a branding per owner", async () => {
     const { brandingStore } = storage;
     expect(await brandingStore.get()).toEqual({ name: null, logoDataUrl: null, accent: null });
@@ -402,6 +488,83 @@ describe("the SQLite schema", () => {
       await store.close();
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("gives the verdicts reached before the decision register their row, once", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "quorumind-schema-"));
+    try {
+      const path = join(dir, "quorumind.db");
+      const session = completed("Ruled before the register", day(2));
+      session.verdict = DEMO_SCRIPT.verdict;
+      // As a server of that time stored it: no revisions, no decisions table, user_version 0.
+      const old = new DatabaseSync(path);
+      old.exec("CREATE TABLE sessions (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL, owner_id TEXT)");
+      const { revisions: _revisions, decision: _decision, ...before } = session;
+      old.prepare("INSERT INTO sessions VALUES (?, ?, ?, ?)").run(session.id, JSON.stringify(before), day(2), "ada");
+      old.close();
+      const store = new SqliteSessionStore(path);
+      try {
+        expect((await store.find(session.id))?.session.revisions.map((revision) => revision.number)).toEqual([1]);
+        expect(await store.indexDecisions()).toBe(1);
+        expect(await store.indexDecisions()).toBe(0);
+        expect((await store.decisions({ owner: "ada" })).map((entry) => entry.sessionId)).toEqual([session.id]);
+      } finally {
+        await store.close();
+      }
+      // Opened again: the backfills do not run twice.
+      const reopened = new SqliteSessionStore(path);
+      try {
+        expect(await reopened.indexDecisions()).toBe(0);
+        expect((await reopened.find(session.id))?.session.revisions).toHaveLength(1);
+      } finally {
+        await reopened.close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the migrations", () => {
+  const folder = (files: Record<string, string>) => {
+    const dir = mkdtempSync(join(tmpdir(), "quorumind-migrations-"));
+    for (const [name, sql] of Object.entries(files)) writeFileSync(join(dir, name), sql);
+    return dir;
+  };
+
+  it("are read in the order of their number, and refused when one is missing or numbered twice", () => {
+    const dirs = [
+      folder({ "0002_second.sql": "SELECT 2;", "0001_first.sql": "SELECT 1;", "README.md": "not a migration" }),
+      folder({ "0001_first.sql": "SELECT 1;", "0003_third.sql": "SELECT 3;" }),
+      folder({ "0001_first.sql": "SELECT 1;", "0001_again.sql": "SELECT 1;" }),
+    ];
+    try {
+      expect(loadMigrations(dirs[0] as string).map(({ version, name }) => ({ version, name }))).toEqual([
+        { version: 1, name: "first" },
+        { version: 2, name: "second" },
+      ]);
+      expect(() => loadMigrations(dirs[1] as string)).toThrow("out of sequence");
+      expect(() => loadMigrations(dirs[2] as string)).toThrow("out of sequence");
+    } finally {
+      for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("apply all of a component's new migrations or none, and keep components apart", async () => {
+    const db = await pgliteDatabase();
+    try {
+      const good = { version: 1, name: "table", sql: "CREATE TABLE extra (id integer)" };
+      const bad = { version: 2, name: "broken", sql: "CREATE TABLE extra_two (id integer); SELECT * FROM nowhere" };
+      await expect(migrate(db, "other", [good, bad])).rejects.toThrow();
+      const { rows } = await db.query("SELECT to_regclass('extra') AS extra");
+      expect(rows[0]).toEqual({ extra: null });
+      expect(await migrate(db, "other", [good])).toEqual([1]);
+      expect(await migrate(db, "other", [good])).toEqual([]);
+      // Another component numbers its own migrations from 1.
+      expect(await migrate(db, "third", [{ version: 1, name: "noop", sql: "SELECT 1" }])).toEqual([1]);
+    } finally {
+      await db.close();
     }
   });
 });
