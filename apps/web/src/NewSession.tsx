@@ -6,7 +6,7 @@ import type { TemplateId } from "@quorumind/core/templates";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
-import { type AppConfig, api, type PriceQuote } from "./api.ts";
+import { type AppConfig, api, MAX_BUDGET_USD, type PriceQuote } from "./api.ts";
 import { CompliancePicker, EuropeanToggle } from "./components/ComplianceOptions.tsx";
 import { ContextPicker } from "./components/ContextPicker.tsx";
 import { ArrowIcon, AuditIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
@@ -388,7 +388,11 @@ export function NewSession() {
     />
   );
 
-  const ready = Boolean(live && idea.trim() && (mode !== "challenge" || solution.trim()) && (mode !== "audit" || audited.length > 0));
+  // European models required with none on the server: the toggle says so, and no debate can start.
+  const europeanBlocked = config?.european?.policy === "required" && !config.european.lineup;
+  const ready = Boolean(
+    live && !europeanBlocked && idea.trim() && (mode !== "challenge" || solution.trim()) && (mode !== "audit" || audited.length > 0),
+  );
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (ready && !importing) start(false);
@@ -554,6 +558,7 @@ export function NewSession() {
                       className="input"
                       type="number"
                       min="0"
+                      max={MAX_BUDGET_USD}
                       step="0.5"
                       inputMode="decimal"
                       placeholder={config.maxBudgetUsd ? formatUsd(config.maxBudgetUsd, i18n.language) : t("home.budgetNone")}

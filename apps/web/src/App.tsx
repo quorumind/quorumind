@@ -80,9 +80,13 @@ function useSessionList(): SessionsState {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [shared, setShared] = useState(false);
   const [mine, setMine] = useState(false);
+  // Only the latest request's answer is shown: switching between Everyone and Mine quickly keeps the last choice.
+  const latest = useRef(0);
   const refresh = useCallback(() => {
+    const request = ++latest.current;
     api.sessions(mine).then(
       (body) => {
+        if (request !== latest.current) return;
         setSessions(body.sessions);
         setShared(body.shared ?? false);
       },
@@ -115,6 +119,15 @@ function useSessionList(): SessionsState {
     [shared, refresh],
   );
   useEffect(refresh, [refresh]);
+  // The other sessions move on too (a debate that finished in another tab): the list is asked again when the tab is
+  // shown again.
+  useEffect(() => {
+    const visible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", visible);
+    return () => document.removeEventListener("visibilitychange", visible);
+  }, [refresh]);
   return { sessions, refresh, upsert, shared, mine, setMine };
 }
 

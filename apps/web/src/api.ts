@@ -29,6 +29,9 @@ export type { Answer, Lineup, PublicQuestionnaire, Questionnaire, Session };
 
 type Estimate = { low: number; high: number } | null;
 
+/** The highest cost cap the server accepts for a session, in US dollars. */
+export const MAX_BUDGET_USD = 1000;
+
 /** The price the host sells a debate at, when it sets one (hosted version). */
 export interface PriceQuote {
   /** In `currency`; 0 when the person's plan covers it. */

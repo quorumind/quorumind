@@ -113,14 +113,17 @@ export function Interview({ session, live, readOnly = false }: { session: Sessio
         </div>
       </div>
 
-      {session.interview.map((entry) =>
+      {/* The interview only grows: an entry's place is its identity (question ids are the model's and can repeat). */}
+      {session.interview.map((entry, index) =>
         entry.kind === "interviewer" ? (
-          <div className="stack" key={`i-${entry.data.status}-${entry.data.questions.map((question) => question.id).join(",")}`}>
+          // biome-ignore lint/suspicious/noArrayIndexKey: append-only entries.
+          <div className="stack" key={`i-${index}`}>
             <InterviewerMessage text={entry.data.speech} />
             {entry === last && waitingForPerson && canAnswer ? <QuestionsForm session={session} turn={entry.data} /> : null}
           </div>
         ) : (
-          <div className="message voice-you" key={`u-${entry.answers.map((answer) => answer.question).join("|")}`}>
+          // biome-ignore lint/suspicious/noArrayIndexKey: append-only entries.
+          <div className="message voice-you" key={`u-${index}`}>
             <div className="message-head">
               <span className="label">{person}</span>
             </div>

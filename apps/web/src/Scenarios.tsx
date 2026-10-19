@@ -66,7 +66,9 @@ export function ScenarioForm({ session, price }: { session: Session; price: Pric
   const current = currentRevision(session);
   const [title, setTitle] = useState("");
   const [question, setQuestion] = useState("");
-  const [basedOn, setBasedOn] = useState<number>(current?.number ?? 1);
+  // Null follows the current revision, which a new revision or an adoption changes.
+  const [picked, setBasedOn] = useState<number | null>(null);
+  const basedOn = picked ?? current?.number ?? 1;
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [next, setNext] = useState(1);
   const [pending, setPending] = useState(false);
@@ -104,6 +106,7 @@ export function ScenarioForm({ session, price }: { session: Session; price: Pric
       setTitle("");
       setQuestion("");
       setDrafts([]);
+      setBasedOn(null);
     } catch (caught) {
       setError(failureText(t, caught));
     } finally {
@@ -426,6 +429,8 @@ export function ComparePanel({ session, initial }: { session: Session; initial?:
   useEffect(() => {
     let live = true;
     setError(null);
+    // The comparison of the versions picked before is not shown under the new ones' names.
+    setComparison(null);
     api.compare(session.id, left, right).then(
       (body) => {
         if (live) setComparison(body.comparison);

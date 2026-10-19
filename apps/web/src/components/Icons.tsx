@@ -221,13 +221,6 @@ export const LocalIcon = () => (
   </Icon>
 );
 
-export const ShieldIcon = () => (
-  <Icon>
-    <path d="M12 3.5l7.5 3v5.5c0 4.5-3.2 7.6-7.5 8.5-4.3-.9-7.5-4-7.5-8.5V6.5z" />
-    <path d="M9 12l2.2 2.2L15.5 10" />
-  </Icon>
-);
-
 export const SparkIcon = () => (
   <Icon>
     <path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4" />
@@ -241,13 +234,6 @@ export const MapIcon = () => (
     <circle cx="8" cy="6.5" r="1.8" fill="currentColor" />
     <circle cx="15" cy="12" r="1.8" fill="currentColor" />
     <circle cx="11" cy="17.5" r="1.8" fill="currentColor" />
-  </Icon>
-);
-
-export const ChatIcon = () => (
-  <Icon>
-    <path d="M4.5 5.5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4.5 3.5V7.5a2 2 0 0 1 2-2" />
-    <path d="M19.5 9.5v8.5l-2.5-2" />
   </Icon>
 );
 

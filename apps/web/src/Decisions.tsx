@@ -1,7 +1,7 @@
 import type { Session } from "@quorumind/core";
 import { DECISION_LIMITS, DECISION_STATUSES, type DecisionStatus, type RegisterEntry, registerEntry } from "@quorumind/core/decisions";
 import type { TFunction } from "i18next";
-import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
+import { type FormEvent, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authorName, useCanEdit } from "./access.tsx";
 import { api, type DecisionAction, type DecisionFilters, type DecisionRow } from "./api.ts";
@@ -66,15 +66,31 @@ function reviewText(entry: RegisterEntry, t: TFunction, language: string): strin
     .join(" · ");
 }
 
+// Whether the server names nobody, asked once for every decision panel of the visit.
+let typedNames: Promise<boolean> | null = null;
+const askTypedNames = () => {
+  typedNames ??= api.config().then(
+    (config) => config.typedNames === true,
+    () => {
+      typedNames = null;
+      return false;
+    },
+  );
+  return typedNames;
+};
+
 /** The name a self-hosted server records for whoever approves: asked once, remembered in this browser. */
 function useTypedName(): [boolean, string, (name: string) => void] {
   const [typed, setTyped] = useState(false);
   const [name, setName] = useState(storedName);
   useEffect(() => {
-    api.config().then(
-      (config) => setTyped(config.typedNames === true),
-      () => undefined,
-    );
+    let live = true;
+    void askTypedNames().then((value) => {
+      if (live) setTyped(value);
+    });
+    return () => {
+      live = false;
+    };
   }, []);
   return [typed, name, setName];
 }
@@ -344,18 +360,25 @@ export function Register() {
   const [shared, setShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
+  useEffect(() => {
+    // Only the answer to the latest filters is shown: a slower one for earlier filters is dropped.
+    let live = true;
     setError(null);
     api.decisions(filters).then(
       (body) => {
+        if (!live) return;
         setRows(body.decisions);
         setAuthors(body.authors);
         setShared(body.shared);
       },
-      (caught: unknown) => setError(failureText(t, caught)),
+      (caught: unknown) => {
+        if (live) setError(failureText(t, caught));
+      },
     );
+    return () => {
+      live = false;
+    };
   }, [filters, t]);
-  useEffect(load, [load]);
 
   const set = (patch: Partial<DecisionFilters>) =>
     setFilters((current) => {

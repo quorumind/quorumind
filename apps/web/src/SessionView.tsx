@@ -4,7 +4,7 @@ import { type KeyboardEvent, useCallback, useContext, useEffect, useState } from
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
 import { AccessContext, AccessLine, FULL_ACCESS } from "./access.tsx";
-import { api, type Feedback, type PriceQuote, type SessionAccess, type Share } from "./api.ts";
+import { api, type Feedback, MAX_BUDGET_USD, type PriceQuote, type SessionAccess, type Share } from "./api.ts";
 import { Costs } from "./Costs.tsx";
 import { RetryIcon } from "./components/Icons.tsx";
 import { Loader, Skeleton } from "./components/Logo.tsx";
@@ -292,6 +292,7 @@ export function SessionBody({
                       className="input"
                       type="number"
                       min="0"
+                      max={MAX_BUDGET_USD}
                       step="0.5"
                       inputMode="decimal"
                       placeholder={session.budgetUsd === null ? "" : formatUsd(session.budgetUsd, i18n.language)}
