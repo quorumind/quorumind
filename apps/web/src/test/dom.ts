@@ -12,6 +12,13 @@ afterEach(() => {
   window.location.hash = "";
 });
 
+/**
+ * How long to wait for a page that App.tsx loads lazily (a shared session, the settings…): its module is compiled on
+ * first import in the test's worker, which takes seconds when every test file runs at once on a busy machine, past
+ * Testing Library's default of one second.
+ */
+export const PAGE_TIMEOUT = 10_000;
+
 /** The EventSources the page opened, to send them the session's events. */
 export class FakeEventSource {
   static opened: FakeEventSource[] = [];

@@ -4,7 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App.tsx";
 import { useCanEdit } from "./access.tsx";
-import { json, stubApi } from "./test/dom.ts";
+import { json, PAGE_TIMEOUT, stubApi } from "./test/dom.ts";
 import { demoSession } from "./test/sessions.ts";
 
 function Probe() {
@@ -22,7 +22,7 @@ describe("access to a session", () => {
     stubApi({ "GET /api/shared/tok": () => json({ share: { mode: "full" }, session }) });
     window.location.hash = "#/shared/tok";
     render(<App />);
-    await screen.findAllByText(session.idea);
+    await screen.findAllByText(session.idea, {}, { timeout: PAGE_TIMEOUT });
     expect(screen.queryByRole("button", { name: "Send answers" })).toBeNull();
     expect(document.querySelectorAll("textarea")).toHaveLength(0);
     // The visitor is not "You": the session's author wrote the idea.
@@ -36,7 +36,7 @@ describe("access to a session", () => {
     stubApi({ "GET /api/shared/tok": () => json({ share: { mode: "full" }, session }) });
     window.location.hash = "#/shared/tok";
     render(<App />);
-    await screen.findByRole("tablist");
+    await screen.findByRole("tablist", {}, { timeout: PAGE_TIMEOUT });
     expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
     expect(document.querySelectorAll("textarea")).toHaveLength(0);
   });
@@ -46,7 +46,7 @@ describe("access to a session", () => {
     const { calls } = stubApi({ "GET /api/shared/tok": () => json({ share: { mode: "full" }, session }) });
     window.location.hash = "#/shared/tok";
     render(<App />);
-    await screen.findByText("You are reading a shared session. It cannot be changed.");
+    await screen.findByText("You are reading a shared session. It cannot be changed.", {}, { timeout: PAGE_TIMEOUT });
     expect(screen.queryByRole("link", { name: "New session" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Sessions" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Share/ })).toBeNull();

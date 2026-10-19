@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { App } from "./App.tsx";
 import { AccessContext, FULL_ACCESS } from "./access.tsx";
 import { Debate } from "./Debate.tsx";
-import { json, stubApi } from "./test/dom.ts";
+import { json, PAGE_TIMEOUT, stubApi } from "./test/dom.ts";
 import { demoSession } from "./test/sessions.ts";
 
 const shell = {
@@ -27,7 +27,7 @@ describe("navigation", () => {
       window.location.hash = "#/settings";
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
-    const heading = await screen.findByRole("heading", { level: 1, name: "Settings" });
+    const heading = await screen.findByRole("heading", { level: 1, name: "Settings" }, { timeout: PAGE_TIMEOUT });
     await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(document.title).toBe("Settings · Quorumind");
   });
