@@ -663,6 +663,7 @@
     "provider_quota": "模型提供商的账户已无余额。",
     "provider_rate_limit": "模型提供商目前正在限制请求。请等待一分钟后重试。",
     "provider_unavailable": "无法连接模型提供商，或其负载过高，或此服务器未配置它。请稍后重试；如果仍然失败，请检查服务器的 API 密钥。",
+    "provider_hosted": "由于我们这边的原因，AI 服务暂时不可用。请稍后重试。",
     "provider_refused": "模型拒绝回答此请求。请改写其中的敏感部分，或选择其他模型。",
     "insufficient_credits": "您的额度已用完。请购买额度或订阅套餐以继续。",
     "plan_limit": "您的套餐不允许此操作。请选择其他设置或其他套餐。",

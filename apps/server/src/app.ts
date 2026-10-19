@@ -44,6 +44,7 @@ import {
   renderReport,
   researchSettingsFromEnv,
   type Session,
+  type SessionError,
   searchFromEnv,
   searchKindFromEnv,
   sessionAtRevision,
@@ -293,6 +294,15 @@ const MAX_USERS = 10_000;
 /** How often visits to a client link may try again to write its missing client brief. */
 const BRIEF_RETRY_MS = 15 * 60_000;
 
+/** The provider failures only the server's operator can fix, with what to look at: logged when a session hits one. */
+const OPERATOR_FAILURES: Partial<Record<string, string>> = {
+  provider_quota: "the provider account has no credit left or reached its spending limit.",
+  provider_auth: "the provider rejected the API key.",
+};
+
+/** A burst of sessions failing the same way logs one line per code and provider in this time. */
+const OPERATOR_LOG_MS = 5 * 60_000;
+
 /** Request bodies are capped at 512 KB, except session creation, which carries the attached documents. */
 export const BODY_LIMITS = { api: 512 * 1024, session: 4 * 1024 * 1024 } as const;
 
@@ -378,8 +388,8 @@ function publicView(session: Session): Session {
     context: session.context.map(({ source: _source, ...doc }) => ({ ...doc, text: "" })),
     usage: [],
     budgetUsd: null,
-    ...withoutResearchCosts(session),
-    error: session.error ? { code: session.error.code, message: "" } : null,
+    ...withoutResearchCosts(session, codeOnly),
+    error: codeOnly(session.error),
     notify: false,
     profile: session.profile
       ? {
@@ -395,7 +405,7 @@ function publicView(session: Session): Session {
       ? {
           ...session.revising,
           by: null,
-          error: session.revising.error ? { code: session.revising.error.code, message: "" } : null,
+          error: codeOnly(session.revising.error),
         }
       : null,
     decision: decision
@@ -420,26 +430,52 @@ const ShareInput = z.object({
 });
 const AccessInput = z.object({ password: z.string().max(SHARE_PASSWORD.max) });
 
-/** The web research without its cost cap, and without a failure message that names it in dollars. */
-function withoutResearchCosts(session: Session): Pick<Session, "webResearch" | "research"> {
+/** A failure without its message nor its parameters: the code explains it. */
+function codeOnly(error: SessionError | null): SessionError | null {
+  return error ? { code: error.code, message: "" } : null;
+}
+
+/**
+ * A failure as sent to someone who must not see what the providers charge nor what they say. A cost cap reached is
+ * named in dollars by its message and parameters: the code alone explains it. A provider's failure carries the
+ * provider's own words (an account's dashboard URL, a key's limits): only its code, provider and model are kept.
+ */
+function hostedError(error: SessionError | null): SessionError | null {
+  if (!error) return null;
+  if (error.code === "budget_exceeded") return codeOnly(error);
+  if (!error.code.startsWith("provider_")) return error;
+  const { provider, model } = error.params ?? {};
+  const params = { ...(provider === undefined ? {} : { provider }), ...(model === undefined ? {} : { model }) };
+  return { code: error.code, message: "", ...(Object.keys(params).length > 0 ? { params } : {}) };
+}
+
+/** The web research without its cost cap, and its failure as `scrub` leaves it. */
+function withoutResearchCosts(
+  session: Session,
+  scrub: (error: SessionError | null) => SessionError | null,
+): Pick<Session, "webResearch" | "research"> {
   const { research } = session;
   return {
     webResearch: session.webResearch ? { ...session.webResearch, budgetUsd: null } : null,
-    research: research?.error?.code === "budget_exceeded" ? { ...research, error: { code: research.error.code, message: "" } } : research,
+    research: research?.error ? { ...research, error: scrub(research.error) } : research,
   };
 }
 
-/** A session as sent to someone who must not see what the providers charge (AppHooks.hideProviderCosts). */
+/** A session as sent to someone who must not see what the providers charge nor say (AppHooks.hideProviderCosts). */
 function withoutProviderCosts(session: Session): Session {
   return {
     ...session,
     budgetUsd: null,
-    ...withoutResearchCosts(session),
+    ...withoutResearchCosts(session, hostedError),
     usage: session.usage.map((record) => ({ ...record, costUsd: null })),
-    // The engine's message and parameters name the cap in dollars; the error code is enough to explain it.
-    error: session.error?.code === "budget_exceeded" ? { code: session.error.code, message: "" } : session.error,
+    error: hostedError(session.error),
+    revising: session.revising ? { ...session.revising, error: hostedError(session.revising.error) } : null,
   };
 }
+
+/** The failures a session records: its own, its revision's and its web research's. */
+const failuresOf = (session: Session): SessionError[] =>
+  [session.error, session.revising?.error ?? null, session.research?.error ?? null].filter((error) => error !== null);
 
 /** The lowest of the cost caps that apply, or null when none does. */
 function lowestCap(...caps: (number | null | undefined)[]): number | null {
@@ -673,6 +709,28 @@ export function createApp(deps: AppDeps) {
     void writeClientBrief(session);
   };
 
+  /** When a failure the operator must fix was last logged, by code and provider. */
+  const operatorLogged = new Map<string, number>();
+  /**
+   * Logs the provider failures the operator must fix (no credit left, a key refused) that a step of the session has
+   * just recorded, `known` being those recorded before it: one line per code and provider every few minutes, however
+   * many sessions fail the same way. The line names the session, the provider and the model, never the provider's own
+   * message, which may hold the account's dashboard URL.
+   */
+  const logOperatorFailures = (session: Session, known: Set<SessionError>) => {
+    for (const failure of failuresOf(session)) {
+      const why = OPERATOR_FAILURES[failure.code];
+      if (!why || known.has(failure)) continue;
+      const provider = String(failure.params?.provider ?? "unknown");
+      const key = `${failure.code} ${provider}`;
+      const now = Date.now();
+      if ((operatorLogged.get(key) ?? Number.NEGATIVE_INFINITY) > now - OPERATOR_LOG_MS) continue;
+      operatorLogged.set(key, now);
+      const model = String(failure.params?.model ?? "unknown");
+      console.error(`Session ${session.id} failed with ${failure.code} (provider ${provider}, model ${model}): ${why}`);
+    }
+  };
+
   // Long operations run in the background; the client follows them through the event stream. Each one can be
   // stopped (POST /stop), which cancels the model calls in flight. The worker takes the action's claim over and
   // releases it when its work ends.
@@ -681,6 +739,7 @@ export function createApp(deps: AppDeps) {
     // Built before the hand-over: a provider that cannot be set up fails the request, and its claim is released.
     const engine = engineFor(session, held.controller.signal);
     held.background = true;
+    const known = new Set(failuresOf(session));
     void Promise.resolve()
       .then(() => work(engine))
       .then(async () => {
@@ -692,7 +751,10 @@ export function createApp(deps: AppDeps) {
         if (session.phase === "complete" && (await store.shareOf(session.id))?.mode === "client") await clientBrief(session, held);
       })
       .catch((error) => console.error(`Session ${session.id} failed:`, error))
-      .finally(() => held.release());
+      .finally(() => {
+        logOperatorFailures(session, known);
+        held.release();
+      });
   };
 
   const app = new Hono<{ Variables: { user: User | null } }>();
@@ -1364,7 +1426,9 @@ export function createApp(deps: AppDeps) {
     if (error instanceof PaymentRequired) return c.json({ error: error.code, message: error.message }, 402);
     if (error instanceof ProviderUnavailable) {
       console.error(error.cause);
-      return c.json({ error: "provider_unavailable", message: error.message }, 503);
+      // The SDK's own words name the server's configuration: a hosted service keeps them in its logs.
+      const message = hooks.hideProviderCosts ? "A model of this session cannot be reached from this server." : error.message;
+      return c.json({ error: "provider_unavailable", message }, 503);
     }
     if (error instanceof ShareRefused) return c.json({ error: error.code, message: error.message }, error.status);
     if (error instanceof z.ZodError) return c.json(invalidRequest(error), 400);

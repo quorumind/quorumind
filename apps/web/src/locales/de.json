@@ -663,6 +663,7 @@
     "provider_quota": "Das Konto beim Modellanbieter hat kein Guthaben mehr.",
     "provider_rate_limit": "Der Modellanbieter begrenzt gerade die Anfragen. Warten Sie eine Minute und versuchen Sie es dann erneut.",
     "provider_unavailable": "Der Modellanbieter ist nicht erreichbar, überlastet oder auf diesem Server nicht eingerichtet. Versuchen Sie es gleich noch einmal, und prüfen Sie die API-Schlüssel des Servers, falls der Fehler bleibt.",
+    "provider_hosted": "Der KI-Dienst ist auf unserer Seite gerade nicht verfügbar. Versuchen Sie es in einer Weile erneut.",
     "provider_refused": "Das Modell hat die Antwort auf diese Anfrage verweigert. Formulieren Sie den heiklen Teil um oder wählen Sie ein anderes Modell.",
     "insufficient_credits": "Sie haben kein Guthaben mehr. Kaufen Sie Guthaben oder schließen Sie einen Tarif ab, um fortzufahren.",
     "plan_limit": "Ihr Tarif erlaubt das nicht. Wählen Sie andere Einstellungen oder einen anderen Tarif.",

@@ -32,6 +32,18 @@ describe("error messages", () => {
     expect(failureText(t, new ApiError(402, "provider_quota", "English"))).toBe(t("errors.provider_quota"));
   });
 
+  it("tells a hosted service's customers that a provider failure only the host can fix is on its side", () => {
+    for (const code of ["provider_auth", "provider_quota", "provider_unavailable"]) {
+      const error = { code, message: "", params: { provider: "openrouter", model: "anthropic/claude-opus-5.5" } };
+      expect(sessionErrorText(t, error, false, "en")).toBe(t("errors.provider_hosted"));
+      // Self-hosted, the person runs the server: the key or the account to check.
+      expect(sessionErrorText(t, error, true, "en")).toBe(t(`errors.${code}`));
+    }
+    expect(t("errors.provider_hosted")).not.toMatch(/key|credit|account/i);
+    // A failure the customer can act on keeps its own explanation.
+    expect(sessionErrorText(t, { code: "provider_refused", message: "" }, false, "en")).toBe(t("errors.provider_refused"));
+  });
+
   it("explains a revision stopped because the verdict changed meanwhile", () => {
     const error = { code: "verdict_changed", message: "The decision changed while this revision was being made." };
     expect(sessionErrorText(t, error, true, "en")).toBe(t("errors.verdict_changed"));

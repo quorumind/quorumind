@@ -663,6 +663,7 @@
     "provider_quota": "The model provider's account has no credit left.",
     "provider_rate_limit": "The model provider is limiting requests right now. Wait a minute, then retry.",
     "provider_unavailable": "The model provider cannot be reached, is overloaded, or is not set up on this server. Retry in a moment, and if it keeps failing, check the server's API keys.",
+    "provider_hosted": "The AI service is unavailable on our side for now. Try again in a little while.",
     "provider_refused": "The model declined to answer this request. Rephrase the sensitive part, or choose another model.",
     "insufficient_credits": "You have no credits left. Buy credits or subscribe to a plan to continue.",
     "plan_limit": "Your plan does not allow this. Choose other settings or another plan.",

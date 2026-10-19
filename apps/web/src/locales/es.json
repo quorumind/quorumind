@@ -663,6 +663,7 @@
     "provider_quota": "La cuenta del proveedor del modelo no tiene saldo.",
     "provider_rate_limit": "El proveedor del modelo está limitando las solicitudes en este momento. Espere un minuto y vuelva a intentarlo.",
     "provider_unavailable": "No se puede contactar con el proveedor del modelo, está saturado o no está configurado en este servidor. Vuelva a intentarlo en un momento y, si el error continúa, revise las claves API del servidor.",
+    "provider_hosted": "El servicio de IA no está disponible por un problema de nuestra parte. Vuelva a intentarlo dentro de un rato.",
     "provider_refused": "El modelo se ha negado a responder a esta solicitud. Reformule la parte delicada o elija otro modelo.",
     "insufficient_credits": "No le quedan créditos. Compre créditos o suscríbase a un plan para continuar.",
     "plan_limit": "Su plan no lo permite. Elija otros ajustes u otro plan.",

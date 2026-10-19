@@ -663,6 +663,7 @@
     "provider_quota": "Le compte du fournisseur du modèle n'a plus de crédit.",
     "provider_rate_limit": "Le fournisseur du modèle limite les requêtes en ce moment. Patientez une minute, puis réessayez.",
     "provider_unavailable": "Le fournisseur du modèle est injoignable, surchargé ou pas configuré sur ce serveur. Réessayez dans un instant et, si l'erreur persiste, vérifiez les clés API du serveur.",
+    "provider_hosted": "Le service d'IA est indisponible de notre côté pour le moment. Réessayez un peu plus tard.",
     "provider_refused": "Le modèle a refusé de répondre à cette demande. Reformulez la partie sensible, ou choisissez un autre modèle.",
     "insufficient_credits": "Vous n'avez plus de crédits. Achetez des crédits ou souscrivez un forfait pour continuer.",
     "plan_limit": "Votre forfait ne le permet pas. Choisissez d'autres paramètres ou un autre forfait.",

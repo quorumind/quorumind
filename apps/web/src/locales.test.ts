@@ -44,6 +44,7 @@ const ERROR_CODES = [
   "provider_quota",
   "provider_rate_limit",
   "provider_unavailable",
+  "provider_hosted",
   "provider_refused",
   "stopped",
   "not_running",

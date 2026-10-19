@@ -663,6 +663,7 @@
     "provider_quota": "L'account del fornitore del modello non ha più credito.",
     "provider_rate_limit": "Il fornitore del modello sta limitando le richieste in questo momento. Attendi un minuto, poi riprova.",
     "provider_unavailable": "Il fornitore del modello non è raggiungibile, è sovraccarico o non è configurato su questo server. Riprova tra poco e, se l'errore persiste, controlla le chiavi API del server.",
+    "provider_hosted": "Il servizio di IA al momento non è disponibile per un problema da parte nostra. Riprova tra un po'.",
     "provider_refused": "Il modello si è rifiutato di rispondere a questa richiesta. Riformula la parte delicata o scegli un altro modello.",
     "insufficient_credits": "Non hai più crediti. Acquista crediti o abbonati a un piano per continuare.",
     "plan_limit": "Il tuo piano non lo consente. Scegli altre impostazioni o un altro piano.",

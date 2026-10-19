@@ -18,13 +18,18 @@ export function failureText(t: TFunction, caught: unknown): string {
   return t("error.request");
 }
 
+/** The failures of a model provider that only the server's operator can fix: its account, its keys, its access. */
+const OPERATOR_SIDE = new Set(["provider_auth", "provider_quota", "provider_unavailable"]);
+
 /**
  * Why a session stopped. A host that keeps provider costs to itself sells each debate with a cost cap of its own:
- * reaching it is explained as the price's limit, never as dollars.
+ * reaching it is explained as the price's limit, never as dollars. Its customers have no key nor provider account to
+ * check: a provider failure only the host can fix is explained as the service's own.
  */
 export function sessionErrorText(t: TFunction, error: SessionError | null, providerCosts: boolean, language: string): string {
   if (!error) return t("errors.internal_error");
   if (error.code === "budget_exceeded" && !providerCosts) return t("errors.price_limit");
+  if (OPERATOR_SIDE.has(error.code) && !providerCosts) return t("errors.provider_hosted");
   const params: Record<string, unknown> = { ...error.params };
   for (const [key, value] of Object.entries(params)) {
     if (key.endsWith("Usd") && typeof value === "number") params[key] = formatUsd(value, language);
