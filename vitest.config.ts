@@ -5,5 +5,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["packages/**/*.test.ts", "apps/**/*.test.ts", "apps/**/*.test.tsx"],
+    // The API tests take whole debates through the routes, on SQLite and on PostgreSQL (PGlite, compiled to
+    // WebAssembly): a second or two each alone, several times that when every test file runs at once on a busy machine.
+    testTimeout: 30_000,
   },
 });
