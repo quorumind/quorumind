@@ -155,6 +155,7 @@
     "revisions": "第 {{round}} 轮：修订",
     "verdict": "结论",
     "writing": "正在输入…",
+    "writingNow": "正在撰写：{{names}}",
     "showDetails": "查看详情",
     "hideDetails": "收起详情",
     "architecture": "架构",

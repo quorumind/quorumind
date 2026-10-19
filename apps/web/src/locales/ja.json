@@ -155,6 +155,7 @@
     "revisions": "ラウンド {{round}}：修正",
     "verdict": "判定",
     "writing": "入力中…",
+    "writingNow": "執筆中：{{names}}",
     "showDetails": "詳細を表示",
     "hideDetails": "詳細を隠す",
     "architecture": "アーキテクチャ",

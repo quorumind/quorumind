@@ -1,18 +1,25 @@
 import { DEFAULT_LOCALE, isLocale, LOCALES, type Locale, localeInfo } from "@quorumind/core/locales";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import ar from "./locales/ar.json";
-import de from "./locales/de.json";
 import en from "./locales/en.json";
-import es from "./locales/es.json";
-import fr from "./locales/fr.json";
-import hi from "./locales/hi.json";
-import it from "./locales/it.json";
-import ja from "./locales/ja.json";
-import pt from "./locales/pt.json";
-import zhHans from "./locales/zh-Hans.json";
 
 const STORAGE_KEY = "quorumind.locale";
+
+type Translations = typeof en;
+
+// English is bundled, as the fallback of every missing key; each other language is a file of its own, loaded when
+// it is used.
+const LOADERS: Record<Exclude<Locale, "en">, () => Promise<{ default: Translations }>> = {
+  fr: () => import("./locales/fr.json"),
+  es: () => import("./locales/es.json"),
+  pt: () => import("./locales/pt.json"),
+  it: () => import("./locales/it.json"),
+  de: () => import("./locales/de.json"),
+  hi: () => import("./locales/hi.json"),
+  ja: () => import("./locales/ja.json"),
+  "zh-Hans": () => import("./locales/zh-Hans.json"),
+  ar: () => import("./locales/ar.json"),
+};
 
 function initialLocale(): Locale {
   try {
@@ -38,10 +45,28 @@ const SCRIPT_FONTS: Partial<Record<Locale, () => Promise<unknown>>> = {
   "zh-Hans": () => Promise.all([import("@fontsource/noto-sans-sc/400.css"), import("@fontsource/noto-sans-sc/600.css")]),
 };
 
+/** The document's language, direction and fonts. */
 export function applyLocale(locale: Locale) {
   SCRIPT_FONTS[locale]?.().catch(() => undefined);
   document.documentElement.lang = locale;
   document.documentElement.dir = localeInfo(locale).dir;
+}
+
+/** Loads the translations of a language once; English is always there. */
+export async function loadLocale(locale: Locale): Promise<void> {
+  if (locale === "en" || i18n.hasResourceBundle(locale, "translation")) return;
+  const { default: translations } = await LOADERS[locale]();
+  i18n.addResourceBundle(locale, "translation", translations);
+}
+
+/**
+ * Shows the interface in another language. `remember` keeps the choice for the next visits: the person's own choice
+ * does, the language a client's questionnaire is written in does not.
+ */
+export async function switchLanguage(locale: Locale, remember: boolean): Promise<void> {
+  await loadLocale(locale);
+  await i18n.changeLanguage(locale);
+  if (!remember) return;
   try {
     localStorage.setItem(STORAGE_KEY, locale);
   } catch {
@@ -52,27 +77,18 @@ export function applyLocale(locale: Locale) {
 const locale = initialLocale();
 
 i18n.use(initReactI18next).init({
-  resources: {
-    en: { translation: en },
-    fr: { translation: fr },
-    es: { translation: es },
-    pt: { translation: pt },
-    it: { translation: it },
-    de: { translation: de },
-    hi: { translation: hi },
-    ja: { translation: ja },
-    "zh-Hans": { translation: zhHans },
-    ar: { translation: ar },
-  },
-  lng: locale,
+  resources: { en: { translation: en } },
+  lng: "en",
   fallbackLng: "en",
   interpolation: { escapeValue: false },
 });
-
-applyLocale(locale);
+applyLocale("en");
 i18n.on("languageChanged", (next) => {
   if (isLocale(next)) applyLocale(next);
 });
+
+/** Resolves once the interface can be shown in the person's language (English when it cannot be loaded). */
+export const ready: Promise<void> = locale === "en" ? Promise.resolve() : switchLanguage(locale, false).catch(() => undefined);
 
 export { LOCALES };
 export default i18n;

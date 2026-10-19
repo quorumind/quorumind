@@ -155,6 +155,7 @@
     "revisions": "الجولة {{round}}: المراجعات",
     "verdict": "الحكم",
     "writing": "يكتب…",
+    "writingNow": "يكتب الآن: {{names}}",
     "showDetails": "اعرض التفاصيل",
     "hideDetails": "أخفِ التفاصيل",
     "architecture": "البنية",

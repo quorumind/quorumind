@@ -155,6 +155,7 @@
     "revisions": "Tour {{round}} : révisions",
     "verdict": "Verdict",
     "writing": "écrit…",
+    "writingNow": "En train d'écrire : {{names}}",
     "showDetails": "Voir le détail",
     "hideDetails": "Masquer le détail",
     "architecture": "Architecture",

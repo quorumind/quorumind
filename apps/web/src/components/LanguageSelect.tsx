@@ -1,6 +1,6 @@
 import { isLocale } from "@quorumind/core/locales";
 import { useTranslation } from "react-i18next";
-import { LOCALES } from "../i18n.ts";
+import { LOCALES, switchLanguage } from "../i18n.ts";
 
 /** The language of the interface, each one named in itself. */
 export function LanguageSelect({ id }: { id: string }) {
@@ -15,7 +15,7 @@ export function LanguageSelect({ id }: { id: string }) {
         className="select"
         value={i18n.language}
         onChange={(event) => {
-          if (isLocale(event.target.value)) void i18n.changeLanguage(event.target.value);
+          if (isLocale(event.target.value)) void switchLanguage(event.target.value, true);
         }}
       >
         {LOCALES.map((locale) => (

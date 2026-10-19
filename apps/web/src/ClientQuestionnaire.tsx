@@ -8,6 +8,7 @@ import { CheckIcon, DownloadIcon } from "./components/Icons.tsx";
 import { Loader } from "./components/Logo.tsx";
 import { blend, isHexColor, readableOn, textOn } from "./contrast.ts";
 import { errorText, failureText } from "./errors.ts";
+import { switchLanguage } from "./i18n.ts";
 
 // The page a client opens from a questionnaire link: no account, the agency's branding, the session's language, one
 // field per answer and an optional comment, sent once. Outside the app's shell: the client sees nothing else.
@@ -69,11 +70,22 @@ export function ClientQuestionnaire({ token }: { token: string }) {
     | { kind: "refused"; code: string }
   >({ kind: "loading" });
 
+  // The page is shown in the questionnaire's language for this visit only, never remembered: an agency member who
+  // checks a client's link gets their own language back on leaving it.
+  useEffect(() => {
+    const own = i18n.language;
+    return () => {
+      if (isLocale(own) && i18n.language !== own) void switchLanguage(own, false).catch(() => undefined);
+    };
+  }, [i18n]);
+
   useEffect(() => {
     api.questionnaire(token, access).then(
       ({ questionnaire, branding }) => {
         // The questions are in the session's language: the page follows it.
-        if (isLocale(questionnaire.locale) && i18n.language !== questionnaire.locale) void i18n.changeLanguage(questionnaire.locale);
+        if (isLocale(questionnaire.locale) && i18n.language !== questionnaire.locale) {
+          void switchLanguage(questionnaire.locale, false).catch(() => undefined);
+        }
         setState({ kind: "open", questionnaire, branding });
       },
       (caught) => {

@@ -155,6 +155,7 @@
     "revisions": "दौर {{round}}: संशोधन",
     "verdict": "निर्णय",
     "writing": "लिख रहा है…",
+    "writingNow": "अभी लिख रहे हैं: {{names}}",
     "showDetails": "विवरण देखें",
     "hideDetails": "विवरण छिपाएँ",
     "architecture": "आर्किटेक्चर",

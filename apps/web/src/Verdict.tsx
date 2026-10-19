@@ -3,7 +3,7 @@ import { auditDeliverable } from "@quorumind/core/audit-report";
 import { deliveryChecks, proposalCosting } from "@quorumind/core/costing";
 import { rankOptions } from "@quorumind/core/ranking";
 import { currentProposals, currentRevision, sessionAtRevision } from "@quorumind/core/session";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AuditView, auditHeadline } from "./Audit.tsx";
 import { useCanEdit } from "./access.tsx";
@@ -444,7 +444,8 @@ function FeedbackBox({ session, feedback }: { session: Session; feedback: Feedba
   );
 }
 
-export function Verdict({
+/** The verdict tab. It changes with the session, never with the text being streamed elsewhere on the page. */
+export const Verdict = memo(function Verdict({
   session: live,
   readOnly = false,
   feedback = [],
@@ -642,4 +643,4 @@ export function Verdict({
       {readOnly ? null : <FeedbackBox session={session} feedback={feedback} />}
     </div>
   );
-}
+});

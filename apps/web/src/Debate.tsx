@@ -2,7 +2,7 @@ import type { CritiqueRound, DebateEntry, Probe, Proposal, Revision, Session } f
 import { proposalCosting } from "@quorumind/core/costing";
 import { PERSONA_IDS } from "@quorumind/core/templates";
 import type { TFunction } from "i18next";
-import { type FormEvent, type ReactNode, useContext, useState } from "react";
+import { type FormEvent, memo, type ReactNode, useContext, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DocumentRead } from "./Audit.tsx";
 import { AccessContext, useCanEdit } from "./access.tsx";
@@ -310,24 +310,8 @@ function dividerFor(entry: DebateEntry, t: TFunction): string | null {
   }
 }
 
-export function Debate({ session, live, readOnly = false }: { session: Session; live: LiveSpeech; readOnly?: boolean }) {
-  const { t } = useTranslation();
-  const canEdit = useCanEdit() && !readOnly;
-  const access = useContext(AccessContext);
-  const items: ReactNode[] = [];
-  let lastDivider: string | null = null;
-  const pushDivider = (label: string | null) => {
-    if (label && label !== lastDivider) {
-      items.push(
-        <div className="phase-divider label" key={`d-${items.length}`}>
-          {label}
-        </div>,
-      );
-      lastDivider = label;
-    }
-  };
-
-  // Proposals, critiques and revisions of one step arrive in parallel; show each step in seat order.
+/** The entries of the debate, each step's parallel arrivals in seat order: proposals, critiques, revisions. */
+function orderEntries(debate: DebateEntry[]): DebateEntry[] {
   const ordered: DebateEntry[] = [];
   let group: DebateEntry[] = [];
   const stepOf = (entry: DebateEntry) => ("seat" in entry ? `${entry.kind}:${entry.round}` : null);
@@ -336,25 +320,71 @@ export function Debate({ session, live, readOnly = false }: { session: Session; 
     ordered.push(...group);
     group = [];
   };
-  for (const entry of session.debate) {
+  for (const entry of debate) {
     const step = stepOf(entry);
     if (step === null || (group[0] && stepOf(group[0]) !== step)) flush();
     if (step === null) ordered.push(entry);
     else group.push(entry);
   }
   flush();
+  return ordered;
+}
+
+/** The label of the last step the transcript shows, after which what is being written follows. */
+function lastDivider(session: Session, ordered: DebateEntry[], t: TFunction): string | null {
+  for (let index = ordered.length - 1; index >= 0; index--) {
+    const label = dividerFor(ordered[index] as DebateEntry, t);
+    if (label) return label;
+  }
+  return session.research ? t("debate.research") : null;
+}
+
+/**
+ * What was said, as the session records it. It changes with the session, not with each streamed token: the text
+ * being written is shown below it, apart.
+ */
+const Transcript = memo(function Transcript({
+  session,
+  ordered,
+  canAnswer,
+  mine,
+  searching,
+}: {
+  session: Session;
+  ordered: DebateEntry[];
+  canAnswer: boolean;
+  mine: boolean;
+  searching: boolean;
+}) {
+  const { t } = useTranslation();
+  const items: ReactNode[] = [];
+  let lastLabel: string | null = null;
+  const pushDivider = (label: string | null) => {
+    if (label && label !== lastLabel) {
+      items.push(
+        <div className="phase-divider label" key={`d-${items.length}`}>
+          {label}
+        </div>,
+      );
+      lastLabel = label;
+    }
+  };
 
   // The web research comes first: it runs before the proposals.
   if (session.research) {
     pushDivider(t("debate.research"));
-    items.push(
-      <ResearchCard key="research" session={session} searching={Object.values(live).some((speech) => speech.task === "search")} />,
-    );
+    items.push(<ResearchCard key="research" session={session} searching={searching} />);
   }
 
   ordered.forEach((entry, index) => {
     pushDivider(dividerFor(entry, t));
-    const key = `e-${index}`;
+    // Keyed by what the entry is, not where it lands: a seat arriving late does not move another's open details.
+    const key =
+      "seat" in entry
+        ? `${entry.kind}-${entry.round}-${entry.seat}`
+        : "round" in entry
+          ? `${entry.kind}-${entry.round}`
+          : `${entry.kind}-${index}`;
     switch (entry.kind) {
       case "proposal":
         items.push(
@@ -383,7 +413,7 @@ export function Debate({ session, live, readOnly = false }: { session: Session; 
         break;
       case "questions": {
         const answered = session.debate.some((other) => other.kind === "answers" && other.round === entry.round);
-        if (!answered && session.phase === "awaiting_answers" && canEdit)
+        if (!answered && session.phase === "awaiting_answers" && canAnswer)
           items.push(<QuestionsCard key={key} session={session} questions={entry.questions} />);
         break;
       }
@@ -391,7 +421,7 @@ export function Debate({ session, live, readOnly = false }: { session: Session; 
         items.push(
           <div className="message voice-you" key={key}>
             <div className="message-head">
-              <span className="label">{access.mine && !readOnly ? t("debate.yourAnswers") : t("debate.answers")}</span>
+              <span className="label">{mine ? t("debate.yourAnswers") : t("debate.answers")}</span>
             </div>
             <div className="bubble">
               {entry.answers.map((answer) => (
@@ -413,7 +443,20 @@ export function Debate({ session, live, readOnly = false }: { session: Session; 
         break;
     }
   });
+  return <>{items}</>;
+});
 
+export function Debate({ session, live, readOnly = false }: { session: Session; live: LiveSpeech; readOnly?: boolean }) {
+  const { t, i18n } = useTranslation();
+  const canAnswer = useCanEdit() && !readOnly;
+  const access = useContext(AccessContext);
+  const ordered = useMemo(() => orderEntries(session.debate), [session.debate]);
+  const searching = Object.values(live).some((speech) => speech.task === "search");
+
+  // What is being written, after the transcript; a step of its own gets its divider.
+  const items: ReactNode[] = [];
+  let lastLabel = lastDivider(session, ordered, t);
+  const writers: string[] = [];
   for (const speech of Object.values(live)) {
     // A revision of the verdict is followed on the verdict tab, not in the transcript of the debate.
     if (speech.task === "interview" || speech.task === "brief" || speech.task === "reassess" || session.revising) continue;
@@ -422,7 +465,7 @@ export function Debate({ session, live, readOnly = false }: { session: Session; 
     const round =
       session.debate.filter((entry) => entry.kind === (speech.task === "critique" ? "critiques" : "revision") && entry.seat === speech.seat)
         .length + 1;
-    pushDivider(
+    const label =
       speech.task === "proposal"
         ? speech.seat === "U"
           ? t("debate.yourSolution")
@@ -435,16 +478,30 @@ export function Debate({ session, live, readOnly = false }: { session: Session; 
               ? t("debate.verdict")
               : speech.task === "critique"
                 ? t("debate.critiques", { round })
-                : t("debate.revisions", { round }),
-    );
+                : t("debate.revisions", { round });
+    if (label !== lastLabel) {
+      items.push(
+        <div className="phase-divider label" key={`live-d-${label}`}>
+          {label}
+        </div>,
+      );
+      lastLabel = label;
+    }
+    writers.push(speech.seat ? seatName(speech.seat, t) : t("role.arbiter"));
     items.push(
       <Message key={`live-${speech.task}-${speech.seat}`} session={session} seat={speech.seat} speech={speech.text || "…"} typing />,
     );
   }
+  const names = writers.length > 0 ? new Intl.ListFormat(i18n.language, { type: "conjunction" }).format([...new Set(writers)]) : "";
 
   return (
     <section className="transcript" aria-label={t("phase.debating")}>
+      <Transcript session={session} ordered={ordered} canAnswer={canAnswer} mine={access.mine && !readOnly} searching={searching} />
       {items}
+      {/* Who is writing, announced when it changes rather than read out token by token. */}
+      <p className="visually-hidden" role="status">
+        {names ? t("debate.writingNow", { names }) : ""}
+      </p>
     </section>
   );
 }

@@ -155,6 +155,7 @@
     "revisions": "Ronda {{round}}: revisiones",
     "verdict": "Veredicto",
     "writing": "escribiendo…",
+    "writingNow": "Escribiendo ahora: {{names}}",
     "showDetails": "Ver detalles",
     "hideDetails": "Ocultar detalles",
     "architecture": "Arquitectura",

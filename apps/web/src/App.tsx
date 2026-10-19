@@ -1,8 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, lazy, type ReactNode, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authorName } from "./access.tsx";
 import { api, type SessionSummary } from "./api.ts";
-import { ClientQuestionnaire } from "./ClientQuestionnaire.tsx";
 import {
   CrossIcon,
   GalleryIcon,
@@ -16,14 +15,23 @@ import {
   SunIcon,
 } from "./components/Icons.tsx";
 import { LanguageSelect } from "./components/LanguageSelect.tsx";
-import { Mark } from "./components/Logo.tsx";
-import { Register } from "./Decisions.tsx";
-import { Gallery } from "./Gallery.tsx";
+import { Loader, Mark } from "./components/Logo.tsx";
 import { NewSession } from "./NewSession.tsx";
-import { SessionView } from "./SessionView.tsx";
-import { Settings } from "./Settings.tsx";
-import { SharedView } from "./SharedView.tsx";
 import { type ThemeChoice, useTheme } from "./theme.ts";
+
+// The home page comes with the app; every other page is loaded when it is first opened. A client opening a
+// questionnaire on a phone downloads that page, not the whole app.
+const SessionView = lazy(() => import("./SessionView.tsx").then((module) => ({ default: module.SessionView })));
+const SharedView = lazy(() => import("./SharedView.tsx").then((module) => ({ default: module.SharedView })));
+const ClientQuestionnaire = lazy(() => import("./ClientQuestionnaire.tsx").then((module) => ({ default: module.ClientQuestionnaire })));
+const Register = lazy(() => import("./Decisions.tsx").then((module) => ({ default: module.Register })));
+const Gallery = lazy(() => import("./Gallery.tsx").then((module) => ({ default: module.Gallery })));
+const Settings = lazy(() => import("./Settings.tsx").then((module) => ({ default: module.Settings })));
+
+function PageLoader({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
+  return <Suspense fallback={<Loader label={t("common.loading")} />}>{children}</Suspense>;
+}
 
 const readRoute = () => window.location.hash.replace(/^#\/?/, "");
 
@@ -198,8 +206,20 @@ export function App() {
   const route = useRoute();
   // A questionnaire link is the client's page alone, and a share link the shared session alone: none of the app
   // around them, whose history lists the sessions of the server.
-  if (route.startsWith("q/")) return <ClientQuestionnaire key={route} token={route.slice(2)} />;
-  if (route.startsWith("shared/")) return <SharedView key={route} token={route.slice(7)} />;
+  if (route.startsWith("q/")) {
+    return (
+      <PageLoader>
+        <ClientQuestionnaire key={route} token={route.slice(2)} />
+      </PageLoader>
+    );
+  }
+  if (route.startsWith("shared/")) {
+    return (
+      <PageLoader>
+        <SharedView key={route} token={route.slice(7)} />
+      </PageLoader>
+    );
+  }
   return <Shell route={route} />;
 }
 
@@ -260,7 +280,9 @@ function Shell({ route }: { route: string }) {
           <Sidebar current={sessionId ?? route} />
         </aside>
         <main className="main">
-          <div className="page">{page}</div>
+          <div className="page">
+            <PageLoader>{page}</PageLoader>
+          </div>
           <footer className="footer">{t("app.footer")}</footer>
         </main>
       </div>

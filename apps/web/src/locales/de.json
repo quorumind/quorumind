@@ -155,6 +155,7 @@
     "revisions": "Runde {{round}}: Überarbeitungen",
     "verdict": "Urteil",
     "writing": "schreibt…",
+    "writingNow": "Schreibt gerade: {{names}}",
     "showDetails": "Details anzeigen",
     "hideDetails": "Details ausblenden",
     "architecture": "Architektur",
