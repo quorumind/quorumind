@@ -90,16 +90,43 @@ function useMenuButton() {
   };
 }
 
+/** The host's pages of the workspace worked in, which its menu opens; the others are the person's, under their card. */
+const WORKSPACE_PAGES: ReadonlySet<HostLinkKind> = new Set(["home", "billing", "members", "profile"]);
+
 /**
- * The current workspace, and a menu to switch to another one or to create one, as a menu button. Another workspace
- * has other sessions, decisions and settings: the page loads again in it.
+ * Where the host's pages go: the workspace's in the workspace's menu, the person's in the person's. Without a
+ * workspace to show (a host without any, or a person in none yet), the person's menu keeps them all.
  */
-export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
+function placeLinks(navigation: HostNavigation) {
+  if (!navigation.workspaces?.list.length) return { workspace: [], account: navigation.links };
+  return {
+    workspace: navigation.links.filter((link) => WORKSPACE_PAGES.has(link.kind)),
+    account: navigation.links.filter((link) => !WORKSPACE_PAGES.has(link.kind)),
+  };
+}
+
+const ICONS: Record<HostLinkKind, () => ReactNode> = {
+  home: HomeIcon,
+  billing: CardIcon,
+  members: UsersIcon,
+  profile: BuildingIcon,
+  account: UserIcon,
+  staff: ShieldIcon,
+};
+
+/**
+ * The current workspace, as a menu button whose menu is the workspace's: the workspace on top, the person's
+ * workspaces to switch to another one, the workspace's pages, then the way to create one. Another workspace has
+ * other sessions, decisions and settings: the page loads again in it.
+ */
+export function WorkspaceSwitch({ navigation }: { navigation: HostNavigation }) {
   const { t } = useTranslation();
   const { open, close, button, menu } = useMenuButton();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const { workspaces } = navigation;
 
+  if (!workspaces) return null;
   if (workspaces.list.length === 0) {
     return (
       <a className="button button-secondary" href={workspaces.createUrl}>
@@ -109,6 +136,7 @@ export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
     );
   }
   const current = workspaces.list.find((workspace) => workspace.current) ?? null;
+  const pages = placeLinks(navigation).workspace;
 
   const pick = (workspace: Workspaces["list"][number]) => {
     close(true);
@@ -143,26 +171,59 @@ export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
       </button>
       {open ? (
         <div {...menu} role="menu" className="workspace-menu" aria-label={t("host.workspace")}>
-          {workspaces.list.map((workspace) => (
-            <button
-              key={workspace.switchUrl}
-              type="button"
-              role="menuitemradio"
-              aria-checked={workspace.current}
-              tabIndex={-1}
-              className="workspace-item"
-              onClick={() => pick(workspace)}
-            >
-              <span className="workspace-avatar" aria-hidden="true">
-                {initial(workspace.name)}
-              </span>
-              <span className="workspace-text">
-                <span className="workspace-name">{workspace.name}</span>
-                <span className="workspace-role">{t(`host.roles.${workspace.role}`)}</span>
-              </span>
-              <span className="workspace-check">{workspace.current ? <CheckIcon /> : null}</span>
-            </button>
-          ))}
+          {/* The workspace worked in, over its button: the checked line says it to a screen reader. */}
+          <div className="workspace-menu-head" aria-hidden="true" onClick={() => close(true)}>
+            <span className="workspace-avatar">{initial(current?.name ?? "")}</span>
+            <span className="workspace-text">
+              <span className="workspace-name">{current?.name ?? t("host.workspace")}</span>
+              {current ? <span className="workspace-role">{t(`host.roles.${current.role}`)}</span> : null}
+            </span>
+            <ChevronsIcon />
+          </div>
+          {/* A long list scrolls on its own, the workspace's pages staying in sight. */}
+          <div className="workspace-list" role="none">
+            {workspaces.list.map((workspace) => (
+              <button
+                key={workspace.switchUrl}
+                type="button"
+                role="menuitemradio"
+                aria-checked={workspace.current}
+                tabIndex={-1}
+                className="workspace-item"
+                onClick={() => pick(workspace)}
+              >
+                <span className="workspace-avatar" aria-hidden="true">
+                  {initial(workspace.name)}
+                </span>
+                <span className="workspace-text">
+                  <span className="workspace-name">{workspace.name}</span>
+                  <span className="workspace-role">{t(`host.roles.${workspace.role}`)}</span>
+                </span>
+                <span className="workspace-check">{workspace.current ? <CheckIcon /> : null}</span>
+              </button>
+            ))}
+          </div>
+          {pages.length > 0 ? (
+            <>
+              <hr className="workspace-separator" />
+              {pages.map((link) => {
+                const Icon = ICONS[link.kind];
+                return (
+                  <a
+                    key={link.kind}
+                    role="menuitem"
+                    tabIndex={-1}
+                    className="workspace-item workspace-page"
+                    href={link.url}
+                    onClick={() => close(false)}
+                  >
+                    <Icon />
+                    {t(`host.${link.kind}`)}
+                  </a>
+                );
+              })}
+            </>
+          ) : null}
           <hr className="workspace-separator" />
           <a role="menuitem" tabIndex={-1} className="workspace-item workspace-create" href={workspaces.createUrl}>
             <PlusIcon />
@@ -183,24 +244,16 @@ const menuItems = (menu: HTMLElement | null) => [
   ...(menu?.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]') ?? []),
 ];
 
-const ICONS: Record<HostLinkKind, () => ReactNode> = {
-  home: HomeIcon,
-  billing: CardIcon,
-  members: UsersIcon,
-  profile: BuildingIcon,
-  account: UserIcon,
-  staff: ShieldIcon,
-};
-
 /**
- * The person signed in, at the bottom of the menu: a card that opens, above it, the host's pages (the workspace's
- * and the account's) and the way to sign out when the host gives one, as a menu button.
+ * The person signed in, at the bottom of the menu: a card that opens, above it, the person's pages (the account, and
+ * the back-office for staff) and the way to sign out when the host gives one, as a menu button.
  */
 export function AccountMenu({ navigation }: { navigation: HostNavigation }) {
   const { t } = useTranslation();
   const { open, close, button, menu } = useMenuButton();
   const [busy, setBusy] = useState(false);
-  const { links, user, signOut } = navigation;
+  const { user, signOut } = navigation;
+  const links = placeLinks(navigation).account;
   const leave = async () => {
     if (!signOut) return;
     close(false);
@@ -217,7 +270,7 @@ export function AccountMenu({ navigation }: { navigation: HostNavigation }) {
           {initial(name)}
         </span>
         <span className="account-text">
-          <span className="visually-hidden">{t("host.group")}: </span>
+          <span className="visually-hidden">{t("host.account")}: </span>
           <span className="account-name">{name}</span>
           {user.name ? <span className="account-email">{user.email}</span> : null}
         </span>
@@ -226,7 +279,7 @@ export function AccountMenu({ navigation }: { navigation: HostNavigation }) {
         </span>
       </button>
       {open ? (
-        <div {...menu} role="menu" className="account-menu" aria-label={t("host.group")}>
+        <div {...menu} role="menu" className="account-menu" aria-label={t("host.account")}>
           {links.map((link) => {
             const Icon = ICONS[link.kind];
             return (

@@ -4109,6 +4109,7 @@ button.chip:active {
   opacity: 0.7;
 }
 
+.workspace-menu-head > svg,
 .workspace-switch button.workspace-button > svg {
   flex: none;
   color: var(--ink-muted);
@@ -4147,19 +4148,43 @@ button.chip:active {
   color: var(--ink-muted);
 }
 
+/* The workspace's menu, over its button: on top, the workspace where the button was. On a screen too short for it,
+   it scrolls. */
 .workspace-menu {
   position: absolute;
   z-index: 30;
   inset-inline: 0;
-  inset-block-start: calc(100% + var(--space-1));
+  inset-block-start: 0;
   display: grid;
   gap: 2px;
+  max-block-size: calc(100dvh - 2 * var(--space-3));
+  overflow-y: auto;
   padding: var(--space-1);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   box-shadow: var(--shadow-lift);
   animation: rise 160ms var(--ease-out);
+}
+
+/* Where the button was, the workspace worked in, which closes the menu as the button would. */
+.workspace-menu-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 2px var(--space-1) var(--space-2);
+  margin-block-end: var(--space-1);
+  border-block-end: 1px solid var(--line);
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+/* The workspaces: a long list scrolls on its own, the workspace's pages staying in sight under it. */
+.workspace-list {
+  display: grid;
+  gap: 2px;
+  max-block-size: 250px;
+  overflow-y: auto;
 }
 
 .workspace-item {
@@ -4171,8 +4196,13 @@ button.chip:active {
 }
 
 .workspace-item:hover,
-.workspace-item:focus-visible {
+.workspace-item:focus-visible,
+.workspace-item[aria-current="page"] {
   background: var(--thesis-soft);
+}
+
+.workspace-item[aria-current="page"] {
+  font-weight: 600;
 }
 
 .workspace-item:focus-visible {
@@ -4196,6 +4226,13 @@ button.chip:active {
   margin: var(--space-1) 0;
   border: 0;
   border-block-start: 1px solid var(--line);
+}
+
+/* The workspace's pages, a line each as in the person's menu. */
+.workspace-page {
+  padding: 6px var(--space-3);
+  font-weight: 500;
+  line-height: 20px;
 }
 
 .workspace-create {
@@ -4434,7 +4471,7 @@ button.chip:active {
 }
 
 /* The person signed in, at the bottom of the menu: a card a step off the menu's background, that opens above it the
-   workspace's and the account's pages, then the way to sign out. */
+   person's pages, then the way to sign out. */
 .account-switch {
   position: relative;
   flex: none;

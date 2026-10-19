@@ -179,7 +179,11 @@ export interface HostWorkspace {
 export interface HostNavigation {
   /** Null when the host has no workspaces; with none in the list, the menu offers to create one at `createUrl`. */
   workspaces: { list: HostWorkspace[]; createUrl: string } | null;
-  /** In the order the person's menu, at the bottom of the menu, shows them, above the way to sign out. */
+  /**
+   * In the order the menus show them. The workspace's pages (home, billing, members, profile) are in the workspace's
+   * menu, under the workspaces, when there is one to show; the others (account, staff) in the person's menu, at the
+   * bottom of the menu, above the way to sign out, which also keeps them all when there is no workspace to show.
+   */
   links: { kind: HostLinkKind; url: string }[];
   user: { name: string | null; email: string };
   /** The host's website, for a way back to it; null for none. */

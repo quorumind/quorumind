@@ -35,11 +35,43 @@ test("the author keeps every control of the session", async ({ browser, request 
   await ada.close();
 });
 
-test("the person's card opens the host's pages above it, and signs out from its menu", async ({ browser }) => {
+test("the workspace's menu opens over its button, with the workspaces and the workspace's pages", async ({ browser }) => {
   const ada = await browser.newContext({ extraHTTPHeaders: { "x-user": "ada" }, locale: "en-US", viewport: { width: 1366, height: 768 } });
   const page = await ada.newPage();
   await page.goto("/#/decisions");
-  const card = page.getByRole("button", { name: "Workspace and account: Ada Lovelace ada@example.com" });
+  const button = page.getByRole("button", { name: /^Workspace: Studio/ });
+  await expect(button).toHaveAttribute("aria-haspopup", "menu");
+  await button.focus();
+  await page.keyboard.press("Enter");
+  const menu = page.getByRole("menu", { name: "Workspace" });
+  // The one workspace is listed too, checked, so the menu reads the same with more.
+  await expect(menu.getByRole("menuitemradio")).toHaveCount(1);
+  await expect(menu.getByRole("menuitemradio", { name: /Studio/ })).toHaveAttribute("aria-checked", "true");
+  await expect(menu.getByRole("menuitemradio", { name: /Studio/ })).toBeFocused();
+  await expect(menu.getByRole("menuitem")).toHaveText(["Dashboard", "Billing", "Members", "Organisation profile", "Create a workspace"]);
+  await expect(menu.getByRole("separator")).toHaveCount(2);
+  // Over its button once it rose, the workspace on top where the button was, and whole on a laptop.
+  const buttonBox = await button.boundingBox();
+  await expect.poll(async () => Math.abs(((await menu.boundingBox())?.y ?? 0) - (buttonBox?.y ?? 0))).toBeLessThanOrEqual(1);
+  const menuBox = await menu.boundingBox();
+  expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(768);
+  await page.keyboard.press("ArrowDown");
+  await expect(menu.getByRole("menuitem", { name: "Dashboard" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(button).toBeFocused();
+  // A page picked leaves for the host's.
+  await button.click();
+  await menu.getByRole("menuitem", { name: "Billing" }).click();
+  await expect(page).toHaveURL(/\/account\/#\/billing$/);
+  await ada.close();
+});
+
+test("the person's card opens the person's pages above it, and signs out from its menu", async ({ browser }) => {
+  const ada = await browser.newContext({ extraHTTPHeaders: { "x-user": "ada" }, locale: "en-US", viewport: { width: 1366, height: 768 } });
+  const page = await ada.newPage();
+  await page.goto("/#/decisions");
+  const card = page.getByRole("button", { name: "Account: Ada Lovelace ada@example.com" });
   await expect(card).toHaveAttribute("aria-haspopup", "menu");
   await expect(card).toHaveAttribute("aria-expanded", "false");
   // The host's pages are no longer lines of the menu, whose bottom stays in sight on a laptop.
@@ -49,12 +81,18 @@ test("the person's card opens the host's pages above it, and signs out from its 
 
   await card.focus();
   await page.keyboard.press("Enter");
-  const menu = page.getByRole("menu", { name: "Workspace and account" });
-  await expect(menu.getByRole("menuitem")).toHaveText(["Home", "Billing", "Members", "Organisation profile", "Account", "Sign out"]);
-  await expect(menu.getByRole("menuitem", { name: "Home" })).toBeFocused();
-  // Above the card.
-  const [menuBox, cardBox] = [await menu.boundingBox(), await card.boundingBox()];
-  expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(cardBox?.y ?? 0);
+  const menu = page.getByRole("menu", { name: "Account" });
+  await expect(menu.getByRole("menuitem")).toHaveText(["Account", "Sign out"]);
+  await expect(menu.getByRole("separator")).toHaveCount(1);
+  await expect(menu.getByRole("menuitem", { name: "Account" })).toBeFocused();
+  // Above the card, once it rose.
+  const cardBox = await card.boundingBox();
+  await expect
+    .poll(async () => {
+      const box = await menu.boundingBox();
+      return (box?.y ?? 0) + (box?.height ?? 0);
+    })
+    .toBeLessThanOrEqual(cardBox?.y ?? 0);
   await page.keyboard.press("End");
   await expect(menu.getByRole("menuitem", { name: "Sign out" })).toBeFocused();
   await page.keyboard.press("Escape");

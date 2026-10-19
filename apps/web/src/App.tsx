@@ -256,9 +256,9 @@ function RecentSessions({ current, hosted }: { current: string | null; hosted: b
 /**
  * The menu, in three parts: on top, a new session and the app's pages (the sessions, the decisions, the gallery, the
  * settings); in the middle, the latest sessions, in the height left; at the bottom, the menu's foot. Hosted, it is the
- * menu of the host's screens, so it stays the same from one side to the other: the workspace on top, the app's pages
- * under the debates, then the latest debates, then the person, whose card opens the host's pages and the way to sign
- * out, above the menu's foot.
+ * menu of the host's screens, so it stays the same from one side to the other: the workspace on top, whose menu
+ * switches to another one and opens the workspace's pages, the app's pages under the debates, then the latest
+ * debates, then the person, whose card opens the person's pages and the way to sign out, above the menu's foot.
  */
 function Sidebar({ current, host }: { current: string | null; host: HostNavigation | null | undefined }) {
   const { t } = useTranslation();
@@ -290,7 +290,7 @@ function Sidebar({ current, host }: { current: string | null; host: HostNavigati
       {host === undefined ? (
         <div className="workspace-switch workspace-pending" aria-hidden="true" />
       ) : host?.workspaces ? (
-        <WorkspaceSwitch workspaces={host.workspaces} />
+        <WorkspaceSwitch navigation={host} />
       ) : null}
       <a className="button button-primary new-session" href="#/">
         <PlusIcon />

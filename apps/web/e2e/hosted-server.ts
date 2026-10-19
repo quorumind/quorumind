@@ -33,9 +33,19 @@ const api = createApp({
     catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
     scope: async () => ({ workspace: "studio", workspaces: ["studio"] }),
     authors: async (owners) => Object.fromEntries(owners.map((owner) => [owner, { name: names[owner] ?? owner, email: null }])),
-    // The host's part of the menu: its pages and the way to sign out, under the person's name.
+    // The host's part of the menu: the one workspace, its pages and the person's, and the way to sign out.
     navigation: async (user) => ({
-      workspaces: null,
+      workspaces: {
+        list: [
+          {
+            name: "Studio",
+            role: user.userId === "ada" ? "owner" : "member",
+            current: true,
+            switchUrl: "/api/host/workspaces/studio/switch",
+          },
+        ],
+        createUrl: "/account/#/workspaces/new",
+      },
       links: (["home", "billing", "members", "profile", "account"] as const).map((kind) => ({ kind, url: `/account/#/${kind}` })),
       user: { name: names[user.userId] ?? null, email: `${user.userId}@example.com` },
       siteUrl: null,

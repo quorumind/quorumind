@@ -52,11 +52,13 @@ function stub(navigation?: HostNavigation | null, extra: Parameters<typeof stubA
 }
 
 const sidebar = () => within(document.getElementById("sidebar") as HTMLElement);
-const ACCOUNT = /^Workspace and account: Ada Lovelace ada@example\.com$/;
-const accountItems = () =>
-  within(sidebar().getByRole("menu", { name: "Workspace and account" }))
+const ACCOUNT = /^Account: Ada Lovelace ada@example\.com$/;
+const WORKSPACE = /^Workspace: Atelier Nord/;
+const items = (menu: string) =>
+  within(sidebar().getByRole("menu", { name: menu }))
     .getAllByRole("menuitem")
     .map((item) => [item.textContent, item.getAttribute("href"), item.getAttribute("aria-current")]);
+const accountItems = () => items("Account");
 const links = (name: string) =>
   Array.from(sidebar().getByRole("navigation", { name }).querySelectorAll<HTMLAnchorElement>("a"), (link) => [
     link.textContent,
@@ -107,9 +109,8 @@ describe("the menu, self-hosted", () => {
     await waitFor(() => expect(calls.some((call) => call.path === "/api/config")).toBe(true));
     await waitFor(() => expect(sidebar().queryByRole("link", { name: "New debate" })).toBeNull());
     expect(sidebar().getByRole("link", { name: "Sessions" }).getAttribute("href")).toBe("#/sessions");
-    expect(sidebar().queryByRole("heading", { name: "Workspace and account" })).toBeNull();
-    // No one signs in to a self-hosted server: no card for the person, the foot alone at the bottom.
-    expect(sidebar().queryByRole("button", { name: /Workspace and account/ })).toBeNull();
+    // No one signs in to a self-hosted server: no workspace, no card for the person, the foot alone at the bottom.
+    expect(sidebar().queryByRole("button", { name: /Workspace|Account/ })).toBeNull();
     expect(document.querySelector(".account-switch")).toBeNull();
     expect(sidebar().getByRole("combobox", { name: "Language" })).toBeTruthy();
   });
@@ -184,13 +185,12 @@ describe("the menu, hosted", () => {
       ["See all debates", "#/sessions"],
     ]);
     expect(sidebar().getByRole("list", { name: "Recent debates" })).toBeTruthy();
-    // The host's pages are no longer lines of the menu: the person's card at the bottom opens them.
+    // The host's pages are no longer lines of the menu: the workspace's menu and the person's card open them.
     expect(
       sidebar()
         .getAllByRole("heading")
         .map((heading) => heading.textContent),
     ).toEqual(["Debates", "Recent"]);
-    expect(sidebar().queryByRole("navigation", { name: "Workspace and account" })).toBeNull();
     expect(sidebar().queryByRole("link", { name: "Billing" })).toBeNull();
     expect(sidebar().getByRole("link", { name: "Gallery" }).getAttribute("aria-current")).toBe("page");
     // Who is signed in: the initial, the name and the e-mail, on a button that opens a menu.
@@ -208,25 +208,19 @@ describe("the menu, hosted", () => {
     expect(localStorage.getItem("quorumind.hostMenu")).toBe("1");
   });
 
-  it("opens the host's pages above the person's card, none of them the page shown", async () => {
+  it("opens the person's pages above the person's card, the workspace's being in the workspace's menu", async () => {
     stub(HOSTED);
     render(<App />);
     const account = await sidebar().findByRole("button", { name: ACCOUNT });
     expect(sidebar().queryByRole("menu")).toBeNull();
     fireEvent.click(account);
     expect(account.getAttribute("aria-expanded")).toBe("true");
-    const menu = sidebar().getByRole("menu", { name: "Workspace and account" });
+    const menu = sidebar().getByRole("menu", { name: "Account" });
     expect(account.getAttribute("aria-controls")).toBe(menu.id);
-    expect(accountItems()).toEqual([
-      ["Home", "https://app.example.com/account/#/", null],
-      ["Billing", "https://app.example.com/account/#/billing", null],
-      ["Members", "https://app.example.com/account/#/members", null],
-      ["Organisation profile", "https://app.example.com/account/#/profile", null],
-      ["Account", "https://app.example.com/account/#/account", null],
-    ]);
+    expect(accountItems()).toEqual([["Account", "https://app.example.com/account/#/account", null]]);
     expect(within(menu).queryByRole("menuitem", { name: "Back-office" })).toBeNull();
     // The focus goes to the first page; a click on the card again closes the menu.
-    expect(document.activeElement?.textContent).toBe("Home");
+    expect(document.activeElement?.textContent).toBe("Account");
     fireEvent.click(account);
     expect(sidebar().queryByRole("menu")).toBeNull();
   });
@@ -240,21 +234,21 @@ describe("the menu, hosted", () => {
     await waitFor(() => expect(document.activeElement?.textContent).toBe("Sign out"));
     const key = (name: string) => fireEvent.keyDown(document.activeElement as Element, { key: name });
     key("ArrowDown");
-    expect(document.activeElement?.textContent).toBe("Home");
+    expect(document.activeElement?.textContent).toBe("Account");
     key("ArrowUp");
     expect(document.activeElement?.textContent).toBe("Sign out");
     key("ArrowUp");
     expect(document.activeElement?.textContent).toBe("Account");
-    key("Home");
-    expect(document.activeElement?.textContent).toBe("Home");
     key("End");
     expect(document.activeElement?.textContent).toBe("Sign out");
+    key("Home");
+    expect(document.activeElement?.textContent).toBe("Account");
     key("Escape");
     expect(sidebar().queryByRole("menu")).toBeNull();
     expect(document.activeElement).toBe(account);
     // The down arrow opens it on its first item; a click anywhere else closes it.
     fireEvent.keyDown(account, { key: "ArrowDown" });
-    await waitFor(() => expect(document.activeElement?.textContent).toBe("Home"));
+    await waitFor(() => expect(document.activeElement?.textContent).toBe("Account"));
     act(() => {
       document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     });
@@ -265,7 +259,107 @@ describe("the menu, hosted", () => {
     stub({ ...HOSTED, links: [...HOSTED.links, { kind: "staff", url: "https://app.example.com/account/#/staff" }] });
     render(<App />);
     fireEvent.click(await sidebar().findByRole("button", { name: ACCOUNT }));
-    expect(accountItems().at(-1)).toEqual(["Back-office", "https://app.example.com/account/#/staff", null]);
+    expect(accountItems()).toEqual([
+      ["Account", "https://app.example.com/account/#/account", null],
+      ["Back-office", "https://app.example.com/account/#/staff", null],
+    ]);
+    // Not a page of the workspace.
+    fireEvent.click(sidebar().getByRole("button", { name: WORKSPACE }));
+    expect(within(sidebar().getByRole("menu", { name: "Workspace" })).queryByRole("menuitem", { name: "Back-office" })).toBeNull();
+  });
+
+  it("opens the workspace's menu over its button: the workspace, the workspaces, its pages, then a way to create one", async () => {
+    stub(HOSTED);
+    render(<App />);
+    const button = await sidebar().findByRole("button", { name: WORKSPACE });
+    expect(button.getAttribute("aria-haspopup")).toBe("menu");
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    const menu = sidebar().getByRole("menu", { name: "Workspace" });
+    expect(button.getAttribute("aria-controls")).toBe(menu.id);
+    // On top, the workspace worked in, which the checked line says to a screen reader.
+    const head = menu.querySelector(".workspace-menu-head");
+    expect(head?.getAttribute("aria-hidden")).toBe("true");
+    expect(head?.textContent).toBe("AAtelier NordOwner");
+    expect(menu.firstElementChild).toBe(head);
+    // Every item in order, by its role, the separators between the parts.
+    expect(
+      Array.from(menu.querySelectorAll('[role^="menuitem"], hr'), (item) => [
+        item.getAttribute("role") ?? item.tagName,
+        item.querySelector(".workspace-name")?.textContent ?? item.textContent,
+        item.getAttribute("aria-checked") ?? item.getAttribute("href"),
+      ]),
+    ).toEqual([
+      ["menuitemradio", "Atelier Nord", "true"],
+      ["menuitemradio", "Studio Sud", "false"],
+      ["HR", "", null],
+      ["menuitem", "Dashboard", "https://app.example.com/account/#/"],
+      ["menuitem", "Billing", "https://app.example.com/account/#/billing"],
+      ["menuitem", "Members", "https://app.example.com/account/#/members"],
+      ["menuitem", "Organisation profile", "https://app.example.com/account/#/profile"],
+      ["HR", "", null],
+      ["menuitem", "Create a workspace", "https://app.example.com/account/#/workspaces/new"],
+    ]);
+    expect(within(menu).getAllByRole("separator")).toHaveLength(2);
+    // None is the page shown: these are the host's pages. The account's is under the person's card.
+    expect(menu.querySelector("[aria-current]")).toBeNull();
+    expect(within(menu).queryByRole("menuitem", { name: "Account" })).toBeNull();
+    // The focus goes to the workspace worked in; a click on the workspace on top closes the menu and gives it back.
+    expect(document.activeElement?.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(head as Element);
+    expect(sidebar().queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it("moves through the workspace's menu with the keyboard, and closes it with Escape or a click elsewhere", async () => {
+    stub(HOSTED);
+    render(<App />);
+    const button = await sidebar().findByRole("button", { name: WORKSPACE });
+    const label = () => document.activeElement?.querySelector(".workspace-name")?.textContent ?? document.activeElement?.textContent;
+    const key = (name: string) => fireEvent.keyDown(document.activeElement as Element, { key: name });
+    fireEvent.keyDown(button, { key: "ArrowDown" });
+    await waitFor(() => expect(label()).toBe("Atelier Nord"));
+    key("ArrowDown");
+    expect(label()).toBe("Studio Sud");
+    key("ArrowDown");
+    expect(label()).toBe("Dashboard");
+    key("End");
+    expect(label()).toBe("Create a workspace");
+    key("ArrowUp");
+    expect(label()).toBe("Organisation profile");
+    key("ArrowDown");
+    key("ArrowDown");
+    expect(label()).toBe("Atelier Nord");
+    key("Escape");
+    expect(sidebar().queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(button);
+    // The up arrow opens it on its last item; a click anywhere else closes it.
+    fireEvent.keyDown(button, { key: "ArrowUp" });
+    await waitFor(() => expect(label()).toBe("Create a workspace"));
+    act(() => {
+      document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    });
+    expect(sidebar().queryByRole("menu")).toBeNull();
+  });
+
+  it("lists the one workspace too, so the menu reads the same", async () => {
+    const workspaces = HOSTED.workspaces as NonNullable<HostNavigation["workspaces"]>;
+    stub({ ...HOSTED, workspaces: { ...workspaces, list: workspaces.list.slice(0, 1) } });
+    render(<App />);
+    fireEvent.click(await sidebar().findByRole("button", { name: WORKSPACE }));
+    const menu = sidebar().getByRole("menu", { name: "Workspace" });
+    expect(
+      within(menu)
+        .getAllByRole("menuitemradio")
+        .map((item) => [item.querySelector(".workspace-text")?.textContent, item.getAttribute("aria-checked")]),
+    ).toEqual([["Atelier NordOwner", "true"]]);
+    expect(items("Workspace").map(([label]) => label)).toEqual([
+      "Dashboard",
+      "Billing",
+      "Members",
+      "Organisation profile",
+      "Create a workspace",
+    ]);
   });
 
   it("shows the current workspace, and switches to another one, the page loading again in it", async () => {
@@ -273,7 +367,7 @@ describe("the menu, hosted", () => {
     vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, hash: "#/decisions", reload } as Location);
     const { calls } = stub(HOSTED, { "POST /api/host/workspaces/w2/switch": () => json({ switched: true }) });
     render(<App />);
-    const button = await sidebar().findByRole("button", { name: /Workspace: Atelier Nord/ });
+    const button = await sidebar().findByRole("button", { name: WORKSPACE });
     expect(button.textContent).toContain("Owner");
     fireEvent.click(button);
     const menu = sidebar().getByRole("menu", { name: "Workspace" });
@@ -302,7 +396,7 @@ describe("the menu, hosted", () => {
     // No button of its own: the last item of the menu, after a separator.
     expect(sidebar().queryByRole("button", { name: "Sign out" })).toBeNull();
     fireEvent.click(await sidebar().findByRole("button", { name: ACCOUNT }));
-    const menu = sidebar().getByRole("menu", { name: "Workspace and account" });
+    const menu = sidebar().getByRole("menu", { name: "Account" });
     expect(menu.querySelector("hr + .account-sign-out")).toBeTruthy();
     expect(within(menu).getAllByRole("menuitem").at(-1)?.textContent).toBe("Sign out");
     fireEvent.click(within(menu).getByRole("menuitem", { name: "Sign out" }));
@@ -314,7 +408,7 @@ describe("the menu, hosted", () => {
     stub(HOSTED);
     render(<App />);
     fireEvent.click(await sidebar().findByRole("button", { name: ACCOUNT }));
-    const menu = sidebar().getByRole("menu", { name: "Workspace and account" });
+    const menu = sidebar().getByRole("menu", { name: "Account" });
     expect(within(menu).queryByRole("menuitem", { name: "Sign out" })).toBeNull();
     expect(menu.querySelector("hr")).toBeNull();
   });
@@ -322,7 +416,7 @@ describe("the menu, hosted", () => {
   it("names the person by the e-mail alone when the host knows no name", async () => {
     stub({ ...HOSTED, user: { name: null, email: "ada@example.com" } });
     render(<App />);
-    const account = await sidebar().findByRole("button", { name: "Workspace and account: ada@example.com" });
+    const account = await sidebar().findByRole("button", { name: "Account: ada@example.com" });
     expect(account.querySelector(".account-avatar")?.textContent).toBe("A");
     expect(account.querySelector(".account-email")).toBeNull();
   });
@@ -332,6 +426,17 @@ describe("the menu, hosted", () => {
     render(<App />);
     const create = await sidebar().findByRole("link", { name: "Create a workspace" });
     expect(create.getAttribute("href")).toBe("https://app.example.com/account/#/workspaces/new");
+    // No workspace to show its pages under: the person's menu keeps them.
+    fireEvent.click(sidebar().getByRole("button", { name: ACCOUNT }));
+    expect(accountItems().map(([label]) => label)).toEqual(["Dashboard", "Billing", "Members", "Organisation profile", "Account"]);
+  });
+
+  it("keeps every page in the person's menu for a host without workspaces", async () => {
+    stub({ ...HOSTED, workspaces: null });
+    render(<App />);
+    fireEvent.click(await sidebar().findByRole("button", { name: ACCOUNT }));
+    expect(accountItems().map(([label]) => label)).toEqual(["Dashboard", "Billing", "Members", "Organisation profile", "Account"]);
+    expect(sidebar().queryByRole("button", { name: /^Workspace/ })).toBeNull();
   });
 
   it("is laid out for the host from the first paint once it came before, and filled when it comes", async () => {
