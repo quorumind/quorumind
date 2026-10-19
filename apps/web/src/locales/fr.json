@@ -274,6 +274,10 @@
     "cost": "Coût",
     "total": "Total",
     "unknown": "Prix inconnu",
+    "failed": "en échec",
+    "estimated": "estimé",
+    "failedHint": "En échec : l'appel s'est arrêté après sa réception par le fournisseur. Sa réponse n'a pas été utilisée, mais le fournisseur le facture.",
+    "estimatedHint": "Estimé : le fournisseur n'a indiqué aucune consommation pour cet appel. Ses jetons sont estimés à partir du texte envoyé et du texte reçu.",
     "included": "Inclus dans le prix du débat. Le tableau liste chaque appel de modèle et ses jetons."
   },
   "task": {

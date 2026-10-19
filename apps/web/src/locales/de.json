@@ -274,6 +274,10 @@
     "cost": "Kosten",
     "total": "Summe",
     "unknown": "Preis unbekannt",
+    "failed": "fehlgeschlagen",
+    "estimated": "geschätzt",
+    "failedHint": "Fehlgeschlagen: Der Aufruf brach ab, nachdem der Anbieter ihn erhalten hatte. Seine Antwort wurde nicht verwendet, aber der Anbieter berechnet ihn.",
+    "estimatedHint": "Geschätzt: Der Anbieter hat für diesen Aufruf keinen Verbrauch gemeldet. Seine Tokens sind aus dem gesendeten und dem empfangenen Text geschätzt.",
     "included": "Im Preis der Debatte enthalten. Die Tabelle listet jeden Modellaufruf mit seinen Tokens."
   },
   "task": {

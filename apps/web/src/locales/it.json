@@ -274,6 +274,10 @@
     "cost": "Costo",
     "total": "Totale",
     "unknown": "Prezzo sconosciuto",
+    "failed": "non riuscita",
+    "estimated": "stimata",
+    "failedHint": "Non riuscita: la chiamata si è interrotta dopo che il fornitore l'aveva ricevuta. La sua risposta non è stata usata, ma il fornitore la fattura.",
+    "estimatedHint": "Stimata: il fornitore non ha indicato il consumo di questa chiamata, quindi i suoi token sono stimati dal testo inviato e dal testo ricevuto.",
     "included": "Incluso nel prezzo del dibattito. La tabella elenca ogni chiamata a un modello e i suoi token."
   },
   "task": {

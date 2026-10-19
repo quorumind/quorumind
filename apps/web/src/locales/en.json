@@ -274,6 +274,10 @@
     "cost": "Cost",
     "total": "Total",
     "unknown": "Unknown price",
+    "failed": "failed",
+    "estimated": "estimated",
+    "failedHint": "Failed: the call stopped after the provider received it. Its answer was not used, but the provider bills it.",
+    "estimatedHint": "Estimated: the provider reported no usage for this call, so its tokens are estimated from the text sent and the text received.",
     "included": "Included in the debate price. The table lists each model call and its tokens."
   },
   "task": {

@@ -274,6 +274,10 @@
     "cost": "Custo",
     "total": "Total",
     "unknown": "Preço desconhecido",
+    "failed": "com falha",
+    "estimated": "estimada",
+    "failedHint": "Com falha: a chamada parou depois que o provedor a recebeu. A resposta não foi usada, mas o provedor a cobra.",
+    "estimatedHint": "Estimada: o provedor não informou o consumo desta chamada, então os tokens dela são estimados a partir do texto enviado e do texto recebido.",
     "included": "Incluído no preço do debate. A tabela lista cada chamada de modelo e os seus tokens."
   },
   "task": {
