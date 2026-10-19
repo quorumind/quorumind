@@ -3776,67 +3776,308 @@ button.chip:active {
   fill: var(--ink);
 }
 
-/* Branding */
+/* Branding: the fields beside a preview of a report's header, which is a page of paper in both themes. */
 
-.branding {
-  max-inline-size: 640px;
+.branding-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 17rem);
+  gap: var(--space-6);
+  align-items: start;
 }
 
-.branding-logo {
+.branding-fields {
+  min-inline-size: 0;
+}
+
+/* A neutral checkerboard: a logo's transparent parts show as such, on a light or a dark page. */
+.checkerboard {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(45deg, #e6e8ef 25%, transparent 25%), linear-gradient(-45deg, #e6e8ef 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e6e8ef 75%), linear-gradient(-45deg, transparent 75%, #e6e8ef 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+.logo-drop {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-4);
-  align-items: flex-start;
+  padding: var(--space-4);
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
 }
 
-.branding-logo > .stack {
-  flex: 1 1 12rem;
-  min-inline-size: 0;
+.logo-drop[data-filled] {
+  border-style: solid;
 }
 
-/* The browser's own file picker text can be long: it must not widen the page on a phone. */
-.branding-logo input[type="file"] {
-  min-inline-size: 0;
-  max-inline-size: 100%;
+.logo-drop[data-dragging] {
+  border-color: var(--thesis);
+  background: var(--thesis-soft);
 }
 
-.branding-preview {
-  inline-size: 160px;
-  block-size: 72px;
+.logo-preview {
+  flex: none;
   display: grid;
   place-items: center;
+  inline-size: 144px;
+  block-size: 80px;
   padding: var(--space-2);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-md);
-  background: #ffffff;
-  color: var(--ink-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 
-.branding-preview img {
+.logo-preview img {
   max-inline-size: 100%;
   max-block-size: 100%;
   object-fit: contain;
 }
 
+/* "No logo" sits on the paper-white checkerboard in both themes. */
+.logo-preview .field-hint {
+  color: #535a78;
+  background: #ffffff;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.logo-drop-body {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.logo-drop-text,
+.logo-file {
+  margin: 0;
+}
+
+.logo-file {
+  display: grid;
+  gap: 2px;
+}
+
+.logo-file-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.logo-actions {
+  gap: var(--space-2);
+}
+
+.branding-accent-group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.branding-accent-group > legend {
+  padding: 0;
+  margin-block-end: var(--space-2);
+}
+
 .branding-accent {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
 }
 
-.branding-accent input[type="color"] {
-  inline-size: 44px;
-  block-size: 44px;
-  padding: 2px;
+.accent-swatch {
+  inline-size: var(--control-h);
+  block-size: var(--control-h);
+  padding: 3px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   cursor: pointer;
 }
 
+.accent-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.accent-swatch::-webkit-color-swatch {
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.accent-hex {
+  inline-size: 8.5rem;
+  text-transform: uppercase;
+}
+
+.accent-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.accent-preset {
+  display: grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 2px solid var(--surface-raised);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 1px var(--line);
+  color: #ffffff;
+  cursor: pointer;
+  transition: transform 160ms var(--ease-out);
+}
+
+.accent-preset:hover {
+  transform: scale(1.1);
+}
+
+.accent-preset[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.accent-preset svg {
+  inline-size: 16px;
+  block-size: 16px;
+  stroke-width: 2.5;
+}
+
+.branding-preview {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+  position: sticky;
+  inset-block-start: var(--space-4);
+}
+
+.report-sample {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: #141a3a;
+  box-shadow: var(--shadow-lift);
+  font-size: 12px;
+}
+
+.report-sample-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block-end: var(--space-2);
+  border-block-end: 1px solid #d9dce8;
+}
+
+.report-sample-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.report-sample-brand img {
+  max-block-size: 24px;
+  max-inline-size: 90px;
+  object-fit: contain;
+}
+
+.report-sample-date {
+  flex: none;
+  color: #535a78;
+  font-size: 10px;
+}
+
+.report-sample-title {
+  margin: 0;
+  padding-block-end: var(--space-1);
+  border-block-end: 2px solid;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.report-sample-lines {
+  display: grid;
+  gap: 6px;
+}
+
+.report-sample-lines i,
+.report-sample-verdict span {
+  display: block;
+  block-size: 6px;
+  border-radius: 3px;
+  background: #e6e8ef;
+}
+
+.report-sample-lines i:last-child {
+  inline-size: 65%;
+}
+
+.report-sample-verdict {
+  display: grid;
+  gap: 8px;
+  padding: var(--space-3);
+  border-radius: 6px;
+  border-inline-start: 4px solid;
+  background: #141a3a;
+}
+
+.report-sample-verdict i {
+  display: block;
+  inline-size: 40%;
+  block-size: 8px;
+  border-radius: 4px;
+}
+
+.report-sample-verdict span {
+  background: #3a4060;
+}
+
+.branding-actions {
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--line);
+}
+
 .branding-error {
   font-size: 14px;
   color: var(--infeasible);
+}
+
+@media (max-width: 720px) {
+  .branding-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .branding-preview {
+    position: static;
+  }
+
+  .logo-preview {
+    inline-size: 100%;
+  }
 }
 
 /* Sessions shared within a workspace (hosted version): who started them, and who sees them */

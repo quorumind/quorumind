@@ -58,6 +58,8 @@ export interface AppConfig {
   providerCosts: boolean;
   /** False when the host provides the organisation profile (a workspace's, hosted): it is not edited in Settings. */
   profileSettings?: boolean;
+  /** Where the host's organisation profile is edited, and whether the caller may change it; null when not said. */
+  profilePage?: { url: string; canEdit: boolean } | null;
   /** True when the server names nobody (self-hosted): the register asks who approves. */
   typedNames?: boolean;
   /** The search engine of the web research (null: none, the option is not offered), and its default for a standard debate. */

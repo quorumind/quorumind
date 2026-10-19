@@ -625,7 +625,22 @@
     "reset": "Ripristina il marchio Quorumind",
     "saved": "Personalizzazione salvata.",
     "resetDone": "Il marchio Quorumind è stato ripristinato.",
-    "error": "Impossibile salvare la personalizzazione."
+    "error": "Impossibile salvare la personalizzazione.",
+    "logoDrop": "Trascina qui un'immagine o scegli un file.",
+    "logoChoose": "Scegli un logo",
+    "logoReplace": "Sostituisci il logo",
+    "logoNone": "Nessun logo",
+    "logoSaved": "Logo salvato",
+    "accentPicker": "Scegli il colore di accento",
+    "accentHex": "Codice del colore di accento",
+    "accentInvalid": "Inserisci un colore nel formato # seguito da sei cifre esadecimali, ad esempio #2B44C4.",
+    "presets": "Colori suggeriti",
+    "preset": "Usa {{color}}",
+    "preview": "Anteprima dell'intestazione di un rapporto",
+    "previewTitle": "Rapporto di decisione",
+    "resetTitle": "Ripristinare il marchio Quorumind?",
+    "resetLead": "Il tuo nome, il logo e il colore vengono rimossi dalle esportazioni. I rapporti già scaricati li mantengono.",
+    "resetConfirm": "Ripristina"
   },
   "workspace": {
     "filter": "Sessioni da mostrare",
@@ -774,7 +789,10 @@
     "cleared": "Profilo eliminato.",
     "currencyInvalid": "Scegli la valuta dall'elenco.",
     "rateInvalid": "Dia a ogni ruolo una tariffa giornaliera superiore a zero.",
-    "managed": "Il profilo del suo spazio di lavoro è gestito dai proprietari e dagli amministratori, nelle impostazioni dello spazio del suo account."
+    "managed": "Il profilo del suo spazio di lavoro è gestito dai proprietari e dagli amministratori, nelle impostazioni dello spazio del suo account.",
+    "managedLead": "I dibattiti seguono il profilo dell'organizzazione del suo spazio di lavoro: tecnologie, regole di hosting e tariffe giornaliere.",
+    "open": "Apri il profilo dell'organizzazione",
+    "managedReadOnly": "Solo i proprietari e gli amministratori dello spazio di lavoro possono modificarlo: se qualcosa va aggiornato, si rivolga a uno di loro."
   },
   "revision": {
     "label": "Revisione {{number}} · {{date}}",

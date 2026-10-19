@@ -625,7 +625,22 @@
     "reset": "Rétablir l'identité Quorumind",
     "saved": "Personnalisation enregistrée.",
     "resetDone": "L'identité Quorumind est rétablie.",
-    "error": "La personnalisation n'a pas pu être enregistrée."
+    "error": "La personnalisation n'a pas pu être enregistrée.",
+    "logoDrop": "Déposez une image ici, ou choisissez un fichier.",
+    "logoChoose": "Choisir un logo",
+    "logoReplace": "Remplacer le logo",
+    "logoNone": "Aucun logo",
+    "logoSaved": "Logo enregistré",
+    "accentPicker": "Choisir la couleur d'accent",
+    "accentHex": "Code de la couleur d'accent",
+    "accentInvalid": "Saisissez une couleur au format # suivi de six chiffres hexadécimaux, comme #2B44C4.",
+    "presets": "Couleurs suggérées",
+    "preset": "Utiliser {{color}}",
+    "preview": "Aperçu de l'en-tête d'un rapport",
+    "previewTitle": "Rapport de décision",
+    "resetTitle": "Rétablir l'identité Quorumind ?",
+    "resetLead": "Votre nom, votre logo et votre couleur sont retirés des exports. Les rapports déjà téléchargés les conservent.",
+    "resetConfirm": "Rétablir"
   },
   "workspace": {
     "filter": "Sessions à afficher",
@@ -774,7 +789,10 @@
     "cleared": "Profil supprimé.",
     "currencyInvalid": "Choisissez la devise dans la liste.",
     "rateInvalid": "Donnez à chaque rôle un taux journalier supérieur à zéro.",
-    "managed": "Le profil de votre espace de travail est géré par ses propriétaires et ses administrateurs, dans les réglages de l'espace de votre compte."
+    "managed": "Le profil de votre espace de travail est géré par ses propriétaires et ses administrateurs, dans les réglages de l'espace de votre compte.",
+    "managedLead": "Les débats suivent le profil d'organisation de votre espace de travail : ses technologies, ses règles d'hébergement et ses tarifs journaliers.",
+    "open": "Ouvrir le profil de l'organisation",
+    "managedReadOnly": "Seuls les propriétaires et les administrateurs de l'espace de travail peuvent le modifier : adressez-vous à l'un d'eux si quelque chose doit changer."
   },
   "revision": {
     "label": "Révision {{number}} · {{date}}",

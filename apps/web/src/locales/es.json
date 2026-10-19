@@ -625,7 +625,22 @@
     "reset": "Restablecer la marca Quorumind",
     "saved": "Marca guardada.",
     "resetDone": "Se ha restablecido la marca Quorumind.",
-    "error": "No se pudo guardar la marca."
+    "error": "No se pudo guardar la marca.",
+    "logoDrop": "Suelte una imagen aquí o elija un archivo.",
+    "logoChoose": "Elegir un logotipo",
+    "logoReplace": "Reemplazar el logotipo",
+    "logoNone": "Sin logotipo",
+    "logoSaved": "Logotipo guardado",
+    "accentPicker": "Elegir el color de acento",
+    "accentHex": "Código del color de acento",
+    "accentInvalid": "Introduzca un color con # seguido de seis dígitos hexadecimales, como #2B44C4.",
+    "presets": "Colores sugeridos",
+    "preset": "Usar {{color}}",
+    "preview": "Vista previa del encabezado de un informe",
+    "previewTitle": "Informe de decisión",
+    "resetTitle": "¿Restablecer la marca Quorumind?",
+    "resetLead": "Su nombre, su logotipo y su color se retiran de las exportaciones. Los informes ya descargados los conservan.",
+    "resetConfirm": "Restablecer"
   },
   "workspace": {
     "filter": "Sesiones que mostrar",
@@ -774,7 +789,10 @@
     "cleared": "Perfil eliminado.",
     "currencyInvalid": "Elija la moneda en la lista.",
     "rateInvalid": "Asigne a cada rol una tarifa diaria mayor que cero.",
-    "managed": "El perfil de su espacio de trabajo lo gestionan sus propietarios y administradores, en los ajustes del espacio de su cuenta."
+    "managed": "El perfil de su espacio de trabajo lo gestionan sus propietarios y administradores, en los ajustes del espacio de su cuenta.",
+    "managedLead": "Los debates siguen el perfil de la organización de su espacio de trabajo: sus tecnologías, sus reglas de alojamiento y sus tarifas diarias.",
+    "open": "Abrir el perfil de la organización",
+    "managedReadOnly": "Solo los propietarios y administradores del espacio de trabajo pueden modificarlo: si hay algo que actualizar, pídaselo a uno de ellos."
   },
   "revision": {
     "label": "Revisión {{number}} · {{date}}",

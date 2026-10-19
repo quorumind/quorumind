@@ -625,7 +625,22 @@
     "reset": "恢复 Quorumind 品牌",
     "saved": "品牌设置已保存。",
     "resetDone": "已恢复 Quorumind 品牌。",
-    "error": "无法保存品牌设置。"
+    "error": "无法保存品牌设置。",
+    "logoDrop": "将图片拖放到此处，或选择文件。",
+    "logoChoose": "选择标志",
+    "logoReplace": "更换标志",
+    "logoNone": "无标志",
+    "logoSaved": "已保存的标志",
+    "accentPicker": "选择强调色",
+    "accentHex": "强调色代码",
+    "accentInvalid": "请输入以 # 开头、后跟六位十六进制数字的颜色，例如 #2B44C4。",
+    "presets": "推荐颜色",
+    "preset": "使用 {{color}}",
+    "preview": "报告页眉预览",
+    "previewTitle": "决策报告",
+    "resetTitle": "恢复 Quorumind 品牌？",
+    "resetLead": "您的名称、标志和颜色将从导出文件中移除。已下载的报告仍会保留这些内容。",
+    "resetConfirm": "恢复"
   },
   "workspace": {
     "filter": "显示哪些会话",
@@ -774,7 +789,10 @@
     "cleared": "资料已删除。",
     "currencyInvalid": "请从列表中选择货币。",
     "rateInvalid": "请为每个角色设置大于零的日费率。",
-    "managed": "工作区的资料由其所有者和管理员在您账户的工作区设置中管理。"
+    "managed": "工作区的资料由其所有者和管理员在您账户的工作区设置中管理。",
+    "managedLead": "辩论遵循您工作区的组织资料：其中的技术、托管规则和日费率。",
+    "open": "打开组织资料",
+    "managedReadOnly": "只有工作区的所有者和管理员可以修改：如需更新，请联系其中一位。"
   },
   "revision": {
     "label": "修订 {{number}} · {{date}}",

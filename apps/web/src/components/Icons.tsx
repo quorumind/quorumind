@@ -270,6 +270,14 @@ export const ExternalIcon = () => (
   </Icon>
 );
 
+/** A file going up: an upload. */
+export const UploadIcon = () => (
+  <Icon>
+    <path d="M12 15.5V4.5M7.5 9L12 4.5 16.5 9" />
+    <path d="M4.5 15v3.5a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V15" />
+  </Icon>
+);
+
 export const SearchIcon = () => (
   <Icon>
     <circle cx="10.5" cy="10.5" r="6" />

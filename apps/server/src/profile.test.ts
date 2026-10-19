@@ -210,6 +210,24 @@ describe.each(BACKENDS)("the organisation profile on $name", (each) => {
     expect(review.profile?.name).toBe("Workspace of ada");
     expect(asked).toEqual([`ada:${review.id}`]);
   });
+
+  it("says where the host's profile is edited, and whether the caller may", async () => {
+    const config = async (hooks: AppHooks, user: string) =>
+      (await (await (await makeApp(hooks)).request("/api/config", { headers: as(user) })).json()) as {
+        profilePage: { url: string; canEdit: boolean } | null;
+      };
+    const hosted: AppHooks = {
+      ...SIGNED_IN,
+      profile: async () => null,
+      profilePage: async (user) => ({ url: "/account/#/profile", canEdit: user.userId === "ada" }),
+    };
+    expect((await config(hosted, "ada")).profilePage).toEqual({ url: "/account/#/profile", canEdit: true });
+    await storage?.close();
+    expect((await config(hosted, "bob")).profilePage).toEqual({ url: "/account/#/profile", canEdit: false });
+    await storage?.close();
+    // Without a host's profile, the profile is edited in the settings: there is no page to link to.
+    expect((await config({ ...SIGNED_IN, profilePage: hosted.profilePage }, "ada")).profilePage).toBeNull();
+  });
 });
 
 describe("a profile stored before currencies were checked against the known codes", () => {

@@ -237,6 +237,12 @@ export interface AppHooks {
    */
   profile?(user: User, session: Session): Promise<OrgProfile | null>;
   /**
+   * Where the caller finds the organisation profile the host provides (see `profile`), e.g. the workspace page of the
+   * hosted service's account, and whether they may change it there: the settings link to it, and tell the others who
+   * can. Null, or without this hook, the settings only say that the host manages the profile.
+   */
+  profilePage?(user: User): Promise<{ url: string; canEdit: boolean } | null>;
+  /**
    * Whether new sessions of this user use European models only (sovereignty.ts): "default" ticks the option, "required"
    * imposes it, e.g. a workspace setting. Without it, QUORUMIND_EUROPEAN_ONLY decides.
    */
@@ -813,6 +819,8 @@ export function createApp(deps: AppDeps) {
       providerCosts: !hooks.hideProviderCosts,
       // False when the host provides the organisation profiles (AppHooks.profile): they are not edited in this app.
       profileSettings: !hooks.profile,
+      // Where the host's profile is edited, and whether the caller may (AppHooks.profilePage); null when not said.
+      profilePage: hooks.profile && hooks.profilePage && user ? await hooks.profilePage(user) : null,
       // True when nobody names the people who approve decisions (self-hosted): the register asks for a name.
       typedNames: !hooks.authors,
       // The search engine of the web research (null: off), and whether a standard debate has it ticked.

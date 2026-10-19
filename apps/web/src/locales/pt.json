@@ -625,7 +625,22 @@
     "reset": "Restaurar a marca Quorumind",
     "saved": "Marca salva.",
     "resetDone": "A marca Quorumind foi restaurada.",
-    "error": "Não foi possível salvar a marca."
+    "error": "Não foi possível salvar a marca.",
+    "logoDrop": "Solte uma imagem aqui ou escolha um arquivo.",
+    "logoChoose": "Escolher um logotipo",
+    "logoReplace": "Substituir o logotipo",
+    "logoNone": "Sem logotipo",
+    "logoSaved": "Logotipo salvo",
+    "accentPicker": "Escolher a cor de destaque",
+    "accentHex": "Código da cor de destaque",
+    "accentInvalid": "Digite uma cor com # seguido de seis dígitos hexadecimais, como #2B44C4.",
+    "presets": "Cores sugeridas",
+    "preset": "Usar {{color}}",
+    "preview": "Prévia do cabeçalho de um relatório",
+    "previewTitle": "Relatório de decisão",
+    "resetTitle": "Restaurar a marca Quorumind?",
+    "resetLead": "Seu nome, logotipo e cor são removidos das exportações. Os relatórios já baixados continuam com eles.",
+    "resetConfirm": "Restaurar"
   },
   "workspace": {
     "filter": "Sessões a mostrar",
@@ -774,7 +789,10 @@
     "cleared": "Perfil removido.",
     "currencyInvalid": "Escolha a moeda na lista.",
     "rateInvalid": "Dê a cada função uma diária maior que zero.",
-    "managed": "O perfil do seu espaço de trabalho é gerenciado pelos proprietários e administradores, nas configurações do espaço da sua conta."
+    "managed": "O perfil do seu espaço de trabalho é gerenciado pelos proprietários e administradores, nas configurações do espaço da sua conta.",
+    "managedLead": "Os debates seguem o perfil da organização do seu espaço de trabalho: suas tecnologias, regras de hospedagem e diárias.",
+    "open": "Abrir o perfil da organização",
+    "managedReadOnly": "Só os proprietários e administradores do espaço de trabalho podem alterá-lo: se algo precisar ser atualizado, peça a um deles."
   },
   "revision": {
     "label": "Revisão {{number}} · {{date}}",

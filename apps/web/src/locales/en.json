@@ -625,7 +625,22 @@
     "reset": "Restore Quorumind's branding",
     "saved": "Branding saved.",
     "resetDone": "Quorumind's branding is restored.",
-    "error": "The branding could not be saved."
+    "error": "The branding could not be saved.",
+    "logoDrop": "Drop an image here, or choose a file.",
+    "logoChoose": "Choose a logo",
+    "logoReplace": "Replace the logo",
+    "logoNone": "No logo",
+    "logoSaved": "Saved logo",
+    "accentPicker": "Pick the accent color",
+    "accentHex": "Accent color code",
+    "accentInvalid": "Enter a color as # followed by six hexadecimal digits, such as #2B44C4.",
+    "presets": "Suggested colors",
+    "preset": "Use {{color}}",
+    "preview": "Preview of a report's header",
+    "previewTitle": "Decision report",
+    "resetTitle": "Restore Quorumind's branding?",
+    "resetLead": "Your name, logo and color are removed from the exports. Reports already downloaded keep them.",
+    "resetConfirm": "Restore"
   },
   "workspace": {
     "filter": "Whose sessions to show",
@@ -774,7 +789,10 @@
     "cleared": "Profile removed.",
     "currencyInvalid": "Choose the currency in the list.",
     "rateInvalid": "Give every role a day rate above zero.",
-    "managed": "Your workspace's profile is managed by its owners and admins, in the workspace settings of your account."
+    "managed": "Your workspace's profile is managed by its owners and admins, in the workspace settings of your account.",
+    "managedLead": "Debates follow your workspace's organisation profile: its technologies, hosting rules and day rates.",
+    "open": "Open the organisation profile",
+    "managedReadOnly": "Only the workspace's owners and admins can change it: ask one of them if something needs updating."
   },
   "revision": {
     "label": "Revision {{number}} · {{date}}",

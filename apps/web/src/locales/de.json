@@ -625,7 +625,22 @@
     "reset": "Quorumind-Branding wiederherstellen",
     "saved": "Branding gespeichert.",
     "resetDone": "Das Quorumind-Branding ist wiederhergestellt.",
-    "error": "Das Branding konnte nicht gespeichert werden."
+    "error": "Das Branding konnte nicht gespeichert werden.",
+    "logoDrop": "Ziehen Sie ein Bild hierher oder wählen Sie eine Datei.",
+    "logoChoose": "Logo auswählen",
+    "logoReplace": "Logo ersetzen",
+    "logoNone": "Kein Logo",
+    "logoSaved": "Gespeichertes Logo",
+    "accentPicker": "Akzentfarbe auswählen",
+    "accentHex": "Farbcode der Akzentfarbe",
+    "accentInvalid": "Geben Sie eine Farbe als # gefolgt von sechs Hexadezimalziffern ein, zum Beispiel #2B44C4.",
+    "presets": "Vorgeschlagene Farben",
+    "preset": "{{color}} verwenden",
+    "preview": "Vorschau eines Berichtskopfs",
+    "previewTitle": "Entscheidungsbericht",
+    "resetTitle": "Quorumind-Branding wiederherstellen?",
+    "resetLead": "Ihr Name, Ihr Logo und Ihre Farbe werden aus den Exporten entfernt. Bereits heruntergeladene Berichte behalten sie.",
+    "resetConfirm": "Wiederherstellen"
   },
   "workspace": {
     "filter": "Angezeigte Sitzungen",
@@ -774,7 +789,10 @@
     "cleared": "Profil entfernt.",
     "currencyInvalid": "Wählen Sie die Währung aus der Liste.",
     "rateInvalid": "Geben Sie jeder Rolle einen Tagessatz über null.",
-    "managed": "Das Profil Ihres Arbeitsbereichs verwalten dessen Inhaber und Administratoren, in den Arbeitsbereichseinstellungen Ihres Kontos."
+    "managed": "Das Profil Ihres Arbeitsbereichs verwalten dessen Inhaber und Administratoren, in den Arbeitsbereichseinstellungen Ihres Kontos.",
+    "managedLead": "Debatten folgen dem Organisationsprofil Ihres Arbeitsbereichs: seinen Technologien, Hosting-Regeln und Tagessätzen.",
+    "open": "Organisationsprofil öffnen",
+    "managedReadOnly": "Nur die Inhaber und Administratoren des Arbeitsbereichs können es ändern: Wenden Sie sich an einen von ihnen, wenn etwas aktualisiert werden muss."
   },
   "revision": {
     "label": "Revision {{number}} · {{date}}",

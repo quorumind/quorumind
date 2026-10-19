@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type AppConfig, api } from "./api.ts";
 import { BrandingSettings } from "./components/BrandingSettings.tsx";
-import { DownloadIcon } from "./components/Icons.tsx";
+import { DownloadIcon, ExternalIcon } from "./components/Icons.tsx";
 import { PageHeading } from "./components/Page.tsx";
 import { ProfileSettings } from "./components/ProfileSettings.tsx";
 import { groupLabel } from "./format.ts";
@@ -41,9 +41,29 @@ export function Settings() {
       {config?.profileSettings === false ? (
         <section className="card stack">
           <h2 className="heading">{t("profile.title")}</h2>
-          <p className="muted" style={{ margin: 0 }}>
-            {t("profile.managed")}
-          </p>
+          {config.profilePage ? (
+            <>
+              <p className="muted" style={{ margin: 0 }}>
+                {t("profile.managedLead")}
+              </p>
+              {config.profilePage.canEdit ? (
+                <div>
+                  <a className="button button-secondary" href={config.profilePage.url}>
+                    {t("profile.open")}
+                    <ExternalIcon />
+                  </a>
+                </div>
+              ) : (
+                <p className="field-hint" style={{ margin: 0 }}>
+                  {t("profile.managedReadOnly")}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              {t("profile.managed")}
+            </p>
+          )}
         </section>
       ) : config ? (
         <ProfileSettings defaultCurrency={localeCurrency(isLocale(i18n.language) ? i18n.language : "en")} />
