@@ -23,6 +23,7 @@
     "decisions": "意思決定"
   },
   "host": {
+    "signOut": "ログアウト",
     "main": "メインメニュー",
     "newDebate": "新しい議論",
     "debates": "議論",

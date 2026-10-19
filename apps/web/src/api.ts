@@ -80,6 +80,7 @@ export interface HostNavigation {
   links: { kind: HostLinkKind; url: string }[];
   user: { name: string | null; email: string };
   siteUrl: string | null;
+  signOut?: { url: string; next: string } | null;
 }
 
 /** An organisation profile as the settings form sends it: the server derives the role ids and the time of the save. */

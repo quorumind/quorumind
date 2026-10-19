@@ -4272,6 +4272,23 @@ button.chip:active {
   transform: scale(1.12);
 }
 
+.sidebar-user-row {
+  margin-block-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.sidebar-user-row .sidebar-user {
+  flex: 1;
+  margin-block-start: 0;
+}
+
+.sidebar-user-row .sign-out {
+  flex: none;
+}
+
 .sidebar-user {
   margin-block-start: auto;
   display: grid;

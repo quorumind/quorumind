@@ -249,7 +249,7 @@ function Sidebar({ current, host }: { current: string | null; host: HostNavigati
         )}
         {host ? <HostLinks links={host.links} /> : null}
       </nav>
-      {host ? <HostUser user={host.user} /> : null}
+      {host ? <HostUser user={host.user} signOut={host.signOut ?? null} /> : null}
       <div className="sidebar-foot sidebar-foot-host">
         {host?.siteUrl ? <SiteLink url={host.siteUrl} /> : null}
         <LanguageSelect id="language" />

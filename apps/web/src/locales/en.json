@@ -23,6 +23,7 @@
     "decisions": "Decisions"
   },
   "host": {
+    "signOut": "Sign out",
     "main": "Main menu",
     "newDebate": "New debate",
     "debates": "Debates",

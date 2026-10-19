@@ -23,6 +23,7 @@
     "decisions": "Decisões"
   },
   "host": {
+    "signOut": "Sair",
     "main": "Menu principal",
     "newDebate": "Novo debate",
     "debates": "Debates",

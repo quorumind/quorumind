@@ -23,6 +23,7 @@
     "decisions": "Décisions"
   },
   "host": {
+    "signOut": "Se déconnecter",
     "main": "Menu principal",
     "newDebate": "Nouveau débat",
     "debates": "Débats",

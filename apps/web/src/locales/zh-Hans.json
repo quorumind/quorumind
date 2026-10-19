@@ -23,6 +23,7 @@
     "decisions": "决策"
   },
   "host": {
+    "signOut": "退出登录",
     "main": "主菜单",
     "newDebate": "新辩论",
     "debates": "辩论",

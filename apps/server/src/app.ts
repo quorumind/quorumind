@@ -184,6 +184,8 @@ export interface HostNavigation {
   user: { name: string | null; email: string };
   /** The host's website, for a way back to it; null for none. */
   siteUrl: string | null;
+  /** Signing out: POST to `url` (same origin), then go to `next`. Without it, the menu offers no way to sign out. */
+  signOut?: { url: string; next: string } | null;
 }
 
 /**

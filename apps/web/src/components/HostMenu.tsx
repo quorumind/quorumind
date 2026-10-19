@@ -10,6 +10,7 @@ import {
   HomeIcon,
   PlusIcon,
   ShieldIcon,
+  SignOutIcon,
   UserIcon,
   UsersIcon,
 } from "./Icons.tsx";
@@ -206,12 +207,35 @@ export function HostLinks({ links }: { links: HostNavigation["links"] }) {
   );
 }
 
-/** Who is signed in. */
-export function HostUser({ user }: { user: HostNavigation["user"] }) {
+/** Who is signed in, and the way to sign out when the host gives one. */
+export function HostUser({ user, signOut }: { user: HostNavigation["user"]; signOut?: HostNavigation["signOut"] }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const leave = async () => {
+    if (!signOut) return;
+    setBusy(true);
+    // Whatever the answer, the host's page decides what comes next: signed out, or asked to sign in again.
+    await fetch(signOut.url, { method: "POST", credentials: "same-origin" }).catch(() => undefined);
+    window.location.assign(signOut.next);
+  };
   return (
-    <div className="sidebar-user">
-      <span>{user.name || user.email}</span>
-      {user.name ? <span className="muted">{user.email}</span> : null}
+    <div className="sidebar-user-row">
+      <div className="sidebar-user">
+        <span>{user.name || user.email}</span>
+        {user.name ? <span className="muted">{user.email}</span> : null}
+      </div>
+      {signOut ? (
+        <button
+          type="button"
+          className="icon-button sign-out"
+          aria-label={t("host.signOut")}
+          title={t("host.signOut")}
+          disabled={busy}
+          onClick={() => void leave()}
+        >
+          <SignOutIcon />
+        </button>
+      ) : null}
     </div>
   );
 }

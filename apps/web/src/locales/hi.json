@@ -23,6 +23,7 @@
     "decisions": "निर्णय"
   },
   "host": {
+    "signOut": "साइन आउट",
     "main": "मुख्य मेनू",
     "newDebate": "नई बहस",
     "debates": "बहसें",

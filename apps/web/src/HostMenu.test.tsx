@@ -155,6 +155,24 @@ describe("the menu, hosted", () => {
     expect(calls.filter((call) => call.method === "POST").map((call) => call.path)).toEqual(["/api/host/workspaces/w2/switch"]);
   });
 
+  it("signs out from under the person's name when the host gives the way, then goes where the host says", async () => {
+    const assign = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, hash: "#/decisions", assign } as Location);
+    const signOut = { url: "/auth/signout", next: "https://app.example.com/account/#/signin?signedOut=1" };
+    const { calls } = stub({ ...HOSTED, signOut }, { "POST /auth/signout": () => json({ ok: true }) });
+    render(<App />);
+    fireEvent.click(await sidebar().findByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(signOut.next));
+    expect(calls.filter((call) => call.method === "POST").map((call) => call.path)).toEqual(["/auth/signout"]);
+  });
+
+  it("offers no sign-out when the host gives no way to", async () => {
+    stub(HOSTED);
+    render(<App />);
+    await sidebar().findByText("ada@example.com");
+    expect(sidebar().queryByRole("button", { name: "Sign out" })).toBeNull();
+  });
+
   it("offers to create a workspace to someone in none", async () => {
     stub({ ...HOSTED, workspaces: { list: [], createUrl: "https://app.example.com/account/#/workspaces/new" } });
     render(<App />);
