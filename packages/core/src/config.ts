@@ -14,6 +14,7 @@ import {
   openRouterMaker,
 } from "./providers/openrouter.ts";
 import type { LlmProvider, ProviderKind } from "./providers/types.ts";
+import { searchFromEnv } from "./research.ts";
 import type { Participant, Seat } from "./session.ts";
 import { europeanEndpoint, europeanOpenRouterBaseUrl } from "./sovereignty.ts";
 
@@ -33,8 +34,10 @@ export interface ParticipantLineup {
   arbiter: Participant;
   seats: Record<string, Participant>;
   devil?: Participant | null;
-  /** Set for a European-only debate: OpenRouter requests are pinned to the maker's EU endpoint. */
+  /** Set for a European-only debate: OpenRouter requests are pinned to the maker's EU endpoint, and nothing is searched. */
   european?: object | null;
+  /** The recorded demo, whose research replays recorded search results. */
+  demo?: boolean;
 }
 
 /** A model the person can pick for a role. */
@@ -374,6 +377,7 @@ export function providersFor(lineup: ParticipantLineup, env: Env, settings: { mo
       Object.entries(lineup.seats).map(([seat, participant]) => [seat, providerFor(participant, env, options)]),
     ),
     devil: lineup.devil ? providerFor(lineup.devil, env, options) : null,
+    search: searchFromEnv(env, { demo: Boolean(lineup.demo), european: options.european }),
   };
 }
 

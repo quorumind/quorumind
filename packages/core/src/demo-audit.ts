@@ -379,9 +379,10 @@ const VERDICT: z.infer<typeof AuditVerdict> = {
     { phase: "Decide", content: "Run the audit again on the revised quote before signing.", exitCriterion: "No blocking finding left" },
   ],
   claims: [
-    { claim: "The lines of the breakdown add up to 36,600 €, against a stated total of 38,000 €.", confidence: "verified" },
-    { claim: "A comparable website costs 22,000 € to 40,000 € from a French agency.", confidence: "estimated" },
-    { claim: "The booking plugin covers cancellations by studio without specific development.", confidence: "assumed" },
+    // No web source supports these claims: none is verified (research.ts).
+    { claim: "The lines of the breakdown add up to 36,600 €, against a stated total of 38,000 €.", confidence: "estimated", sources: [] },
+    { claim: "A comparable website costs 22,000 € to 40,000 € from a French agency.", confidence: "estimated", sources: [] },
+    { claim: "The booking plugin covers cancellations by studio without specific development.", confidence: "assumed", sources: [] },
   ],
   openQuestions: ["Must your two developers be able to maintain the website themselves?"],
   audit: REPORT,

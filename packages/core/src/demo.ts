@@ -431,10 +431,12 @@ const VERDICT: Verdict = {
     { phase: "After launch", content: "Waiting lists and teacher substitution", exitCriterion: "No-show rate below 8%" },
   ],
   claims: [
-    { claim: "Option A runs at €120 to €260 per month", confidence: "estimated" },
-    { claim: "Option A may exceed the €15,000 build budget by up to €500", confidence: "verified" },
-    { claim: "The team knows React and Node.js", confidence: "verified" },
-    { claim: "A suitable EU booking vendor exists", confidence: "assumed" },
+    { claim: "Option A runs at €120 to €260 per month", confidence: "estimated", sources: [] },
+    { claim: "Option A may exceed the €15,000 build budget by up to €500", confidence: "estimated", sources: [] },
+    // The two claims the recorded research supports: the demo cites its sources (research.ts).
+    { claim: "Stripe charges 1.5% + €0.25 per payment with a standard EEA card", confidence: "verified", sources: ["S1"] },
+    { claim: "PostgreSQL 18, which option A runs on, is supported until November 2030", confidence: "verified", sources: ["S2"] },
+    { claim: "A suitable EU booking vendor exists", confidence: "assumed", sources: [] },
   ],
   openQuestions: ["Which SMS provider meets the cost assumption?"],
 };
@@ -498,7 +500,7 @@ const REASSESSMENT: VerdictUpdate = {
     },
   ],
   claims: [
-    { claim: "Option A runs at €140 to €220 per month", confidence: "estimated" },
+    { claim: "Option A runs at €140 to €220 per month", confidence: "estimated", sources: [] },
     ...VERDICT.claims.filter((claim) => !claim.claim.startsWith("Option A runs")),
   ],
   openQuestions: [],

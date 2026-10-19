@@ -5,6 +5,7 @@ import type { ClientProposal } from "../deliverable.ts";
 import { checkLine, fill, formatDayRange, formatMoney, formatRange, reportLabels, weeksText } from "../report.ts";
 import { formatDate } from "../revision-report.ts";
 import { type Block, docxKit, MUTED } from "./docx-kit.ts";
+import { researchDocx } from "./research-docx.ts";
 
 // The client proposal as a Word document, to edit and send under the agency's brand: a cover page, then one
 // section per heading, with Word's own heading, list and table styles so it stays editable in Word and Google Docs.
@@ -12,10 +13,8 @@ import { type Block, docxKit, MUTED } from "./docx-kit.ts";
 export async function renderProposalDocx(proposal: ClientProposal, branding: Branding): Promise<Uint8Array> {
   const t = reportLabels(proposal.locale);
   const a = agencyLabels(proposal.locale);
-  const { rtl, accent, run, para, heading, bullets, numbered, labelled, table, pageBreak, masthead, document } = docxKit(
-    proposal.locale,
-    branding,
-  );
+  const kit = docxKit(proposal.locale, branding);
+  const { rtl, accent, run, para, heading, bullets, numbered, labelled, table, pageBreak, masthead, document } = kit;
   const range = (value: { low: number; high: number; currency: string }) => formatRange(value, proposal.locale);
   const revision = proposal.revision
     ? fill(a.revisionDated, { number: proposal.revision.number, date: formatDate(proposal.revision.date, proposal.locale) })
@@ -134,6 +133,7 @@ export async function renderProposalDocx(proposal: ClientProposal, branding: Bra
   }
 
   if (proposal.openQuestions.length > 0) children.push(heading(a.toConfirm), ...numbered(proposal.openQuestions));
+  children.push(...researchDocx(kit, proposal.research, proposal.locale));
 
   // The attribution stays on branded documents, as on every export: Quorumind is AGPL software.
   const footer = [branding.name, revision, t.preparedWith].filter(Boolean).join(" · ");

@@ -4,6 +4,7 @@ import type { Decision } from "./decisions.ts";
 import type { Locale } from "./locales.ts";
 import type { OrgProfile } from "./profile.ts";
 import type { ProviderKind, Task } from "./providers/types.ts";
+import type { ResearchRecord, ResearchSettings, Source } from "./research.ts";
 import type { RevisionScenario } from "./scenarios.ts";
 import type {
   Audience,
@@ -199,6 +200,12 @@ export interface Session {
   european: EuropeanMode | null;
   /** The date of the reference cloud prices the proposers read, set when the debate starts; null before or without them. */
   priceReference: { asOf: string } | null;
+  /** Web research before the proposals, with its limits; null when it is off. */
+  webResearch: ResearchSettings | null;
+  /** What the research did and found; null until it starts, and for a session without research. */
+  research: ResearchRecord | null;
+  /** The pages the research read, numbered S1, S2…: the facts and the verdict's claims cite them. */
+  sources: Source[];
   depth: Depth;
   phase: Phase;
   /** Number of critique and revision cycles after the blind proposals. */
@@ -275,6 +282,7 @@ export interface NewSessionInput {
   template?: TemplateId | null;
   complianceTemplates?: ComplianceTemplateId[];
   european?: EuropeanMode | null;
+  webResearch?: ResearchSettings | null;
   depth?: Depth;
   rounds?: number;
   budgetUsd?: number | null;
@@ -319,6 +327,9 @@ export function createSession(input: NewSessionInput): Session {
     complianceTemplates: input.complianceTemplates ?? [],
     european: input.european ?? null,
     priceReference: null,
+    webResearch: input.webResearch ?? null,
+    research: null,
+    sources: [],
     depth: input.depth ?? (mode === "express" ? "quick" : "standard"),
     phase: "interview",
     rounds: mode === "express" ? 1 : Math.min(MAX_ROUNDS, Math.max(1, input.rounds ?? 1)),
@@ -367,6 +378,9 @@ export function normalizeSession(stored: Session): Session {
   session.complianceTemplates ??= [];
   session.european ??= null;
   session.priceReference ??= null;
+  session.webResearch ??= null;
+  session.research ??= null;
+  session.sources ??= [];
   session.depth ??= "standard";
   session.devil ??= null;
   session.challenge ??= null;
@@ -403,6 +417,19 @@ export function normalizeSession(stored: Session): Session {
         positions: item.positions.map((position) => ({ seat: "", position })),
       })),
     ];
+  }
+  // Claims stored before sources existed cite none, so none of them is verified.
+  const verdicts = [
+    legacy,
+    ...(session.revisions ?? []).map((revision) => revision.verdict),
+    ...(session.debate ?? []).flatMap((entry) => (entry.kind === "verdict" ? [entry.data] : [])),
+  ];
+  for (const verdict of verdicts) {
+    for (const claim of verdict?.claims ?? []) {
+      if (claim.sources) continue;
+      claim.sources = [];
+      if (claim.confidence === "verified") claim.confidence = "estimated";
+    }
   }
   // Sessions ruled on before revisions existed: their verdict is revision 1.
   session.revisions ??= session.verdict ? [firstRevision(session.verdict, session.updatedAt)] : [];

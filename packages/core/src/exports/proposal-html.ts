@@ -3,6 +3,8 @@ import { type Branding, isAccent, parseLogo, QUORUMIND_ACCENT } from "../brandin
 import type { ClientProposal } from "../deliverable.ts";
 import { localeInfo } from "../locales.ts";
 import { checkLine, fill, formatDayRange, formatMoney, formatRange, labelled, reportLabels, weeksText } from "../report.ts";
+import { researchLabels } from "../research-labels.ts";
+import { refsHtml, sourcesHtml } from "../research-report.ts";
 import { formatDate } from "../revision-report.ts";
 import { PRINT_SCRIPT, REPORT_PAGE } from "./html.ts";
 
@@ -189,6 +191,16 @@ export function renderProposalHtml(proposal: ClientProposal, branding: Branding,
   if (proposal.openQuestions.length > 0) {
     body.push(
       section(a.toConfirm, `<ol class="steps">${proposal.openQuestions.map((question) => `<li>${esc(question)}</li>`).join("")}</ol>`),
+    );
+  }
+
+  // The facts the web research found, with their public sources.
+  if (proposal.research) {
+    const research = proposal.research;
+    body.push(
+      `<section class="research"><h2>${esc(researchLabels(proposal.locale).heading)}</h2><ul>${research.facts
+        .map((fact) => `<li>${esc(fact.fact)}${refsHtml(fact.refs)}</li>`)
+        .join("")}</ul>${sourcesHtml(research.sources, proposal.locale, esc)}</section>`,
     );
   }
 

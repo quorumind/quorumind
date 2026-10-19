@@ -27,11 +27,14 @@ import {
   usersText,
   weeksText,
 } from "../report.ts";
+import { researchLabels } from "../research-labels.ts";
+import { numberedSources, refsOf, refsText, researchSection } from "../research-report.ts";
 import { revisionNote } from "../revision-report.ts";
 import type { Proposal } from "../schemas.ts";
 import { currentProposals, type Session } from "../session.ts";
 import { renderAuditDocx } from "./audit-docx.ts";
 import { docxKit, MUTED } from "./docx-kit.ts";
+import { researchDocx } from "./research-docx.ts";
 
 // The decision report as a Word document, for people who edit and forward reports by e-mail.
 // Server-only: the `docx` package is large, so this module has its own subpath export
@@ -41,7 +44,8 @@ import { docxKit, MUTED } from "./docx-kit.ts";
 export async function renderDocx(session: Session, branding: Branding): Promise<Uint8Array> {
   if (session.mode === "audit") return renderAuditDocx(session, branding);
   const t = reportLabels(session.locale);
-  const { rtl, accent, run, para, heading, bullets, labelled, table, masthead, document } = docxKit(session.locale, branding);
+  const kit = docxKit(session.locale, branding);
+  const { rtl, accent, run, para, heading, bullets, labelled, table, masthead, document } = kit;
   const verdict = session.verdict;
   const sheet = session.sheet;
   const proposals = currentProposals(session);
@@ -178,7 +182,15 @@ export async function renderDocx(session: Session, branding: Branding): Promise<
     }
     if (verdict.claims.length > 0) {
       children.push(heading(t.claims));
-      children.push(...bullets(verdict.claims.map((claim) => `${claim.claim} (${t[claim.confidence]})`)));
+      const sources = numberedSources(session);
+      children.push(
+        ...bullets(
+          verdict.claims.map((claim) =>
+            [claim.claim, refsText(refsOf(claim.sources, sources)), `(${t[claim.confidence]})`].filter(Boolean).join(" "),
+          ),
+        ),
+      );
+      children.push(para(researchLabels(session.locale).claimsNote, { style: { color: MUTED, size: 18 } }));
     }
     if (verdict.openQuestions.length > 0) {
       children.push(heading(t.openQuestions));
@@ -226,6 +238,8 @@ export async function renderDocx(session: Session, branding: Branding): Promise<
     children.push(heading(t.answers));
     children.push(...bullets(answers.map((entry) => `${entry.question} → ${entry.answer}`)));
   }
+
+  children.push(...researchDocx(kit, researchSection(session), session.locale));
 
   children.push(heading(t.method));
   for (const note of methodNotes(session, t)) children.push(para(note, { style: { color: MUTED, size: 18 } }));

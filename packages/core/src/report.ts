@@ -17,6 +17,8 @@ import type { Locale } from "./locales.ts";
 import { isGenericRole, type OrgProfile } from "./profile.ts";
 import { rankOptions } from "./ranking.ts";
 import { LABELS, type Labels } from "./report-labels.ts";
+import { researchLabels } from "./research-labels.ts";
+import { numberedSources, refsOf, refsText, researchMarkdown, researchNote } from "./research-report.ts";
 import { revisionMarkdown, revisionNote } from "./revision-report.ts";
 import type { ComponentKind, Probe, Proposal, RequirementsSheet } from "./schemas.ts";
 import { COMPLIANCE_KEYS, currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "./session.ts";
@@ -335,6 +337,7 @@ export function methodNotes(session: Session, t: Labels): string[] {
   const notes = [fill(t.methodText, { rounds: session.rounds })];
   if (session.shortened) notes.push(fill(t.shortened, { done: session.shortened.rounds, planned: session.rounds }));
   notes.push(...sovereigntyNotes(session));
+  notes.push(researchNote(session));
   return notes;
 }
 
@@ -608,7 +611,11 @@ export function renderReport(session: Session): string {
       lines.push("");
     }
     if (verdict.claims.length > 0) {
-      lines.push(`## ${t.claims}`, "", list(verdict.claims.map((claim) => `${claim.claim} _(${t[claim.confidence]})_`)), "");
+      const sources = numberedSources(session);
+      const claims = verdict.claims.map((claim) =>
+        [claim.claim, refsText(refsOf(claim.sources, sources)), `_(${t[claim.confidence]})_`].filter(Boolean).join(" "),
+      );
+      lines.push(`## ${t.claims}`, "", list(claims), "", `_${researchLabels(session.locale).claimsNote}_`, "");
     }
     if (verdict.openQuestions.length > 0) lines.push(`## ${t.openQuestions}`, "", list(verdict.openQuestions), "");
   }
@@ -640,6 +647,7 @@ export function renderReport(session: Session): string {
     lines.push(`## ${t.answers}`, "", list(answers.map((entry) => `**${entry.question}** ${entry.answer}`)), "");
   }
 
+  lines.push(...researchMarkdown(session));
   lines.push(`## ${t.method}`, "", ...methodNotes(session, t).flatMap((note) => [note, ""]));
   lines.push(list(participants(session, t).map((item) => say(item.role, item.model))), "");
   return lines.join("\n");

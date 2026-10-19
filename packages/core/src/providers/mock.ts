@@ -1,6 +1,7 @@
 import { COMPLIANCE_VERDICT, DEMO_COMPLIANCE } from "../compliance-verdict.ts";
 import { DEMO_DONE, DEMO_QUESTIONS, DEMO_SCRIPT } from "../demo.ts";
 import { demoAuditAnswer } from "../demo-audit.ts";
+import { DEMO_RESEARCH_FINDINGS, DEMO_RESEARCH_PLAN, RESEARCH_FINDINGS } from "../research.ts";
 import type { GenerateRequest, GenerateResult, LlmProvider } from "./types.ts";
 
 export interface MockOptions {
@@ -42,6 +43,11 @@ export class MockProvider implements LlmProvider {
     switch (request.task) {
       case "interview":
         return request.messages.length > 1 ? DEMO_DONE : DEMO_QUESTIONS;
+      case "research":
+        return request.schemaName === RESEARCH_FINDINGS.name ? DEMO_RESEARCH_FINDINGS : DEMO_RESEARCH_PLAN;
+      case "search":
+        // A web search is not a model call: the recorded search (RecordedSearch) answers it.
+        return {};
       case "proposal":
         return DEMO_SCRIPT.proposals[seat] ?? DEMO_SCRIPT.proposals.A;
       case "critique":

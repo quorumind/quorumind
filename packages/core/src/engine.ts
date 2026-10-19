@@ -38,6 +38,7 @@ import {
   criticSystem,
   devilSystem,
   factsBlock,
+  findingsSystem,
   formalizerSystem,
   interviewerSystem,
   probeSystem,
@@ -47,11 +48,30 @@ import {
   ratesBlock,
   reassessSystem,
   requirementsBlock,
+  researcherSystem,
   reviserSystem,
   revisionCriticSystem,
   scenarioSystem,
 } from "./prompts.ts";
 import { type ChatMessage, type LlmProvider, ProviderError, type Task } from "./providers/types.ts";
+import {
+  citedSources,
+  needsResearch,
+  plannedQueries,
+  RESEARCH_FINDINGS,
+  type ResearchFindings,
+  ResearchPlan,
+  type ResearchRecord,
+  type ResearchSettings,
+  researchBlock,
+  researchBudget,
+  researchRule,
+  researchSpent,
+  type Source,
+  settleClaims,
+  settleResearchFacts,
+  sourcesBlock,
+} from "./research.ts";
 import { applyScenario, type RevisionScenario, scenarioFacts } from "./scenarios.ts";
 import {
   type Audience,
@@ -67,6 +87,7 @@ import {
   Verdict,
   VerdictUpdate,
 } from "./schemas.ts";
+import { MAX_RESULTS_PER_QUERY, type SearchHit, type SearchProvider } from "./search.ts";
 import {
   type Answer,
   allAnswers,
@@ -103,6 +124,8 @@ export interface ProviderSet {
   /** Every debating seat. In challenge mode they criticise the person's solution instead of proposing. */
   proposers: Record<string, LlmProvider>;
   devil?: LlmProvider | null;
+  /** Where the research step searches the web; without it, a session that asks for research skips it. */
+  search?: SearchProvider | null;
 }
 
 const EFFORT: Record<Depth, "low" | "high" | undefined> = { quick: "low", standard: undefined, deep: "high" };
@@ -192,6 +215,7 @@ const roundUsd = (usd: number) => Math.round(usd * 10_000) / 10_000;
 
 const SCHEMAS = {
   interview: { zod: InterviewTurn, json: toStrictJsonSchema(InterviewTurn), name: "interview_turn", maxTokens: 8_000 },
+  research: { zod: ResearchPlan, json: toStrictJsonSchema(ResearchPlan), name: "research_plan", maxTokens: 4_000 },
   proposal: { zod: Proposal, json: toStrictJsonSchema(Proposal), name: "proposal", maxTokens: 12_000 },
   critique: { zod: CritiqueRound, json: toStrictJsonSchema(CritiqueRound), name: "critique_round", maxTokens: 10_000 },
   revision: { zod: Revision, json: toStrictJsonSchema(Revision), name: "revision", maxTokens: 14_000 },
@@ -456,7 +480,10 @@ export class DebateEngine {
     }
     const persona = seat === DEVIL_SEAT ? (session.devil?.persona ?? null) : (session.seats[seat]?.persona ?? null);
     const data = await this.call(session, "critique", seat, provider, {
-      system: revisionCriticSystem(session.locale, persona) + complianceRule(activeRequirements(subject), "critique"),
+      system:
+        revisionCriticSystem(session.locale, persona) +
+        complianceRule(activeRequirements(subject), "critique") +
+        researchRule(subject, "critique"),
       messages: [
         {
           role: "user",
@@ -464,6 +491,7 @@ export class DebateEngine {
             requirementsBlock(requireSheet(subject)),
             profileBlock(sessionProfile(subject)),
             proposalsBlock(targets, computedCosts(subject)),
+            researchBlock(subject),
             fence("verdict", JSON.stringify(stripSpeech(verdict), null, 2)),
             factsBlock(facts, work.note),
             `Criticise these options in the light of the new facts only. Valid targets: ${Object.keys(targets).join(", ")}.`,
@@ -480,14 +508,16 @@ export class DebateEngine {
 
   private reassessPrompt(work: RevisionWork, critiques: VerdictRevision["critiques"]): { system: string; messages: ChatMessage[] } {
     const { subject } = work;
-    if (subject.mode === "audit") return auditReassessPrompt(subject, { facts: work.facts, note: work.note }, critiques);
+    if (subject.mode === "audit")
+      return withResearch(subject, auditReassessPrompt(subject, { facts: work.facts, note: work.note }, critiques), "arbiter");
     const verdict = subject.verdict as Verdict;
     const said = critiques.flatMap((entry) => entry.data.critiques.map((critique) => ({ from: entry.seat, ...critique })));
     const challenge = subject.mode === "challenge";
     return {
       system:
         (work.scenario ? scenarioSystem(subject.locale, challenge) : reassessSystem(subject.locale, challenge)) +
-        complianceRule(activeRequirements(subject), "arbiter"),
+        complianceRule(activeRequirements(subject), "arbiter") +
+        researchRule(subject, "arbiter"),
       messages: [
         {
           role: "user",
@@ -498,6 +528,7 @@ export class DebateEngine {
             proposalsBlock(currentProposals(subject), computedCosts(subject)),
             // A scenario changes the numbers the checks are made with: they are computed again for the arbiter.
             work.scenario ? checksBlock(checkFacts(subject)) : "",
+            researchBlock(subject),
             fence("verdict", JSON.stringify(stripSpeech(verdict), null, 2)),
             factsBlock(work.facts, work.note),
             contextBlock(subject.context, CONTEXT_BUDGET.critique),
@@ -551,6 +582,12 @@ export class DebateEngine {
   private async debateStep(session: Session) {
     const has = (kind: "proposal" | "critiques" | "revision", seat: string, round: number) =>
       session.debate.some((entry) => entry.kind === kind && entry.seat === seat && entry.round === round);
+
+    // The facts the debate depends on are checked on the web first, when the session asks for it.
+    if (needsResearch(session)) {
+      await this.research(session);
+      return;
+    }
 
     if (session.mode === "challenge") {
       if (!has("proposal", USER_SEAT, 0)) {
@@ -650,6 +687,102 @@ export class DebateEngine {
     return session.usage.reduce((sum, record) => sum + (record.revision === revision ? (record.costUsd ?? 0) : 0), 0);
   }
 
+  /**
+   * The web research, before the proposals: the researcher plans its searches from the requirements sheet alone,
+   * Quorumind runs them (a query searched once is not searched again in the session, even after a resume), then the
+   * researcher states what the pages say, each fact with its sources. It never stops the debate: when it cannot run,
+   * runs out of budget or fails, its record says why and the debate goes on from the models' own knowledge.
+   */
+  private async research(session: Session) {
+    const settings = session.webResearch as ResearchSettings;
+    const search = this.providers.search ?? null;
+    const researcher = this.providers.interviewer;
+    const record: ResearchRecord = session.research ?? {
+      status: "running",
+      skipped: null,
+      error: null,
+      engine: search?.name ?? null,
+      kind: search?.kind ?? null,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      queries: [],
+      facts: [],
+    };
+    session.research = record;
+    const finish = async (status: ResearchRecord["status"], update: Partial<ResearchRecord> = {}) => {
+      Object.assign(record, { status, finishedAt: new Date().toISOString(), ...update });
+      await this.persist(session);
+    };
+    // A European-only debate keeps every request on its allowed path: no search engine keeps the queries in Europe.
+    if (session.european) return finish("skipped", { skipped: "european", engine: null, kind: null });
+    if (!search) return finish("skipped", { skipped: "unavailable", engine: null, kind: null });
+    const call = () => callEstimate(session, "research", researcher.model);
+    const fits = (usd: number) => researchSpent(session) + usd <= researchBudget(session);
+    try {
+      if (record.queries.length === 0) {
+        if (!fits(2 * call() + search.estimateUsd)) return finish("skipped", { skipped: "budget" });
+        const plan = await this.call(session, "research", null, researcher, {
+          system: researcherSystem(session.locale, { maxQueries: settings.maxQueries, today: new Date().toISOString().slice(0, 10) }),
+          // The sheet alone: never the attached documents, the profile or the person's answers.
+          messages: [{ role: "user", content: [requirementsBlock(requireSheet(session)), "Plan the research."].join("\n\n") }],
+        });
+        record.queries = plannedQueries(plan, session, settings.maxQueries);
+        await this.persist(session);
+      }
+      for (const query of record.queries) {
+        if (query.searchedAt !== null || query.error !== null) continue;
+        this.checkStopped();
+        // Each search leaves room for the call that reads what the searches found.
+        if (!fits(search.estimateUsd + call())) {
+          query.error = "budget";
+          continue;
+        }
+        try {
+          this.hooks.emit(session.id, { type: "speaking", task: "search", seat: null });
+          const result = await search.search(query.query, {
+            maxResults: MAX_RESULTS_PER_QUERY,
+            ...(this.signal ? { signal: this.signal } : {}),
+          });
+          session.usage.push({
+            task: "search",
+            seat: null,
+            model: result.model,
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+            costUsd: result.costUsd,
+          });
+          query.searchedAt = new Date().toISOString();
+          query.sources = addSources(session, result.hits, query.question, query.searchedAt);
+          this.hooks.emit(session.id, { type: "spoke", task: "search", seat: null });
+        } catch (error) {
+          this.checkStopped();
+          query.error = error instanceof Error ? error.message : String(error);
+        }
+        await this.persist(session);
+      }
+      if (record.facts.length === 0 && record.queries.some((query) => query.sources.length > 0)) {
+        if (!fits(call())) return finish("skipped", { skipped: "budget" });
+        const findings = (await this.call(
+          session,
+          "research",
+          null,
+          researcher,
+          {
+            system: findingsSystem(session.locale),
+            messages: [{ role: "user", content: [sourcesBlock(record, session.sources), "State what the sources say."].join("\n\n") }],
+          },
+          RESEARCH_FINDINGS,
+        )) as unknown as ResearchFindings;
+        record.facts = settleResearchFacts(findings, session.sources);
+      }
+      await finish("done");
+    } catch (error) {
+      if (error instanceof StoppedError || this.signal?.aborted) throw error;
+      if (error instanceof BudgetExceededError) return finish("skipped", { skipped: "budget" });
+      await finish("failed", { error: sessionError(error) });
+    }
+  }
+
   private async formalize(session: Session) {
     const sheet = requireSheet(session);
     const proposal = await this.call(session, "proposal", USER_SEAT, this.providers.interviewer, {
@@ -660,9 +793,12 @@ export class DebateEngine {
           content: [
             requirementsBlock(sheet),
             ratesBlock(sessionProfile(session), debateCurrency(session)),
+            researchBlock(session),
             fence("solution", session.challenge ?? session.idea),
             "Restate this solution.",
-          ].join("\n\n"),
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
         },
       ],
     });
@@ -690,7 +826,13 @@ export class DebateEngine {
 
   private async propose(session: Session, seat: string) {
     if (session.mode === "audit") {
-      const proposal = await this.call(session, "proposal", seat, this.proposer(seat), auditAlternativePrompt(session, seat));
+      const proposal = await this.call(
+        session,
+        "proposal",
+        seat,
+        this.proposer(seat),
+        withResearch(session, auditAlternativePrompt(session, seat), "design"),
+      );
       session.debate.push({ kind: "proposal", round: 0, seat, data: proposal });
       await this.persist(session);
       return;
@@ -705,6 +847,7 @@ export class DebateEngine {
             requirementsBlock(sheet),
             profileBlock(sessionProfile(session)),
             ratesBlock(sessionProfile(session), debateCurrency(session)),
+            researchBlock(session),
             contextBlock(session.context, CONTEXT_BUDGET.proposal),
             "Design your solution.",
           ]
@@ -738,7 +881,7 @@ export class DebateEngine {
     );
     const probe = latestProbe(session.debate, round);
     const critiques = await this.call(session, "critique", seat, devil ? this.devil() : this.proposer(seat), {
-      system: system + complianceRule(activeRequirements(session), "critique"),
+      system: system + complianceRule(activeRequirements(session), "critique") + researchRule(session, "critique"),
       messages: [
         {
           role: "user",
@@ -747,6 +890,7 @@ export class DebateEngine {
             profileBlock(sessionProfile(session)),
             answersBlock(allAnswers(session)),
             proposalsBlock(targets, computedCosts(session)),
+            researchBlock(session),
             contextBlock(session.context, CONTEXT_BUDGET.critique),
             earlier.length > 0 ? fence("debate", JSON.stringify(earlier, null, 2)) : "",
             probe ? fence("probe", probe.angle) : "",
@@ -768,7 +912,7 @@ export class DebateEngine {
     const persona = devil ? (session.devil?.persona ?? null) : (session.seats[seat]?.persona ?? null);
     const system = devil ? auditDevilSystem(session.locale, persona) : auditCriticSystem(session.locale, seat, persona);
     const provider = devil ? this.devil() : this.proposer(seat);
-    const prompt = auditCritiquePrompt(session, seat, round, system);
+    const prompt = withResearch(session, auditCritiquePrompt(session, seat, round, system), "critique");
     const found = (await this.call(session, "critique", seat, provider, prompt, AUDIT_FINDINGS)) as unknown;
     session.debate.push({ kind: "critiques", round, seat, data: settleFindings(found as AuditCritiqueInput, auditedDocuments(session)) });
     await this.persist(session);
@@ -824,6 +968,7 @@ export class DebateEngine {
             ratesBlock(sessionProfile(session), debateCurrency(session)),
             answersBlock(allAnswers(session)),
             proposalsBlock({ [seat]: own }, computedCosts(session)),
+            researchBlock(session),
             fence("debate", JSON.stringify(received, null, 2)),
             received.length === 0
               ? "No critique targeted your proposal this round. Confirm or improve it."
@@ -861,7 +1006,7 @@ export class DebateEngine {
   }
 
   private verdictPrompt(session: Session): { system: string; messages: ChatMessage[] } {
-    if (session.mode === "audit") return auditVerdictPrompt(session);
+    if (session.mode === "audit") return withResearch(session, auditVerdictPrompt(session), "arbiter");
     const sheet = requireSheet(session);
     const transcript = session.debate.flatMap<object>((entry) => {
       if (entry.kind === "critiques") return [{ round: entry.round, from: entry.seat, critiques: entry.data.critiques }];
@@ -880,7 +1025,10 @@ export class DebateEngine {
       return [];
     });
     return {
-      system: arbiterSystem(session.locale, session.mode === "challenge") + complianceRule(activeRequirements(session), "arbiter"),
+      system:
+        arbiterSystem(session.locale, session.mode === "challenge") +
+        complianceRule(activeRequirements(session), "arbiter") +
+        researchRule(session, "arbiter"),
       messages: [
         {
           role: "user",
@@ -890,6 +1038,7 @@ export class DebateEngine {
             answersBlock(allAnswers(session)),
             proposalsBlock(currentProposals(session), computedCosts(session)),
             checksBlock(checkFacts(session)),
+            researchBlock(session),
             contextBlock(session.context, CONTEXT_BUDGET.verdict),
             fence("debate", JSON.stringify(transcript, null, 2)),
             "Rule on these options.",
@@ -1085,10 +1234,54 @@ function revisionWork(session: Session, pending: PendingRevision): RevisionWork 
 }
 
 /**
- * Keeps a ruling to the options of the debate: unknown seats dropped, scores within 1 to 5. An audit's quotes are
- * checked against the document.
+ * An audit's prompt with the web research: the facts and their source ids before the rest of the request, and what the
+ * role is told about them. The arbiter is always told, since it may verify a claim only against a source.
+ */
+function withResearch(
+  session: Session,
+  prompt: { system: string; messages: ChatMessage[] },
+  role: "design" | "critique" | "arbiter",
+): { system: string; messages: ChatMessage[] } {
+  const block = researchBlock(session);
+  const [first, ...rest] = prompt.messages;
+  return {
+    system: prompt.system + researchRule(session, role),
+    messages: block && first?.role === "user" ? [{ ...first, content: `${block}\n\n${first.content}` }, ...rest] : prompt.messages,
+  };
+}
+
+/**
+ * Records the pages a search found as sources of the session, numbered S1, S2…: a page found again keeps its first
+ * number. Returns their ids.
+ */
+function addSources(session: Session, hits: SearchHit[], question: string, retrievedAt: string): string[] {
+  const ids: string[] = [];
+  for (const hit of hits) {
+    const known = session.sources.find((source) => source.url === hit.url);
+    if (known) {
+      if (!ids.includes(known.id)) ids.push(known.id);
+      continue;
+    }
+    const source: Source = {
+      id: `S${session.sources.length + 1}`,
+      url: hit.url,
+      title: hit.title,
+      snippet: hit.snippet,
+      retrievedAt: hit.retrievedAt ?? retrievedAt,
+      question,
+    };
+    session.sources.push(source);
+    ids.push(source.id);
+  }
+  return ids;
+}
+
+/**
+ * Keeps a ruling to the options of the debate: unknown seats dropped, scores within 1 to 5, and a claim "verified" only
+ * when it cites a source the research found. An audit's quotes are checked against the document.
  */
 function settleVerdict(session: Session, verdict: Verdict) {
+  settleClaims(verdict, citedSources(session));
   const audited = verdict as Partial<AuditedVerdict>;
   if (session.mode === "audit" && audited.audit) audited.audit = settleAudit(audited.audit, auditedDocuments(session));
   const seats = new Set(Object.keys(currentProposals(session)));
@@ -1116,7 +1309,7 @@ interface OutputSpec {
 
 /** What the roles that design an option also follow: the compliance requirements and the reference cloud prices. */
 function designRules(session: Session): string {
-  return complianceRule(activeRequirements(session), "design") + priceReferenceRule();
+  return complianceRule(activeRequirements(session), "design") + priceReferenceRule() + researchRule(session, "design");
 }
 
 function requireSheet(session: Session) {

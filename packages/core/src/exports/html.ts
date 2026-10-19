@@ -34,6 +34,8 @@ import {
   usersText,
   weeksText,
 } from "../report.ts";
+import { researchLabels } from "../research-labels.ts";
+import { numberedSources, refsHtml, refsOf, researchHtml } from "../research-report.ts";
 import { type RevisionNote, revisionNote } from "../revision-report.ts";
 import type { Audience, Proposal, TopicStatus } from "../schemas.ts";
 import { currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "../session.ts";
@@ -149,6 +151,10 @@ p, li, td, th, blockquote, h1, h3, .note, .title, .chip { unicode-bidi: plaintex
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
 .claims { list-style: none; padding: 0; display: grid; gap: 8px; }
 .claims li { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin: 0; }
+.refs { font-size: 11px; color: var(--muted); }
+.refs a, .sources a { color: var(--thesis); }
+.sources { display: grid; gap: 6px; padding-inline-start: 22px; font-size: 13px; }
+.sources li { margin: 0; overflow-wrap: anywhere; }
 .proposal { border: 1px solid var(--line); border-radius: 10px; padding: 22px; margin-block-start: 18px; }
 .proposal header { display: flex; align-items: baseline; gap: 10px; margin-block-end: 8px; }
 .proposal h3 { font-size: 19px; }
@@ -573,6 +579,7 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
               )
               .join("")}</ol></div>`
           : "";
+      const sources = numberedSources(session);
       const claims =
         verdict.claims.length > 0 || verdict.openQuestions.length > 0
           ? `<div>${
@@ -580,9 +587,9 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
                 ? `<h2>${esc(t.claims)}</h2><ul class="claims">${verdict.claims
                     .map(
                       (claim) =>
-                        `<li><span>${esc(claim.claim)}</span><span class="chip${claim.confidence === "verified" ? " feasible" : claim.confidence === "estimated" ? " conditional" : ""}">${esc(t[claim.confidence])}</span></li>`,
+                        `<li><span>${esc(claim.claim)}${refsHtml(refsOf(claim.sources, sources))}</span><span class="chip${claim.confidence === "verified" ? " feasible" : claim.confidence === "estimated" ? " conditional" : ""}">${esc(t[claim.confidence])}</span></li>`,
                     )
-                    .join("")}</ul>`
+                    .join("")}</ul><p class="note">${esc(researchLabels(session.locale).claimsNote)}</p>`
                 : ""
             }${verdict.openQuestions.length > 0 ? `<p class="label">${esc(t.openQuestions)}</p>${list(verdict.openQuestions)}` : ""}</div>`
           : "";
@@ -617,6 +624,9 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
           .join("")}</dl></section>`,
       );
     }
+
+    const research = researchHtml(session, esc);
+    if (research) body.push(research);
 
     body.push(methodBox());
   }

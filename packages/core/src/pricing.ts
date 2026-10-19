@@ -35,6 +35,8 @@ export function costOf(model: string, usage: Usage): number | null {
 // Rough token profile of one call per task, measured on demo sessions. Used to show an estimate before a debate
 // starts, and to keep the verdict within the cost cap; the real cost is tracked call by call.
 export const TASK_PROFILE = {
+  // One call of the researcher: the plan of its searches, or what they found.
+  research: { input: 4_000, output: 1_500 },
   proposal: { input: 3_000, output: 2_500 },
   critique: { input: 7_000, output: 2_000 },
   revision: { input: 9_000, output: 3_000 },

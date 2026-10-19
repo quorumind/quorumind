@@ -17,6 +17,7 @@ import {
   seatName,
   weeksText,
 } from "./report.ts";
+import { type ResearchSection, researchSection, researchSectionMarkdown } from "./research-report.ts";
 import { formatDate } from "./revision-report.ts";
 import type { Brief, Feasibility, Verdict } from "./schemas.ts";
 import { currentProposals, currentRevision, type Mode, type Session } from "./session.ts";
@@ -78,6 +79,8 @@ export interface ClientDeliverable {
   brief: Omit<Brief, "speech"> | null;
   /** The audit, for an audit session: its findings, checks, questions and points to negotiate. */
   audit: AuditDeliverable | null;
+  /** The facts the web research found, with their public sources; null without research. */
+  research: ResearchSection | null;
 }
 
 export function clientDeliverable(session: Session): ClientDeliverable {
@@ -104,6 +107,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
       openQuestions: [],
       brief: null,
       audit: null,
+      research: null,
     };
   }
   const weights = Object.fromEntries(criteria.map((item) => [item.criterion, item.weight]));
@@ -155,6 +159,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
     openQuestions: verdict.openQuestions,
     brief: brief ? { headline: brief.headline, summary: brief.summary, sections: brief.sections, nextSteps: brief.nextSteps } : null,
     audit: auditDeliverable(session),
+    research: researchSection(session),
   };
 }
 
@@ -267,6 +272,7 @@ export function renderClientReport(deliverable: ClientDeliverable): string {
     lines.push("");
   }
   if (deliverable.openQuestions.length > 0) lines.push(`## ${t.openQuestions}`, "", list(deliverable.openQuestions), "");
+  lines.push(...researchSectionMarkdown(deliverable.research, deliverable.locale));
   lines.push(`_${t.generated}_`, "");
   return lines.join("\n");
 }
@@ -324,6 +330,8 @@ export interface ClientProposal {
    * it compares with the budget and the deadline; null when the option has no work packages.
    */
   costing: DeliverableCosting | null;
+  /** The facts the web research found, with their public sources; null without research. */
+  research: ResearchSection | null;
 }
 
 const unique = (items: string[]) => {
@@ -396,5 +404,6 @@ export function clientProposal(session: Session, options: { client?: string | nu
     exclusions: unique([...(sheet?.outOfScope ?? []), ...(costing?.exclusions ?? [])]),
     openQuestions: deliverable.openQuestions,
     costing,
+    research: deliverable.research,
   };
 }

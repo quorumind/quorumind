@@ -41,14 +41,26 @@ export function styled(xml: string, style: string): string[] {
     .map(([paragraph]) => [...paragraph.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map((match) => match[1]).join(""));
 }
 
-/** The demo debate to its verdict, then revised once with the answer to its open question. */
-export async function revisedDemo(locale: Locale = "en"): Promise<Session> {
+/**
+ * The demo debate to its verdict, then revised once with the answer to its open question. With `research`, the debate
+ * first replays the demo's recorded web research.
+ */
+export async function revisedDemo(locale: Locale = "en", options: { research?: boolean } = {}): Promise<Session> {
   const lineup = { ...DEMO_LINEUP, devil: { provider: "mock" as const, model: "mock", persona: null } };
   const engine = new DebateEngine(
-    { ...providersFor(lineup, {}, { mockDelayMs: 0 }), devil: new MockProvider({ chunkDelayMs: 0 }) },
+    {
+      ...providersFor({ ...lineup, demo: Boolean(options.research) }, {}, { mockDelayMs: 0 }),
+      devil: new MockProvider({ chunkDelayMs: 0 }),
+    },
     { emit: () => {}, save: () => {} },
   );
-  const session = createSession({ locale, idea: DEMO_IDEA, demo: true, ...lineup });
+  const session = createSession({
+    locale,
+    idea: DEMO_IDEA,
+    demo: true,
+    ...lineup,
+    webResearch: options.research ? { maxQueries: 6, budgetUsd: null } : null,
+  });
   await engine.startInterview(session);
   await engine.answerInterview(session, [{ question: "Budget?", answer: "€15,000" }]);
   await engine.confirmSheet(session, session.sheet as NonNullable<Session["sheet"]>);

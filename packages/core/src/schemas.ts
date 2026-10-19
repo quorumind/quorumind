@@ -231,7 +231,13 @@ export const Verdict = z.object({
     }),
   ),
   roadmap: z.array(z.object({ phase: z.string(), content: z.string(), exitCriterion: z.string() })),
-  claims: z.array(z.object({ claim: z.string(), confidence: Confidence })),
+  claims: z.array(
+    z.object({
+      claim: z.string(),
+      confidence: Confidence,
+      sources: z.array(z.string()).describe("Ids of the sources in <research> the claim rests on, e.g. S1; empty when it rests on none."),
+    }),
+  ),
   openQuestions: z.array(z.string()),
 });
 export type Verdict = z.infer<typeof Verdict>;

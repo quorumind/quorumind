@@ -112,6 +112,8 @@ export async function waitForStoppingPoint(
 
 const TASKS: Record<Task, string> = {
   interview: "preparing the interview",
+  research: "checking facts on the web",
+  search: "searching the web",
   proposal: "writing a proposal",
   critique: "criticising the proposals",
   revision: "revising its proposal",
@@ -126,14 +128,16 @@ export function describeEvent(event: EngineEvent): string | null {
   const who =
     event.task === "interview"
       ? "The interviewer"
-      : event.task === "verdict" || event.task === "reassess" || event.task === "probe" || event.task === "brief"
-        ? "The arbiter"
-        : event.seat === "devil"
-          ? "The devil's advocate"
-          : event.seat === "U"
-            ? "The interviewer, writing up your solution,"
-            : event.seat
-              ? `Seat ${event.seat}`
-              : "A model";
+      : event.task === "research" || event.task === "search"
+        ? "The researcher"
+        : event.task === "verdict" || event.task === "reassess" || event.task === "probe" || event.task === "brief"
+          ? "The arbiter"
+          : event.seat === "devil"
+            ? "The devil's advocate"
+            : event.seat === "U"
+              ? "The interviewer, writing up your solution,"
+              : event.seat
+                ? `Seat ${event.seat}`
+                : "A model";
   return `${who} is ${TASKS[event.task] ?? event.task}.`;
 }

@@ -3,8 +3,11 @@ export type ProviderKind = "anthropic" | "openai" | "gemini" | "openrouter" | "o
 /** How hard a model thinks before answering: the debate "depth". */
 export type Effort = "low" | "medium" | "high";
 
-/** reassess: the arbiter rules again on new facts, for a verdict revision. */
-export type Task = "interview" | "proposal" | "critique" | "revision" | "probe" | "verdict" | "reassess" | "brief";
+/**
+ * reassess: the arbiter rules again on new facts, for a verdict revision. research: the researcher plans the web
+ * searches, then states what they found. search: one web search (a usage record only: no model is asked for it).
+ */
+export type Task = "interview" | "research" | "search" | "proposal" | "critique" | "revision" | "probe" | "verdict" | "reassess" | "brief";
 
 export interface ChatMessage {
   role: "user" | "assistant";
