@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEMO_LINEUP, providersFor } from "./config.ts";
 import { DEMO_IDEA } from "./demo.ts";
-import { DebateEngine, type EngineEvent, type ProviderSet } from "./engine.ts";
+import { BudgetExceededError, DebateEngine, type EngineEvent, type ProviderSet } from "./engine.ts";
 import { setModelPrice } from "./pricing.ts";
 import { MockProvider } from "./providers/mock.ts";
 import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError } from "./providers/types.ts";
@@ -418,5 +418,12 @@ describe("saves", () => {
     await engine.startInterview(session);
     expect(session.phase).toBe("failed");
     expect(saved).toEqual(["failed"]);
+  });
+});
+
+describe("BudgetExceededError", () => {
+  it("states a cap of a few cents without rounding it to the cent", () => {
+    expect(new BudgetExceededError(0.0191, 0.0192).message).toBe("The cost cap of $0.0192 is reached ($0.0191 spent).");
+    expect(new BudgetExceededError(2.5, 3).message).toBe("The cost cap of $3.00 is reached ($2.50 spent).");
   });
 });

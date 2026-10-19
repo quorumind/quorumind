@@ -211,6 +211,34 @@ describe("verdict revisions", () => {
     expect(spent.every((record) => (record.costUsd ?? 0) > 0)).toBe(true);
   });
 
+  it("give a revision asked again after a failure its whole cap", async () => {
+    setModelPrice("priced-retry", { input: 1, output: 1 });
+    const session = await completed();
+    // The first attempt critiques, then its ruling is not valid JSON, twice: it spends without producing anything.
+    const garbled: LlmProvider = {
+      kind: "mock",
+      model: "priced-retry",
+      generate: async (request) => {
+        const result = await new Priced("priced-retry").generate(request);
+        return request.task === "reassess" ? { ...result, text: "{not json" } : result;
+      },
+    };
+    const first = engineWith({ ...demoProviders(), arbiter: garbled, devil: new Priced("priced-retry") });
+    const failed = await first.beginRevision(session, answers);
+    expect(await first.runRevision(session, { budgetUsd: 1 })).toBe(false);
+    const wasted = session.usage.filter((record) => record.attempt === failed.id).reduce((sum, record) => sum + (record.costUsd ?? 0), 0);
+    expect(wasted).toBeGreaterThan(0);
+
+    // A fresh attempt costs less than what the failed one spent: under a cap just above that, it must still be made.
+    const retry = engineWith({ ...demoProviders(), arbiter: new Priced("priced-retry"), devil: new Priced("priced-retry") });
+    const pending = await retry.beginRevision(session, answers);
+    expect(pending.id).not.toBe(failed.id);
+    expect(await retry.runRevision(session, { budgetUsd: wasted * 1.01 })).toBe(true);
+    const made = session.usage.filter((record) => record.attempt === pending.id);
+    expect(made.map((record) => record.task)).toEqual(["critique", "reassess"]);
+    expect(made.every((record) => record.revision === 2)).toBe(true);
+  });
+
   it("stop as interrupted without failing the session when the server stops", async () => {
     const session = await completed();
     await engineWith().beginRevision(session, answers);

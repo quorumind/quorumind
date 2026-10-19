@@ -161,7 +161,7 @@ export class BudgetExceededError extends Error {
   readonly code = "budget_exceeded";
   readonly params: { spentUsd: number; budgetUsd: number };
   constructor(spentUsd: number, budgetUsd: number) {
-    super(`The cost cap of $${budgetUsd.toFixed(2)} is reached ($${spentUsd.toFixed(2)} spent).`);
+    super(`The cost cap of $${dollars(budgetUsd)} is reached ($${dollars(spentUsd)} spent).`);
     this.name = "BudgetExceededError";
     this.params = { spentUsd: roundUsd(spentUsd), budgetUsd: roundUsd(budgetUsd) };
   }
@@ -217,6 +217,8 @@ export function sessionError(error: unknown): SessionError {
 
 // Four decimals: a call to a small model costs a fraction of a cent.
 const roundUsd = (usd: number) => Math.round(usd * 10_000) / 10_000;
+// Cents, or four decimals under a dollar: a cap of a few cents must not read as reached when it is not.
+const dollars = (usd: number) => usd.toFixed(Math.abs(usd) < 1 ? 4 : 2);
 
 const SCHEMAS = {
   interview: { zod: InterviewTurn, json: toStrictJsonSchema(InterviewTurn), name: "interview_turn", maxTokens: 8_000 },
@@ -243,8 +245,11 @@ export class DebateEngine {
   private readonly providers: ProviderSet;
   private readonly hooks: EngineHooks;
   private readonly signal: AbortSignal | undefined;
-  /** The verdict revision being made: its calls are recorded under its number and capped by its own budget. */
-  private scope: { revision: number; budgetUsd: number | null } | null = null;
+  /**
+   * The attempt being made with a cap of its own (a verdict revision): its calls are recorded under its id (and the
+   * revision's number) and capped by its own budget. A revision asked again after a failure is a new attempt.
+   */
+  private scope: { attempt: string; revision: number | null; budgetUsd: number | null } | null = null;
   /** The last save asked for: the next one waits for it. */
   private saving: Promise<void> = Promise.resolve();
 
@@ -408,7 +413,7 @@ export class DebateEngine {
     const pending = session.revising;
     if (!pending || pending.error || !session.verdict) throw new InvalidStateError("No revision is waiting to be made.");
     const scenario = pending.reason === "scenario" ? (pending.scenario ?? null) : null;
-    this.scope = { revision: pending.number, budgetUsd: options.budgetUsd ?? null };
+    this.scope = { attempt: pending.id, revision: pending.number, budgetUsd: options.budgetUsd ?? null };
     try {
       const work = revisionWork(session, pending);
       const critiques = await this.reviewFacts(session, work);
@@ -688,11 +693,14 @@ export class DebateEngine {
     return cost ?? 0;
   }
 
-  /** What was spent under the cap that applies: the revision's calls during a revision, the whole session otherwise. */
+  /**
+   * What was spent under the cap that applies: the calls of this attempt during a revision (never those of an attempt
+   * that failed before it), the whole session otherwise.
+   */
   private spent(session: Session): number {
     if (!this.scope) return totalCost(session).usd;
-    const revision = this.scope.revision;
-    return session.usage.reduce((sum, record) => sum + (record.revision === revision ? (record.costUsd ?? 0) : 0), 0);
+    const attempt = this.scope.attempt;
+    return session.usage.reduce((sum, record) => sum + (record.attempt === attempt ? (record.costUsd ?? 0) : 0), 0);
   }
 
   /**
@@ -1147,7 +1155,7 @@ export class DebateEngine {
       inputTokens: call.usage.inputTokens,
       outputTokens: call.usage.outputTokens,
       costUsd: call.costUsd,
-      ...(this.scope ? { revision: this.scope.revision } : {}),
+      ...(this.scope ? { attempt: this.scope.attempt, ...(this.scope.revision === null ? {} : { revision: this.scope.revision }) } : {}),
       ...flags,
     };
     session.usage.push(record);
