@@ -1007,8 +1007,8 @@
     "author": "作者",
     "anyAuthor": "所有人",
     "me": "我",
-    "from": "裁决日期（起）",
-    "to": "裁决日期（止）",
+    "from": "起",
+    "to": "止",
     "clear": "清除筛选",
     "csv": "导出为 CSV",
     "loading": "正在加载登记册…",
@@ -1022,7 +1022,8 @@
     "scenario": "情景“{{title}}” · 修订 {{number}}",
     "noRecommendation": "没有可行的方案",
     "superseding": "取代它的决策",
-    "revisits": "重新审视先前的决策"
+    "revisits": "重新审视先前的决策",
+    "period": "裁决日期"
   },
   "audit": {
     "filter": "按严重程度筛选问题",

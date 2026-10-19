@@ -1007,8 +1007,8 @@
     "author": "Autor",
     "anyAuthor": "Alle",
     "me": "Ich",
-    "from": "Urteil ab",
-    "to": "Urteil bis",
+    "from": "Von",
+    "to": "Bis",
     "clear": "Filter zurücksetzen",
     "csv": "Als CSV exportieren",
     "loading": "Register wird geladen…",
@@ -1022,7 +1022,8 @@
     "scenario": "Szenario „{{title}}“ · Revision {{number}}",
     "noRecommendation": "Keine Option ist umsetzbar",
     "superseding": "Ersetzt durch",
-    "revisits": "Greift eine frühere Entscheidung wieder auf"
+    "revisits": "Greift eine frühere Entscheidung wieder auf",
+    "period": "Datum des Urteils"
   },
   "audit": {
     "filter": "Befunde nach Schwere filtern",

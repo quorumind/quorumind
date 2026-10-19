@@ -1007,8 +1007,8 @@
     "author": "Autor",
     "anyAuthor": "Cualquiera",
     "me": "Yo",
-    "from": "Veredicto desde",
-    "to": "Veredicto hasta",
+    "from": "Desde",
+    "to": "Hasta",
     "clear": "Borrar los filtros",
     "csv": "Exportar como CSV",
     "loading": "Cargando el registro…",
@@ -1022,7 +1022,8 @@
     "scenario": "Escenario «{{title}}» · revisión {{number}}",
     "noRecommendation": "Ninguna opción es viable",
     "superseding": "Sustituido por",
-    "revisits": "Reconsidera una decisión anterior"
+    "revisits": "Reconsidera una decisión anterior",
+    "period": "Fecha del veredicto"
   },
   "audit": {
     "filter": "Filtrar las observaciones por gravedad",

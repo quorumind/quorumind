@@ -5,7 +5,7 @@ import { type FormEvent, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authorName, useCanEdit } from "./access.tsx";
 import { api, type DecisionAction, type DecisionFilters, type DecisionRow } from "./api.ts";
-import { CheckIcon, DownloadIcon } from "./components/Icons.tsx";
+import { CheckIcon, CrossIcon, DownloadIcon } from "./components/Icons.tsx";
 import { PageHeading } from "./components/Page.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText } from "./errors.ts";
@@ -390,89 +390,93 @@ export function Register() {
 
   return (
     <div className="stack-lg register">
-      <header className="stack">
-        <PageHeading title={t("register.title")} />
-        <p className="field-hint" style={{ margin: 0 }}>
-          {t("register.lead")}
-        </p>
-      </header>
-      <fieldset className="register-filters">
-        <legend className="visually-hidden">{t("register.filters")}</legend>
-        <div className="field">
-          <label className="field-label" htmlFor={`${id}-status`}>
-            {t("register.status")}
-          </label>
-          <select
-            id={`${id}-status`}
-            className="select"
-            value={filters.status ?? ""}
-            onChange={(event) => set({ status: (event.target.value || undefined) as DecisionStatus | undefined })}
-          >
-            <option value="">{t("register.anyStatus")}</option>
-            {DECISION_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {t(`decision.status.${status}`)}
-              </option>
-            ))}
-          </select>
+      <header className="register-head">
+        <div className="stack">
+          <PageHeading title={t("register.title")} />
+          <p className="field-hint" style={{ margin: 0 }}>
+            {t("register.lead")}
+          </p>
         </div>
-        {shared ? (
+        <a className="button button-secondary" href={api.decisionsCsvUrl(filters, i18n.language)} download>
+          <DownloadIcon />
+          {t("register.csv")}
+        </a>
+      </header>
+      <div className="register-toolbar">
+        <fieldset className="register-filters">
+          <legend className="visually-hidden">{t("register.filters")}</legend>
           <div className="field">
-            <label className="field-label" htmlFor={`${id}-author`}>
-              {t("register.author")}
+            <label className="field-label" htmlFor={`${id}-status`}>
+              {t("register.status")}
             </label>
             <select
-              id={`${id}-author`}
+              id={`${id}-status`}
               className="select"
-              value={filters.author ?? ""}
-              onChange={(event) => set({ author: event.target.value || undefined })}
+              value={filters.status ?? ""}
+              onChange={(event) => set({ status: (event.target.value || undefined) as DecisionStatus | undefined })}
             >
-              <option value="">{t("register.anyAuthor")}</option>
-              <option value="me">{t("register.me")}</option>
-              {authors.map((author) => (
-                <option key={author.id} value={author.id}>
-                  {authorName(author, t)}
+              <option value="">{t("register.anyStatus")}</option>
+              {DECISION_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {t(`decision.status.${status}`)}
                 </option>
               ))}
             </select>
           </div>
-        ) : null}
-        <div className="field">
-          <label className="field-label" htmlFor={`${id}-from`}>
-            {t("register.from")}
-          </label>
-          <input
-            id={`${id}-from`}
-            className="input"
-            type="date"
-            value={filters.from ?? ""}
-            onChange={(event) => set({ from: event.target.value })}
-          />
-        </div>
-        <div className="field">
-          <label className="field-label" htmlFor={`${id}-to`}>
-            {t("register.to")}
-          </label>
-          <input
-            id={`${id}-to`}
-            className="input"
-            type="date"
-            value={filters.to ?? ""}
-            onChange={(event) => set({ to: event.target.value })}
-          />
-        </div>
-        <div className="register-tools">
-          {filtered ? (
-            <button type="button" className="button button-quiet" onClick={() => setFilters({})}>
-              {t("register.clear")}
-            </button>
+          {shared ? (
+            <div className="field">
+              <label className="field-label" htmlFor={`${id}-author`}>
+                {t("register.author")}
+              </label>
+              <select
+                id={`${id}-author`}
+                className="select"
+                value={filters.author ?? ""}
+                onChange={(event) => set({ author: event.target.value || undefined })}
+              >
+                <option value="">{t("register.anyAuthor")}</option>
+                <option value="me">{t("register.me")}</option>
+                {authors.map((author) => (
+                  <option key={author.id} value={author.id}>
+                    {authorName(author, t)}
+                  </option>
+                ))}
+              </select>
+            </div>
           ) : null}
-          <a className="button button-secondary" href={api.decisionsCsvUrl(filters, i18n.language)} download>
-            <DownloadIcon />
-            {t("register.csv")}
-          </a>
-        </div>
-      </fieldset>
+          <fieldset className="field date-range">
+            <legend className="field-label">{t("register.period")}</legend>
+            <div className="date-range-inputs">
+              <label className="date-range-part">
+                <span className="date-range-prefix">{t("register.from")}</span>
+                <input
+                  className="input"
+                  type="date"
+                  value={filters.from ?? ""}
+                  max={filters.to}
+                  onChange={(event) => set({ from: event.target.value })}
+                />
+              </label>
+              <label className="date-range-part">
+                <span className="date-range-prefix">{t("register.to")}</span>
+                <input
+                  className="input"
+                  type="date"
+                  value={filters.to ?? ""}
+                  min={filters.from}
+                  onChange={(event) => set({ to: event.target.value })}
+                />
+              </label>
+            </div>
+          </fieldset>
+        </fieldset>
+        {filtered ? (
+          <button type="button" className="button button-quiet register-clear" onClick={() => setFilters({})}>
+            <CrossIcon />
+            {t("register.clear")}
+          </button>
+        ) : null}
+      </div>
       {error ? (
         <p className="notice notice-error" role="alert">
           {error}
@@ -513,12 +517,12 @@ export function Register() {
                       </span>
                       {row.note ? <span className="register-note">{row.note}</span> : null}
                     </th>
-                    <td>
+                    <td data-label={t("register.recommendation")}>
                       {row.recommendation
                         ? `${seatName(row.recommendation.seat, t)} · ${row.recommendation.title}`
                         : t("register.noRecommendation")}
                     </td>
-                    <td>
+                    <td data-label={t("register.status")}>
                       <StatusChip status={row.status} />
                       {row.supersededBy ? (
                         <a className="register-link" href={`#/s/${row.supersededBy}`}>
@@ -531,8 +535,8 @@ export function Register() {
                         </a>
                       ) : null}
                     </td>
-                    <td>{approvalText(row, t, i18n.language) ?? "–"}</td>
-                    <td>{reviewText(row, t, i18n.language) || "–"}</td>
+                    <td data-label={t("register.approval")}>{approvalText(row, t, i18n.language) ?? "–"}</td>
+                    <td data-label={t("register.review")}>{reviewText(row, t, i18n.language) || "–"}</td>
                   </tr>
                 );
               })}

@@ -1007,8 +1007,8 @@
     "author": "Autor",
     "anyAuthor": "Qualquer pessoa",
     "me": "Eu",
-    "from": "Veredito a partir de",
-    "to": "Veredito até",
+    "from": "De",
+    "to": "Até",
     "clear": "Limpar os filtros",
     "csv": "Exportar como CSV",
     "loading": "Carregando o registro…",
@@ -1022,7 +1022,8 @@
     "scenario": "Cenário “{{title}}” · revisão {{number}}",
     "noRecommendation": "Nenhuma opção é viável",
     "superseding": "Substituído por",
-    "revisits": "Reconsidera uma decisão anterior"
+    "revisits": "Reconsidera uma decisão anterior",
+    "period": "Data do veredito"
   },
   "audit": {
     "filter": "Filtrar os pontos por gravidade",

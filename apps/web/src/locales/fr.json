@@ -1007,8 +1007,8 @@
     "author": "Auteur",
     "anyAuthor": "Tout le monde",
     "me": "Moi",
-    "from": "Verdict à partir du",
-    "to": "Verdict jusqu'au",
+    "from": "Du",
+    "to": "Au",
     "clear": "Effacer les filtres",
     "csv": "Exporter en CSV",
     "loading": "Chargement du registre…",
@@ -1022,7 +1022,8 @@
     "scenario": "Scénario « {{title}} » · révision {{number}}",
     "noRecommendation": "Aucune option n'est faisable",
     "superseding": "Remplacé par",
-    "revisits": "Revient sur une décision antérieure"
+    "revisits": "Revient sur une décision antérieure",
+    "period": "Période du verdict"
   },
   "audit": {
     "filter": "Filtrer les constats par gravité",

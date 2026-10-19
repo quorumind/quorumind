@@ -1007,8 +1007,8 @@
     "author": "Autore",
     "anyAuthor": "Chiunque",
     "me": "Io",
-    "from": "Verdetto dal",
-    "to": "Verdetto fino al",
+    "from": "Dal",
+    "to": "Al",
     "clear": "Azzera i filtri",
     "csv": "Esporta in CSV",
     "loading": "Caricamento del registro…",
@@ -1022,7 +1022,8 @@
     "scenario": "Scenario «{{title}}» · revisione {{number}}",
     "noRecommendation": "Nessuna opzione è fattibile",
     "superseding": "Sostituito da",
-    "revisits": "Rivede una decisione precedente"
+    "revisits": "Rivede una decisione precedente",
+    "period": "Data del verdetto"
   },
   "audit": {
     "filter": "Filtra i rilievi per gravità",

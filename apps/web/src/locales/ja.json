@@ -1007,8 +1007,8 @@
     "author": "作成者",
     "anyAuthor": "全員",
     "me": "自分",
-    "from": "判定日（開始）",
-    "to": "判定日（終了）",
+    "from": "開始",
+    "to": "終了",
     "clear": "絞り込みを解除",
     "csv": "CSV でエクスポート",
     "loading": "記録を読み込み中…",
@@ -1022,7 +1022,8 @@
     "scenario": "シナリオ「{{title}}」· 改訂 {{number}}",
     "noRecommendation": "実現可能な選択肢なし",
     "superseding": "置き換え先",
-    "revisits": "以前の決定の見直し"
+    "revisits": "以前の決定の見直し",
+    "period": "判定日"
   },
   "audit": {
     "filter": "指摘事項を重大度で絞り込む",

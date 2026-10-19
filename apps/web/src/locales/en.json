@@ -1007,8 +1007,8 @@
     "author": "Author",
     "anyAuthor": "Anyone",
     "me": "Me",
-    "from": "Verdict from",
-    "to": "Verdict until",
+    "from": "From",
+    "to": "To",
     "clear": "Clear the filters",
     "csv": "Export as CSV",
     "loading": "Loading the register…",
@@ -1022,7 +1022,8 @@
     "scenario": "Scenario “{{title}}” · revision {{number}}",
     "noRecommendation": "No option is feasible",
     "superseding": "Superseded by",
-    "revisits": "Revisits an earlier decision"
+    "revisits": "Revisits an earlier decision",
+    "period": "Verdict date"
   },
   "audit": {
     "filter": "Filter the findings by severity",
