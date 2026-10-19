@@ -352,28 +352,47 @@ export class DebateEngine {
   }
 
   /** Rewrites the verdict for another reader. Failures are thrown to the caller: the session stays complete. */
-  async writeBrief(session: Session, audience: Audience): Promise<void> {
+  /**
+   * A brief has a cap of its own, like a revision: the debate's cap covers the debate up to its verdict, which may end
+   * a little past it, and a brief must still be written then (the client's is written as soon as the verdict is).
+   * `budgetUsd` sets it; by default it is BRIEF_CAP_SHARE of the session's cap, or none without one.
+   */
+  async writeBrief(session: Session, audience: Audience, options: { budgetUsd?: number | null } = {}): Promise<void> {
     if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
+    const ruling = session.verdict;
     // The current revision as it stands: an adopted scenario brings its own requirements.
     const shown = currentView(session);
     // A client never reads the agency's day rates: the model that writes for one is not shown them either.
     const client = audience === "client" && session.mode !== "audit";
     const proposals = client ? clientProposals(currentProposals(shown)) : currentProposals(shown);
-    const verdict = stripSpeech(client ? withoutRates(session.verdict) : session.verdict);
-    const written = await this.call(session, "brief", null, this.providers.arbiter, {
-      system: briefSystem(session.locale, audience),
-      messages: [
-        {
-          role: "user",
-          content: [
-            requirementsBlock(requireSheet(shown)),
-            proposalsBlock(proposals, computedCosts(shown)),
-            fence("debate", JSON.stringify({ verdict }, null, 2)),
-            `Write the brief for this reader: ${audience}.`,
-          ].join("\n\n"),
-        },
-      ],
-    });
+    const verdict = stripSpeech(client ? withoutRates(ruling) : ruling);
+    const budgetUsd =
+      options.budgetUsd !== undefined ? options.budgetUsd : session.budgetUsd === null ? null : session.budgetUsd * BRIEF_CAP_SHARE;
+    this.scope = { attempt: globalThis.crypto.randomUUID(), revision: null, budgetUsd };
+    let written: Brief;
+    try {
+      written = await this.call(session, "brief", null, this.providers.arbiter, {
+        system: briefSystem(session.locale, audience),
+        messages: [
+          {
+            role: "user",
+            content: [
+              requirementsBlock(requireSheet(shown)),
+              proposalsBlock(proposals, computedCosts(shown)),
+              fence("debate", JSON.stringify({ verdict }, null, 2)),
+              `Write the brief for this reader: ${audience}.`,
+            ].join("\n\n"),
+          },
+        ],
+      });
+    } finally {
+      this.scope = null;
+    }
+    // A revision may have replaced the verdict meanwhile: this brief was written for the one before.
+    if (session.verdict !== ruling) {
+      await this.persist(session);
+      throw new InvalidStateError("The verdict changed while its brief was being written.", "verdict_changed");
+    }
     session.briefs[audience] = client ? withoutRates(written) : written;
     await this.persist(session);
   }
@@ -688,18 +707,20 @@ export class DebateEngine {
 
   /** What the verdict should cost: its prompt as it stands, and the typical length of a verdict. */
   private verdictEstimate(session: Session): number {
-    return this.promptEstimate(this.verdictPrompt(session), "verdict");
+    // An audit's verdict carries the audit, and a verdict with requirements their assessment: both are longer.
+    const longer = session.mode === "audit" || activeRequirements(session).length > 0;
+    return this.promptEstimate(this.verdictPrompt(session), "verdict", longer ? LONG_VERDICT_OUTPUT : undefined);
   }
 
   /**
    * What an arbiter's call should cost under a cap: its prompt as it stands, and the typical length of its answer (at
    * CAP_FALLBACK_PRICE when the arbiter's price is unknown).
    */
-  private promptEstimate(prompt: { system: string; messages: ChatMessage[] }, task: "verdict" | "reassess"): number {
+  private promptEstimate(prompt: { system: string; messages: ChatMessage[] }, task: "verdict" | "reassess", outputTokens?: number): number {
     const chars = prompt.system.length + prompt.messages.reduce((sum, message) => sum + message.content.length, 0);
     return cappedCostOf(this.providers.arbiter.model, {
       inputTokens: Math.ceil(chars / CHARS_PER_TOKEN),
-      outputTokens: TASK_PROFILE[task].output,
+      outputTokens: outputTokens ?? TASK_PROFILE[task].output,
     });
   }
 
@@ -1297,6 +1318,10 @@ export function retryDelay(error: unknown, attempt: number, baseMs: number, rand
 
 // The verdict's estimate is kept with this margin while the rounds run: what the arbiter reads still grows.
 const VERDICT_MARGIN = 1.25;
+/** The typical answer of an audit's verdict, or of one that assesses compliance requirements: about twice the usual. */
+const LONG_VERDICT_OUTPUT = 2 * TASK_PROFILE.verdict.output;
+/** The share of a session's cost cap each brief may spend, unless the host gives briefs a cap of their own. */
+export const BRIEF_CAP_SHARE = 0.1;
 // A rough count, enough for an estimate: about four characters of English or JSON per token.
 const CHARS_PER_TOKEN = 4;
 

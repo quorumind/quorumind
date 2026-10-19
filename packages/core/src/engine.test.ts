@@ -118,7 +118,8 @@ describe("cost cap", () => {
   });
 
   // Each call reports what it cost; the price table gives the typical cost of a call not made yet
-  // (critique 1.00, revision 1.50, verdict 2.00), which is what the engine estimates with.
+  // (critique 1.00, revision 1.50, verdict 2.00, twice that for the demo's verdict, which assesses its GDPR requirement),
+  // which is what the engine estimates with.
   const COSTS: Partial<Record<GenerateRequest["task"], number>> = { interview: 0.1, proposal: 1, critique: 1, revision: 1, verdict: 1 };
   const reporting = (): LlmProvider => {
     const inner = new MockProvider({ chunkDelayMs: 0 });
@@ -144,8 +145,8 @@ describe("cost cap", () => {
   }
 
   it("skips the rounds that would leave no room for the verdict, and says so in the report", async () => {
-    // 2.20 spent after the proposals; the critiques (2.00) and the verdict's reserve (2.50) would pass 5.
-    const { engine, session } = await toDebate(5);
+    // 2.20 spent after the proposals; the critiques (2.00) and the verdict's reserve (5.00) would pass 7.
+    const { engine, session } = await toDebate(7);
     await engine.runDebate(session);
     expect(session.phase).toBe("complete");
     expect(session.shortened).toEqual({ rounds: 0 });
@@ -572,5 +573,73 @@ describe("cost cap with models of unknown price", () => {
     expect(record?.inputTokens).toBeGreaterThan(100);
     expect(record?.outputTokens).toBeGreaterThan(10);
     expect(record?.costUsd).toBeGreaterThan(0);
+  });
+});
+
+describe("briefs", () => {
+  const priced = (onBrief?: () => void, briefFailures = 0): LlmProvider & { briefs: number } => {
+    const inner = new MockProvider({ chunkDelayMs: 0 });
+    const provider = {
+      kind: "openrouter" as const,
+      model: "reporting-test-model",
+      briefs: 0,
+      async generate(request: GenerateRequest, onDelta?: (text: string) => void): Promise<GenerateResult> {
+        if (request.task === "brief") {
+          provider.briefs++;
+          onBrief?.();
+          if (provider.briefs <= briefFailures) {
+            throw new ProviderError("The answer was cut off by the token limit.", true, {
+              usage: { inputTokens: 1, outputTokens: 1 },
+              costUsd: 0.4,
+            });
+          }
+        }
+        const costUsd = request.task === "brief" ? 0.05 : request.task === "interview" ? 0.1 : 1;
+        return { ...(await inner.generate(request, onDelta)), model: "reporting-test-model", costUsd };
+      },
+    };
+    return provider;
+  };
+
+  async function ruled(provider: LlmProvider) {
+    setModelPrice("reporting-test-model", { input: 0, output: 500 });
+    const { engine, session } = setup({ interviewer: provider, arbiter: provider, proposers: { A: provider, B: provider } }, 20);
+    await runToVerdict(engine, session);
+    expect(session.phase).toBe("complete");
+    return { engine, session };
+  }
+
+  it("are written once the verdict has passed the debate's cap, within an allowance of their own", async () => {
+    const { engine, session } = await ruled(priced());
+    // The verdict ended past the cap: the debate's cap would refuse any further call.
+    session.budgetUsd = totalCost(session).usd - 0.5;
+    await engine.writeBrief(session, "client");
+    expect(session.briefs.client?.headline).toBeTruthy();
+    const record = session.usage.at(-1);
+    expect(record).toMatchObject({ task: "brief", costUsd: 0.05 });
+    expect(record?.attempt).toEqual(expect.any(String));
+    expect(record).not.toHaveProperty("revision");
+  });
+
+  it("keep to that allowance when a call fails", async () => {
+    const provider = priced(undefined, 2);
+    const { engine, session } = await ruled(provider);
+    // 10% of a $3 cap: the failed call spent $0.40, so it is not tried again.
+    session.budgetUsd = 3;
+    await expect(engine.writeBrief(session, "cto")).rejects.toMatchObject({ code: "budget_exceeded" });
+    expect(provider.briefs).toBe(1);
+    expect(session.briefs.cto).toBeUndefined();
+  });
+
+  it("are not kept when a revision replaced the verdict meanwhile", async () => {
+    let target: Session | null = null;
+    const { engine, session } = await ruled(
+      priced(() => {
+        if (target?.verdict) target.verdict = { ...target.verdict };
+      }),
+    );
+    target = session;
+    await expect(engine.writeBrief(session, "executive")).rejects.toMatchObject({ code: "verdict_changed" });
+    expect(session.briefs.executive).toBeUndefined();
   });
 });
