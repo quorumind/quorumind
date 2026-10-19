@@ -252,14 +252,18 @@ export function pricePosition(check: QuoteCheck | null, market: { low: number; h
 
 const amount = (value: number, currency: string | null) => `${new Intl.NumberFormat("en").format(value)}${currency ? ` ${currency}` : ""}`;
 
-/** The recomputation as plain English sentences, for the critics and the arbiter. Empty when there is nothing to say. */
+/**
+ * The recomputation as plain English sentences, for the critics and the arbiter. Empty when there is nothing to say.
+ * The models take these as true: they hold Quorumind's own words and figures only, never text of the document. A line
+ * is named by its place among the work packages of the extraction, not by the name the document gives it.
+ */
 export function quoteFacts(check: QuoteCheck | null): string[] {
   if (!check) return [];
   const facts: string[] = [];
   const money = (value: number) => amount(value, check.currency);
-  for (const line of check.lines) {
+  for (const [index, line] of check.lines.entries()) {
     if (line.computed === null || line.days === null || line.dailyRate === null) continue;
-    const base = `Line "${line.name}": ${line.days} days at ${money(line.dailyRate)} make ${money(line.computed)}`;
+    const base = `Work package ${index + 1} of <extraction>: ${line.days} days at ${money(line.dailyRate)} make ${money(line.computed)}`;
     facts.push(
       line.stated === null
         ? `${base}; the document states no amount for it.`

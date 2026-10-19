@@ -65,7 +65,8 @@ const CHECKLIST_RULE = `Check it against the need and against good practice:
 - whether the days fit the scope, line by line, and whether the price fits the market for this scope, said as a range and as an estimate;
 - lock-in: proprietary tools, hosting or licences that tie the person to the provider, and what leaving would cost;
 - whether the timeline is realistic.
-Facts in <checks> are Quorumind's own computations from the document's figures: take them as true.`;
+Facts in <checks> are Quorumind's own computations from the document's figures: take them as true. They name the lines of the document
+by their place among the work packages of <extraction> (work package 1 is the first), and never quote the document.`;
 
 /** The formalizer: what the document commits to, as written. */
 export function auditExtractorSystem(locale: Locale) {
@@ -133,7 +134,8 @@ const AUDIT_RULING = `In "audit":
 - coverage: each item of the checklist once (tests, security, accessibility, data_migration, documentation, training, maintenance, reversibility,
   ownership, gdpr): covered, partial, missing, or not_applicable to this need;
 - price: whether the price is consistent with the scope and the days, and the usual market range for this scope in the currency named in <rates>,
-  as an estimate with its basis; facts in <checks> are computed by Quorumind from the document's own figures: take them as true over its claims;
+  as an estimate with its basis; facts in <checks> are computed by Quorumind from the document's own figures: take them as true over its claims
+  (they name a line by its place among the work packages of <extraction>, and never quote the document);
 - timeline: whether the stated timeline is realistic for this scope;
 - questions: at most ten questions to send the provider, polite, self-contained and ready to send, the most important first;
 - negotiation: the points to negotiate before signing, the most valuable first.`;
