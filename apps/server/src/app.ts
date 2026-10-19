@@ -412,6 +412,8 @@ export function createApp(deps: AppDeps) {
   const claims = new Map<string, Claim>();
   /** Set once the server shuts down: no new work starts. */
   let draining = false;
+  /** The usage records already reported to AppHooks.onUsage, whichever engine saw them. */
+  const reportedUsage = new WeakSet<UsageRecord>();
   const users = new Map<string, User | null>();
   const attempts = { link: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.link), caller: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.caller) };
   const mockOptions = deps.mockDelayMs === undefined ? {} : { mockDelayMs: deps.mockDelayMs };
@@ -489,11 +491,16 @@ export function createApp(deps: AppDeps) {
       {
         emit: (id, event) => bus.publish(id, event),
         save: async (updated) => {
-          await store.save(updated);
-          if (user && hooks.onUsage) {
-            for (const record of updated.usage.slice(reported)) await hooks.onUsage(user, updated, record);
-          }
+          // The calls not reported yet are taken before any await: the engine saves concurrently (the seats work in
+          // parallel), and each save reports its own calls only. A call is reported once even when the save fails.
+          const fresh = updated.usage.slice(reported).filter((record) => !reportedUsage.has(record));
           reported = updated.usage.length;
+          for (const record of fresh) reportedUsage.add(record);
+          try {
+            await store.save(updated);
+          } finally {
+            if (user && hooks.onUsage) for (const record of fresh) await hooks.onUsage(user, updated, record);
+          }
         },
       },
       signal ? { signal } : {},

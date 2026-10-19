@@ -227,4 +227,19 @@ describe.each(BACKENDS)("on $name", (backend) => {
     }
     expect(briefs).toBe(2);
   });
+
+  it("reports each model call once, though the seats save at the same time", async () => {
+    const reported: UsageRecord[] = [];
+    const { ruled, detail } = await open({
+      // A host that records usage over the network: the next saves happen while it waits.
+      onUsage: async (_user, _session, record) => {
+        await pause(10);
+        reported.push(record);
+      },
+    });
+    const id = await ruled();
+    const { session } = await detail(id);
+    expect(new Set(reported).size).toBe(reported.length);
+    expect(reported).toHaveLength(session.usage.length);
+  });
 });
