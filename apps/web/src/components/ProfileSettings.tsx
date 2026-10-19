@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { api, type ProfileInput } from "../api.ts";
 import { failureText } from "../errors.ts";
 import { CrossIcon } from "./Icons.tsx";
+import { LoadFailed } from "./LoadFailed.tsx";
 
 type Status = { kind: "idle" } | { kind: "saving" } | { kind: "done"; message: string } | { kind: "error"; message: string };
 
@@ -78,28 +79,33 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
   const id = useId();
   const [draft, setDraft] = useState<Draft>(() => draftOf({ ...EMPTY_PROFILE, currency: defaultCurrency }));
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Nothing can be changed, nor saved, until the saved profile is loaded: saving the empty form would erase it.
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` asks again.
   useEffect(() => {
     let cancelled = false;
-    api
-      .profile()
-      .then(({ profile }) => {
-        if (cancelled || !profile) return;
-        setDraft(draftOf(profile));
-        setSavedAt(profile.updatedAt);
-      })
-      .catch((caught) => {
-        if (!cancelled) setStatus({ kind: "error", message: failureText(t, caught) });
-      })
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
+    setLoadFailed(false);
+    api.profile().then(
+      ({ profile }) => {
+        if (cancelled) return;
+        if (profile) {
+          setDraft(draftOf(profile));
+          setSavedAt(profile.updatedAt);
+        }
+        setLoaded(true);
+      },
+      () => {
+        if (!cancelled) setLoadFailed(true);
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [attempt]);
 
   const update = (patch: Partial<Draft>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -161,6 +167,7 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
         <p className="field-hint" style={{ margin: 0 }}>
           {t("profile.lead")}
         </p>
+        {loadFailed ? <LoadFailed onRetry={() => setAttempt((count) => count + 1)} /> : null}
         {savedAt ? (
           <span className="field-hint">
             {t("profile.lastSaved", { date: new Intl.DateTimeFormat(i18n.language, { dateStyle: "long" }).format(new Date(savedAt)) })}
@@ -336,7 +343,12 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
           {saving ? t("profile.saving") : t("profile.save")}
         </button>
         {savedAt ? (
-          <button type="button" className="button button-secondary" onClick={() => void save(null, t("profile.cleared"))} disabled={saving}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => void save(null, t("profile.cleared"))}
+            disabled={!loaded || saving}
+          >
             {t("profile.clear")}
           </button>
         ) : null}

@@ -290,6 +290,8 @@ export const api = {
   /** Saves the organisation profile, or removes it (null). */
   saveProfile: (profile: ProfileInput | null) =>
     request<{ profile: OrgProfile | null }>("/api/profile", { method: "PUT", body: JSON.stringify({ profile }) }),
+  branding: () => request<{ branding: Branding }>("/api/branding"),
+  saveBranding: (branding: Branding) => request<{ branding: Branding }>("/api/branding", put(branding)),
   answerDebate: (id: string, answers: Answer[]) => request(`/api/sessions/${id}/answers`, post({ answers })),
   /** Retries a failed session, with a new cost cap when `budgetUsd` is given (self-hosted only). */
   resume: (id: string, budgetUsd?: number) => request(`/api/sessions/${id}/resume`, post(budgetUsd === undefined ? {} : { budgetUsd })),

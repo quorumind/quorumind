@@ -1,6 +1,7 @@
 import type { Session } from "@quorumind/core";
 import { totalCost } from "@quorumind/core/session";
 import { useTranslation } from "react-i18next";
+import { seatName } from "./Debate.tsx";
 import { formatUsd } from "./format.ts";
 
 /**
@@ -43,13 +44,7 @@ export function Costs({ session, providerCosts = true }: { session: Session; pro
               // biome-ignore lint/suspicious/noArrayIndexKey: usage records are append-only and have no identity of their own.
               <tr key={index}>
                 <td>{t(`task.${record.task}`)}</td>
-                <td>
-                  {record.seat
-                    ? t("role.proposer", { seat: record.seat })
-                    : record.task === "interview"
-                      ? t("role.interviewer")
-                      : t("role.arbiter")}
-                </td>
+                <td>{record.seat ? seatName(record.seat, t) : record.task === "interview" ? t("role.interviewer") : t("role.arbiter")}</td>
                 <td className="mono">{record.model}</td>
                 <td className="num mono">{number.format(record.inputTokens)}</td>
                 <td className="num mono">{number.format(record.outputTokens)}</td>

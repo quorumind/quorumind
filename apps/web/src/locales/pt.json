@@ -277,8 +277,10 @@
     "proposal": "Proposta",
     "critique": "Críticas",
     "revision": "Revisão",
+    "probe": "Ângulo inexplorado",
     "verdict": "Veredito",
     "reassess": "Veredito atualizado",
+    "brief": "Versão para um leitor",
     "research": "Pesquisa na web",
     "search": "Pesquisa web"
   },
@@ -543,6 +545,7 @@
   },
   "settings": {
     "title": "Configurações",
+    "loadFailed": "Não foi possível carregar suas configurações salvas. Elas não podem ser alteradas até serem carregadas, para que nada seja sobrescrito.",
     "models": "Modelos",
     "modelsLead": "Os modelos que este servidor pode usar. Escolha-os por papel ao iniciar uma sessão.",
     "localOnly": "Modo somente local: só os modelos que rodam nesta máquina estão disponíveis.",

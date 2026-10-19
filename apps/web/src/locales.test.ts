@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Task } from "@quorumind/core";
 import { LOCALES } from "@quorumind/core/locales";
 import { describe, expect, it } from "vitest";
 
@@ -75,6 +76,11 @@ const ERROR_CODES = [
   "european_unavailable",
 ];
 
+// Every task a usage record can name (Costs.tsx shows `task.<task>`). A task added to the engine fails the typecheck
+// here until it is listed, and the test below until it is translated.
+const TASKS = ["interview", "research", "search", "proposal", "critique", "revision", "probe", "verdict", "reassess", "brief"] as const;
+const everyTask: Exclude<Task, (typeof TASKS)[number]> extends never ? true : false = true;
+
 describe("interface translations", () => {
   const english = load("en");
   const englishKeys = keys(english).sort();
@@ -82,6 +88,12 @@ describe("interface translations", () => {
   it("explains every error code of the API", () => {
     const explained = Object.keys(english.errors as Record<string, string>);
     expect(ERROR_CODES.filter((code) => !explained.includes(code))).toEqual([]);
+  });
+
+  it("names every task of the Costs tab", () => {
+    expect(everyTask).toBe(true);
+    const named = Object.keys(english.task as Record<string, string>);
+    expect(TASKS.filter((task) => !named.includes(task))).toEqual([]);
   });
 
   it("has one file per supported language", () => {

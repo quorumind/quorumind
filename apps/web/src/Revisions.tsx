@@ -68,6 +68,7 @@ export function RevisionBar({
     setError(null);
     try {
       await api.adopt(session.id, number);
+      // Shown until the session says the choice is current; from then on the page follows the current revision.
       onShow(number ?? revisions.findLast((revision) => revision.reason !== "scenario")?.number ?? latest.number);
     } catch (caught) {
       setError(failureText(t, caught));

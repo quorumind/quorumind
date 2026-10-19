@@ -277,8 +277,10 @@
     "proposal": "Proposal",
     "critique": "Critiques",
     "revision": "Revision",
+    "probe": "Unexplored angle",
     "verdict": "Verdict",
     "reassess": "Updated verdict",
+    "brief": "Version for a reader",
     "research": "Web research",
     "search": "Web search"
   },
@@ -543,6 +545,7 @@
   },
   "settings": {
     "title": "Settings",
+    "loadFailed": "Your saved settings could not be loaded. They cannot be changed until they are, so that nothing is overwritten.",
     "models": "Models",
     "modelsLead": "The models this server can use. Pick them per role when you start a session.",
     "localOnly": "Local-only mode: only models running on this machine are available.",

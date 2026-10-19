@@ -277,8 +277,10 @@
     "proposal": "提案",
     "critique": "批评",
     "revision": "修订",
+    "probe": "未考虑的角度",
     "verdict": "结论",
     "reassess": "更新后的裁决",
+    "brief": "面向读者的版本",
     "research": "网络调研",
     "search": "网络搜索"
   },
@@ -543,6 +545,7 @@
   },
   "settings": {
     "title": "设置",
+    "loadFailed": "无法加载您已保存的设置。在加载成功之前无法修改，以免覆盖已有内容。",
     "models": "模型",
     "modelsLead": "此服务器可用的模型。开始会话时可按角色选择。",
     "localOnly": "仅本地模式：只能使用在本机运行的模型。",

@@ -343,22 +343,28 @@ function FeedbackBox({ session, feedback }: { session: Session; feedback: Feedba
   const [helpful, setHelpful] = useState<boolean | null>(null);
   const [kind, setKind] = useState<"rating" | "error">("rating");
   const [comment, setComment] = useState("");
-  const [sent, setSent] = useState(feedback.some((item) => item.kind === "rating"));
+  const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // The feedback of the session often arrives after the verdict: whoever already rated it is not asked again.
+  const rated = feedback.some((item) => item.kind === "rating");
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSending(true);
+    setError(null);
     try {
       await api.feedback(session.id, { helpful: kind === "rating" ? helpful : null, kind, comment: comment.trim() });
       setSent(true);
       setComment("");
+    } catch (caught) {
+      setError(failureText(t, caught));
     } finally {
       setSending(false);
     }
   };
 
-  if (sent && kind === "rating") {
+  if ((sent || rated) && kind === "rating") {
     return (
       <section className="card feedback stack">
         <p style={{ margin: 0 }}>{t("feedback.thanks")}</p>
@@ -417,6 +423,11 @@ function FeedbackBox({ session, feedback }: { session: Session; feedback: Feedba
           />
         </div>
       ) : null}
+      {error ? (
+        <p className="notice notice-error" role="alert" style={{ margin: 0 }}>
+          {error}
+        </p>
+      ) : null}
       <div className="row">
         {kind === "error" || helpful !== null ? (
           <button type="submit" className="button button-secondary" disabled={sending || (kind === "error" && !comment.trim())}>
@@ -453,10 +464,12 @@ export function Verdict({
   const canEdit = useCanEdit();
   // The revision on screen: the current one (the adopted scenario, or the latest revision) unless the person picks
   // another one.
-  const [picked, setPicked] = useState<number | null>(null);
+  // The pick holds for the current revision it was made on: a new revision, an adoption or its withdrawal makes the
+  // new current one shown, instead of keeping the page on the one picked before.
+  const [picked, setPicked] = useState<{ number: number; on: number } | null>(null);
   const [client, setClient] = useState<string | null>(null);
   const latest = currentRevision(live)?.number ?? 1;
-  const shown = picked ?? latest;
+  const shown = picked && picked.on === latest ? picked.number : latest;
   const session = sessionAtRevision(live, shown) ?? live;
   const verdict = session.verdict;
   if (!verdict) return null;
@@ -476,7 +489,7 @@ export function Verdict({
       <RevisionBar
         session={live}
         shown={shown}
-        onShow={(number) => setPicked(number === latest ? null : number)}
+        onShow={(number) => setPicked(number === latest ? null : { number, on: latest })}
         canEdit={!readOnly && canEdit}
         providerCosts={providerCosts}
         price={revisionPrice}

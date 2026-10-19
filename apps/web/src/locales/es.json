@@ -277,8 +277,10 @@
     "proposal": "Propuesta",
     "critique": "Críticas",
     "revision": "Revisión",
+    "probe": "Ángulo inexplorado",
     "verdict": "Veredicto",
     "reassess": "Veredicto actualizado",
+    "brief": "Versión para un lector",
     "research": "Búsqueda en la web",
     "search": "Búsqueda web"
   },
@@ -543,6 +545,7 @@
   },
   "settings": {
     "title": "Ajustes",
+    "loadFailed": "No se pudieron cargar sus ajustes guardados. No se pueden modificar hasta que se carguen, para no sobrescribir nada.",
     "models": "Modelos",
     "modelsLead": "Los modelos que puede usar este servidor. Elíjalos para cada rol al iniciar una sesión.",
     "localOnly": "Modo solo local: solo están disponibles los modelos que se ejecutan en esta máquina.",

@@ -277,8 +277,10 @@
     "proposal": "Vorschlag",
     "critique": "Kritik",
     "revision": "Überarbeitung",
+    "probe": "Ungeprüfter Aspekt",
     "verdict": "Urteil",
     "reassess": "Aktualisiertes Urteil",
+    "brief": "Fassung für einen Leser",
     "research": "Websuche",
     "search": "Suchanfrage"
   },
@@ -543,6 +545,7 @@
   },
   "settings": {
     "title": "Einstellungen",
+    "loadFailed": "Ihre gespeicherten Einstellungen konnten nicht geladen werden. Bis dahin lassen sie sich nicht ändern, damit nichts überschrieben wird.",
     "models": "Modelle",
     "modelsLead": "Die Modelle, die dieser Server nutzen kann. Sie wählen sie beim Start einer Sitzung für jede Rolle.",
     "localOnly": "Nur-lokal-Modus: Es sind nur Modelle verfügbar, die auf diesem Gerät laufen.",

@@ -9,6 +9,9 @@ import {
 } from "@quorumind/core/branding";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ApiError, api } from "../api.ts";
+import { failureText } from "../errors.ts";
+import { LoadFailed } from "./LoadFailed.tsx";
 
 type Status = { kind: "idle" } | { kind: "saving" } | { kind: "done"; message: string } | { kind: "error"; message: string };
 
@@ -20,43 +23,37 @@ const readAsDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-async function saveBranding(branding: Branding): Promise<Branding> {
-  const response = await fetch("/api/branding", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(branding),
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return ((await response.json()) as { branding: Branding }).branding;
-}
-
 /** White-label settings of the exports: the agency's name, logo and accent color. */
 export function BrandingSettings() {
   const { t } = useTranslation();
   const id = useId();
   const [branding, setBranding] = useState<Branding>(DEFAULT_BRANDING);
+  // Nothing can be changed, nor saved, until the saved branding is loaded: saving the defaults would erase it.
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const maxKb = Math.round(LOGO_MAX_FILE_BYTES / 1000);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` asks again.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/branding")
-      .then((response) => (response.ok ? (response.json() as Promise<{ branding: Branding }>) : Promise.reject(new Error())))
-      .then((body) => {
-        if (!cancelled) setBranding(body.branding);
-      })
-      .catch(() => {
-        if (!cancelled) setStatus({ kind: "error", message: t("error.request") });
-      })
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
+    setLoadFailed(false);
+    api.branding().then(
+      (body) => {
+        if (cancelled) return;
+        setBranding(body.branding);
+        setLoaded(true);
+      },
+      () => {
+        if (!cancelled) setLoadFailed(true);
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [attempt]);
 
   const update = (patch: Partial<Branding>) => {
     setBranding((current) => ({ ...current, ...patch }));
@@ -69,7 +66,12 @@ export function BrandingSettings() {
     if (!file) return;
     if (!(LOGO_TYPES as readonly string[]).includes(file.type)) return setLogoError(t("branding.logoType"));
     if (file.size > LOGO_MAX_FILE_BYTES) return setLogoError(t("branding.logoTooLarge", { size: maxKb }));
-    const dataUrl = await readAsDataUrl(file);
+    let dataUrl: string;
+    try {
+      dataUrl = await readAsDataUrl(file);
+    } catch {
+      return setLogoError(t("branding.logoType"));
+    }
     if (dataUrl.length > LOGO_MAX_DATA_URL) return setLogoError(t("branding.logoTooLarge", { size: maxKb }));
     setLogoError(null);
     update({ logoDataUrl: dataUrl });
@@ -78,10 +80,10 @@ export function BrandingSettings() {
   const submit = async (next: Branding, message: string) => {
     setStatus({ kind: "saving" });
     try {
-      setBranding(await saveBranding(next));
+      setBranding((await api.saveBranding(next)).branding);
       setStatus({ kind: "done", message });
-    } catch {
-      setStatus({ kind: "error", message: t("branding.error") });
+    } catch (caught) {
+      setStatus({ kind: "error", message: caught instanceof ApiError && caught.status > 0 ? failureText(t, caught) : t("branding.error") });
     }
   };
 
@@ -104,6 +106,7 @@ export function BrandingSettings() {
           {t("branding.lead")}
         </p>
       </div>
+      {loadFailed ? <LoadFailed onRetry={() => setAttempt((count) => count + 1)} /> : null}
 
       <label className="field" htmlFor={`${id}-name`}>
         <span className="field-label">{t("branding.name")}</span>

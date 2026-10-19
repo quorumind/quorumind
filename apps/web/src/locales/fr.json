@@ -277,8 +277,10 @@
     "proposal": "Proposition",
     "critique": "Critiques",
     "revision": "Révision",
+    "probe": "Angle inexploré",
     "verdict": "Verdict",
     "reassess": "Verdict mis à jour",
+    "brief": "Version pour un lecteur",
     "research": "Recherche sur le web",
     "search": "Recherche web"
   },
@@ -543,6 +545,7 @@
   },
   "settings": {
     "title": "Paramètres",
+    "loadFailed": "Vos paramètres enregistrés n'ont pas pu être chargés. Ils ne peuvent pas être modifiés tant qu'ils ne le sont pas, pour ne rien écraser.",
     "models": "Modèles",
     "modelsLead": "Les modèles que ce serveur peut utiliser. Choisissez-les pour chaque rôle en lançant une session.",
     "localOnly": "Mode local uniquement : seuls les modèles qui tournent sur cette machine sont disponibles.",
