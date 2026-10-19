@@ -4,8 +4,9 @@ import { crc32, deflateRawSync, gzipSync } from "node:zlib";
 import { MAX_CONTEXT_CHARS } from "@quorumind/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isPublicAddress, parseIPv6 } from "./address.ts";
-import { wordText } from "./docx.ts";
+import { withoutFallbacks, wordText } from "./docx.ts";
 import { ContextError } from "./errors.ts";
+import { extractInWorker } from "./extract.ts";
 import { extractFile } from "./file.ts";
 import { fetchGithub, parseGithubUrl, pickDocs } from "./github.ts";
 import { decodeEntities, htmlToText } from "./html.ts";
@@ -190,6 +191,33 @@ describe("file extraction", () => {
     const box = (text: string) => `<w:txbxContent>${p(text)}</w:txbxContent>`;
     const xml = `<w:document ${W}><w:body><w:p><w:r><mc:AlternateContent><mc:Choice>${box("In a box")}</mc:Choice><mc:Fallback>${box("In a box")}</mc:Fallback></mc:AlternateContent></w:r></w:p></w:body></w:document>`;
     expect(wordText(xml)).toBe("In a box");
+    expect(withoutFallbacks("a<mc:Fallback>b</mc:Fallback>c<mc:FallbackX>d</mc:FallbackX><mc:Fallback>e")).toBe(
+      "ac<mc:FallbackX>d</mc:FallbackX><mc:Fallback>e",
+    );
+  });
+
+  it("stays fast on Word documents full of unclosed tags", async () => {
+    const started = performance.now();
+    wordText("<a".repeat(200_000));
+    wordText("<mc:Fallback>".repeat(200_000));
+    wordText(`<w:t${"a".repeat(200_000)}`);
+    wordText(`<w:p>${"<w:t x".repeat(100_000)}`);
+    const rels = makeZip({ "_rels/.rels": "<Relationship".repeat(200_000), "word/document.xml": `<w:document ${W}/>` }, true);
+    expect(await codeOf(extractFile("rels.docx", "", rels))).toBe("empty");
+    expect(performance.now() - started).toBeLessThan(2_000);
+  });
+
+  it("reads PDF and Word documents in a worker stopped at its deadline and its memory cap", async () => {
+    const limits = { timeoutMs: 20_000, memoryMb: 24, concurrent: 2 };
+    expect((await extractInWorker("docx", makeDocx(p("Hello")), limits)).text).toBe("Hello");
+    // 300 000 paragraphs: within the size cap, beyond 24 MB of heap.
+    const heavy = makeDocx(p("ab").repeat(300_000));
+    expect(heavy.byteLength).toBeLessThan(200 * 1024);
+    expect(await codeOf(extractInWorker("docx", heavy, limits))).toBe("too_large");
+    expect(await codeOf(extractInWorker("pdf", makePdf([["Slow"]]), { ...limits, memoryMb: 256, timeoutMs: 1 }))).toBe("too_large");
+    // More documents than workers: they wait their turn.
+    const read = await Promise.all([1, 2, 3].map((n) => extractInWorker("docx", makeDocx(p(`Doc ${n}`)), { ...limits, concurrent: 1 })));
+    expect(read.map((document) => document.text)).toEqual(["Doc 1", "Doc 2", "Doc 3"]);
   });
 
   it("refuses a Word document that would inflate beyond reason, an encrypted one and an old .doc", async () => {

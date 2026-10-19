@@ -1,13 +1,13 @@
-// Reads the text of a Word document (.docx). The file is a zip of XML parts: only the main document
-// part is inflated, with a hard cap on its size, so a zip bomb costs nothing. Headings, list items and
-// table rows keep enough structure for a model to follow.
+// Reads the text of a Word document (.docx), in an extraction worker (extract.ts). The file is a zip of XML parts:
+// only the main document part is inflated, with a hard cap on its size, so a zip bomb costs nothing. Every pattern is
+// linear in the size of the part. Headings, list items and table rows keep enough structure for a model to follow.
 
 import { inflateRawSync } from "node:zlib";
 import { ContextError } from "./errors.ts";
 import { decodeEntities } from "./html.ts";
 
 /** Largest XML part inflated: a 300-page specification is about 5 MB of document.xml. */
-const MAX_PART_BYTES = 32 * 1024 * 1024;
+const MAX_PART_BYTES = 16 * 1024 * 1024;
 const MAX_ENTRIES = 5_000;
 
 const CFB_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
@@ -81,7 +81,8 @@ function mainPartName(bytes: Uint8Array, entries: Map<string, ZipEntry>): string
   const rels = entries.get("_rels/.rels");
   if (rels) {
     const xml = readPart(bytes, rels);
-    for (const match of xml.matchAll(/<Relationship\b[^>]*>/g)) {
+    // [^<>] stops each attempt at the next tag: an unclosed one costs one scan, not one per character left.
+    for (const match of xml.matchAll(/<Relationship\b[^<>]*>/g)) {
       const tag = match[0];
       if (!/Type="[^"]*\/officeDocument"/.test(tag)) continue;
       const target = /Target="([^"]+)"/.exec(tag)?.[1];
@@ -104,10 +105,39 @@ interface Row {
   cell: string[];
 }
 
+const FALLBACK_OPEN = "<mc:Fallback";
+const FALLBACK_CLOSE = "</mc:Fallback>";
+
+/**
+ * The XML without its mc:Fallback elements: text boxes are written twice, as DrawingML and as a VML fallback, and one
+ * copy is kept. A forward scan, linear in the size of the part, where a lazy pattern would rescan the rest of the part
+ * from every opening tag that is never closed.
+ */
+export function withoutFallbacks(xml: string): string {
+  let kept = "";
+  let from = 0;
+  let search = 0;
+  for (;;) {
+    const start = xml.indexOf(FALLBACK_OPEN, search);
+    if (start < 0) break;
+    // <mc:FallbackX is another element.
+    if (/\w/.test(xml[start + FALLBACK_OPEN.length] ?? "")) {
+      search = start + FALLBACK_OPEN.length;
+      continue;
+    }
+    const end = xml.indexOf(FALLBACK_CLOSE, start);
+    // Never closed: no fallback follows either.
+    if (end < 0) break;
+    kept += xml.slice(from, start);
+    from = end + FALLBACK_CLOSE.length;
+    search = from;
+  }
+  return kept + xml.slice(from);
+}
+
 /** Turns WordprocessingML into text: one block per paragraph, "#" for headings, "-" for list items, " | " between cells. */
 export function wordText(xml: string): string {
-  // Text boxes are written twice, as DrawingML and as a VML fallback: keep one copy.
-  const body = xml.replace(/<mc:Fallback\b[\s\S]*?<\/mc:Fallback>/g, "");
+  const body = withoutFallbacks(xml);
   const blocks: string[] = [];
   const paragraphs: Paragraph[] = [];
   const rows: Row[] = [];
@@ -127,7 +157,9 @@ export function wordText(xml: string): string {
     previousList = list;
   };
 
-  for (const match of body.matchAll(/<(\/?)([\w:]+)([^>]*?)(\/?)>|([^<]+)/g)) {
+  // Linear in the size of the part: the name is never given back to the attributes (the lookahead), and the attributes
+  // stop at the next "<", so a tag that is never closed costs one scan to the next tag, not one to the end of the part.
+  for (const match of body.matchAll(/<(\/?)([\w:]+)(?![\w:])([^<>]*?)(\/?)>|([^<]+)/g)) {
     const [, closing, tag, attributes = "", selfClosing, text] = match;
     const paragraph = paragraphs.at(-1);
     if (text !== undefined) {
