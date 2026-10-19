@@ -3,7 +3,7 @@ import type { Feasibility, Verdict } from "./schemas.ts";
 import { type CostEstimate, currentProposals, type Session, sessionAtRevision, type VerdictRevision } from "./session.ts";
 
 // What changed between two revisions of a verdict, for the "What changed" section of the reports and the interface:
-// the recommendation, the feasibility and scores of each option, the risks and the cost estimates.
+// the recommendation, the feasibility and scores of each option, the risks, the cost estimates and the build times.
 
 export interface RevisionChanges {
   /** The revision compared with: the one this revision starts from. */
@@ -27,13 +27,17 @@ export interface RevisionChanges {
   };
   /** Running costs that moved, in the debate's currency (the build cost comes from the work packages). */
   costs: { seat: string; kind: "monthly"; from: CostEstimate | null; to: CostEstimate | null }[];
+  /** Build times that moved, in calendar weeks: a revision may change them alone. */
+  schedules: { seat: string; from: WeeksRange | null; to: WeeksRange | null }[];
   /** Open questions that are no longer open, and new ones. */
   questions: { answered: string[]; added: string[] };
 }
 
+type WeeksRange = { low: number; high: number };
+
 const key = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();
 
-const sameRange = (a: CostEstimate | null | undefined, b: CostEstimate | null | undefined) =>
+const sameRange = (a: WeeksRange | null | undefined, b: WeeksRange | null | undefined) =>
   (a ?? null) === (b ?? null) || (!!a && !!b && a.low === b.low && a.high === b.high);
 
 /** The revision with this number, or null. */
@@ -102,11 +106,13 @@ export function changesBetween(before: Session, after: Session, since: number): 
   const oldProposals = currentProposals(before);
   const newProposals = currentProposals(after);
   const costs: RevisionChanges["costs"] = [];
+  const schedules: RevisionChanges["schedules"] = [];
   for (const seat of Object.keys(newProposals)) {
     const was = oldProposals[seat];
     const is = newProposals[seat];
     if (!was || !is) continue;
     if (!sameRange(was.monthlyCost, is.monthlyCost)) costs.push({ seat, kind: "monthly", from: was.monthlyCost, to: is.monthlyCost });
+    if (!sameRange(was.buildWeeks, is.buildWeeks)) schedules.push({ seat, from: was.buildWeeks ?? null, to: is.buildWeeks ?? null });
   }
 
   const oldQuestions = new Set(old.openQuestions.map(key));
@@ -124,6 +130,7 @@ export function changesBetween(before: Session, after: Session, since: number): 
       changed,
     },
     costs,
+    schedules,
     questions: {
       answered: old.openQuestions.filter((question) => !newQuestions.has(key(question))),
       added: now.openQuestions.filter((question) => !oldQuestions.has(key(question))),
@@ -137,10 +144,12 @@ export function unchanged(changes: RevisionChanges): boolean {
     !changes.recommendation &&
     changes.feasibility.length === 0 &&
     changes.scores.length === 0 &&
+    changes.weighted.length === 0 &&
     changes.risks.added.length === 0 &&
     changes.risks.removed.length === 0 &&
     changes.risks.changed.length === 0 &&
     changes.costs.length === 0 &&
+    (changes.schedules ?? []).length === 0 &&
     changes.questions.answered.length === 0 &&
     changes.questions.added.length === 0
   );

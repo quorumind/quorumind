@@ -5,6 +5,7 @@ import { clientDeliverable, renderClientReport } from "../deliverable.ts";
 import { LOCALES } from "../locales.ts";
 import { renderReport } from "../report.ts";
 import { LABELS } from "../report-labels.ts";
+import { revisionChanges, unchanged } from "../revisions.ts";
 import { renderDocx } from "./docx.ts";
 import { renderHtml } from "./html.ts";
 import { readZip, revisedDemo as revised, styled } from "./testing.ts";
@@ -50,6 +51,22 @@ describe("reports of a revised verdict", () => {
     session.verdict = session.revisions[0]!.verdict;
     expect(renderReport(session)).toContain("## What changed since revision 1\n\n_Revision 2 · ");
     expect(renderReport(session)).toContain("The new facts changed neither the recommendation, the scores, the risks nor the costs.");
+  });
+
+  it("list a build time the new facts changed, even when nothing else moved", async () => {
+    const session = await revised();
+    session.revisions[1]!.verdict = session.revisions[0]!.verdict;
+    session.revisions[1]!.costs = [];
+    session.revisions[1]!.schedules = [{ seat: "A", buildWeeks: { low: 30, high: 40 } }];
+    session.verdict = session.revisions[0]!.verdict;
+    const changes = revisionChanges(session, 2)!;
+    expect(unchanged(changes)).toBe(false);
+    expect(changes.schedules).toEqual([
+      { seat: "A", from: expect.objectContaining({ low: expect.any(Number) }), to: { low: 30, high: 40 } },
+    ]);
+    const report = renderReport(session);
+    expect(report).not.toContain("The new facts changed neither");
+    expect(report).toMatch(/- Option A · Build time: .* → 30 to 40 weeks/);
   });
 
   it("give the client deliverable its revision", async () => {

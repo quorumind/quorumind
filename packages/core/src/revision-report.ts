@@ -2,7 +2,7 @@ import { type AgencyLabels, agencyLabels } from "./agency-labels.ts";
 import { debateCurrency } from "./costing.ts";
 import { decisionLabels } from "./decision-labels.ts";
 import { scenarioLines } from "./decision-report.ts";
-import { fill, formatRange, formatScore, labelled, type ReportLabels, reportLabels, seatName } from "./report.ts";
+import { fill, formatRange, formatScore, labelled, type ReportLabels, reportLabels, seatName, weeksText } from "./report.ts";
 import { revisionChanges, unchanged } from "./revisions.ts";
 import { currentProposals, currentRevision, type RevisionReason, type Session } from "./session.ts";
 
@@ -132,6 +132,13 @@ function changeGroups(
   push(
     a.costEstimates,
     changes.costs.map((item) => labelled(`${seatName(item.seat, t)} · ${t.monthlyCost}`, arrow(range(item.from), range(item.to)), locale)),
+  );
+  const weeks = (value: { low: number; high: number } | null) => weeksText(value, t, locale) ?? "–";
+  push(
+    t.buildTime,
+    changes.schedules.map((item) =>
+      labelled(`${seatName(item.seat, t)} · ${t.buildTime}`, arrow(weeks(item.from), weeks(item.to)), locale),
+    ),
   );
   push(a.questionsAnswered, changes.questions.answered);
   push(a.questionsAdded, changes.questions.added);
