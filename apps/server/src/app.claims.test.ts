@@ -179,6 +179,17 @@ describe.each(BACKENDS)("on $name", (backend) => {
     expect((await app.request(`/api/sessions/${id}`, { method: "DELETE", headers: as("ada") })).status).toBe(204);
   });
 
+  it("waits at shutdown for the work that is not a worker, a brief being written", async () => {
+    const { app, ruled } = await open({}, 5);
+    const id = await ruled();
+    const brief = app.request(`/api/sessions/${id}/brief`, send({ audience: "executive" }));
+    for (let i = 0; i < 400 && !app.isRunning(id); i++) await pause(1);
+    expect(app.isRunning(id)).toBe(true);
+    await app.interruptAll();
+    expect(app.isRunning(id)).toBe(false);
+    await brief;
+  });
+
   it("stops new work once the server shuts down", async () => {
     const { app, create } = await open();
     const id = await create();

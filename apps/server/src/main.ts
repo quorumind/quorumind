@@ -9,6 +9,7 @@ import { EventBus } from "./bus.ts";
 import { chatNotifierFromEnv } from "./chat.ts";
 import { securityHeaders } from "./guard.ts";
 import { notifierFromEnv } from "./notifier.ts";
+import { shutdownOnce } from "./shutdown.ts";
 import { openStorage } from "./storage.ts";
 
 const env = process.env;
@@ -80,19 +81,19 @@ if (existsSync(webDist)) {
   console.warn(`No web build at ${webDist}. Run "npm run build" or use "npm run dev" for the interface.`);
 }
 
-serve({ fetch: root.fetch, port, hostname }, (info) => {
+const server = serve({ fetch: root.fetch, port, hostname }, (info) => {
   console.log(
     `Quorumind is running on http://${info.address === "::" ? "localhost" : info.address}:${info.port} (data: ${storage.description})`,
   );
 });
 
-// Sessions still working are interrupted first, so the next start finds them ready to be resumed.
-const shutdown = () => {
-  api
-    .interruptAll()
-    .catch((error) => console.error("Interrupting the running sessions failed:", error))
-    .then(() => storage.close())
-    .finally(() => process.exit(0));
-};
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+// No new connection is accepted, then the sessions still working are interrupted, so the next start finds them ready
+// to be resumed. A second signal does not run it again.
+const shutdown = shutdownOnce({
+  closeServer: () => server.close(),
+  interrupt: () => api.interruptAll(),
+  closeStorage: () => storage.close(),
+  exit: (code) => process.exit(code),
+});
+process.on("SIGINT", () => void shutdown());
+process.on("SIGTERM", () => void shutdown());
