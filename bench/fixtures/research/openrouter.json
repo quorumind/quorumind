@@ -1,0 +1,117 @@
+{
+  "note": "Answers of OpenRouter's chat completions with the web plugin (engine exa), one per question of the demo's research, in the shape its documentation gives: the cited pages come back as url_citation annotations. The bench replays them through OpenRouterSearch, so the research step runs end to end without a live call.",
+  "answers": [
+    {
+      "match": "stripe",
+      "response": {
+        "model": "google/gemini-3.8-flash",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "message": {
+              "role": "assistant",
+              "content": "Stripe charges 1.5% + €0.25 for standard European Economic Area cards, with no setup or monthly fee ([stripe.com](https://stripe.com/fr/pricing)).",
+              "annotations": [
+                {
+                  "type": "url_citation",
+                  "url_citation": {
+                    "url": "https://stripe.com/fr/pricing",
+                    "title": "Stripe pricing (France)",
+                    "content": "Standard pricing: 1.5% + €0.25 for standard European Economic Area cards, with no setup or monthly fees.",
+                    "start_index": 103,
+                    "end_index": 147
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "usage": { "prompt_tokens": 2840, "completion_tokens": 62, "cost": 0.00771 }
+      }
+    },
+    {
+      "match": "postgres",
+      "response": {
+        "model": "google/gemini-3.8-flash",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "message": {
+              "role": "assistant",
+              "content": "PostgreSQL 18 was first released in September 2025 and is supported until November 2030 ([postgresql.org](https://www.postgresql.org/support/versioning/)).",
+              "annotations": [
+                {
+                  "type": "url_citation",
+                  "url_citation": {
+                    "url": "https://www.postgresql.org/support/versioning/",
+                    "title": "PostgreSQL: Versioning Policy",
+                    "content": "PostgreSQL 18, first released in September 2025, is supported until November 2030; each major version is supported for 5 years.",
+                    "start_index": 89,
+                    "end_index": 155
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "usage": { "prompt_tokens": 3120, "completion_tokens": 58, "cost": 0.00779 }
+      }
+    },
+    {
+      "match": "node",
+      "response": {
+        "model": "google/gemini-3.8-flash",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "message": {
+              "role": "assistant",
+              "content": "Node.js 24 is the Active LTS line and is maintained until April 2028 ([nodejs.org](https://nodejs.org/en/about/previous-releases)).",
+              "annotations": [
+                {
+                  "type": "url_citation",
+                  "url_citation": {
+                    "url": "https://nodejs.org/en/about/previous-releases",
+                    "title": "Node.js Releases",
+                    "content": "Node.js 24 is the Active LTS release line; it is maintained until April 2028.",
+                    "start_index": 70,
+                    "end_index": 132
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "usage": { "prompt_tokens": 2610, "completion_tokens": 49, "cost": 0.00765 }
+      }
+    },
+    {
+      "match": "gdpr",
+      "response": {
+        "model": "google/gemini-3.8-flash",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "message": {
+              "role": "assistant",
+              "content": "Under article 28 of the GDPR, processing by a processor must be governed by a contract that sets out its subject matter, duration, nature and purpose ([eur-lex.europa.eu](https://eur-lex.europa.eu/eli/reg/2016/679/oj)).",
+              "annotations": [
+                {
+                  "type": "url_citation",
+                  "url_citation": {
+                    "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+                    "title": "Regulation (EU) 2016/679 (General Data Protection Regulation)",
+                    "content": "Article 28: processing by a processor shall be governed by a contract that sets out the subject matter, duration, nature and purpose of the processing.",
+                    "start_index": 150,
+                    "end_index": 222
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "usage": { "prompt_tokens": 2980, "completion_tokens": 71, "cost": 0.00778 }
+      }
+    }
+  ]
+}

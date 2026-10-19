@@ -2,6 +2,8 @@
 // verdict must have. Run it after any change to prompts, schemas or models:
 //   npm run bench                      demo models, checks the pipeline (free)
 //   QUORUMIND_BENCH=live npm run bench  the models configured in the environment (costs money)
+// Every debate checks the facts on the web first. On the demo, the searches replay recorded answers of OpenRouter's
+// web plugin (fixtures/research/openrouter.json); live, they use the search engine configured (QUORUMIND_SEARCH).
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -9,6 +11,7 @@ import {
   AUDIT_OPINIONS,
   auditedDocuments,
   auditOf,
+  cleanQuery,
   createSession,
   criticSeats,
   currentProposals,
@@ -20,12 +23,15 @@ import {
   type Lineup,
   type Locale,
   liveLineupFromEnv,
+  MAX_QUERY_CHARS,
+  OpenRouterSearch,
   type OrgProfile,
   PRICE_REFERENCE,
   type ProfileRole,
   proposalCosting,
   providersFor,
   quoteCheck,
+  type SearchProvider,
   type Session,
   sessionProfile,
   totalCost,
@@ -71,8 +77,24 @@ if (!configured) {
 }
 const lineup: Lineup = configured;
 
+/** The recorded answers of OpenRouter's web plugin, replayed for the demo: the answer whose keyword the query names. */
+function recordedSearch(): SearchProvider {
+  const recorded = JSON.parse(readFileSync(join(here, "fixtures", "research", "openrouter.json"), "utf8")) as {
+    answers: { match: string; response: unknown }[];
+  };
+  const replay = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
+    const query = body.messages.at(-1)?.content.toLowerCase() ?? "";
+    const answer = recorded.answers.find((item) => query.includes(item.match));
+    const response = answer?.response ?? { choices: [{ message: { content: "Nothing found.", annotations: [] } }], usage: { cost: 0.007 } };
+    return new Response(JSON.stringify(response), { headers: { "content-type": "application/json" } });
+  }) as typeof globalThis.fetch;
+  return new OpenRouterSearch({ apiKey: "recorded", fetch: replay });
+}
+
 async function run(fixture: Fixture) {
-  const engine = new DebateEngine(providersFor(lineup, process.env, { mockDelayMs: 0 }), { emit: () => {}, save: () => {} });
+  const providers = providersFor(lineup, process.env, { mockDelayMs: 0 });
+  const engine = new DebateEngine(live ? providers : { ...providers, search: recordedSearch() }, { emit: () => {}, save: () => {} });
   const profile: OrgProfile | null = fixture.profile
     ? { ...EMPTY_PROFILE, ...fixture.profile, roles: withRoleIds(fixture.profile.roles), updatedAt: null }
     : null;
@@ -91,6 +113,7 @@ async function run(fixture: Fixture) {
     idea: fixture.idea,
     demo: !live,
     budgetUsd: 5,
+    webResearch: { maxQueries: 6, budgetUsd: 0.3 },
     ...lineup,
     profile,
     ...(fixture.mode ? { mode: fixture.mode, context: document, audit: { alternative: fixture.alternative ?? false } } : {}),
@@ -126,13 +149,49 @@ async function run(fixture: Fixture) {
   return { session, seconds: (Date.now() - started) / 1000, checks: check(session, fixture) };
 }
 
+/**
+ * The web research and the claims that rest on it: every "verified" claim cites a source the research found, the facts
+ * cite theirs, every source is dated, and only short, generic queries were sent to the search engine.
+ */
+function researchChecks(session: Session): Check[] {
+  const checks: Check[] = [];
+  const add = (name: string, passed: boolean, detail?: string) => checks.push({ name, passed, ...(detail ? { detail } : {}) });
+  const known = new Set(session.sources.map((source) => source.id));
+  const unsourced = (session.verdict?.claims ?? []).filter(
+    (claim) => claim.confidence === "verified" && (claim.sources.length === 0 || !claim.sources.every((id) => known.has(id))),
+  );
+  add("cites a source for every verified claim", unsourced.length === 0, unsourced.map((claim) => claim.claim).join("; "));
+  const research = session.research;
+  if (research?.status !== "done") {
+    // Live without a search engine, the research is skipped and says why; the demo always replays its recording.
+    add("checks the facts on the web", live && research?.status === "skipped", `${research?.status ?? "none"} ${research?.skipped ?? ""}`);
+    return checks;
+  }
+  add(
+    "states facts that cite the sources found",
+    research.facts.length > 0 && research.facts.every((fact) => fact.sources.length > 0 && fact.sources.every((id) => known.has(id))),
+  );
+  add(
+    "dates every source",
+    session.sources.every((source) => Number.isFinite(Date.parse(source.retrievedAt)) && /^https?:/.test(source.url)),
+  );
+  const sent = research.queries.filter((query) => query.searchedAt !== null).map((query) => query.query);
+  const leaked = sent.filter((query) => query.length > MAX_QUERY_CHARS || cleanQuery(query, session) !== query);
+  add("sends only short, generic queries", sent.length > 0 && leaked.length === 0, leaked.join("; "));
+  add(
+    "counts what the searches cost",
+    session.usage.filter((record) => record.task === "search").every((record) => record.costUsd !== null),
+  );
+  return checks;
+}
+
 function check(session: Session, fixture: Fixture): Check[] {
   const checks: Check[] = [];
   const add = (name: string, passed: boolean, detail?: string) => checks.push({ name, passed, ...(detail ? { detail } : {}) });
   add("reaches a verdict", session.phase === "complete", session.error?.message);
   const verdict = session.verdict;
   if (!verdict || !session.sheet) return checks;
-  if (fixture.mode === "audit") return [...checks, ...auditChecks(session, fixture)];
+  if (fixture.mode === "audit") return [...checks, ...auditChecks(session, fixture), ...researchChecks(session)];
   const seats = Object.keys(session.seats);
   add(
     "judges every option",
@@ -213,6 +272,7 @@ function check(session: Session, fixture: Fixture): Check[] {
     }
   }
   add("records the cost of every call", session.usage.length > 0 && session.usage.every((record) => record.inputTokens >= 0));
+  checks.push(...researchChecks(session));
   return checks;
 }
 
