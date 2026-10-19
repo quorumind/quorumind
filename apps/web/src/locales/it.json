@@ -5,6 +5,7 @@
   },
   "nav": {
     "home": "Home",
+    "skip": "Vai al contenuto",
     "newSession": "Nuova sessione",
     "language": "Lingua",
     "theme": "Tema",
@@ -66,6 +67,8 @@
     "lead": "Il dibattito si basa solo su questa scheda. Correggi ciò che non è giusto. I vincoli non negoziabili rendono un'opzione non fattibile.",
     "onePerLine": "Un elemento per riga",
     "weight": "Peso",
+    "priorityLabel": "Priorità {{number}}",
+    "weightLabel": "Peso della priorità {{number}}",
     "removePriority": "Rimuovi questa priorità",
     "addPriority": "Aggiungi una priorità",
     "start": "Avvia il dibattito",
@@ -459,6 +462,7 @@
   "matrix": {
     "hint": "Sposta un peso e la classifica si aggiorna. Un'opzione non fattibile resta ultima, qualunque siano i suoi punteggi.",
     "reset": "Ripristina i pesi",
+    "top": "Al primo posto con questi pesi: {{option}}",
     "score": "Punteggio ponderato",
     "estimates": "I costi di realizzazione sono valorizzati dai pacchetti di lavoro di ogni opzione; i costi di esercizio sono stime dei proponenti."
   },
@@ -998,6 +1002,7 @@
     "clear": "Azzera i filtri",
     "csv": "Esporta in CSV",
     "loading": "Caricamento del registro…",
+    "count": "Decisioni mostrate: {{count}}",
     "empty": "Nessuna decisione corrisponde a questi filtri.",
     "decision": "Decisione",
     "recommendation": "Raccomandazione",

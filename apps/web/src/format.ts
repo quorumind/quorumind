@@ -1,4 +1,5 @@
 import type { ModelOption } from "@quorumind/core";
+import { isLocale, localeInfo } from "@quorumind/core/locales";
 import type { TFunction } from "i18next";
 
 const GATEWAYS: Record<string, string> = { openrouter: "OpenRouter" };
@@ -38,4 +39,12 @@ export function formatMoney(amount: number, currency: string, locale: string) {
 export function groupLabel(option: ModelOption, t: TFunction): string {
   if (!option.maker) return option.label.split(" · ")[0] ?? option.provider;
   return t("setup.viaGateway", { maker: option.maker, gateway: GATEWAYS[option.provider] ?? option.provider });
+}
+
+/**
+ * The language attributes of content written in a session's language (an audit, a compliance assessment), which may
+ * differ from the interface's: read with the right voice, and laid out right to left for Arabic.
+ */
+export function contentLanguage(locale: string): { lang: string; dir: "ltr" | "rtl" | "auto" } {
+  return isLocale(locale) ? { lang: locale, dir: localeInfo(locale).dir } : { lang: locale, dir: "auto" };
 }

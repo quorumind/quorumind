@@ -8,6 +8,7 @@ import { api, type Feedback, type PriceQuote, type SessionAccess, type Share } f
 import { Costs } from "./Costs.tsx";
 import { RetryIcon } from "./components/Icons.tsx";
 import { Loader, Skeleton } from "./components/Logo.tsx";
+import { PageHeading } from "./components/Page.tsx";
 import { Debate } from "./Debate.tsx";
 import { failureText, sessionErrorText } from "./errors.ts";
 import { formatPrice, formatUsd } from "./format.ts";
@@ -237,7 +238,7 @@ export function SessionBody({
           ) : null}
         </div>
         <div className="session-title-row">
-          <h1 className="display">{title}</h1>
+          <PageHeading title={title} />
           {readOnly ? null : <SessionActions session={session} share={share} onShare={onShare ?? (() => undefined)} />}
         </div>
         {readOnly || !onAccess ? null : <AccessLine id={session.id} access={access} onChange={onAccess} />}

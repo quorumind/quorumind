@@ -5,6 +5,7 @@
   },
   "nav": {
     "home": "首页",
+    "skip": "跳到主要内容",
     "newSession": "新会话",
     "language": "语言",
     "theme": "主题",
@@ -66,6 +67,8 @@
     "lead": "辩论仅以这份需求表为依据。如有错误请修改。违反硬性约束的方案将被判定为不可行。",
     "onePerLine": "每行一项",
     "weight": "权重",
+    "priorityLabel": "优先级 {{number}}",
+    "weightLabel": "优先级 {{number}} 的权重",
     "removePriority": "删除此优先级",
     "addPriority": "添加优先级",
     "start": "开始辩论",
@@ -459,6 +462,7 @@
   "matrix": {
     "hint": "调整权重，排名随之更新。不可行的方案无论得分多少都排在最后。",
     "reset": "重置权重",
+    "top": "按此权重排名第一：{{option}}",
     "score": "加权得分",
     "estimates": "开发成本按各方案的工作包计价；运营成本为提案方的估算。"
   },
@@ -998,6 +1002,7 @@
     "clear": "清除筛选",
     "csv": "导出为 CSV",
     "loading": "正在加载登记册…",
+    "count": "显示的决定：{{count}} 项",
     "empty": "没有符合这些筛选条件的决策。",
     "decision": "决策",
     "recommendation": "推荐方案",

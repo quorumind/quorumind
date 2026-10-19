@@ -450,13 +450,19 @@ export function ContextPicker({ value, onChange, disabled = false, onBusyChange,
                     <KindIcon kind={document.kind} />
                     <span className="visually-hidden">{t(`context.kind.${document.kind}`)}</span>
                   </span>
-                  <span className="context-name" dir="auto" title={document.source ?? document.name}>
+                  <span id={`${id}-name-${document.id}`} className="context-name" dir="auto" title={document.source ?? document.name}>
                     {document.name}
                   </span>
                   <span className="context-size">{t("context.characters", { size: numbers.format(document.text.length) })}</span>
                   {marked ? (
                     <label className="check context-mark">
-                      <input type="checkbox" checked={marked.ids.includes(document.id)} onChange={() => marked.onToggle(document.id)} />
+                      <input
+                        type="checkbox"
+                        checked={marked.ids.includes(document.id)}
+                        // Which document it is for: every checkbox has the same label.
+                        aria-describedby={`${id}-name-${document.id}`}
+                        onChange={() => marked.onToggle(document.id)}
+                      />
                       <span>{marked.label}</span>
                     </label>
                   ) : null}

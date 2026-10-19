@@ -446,8 +446,9 @@ export function Review({ session }: { session: Session }) {
             {sheet.priorities.map((priority, index) => (
               <div className="priority" key={priorityIds[index]}>
                 <input
+                  id={`priority-${priorityIds[index]}`}
                   className="input"
-                  aria-label={t("review.fields.priorities")}
+                  aria-label={t("review.priorityLabel", { number: index + 1 })}
                   value={priority.criterion}
                   onChange={(event) =>
                     set(
@@ -457,7 +458,7 @@ export function Review({ session }: { session: Session }) {
                   }
                 />
                 <label className="row" style={{ gap: "var(--space-2)", flexWrap: "nowrap" }}>
-                  <span className="visually-hidden">{t("review.weight")}</span>
+                  <span className="visually-hidden">{t("review.weightLabel", { number: index + 1 })}</span>
                   <input
                     type="range"
                     min={1}
@@ -478,12 +479,15 @@ export function Review({ session }: { session: Session }) {
                   className="icon-button"
                   style={{ inlineSize: 24, blockSize: 24, border: 0 }}
                   aria-label={t("review.removePriority")}
-                  onClick={() =>
+                  aria-describedby={`priority-${priorityIds[index]}`}
+                  onClick={() => {
                     set(
                       "priorities",
                       sheet.priorities.filter((_, i) => i !== index),
-                    )
-                  }
+                    );
+                    // The ids follow the rows, so that the rows after a removed one keep theirs.
+                    setPriorityIds((ids) => ids.filter((_, i) => i !== index));
+                  }}
                 >
                   <CrossIcon />
                 </button>

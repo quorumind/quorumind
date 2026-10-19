@@ -5,6 +5,7 @@
   },
   "nav": {
     "home": "Accueil",
+    "skip": "Aller au contenu",
     "newSession": "Nouvelle session",
     "language": "Langue",
     "theme": "Thème",
@@ -66,6 +67,8 @@
     "lead": "Le débat repose uniquement sur cette fiche. Corrigez ce qui est faux. Les contraintes non négociables rendent une option infaisable.",
     "onePerLine": "Un élément par ligne",
     "weight": "Poids",
+    "priorityLabel": "Priorité {{number}}",
+    "weightLabel": "Poids de la priorité {{number}}",
     "removePriority": "Retirer cette priorité",
     "addPriority": "Ajouter une priorité",
     "start": "Lancer le débat",
@@ -459,6 +462,7 @@
   "matrix": {
     "hint": "Modifiez un poids et le classement se met à jour. Une option infaisable reste dernière, quelles que soient ses notes.",
     "reset": "Réinitialiser les poids",
+    "top": "En tête avec ces poids : {{option}}",
     "score": "Score pondéré",
     "estimates": "Les coûts de réalisation sont chiffrés d'après les lots de chaque option ; les coûts d'exploitation sont des estimations des proposants."
   },
@@ -998,6 +1002,7 @@
     "clear": "Effacer les filtres",
     "csv": "Exporter en CSV",
     "loading": "Chargement du registre…",
+    "count": "Décisions affichées : {{count}}",
     "empty": "Aucune décision ne correspond à ces filtres.",
     "decision": "Décision",
     "recommendation": "Recommandation",

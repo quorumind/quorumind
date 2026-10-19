@@ -16,6 +16,7 @@ import {
 } from "./components/Icons.tsx";
 import { LanguageSelect } from "./components/LanguageSelect.tsx";
 import { Loader, Mark } from "./components/Logo.tsx";
+import { markNavigation } from "./components/Page.tsx";
 import { NewSession } from "./NewSession.tsx";
 import { type ThemeChoice, useTheme } from "./theme.ts";
 
@@ -38,7 +39,11 @@ const readRoute = () => window.location.hash.replace(/^#\/?/, "");
 function useRoute() {
   const [route, setRoute] = useState(readRoute);
   useEffect(() => {
-    const onChange = () => setRoute(readRoute());
+    const onChange = () => {
+      // The heading of the page navigated to takes the focus, for screen readers to say where the person is.
+      markNavigation();
+      setRoute(readRoute());
+    };
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
@@ -227,6 +232,8 @@ function Shell({ route }: { route: string }) {
   const { t } = useTranslation();
   const sessionsState = useSessionList();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const sidebar = useRef<HTMLElement>(null);
   const sessionId = route.startsWith("s/") ? route.slice(2) : null;
   const page = sessionId ? (
     <SessionView key={sessionId} id={sessionId} />
@@ -251,14 +258,24 @@ function Shell({ route }: { route: string }) {
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("click", onClick);
+    // The open menu covers the page: the focus goes into it, and back to its button once it closes.
+    sidebar.current?.querySelector<HTMLElement>("a, button, select")?.focus();
+    const button = menuButton.current;
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("click", onClick);
+      if (button && document.activeElement?.closest(".sidebar")) button.focus();
     };
   }, [menuOpen]);
 
+  // A button rather than a link to #main-content: the address's fragment is the route.
+  const skip = () => document.getElementById("main-content")?.focus();
+
   return (
     <SessionsContext.Provider value={sessionsState}>
+      <button type="button" className="skip-link" onClick={skip}>
+        {t("nav.skip")}
+      </button>
       <div className="app" data-menu={menuOpen ? "open" : "closed"}>
         <header className="mobile-bar">
           <a className="brand" href="#/">
@@ -266,6 +283,7 @@ function Shell({ route }: { route: string }) {
             <span>quorumind</span>
           </a>
           <button
+            ref={menuButton}
             type="button"
             className="icon-button"
             aria-expanded={menuOpen}
@@ -276,10 +294,11 @@ function Shell({ route }: { route: string }) {
             {menuOpen ? <CrossIcon /> : <MenuIcon />}
           </button>
         </header>
-        <aside className="sidebar" id="sidebar">
+        <aside className="sidebar" id="sidebar" ref={sidebar}>
           <Sidebar current={sessionId ?? route} />
         </aside>
-        <main className="main">
+        {/* Behind the open menu, the page is out of reach of the keyboard and of screen readers. */}
+        <main className="main" id="main-content" tabIndex={-1} inert={menuOpen}>
           <div className="page">
             <PageLoader>{page}</PageLoader>
           </div>

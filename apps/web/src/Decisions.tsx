@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { authorName, useCanEdit } from "./access.tsx";
 import { api, type DecisionAction, type DecisionFilters, type DecisionRow } from "./api.ts";
 import { CheckIcon, DownloadIcon } from "./components/Icons.tsx";
+import { PageHeading } from "./components/Page.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText } from "./errors.ts";
 
@@ -367,7 +368,7 @@ export function Register() {
   return (
     <div className="stack-lg register">
       <header className="stack">
-        <h1 className="display">{t("register.title")}</h1>
+        <PageHeading title={t("register.title")} />
         <p className="field-hint" style={{ margin: 0 }}>
           {t("register.lead")}
         </p>
@@ -454,7 +455,10 @@ export function Register() {
           {error}
         </p>
       ) : null}
-      {rows === null && !error ? <p role="status">{t("register.loading")}</p> : null}
+      {/* What the filters found, in one line rather than the whole table read out again. */}
+      <p className={rows === null ? undefined : "visually-hidden"} role="status">
+        {rows === null ? (error ? "" : t("register.loading")) : t("register.count", { count: rows.length })}
+      </p>
       {rows?.length === 0 ? <p>{t("register.empty")}</p> : null}
       {rows && rows.length > 0 ? (
         <div className="table-wrap">
@@ -469,7 +473,7 @@ export function Register() {
                 <th scope="col">{t("register.review")}</th>
               </tr>
             </thead>
-            <tbody aria-live="polite">
+            <tbody>
               {rows.map((row) => {
                 const replacement = row.supersededBy ? rows.find((other) => other.sessionId === row.supersededBy) : null;
                 return (

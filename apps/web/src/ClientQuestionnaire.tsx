@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api, type PublicQuestionnaire } from "./api.ts";
 import { CheckIcon, DownloadIcon } from "./components/Icons.tsx";
 import { Loader } from "./components/Logo.tsx";
+import { PageHeading } from "./components/Page.tsx";
 import { blend, isHexColor, readableOn, textOn } from "./contrast.ts";
 import { errorText, failureText } from "./errors.ts";
 import { switchLanguage } from "./i18n.ts";
@@ -159,7 +160,7 @@ function Password({ token, onAccess }: { token: string; onAccess: (access: strin
   };
   return (
     <form className="card stack" onSubmit={submit}>
-      <h1 className="heading">{t("questionnaire.lockedTitle")}</h1>
+      <PageHeading className="heading" title={t("questionnaire.lockedTitle")} />
       <p style={{ margin: 0 }}>{t("questionnaire.lockedLead")}</p>
       <div className="field">
         <label className="field-label" htmlFor="questionnaire-password">
@@ -256,7 +257,7 @@ function Questions({
   return (
     <>
       <section className="stack">
-        <h1 className="display">{title}</h1>
+        <PageHeading title={title} />
         {agency || questionnaire.client ? (
           <p className="field-hint" style={{ margin: 0 }}>
             {[

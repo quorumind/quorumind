@@ -5,6 +5,7 @@
   },
   "nav": {
     "home": "Home",
+    "skip": "Skip to content",
     "newSession": "New session",
     "language": "Language",
     "theme": "Theme",
@@ -66,6 +67,8 @@
     "lead": "The debate relies only on this sheet. Correct anything wrong. Hard constraints make an option infeasible.",
     "onePerLine": "One item per line",
     "weight": "Weight",
+    "priorityLabel": "Priority {{number}}",
+    "weightLabel": "Weight of priority {{number}}",
     "removePriority": "Remove this priority",
     "addPriority": "Add a priority",
     "start": "Start the debate",
@@ -459,6 +462,7 @@
   "matrix": {
     "hint": "Move a weight and the ranking updates. An infeasible option stays last whatever its scores.",
     "reset": "Reset weights",
+    "top": "Ranked first with these weights: {{option}}",
     "score": "Weighted score",
     "estimates": "Build costs are priced from each option's work packages; running costs are the proposers' estimates."
   },
@@ -998,6 +1002,7 @@
     "clear": "Clear the filters",
     "csv": "Export as CSV",
     "loading": "Loading the register…",
+    "count": "Decisions shown: {{count}}",
     "empty": "No decision matches these filters.",
     "decision": "Decision",
     "recommendation": "Recommendation",

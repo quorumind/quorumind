@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type GalleryItem } from "./api.ts";
 import { Skeleton } from "./components/Logo.tsx";
+import { PageHeading } from "./components/Page.tsx";
 
 /** Debates their owners chose to publish: real reports anyone can read. */
 export function Gallery() {
@@ -19,7 +20,7 @@ export function Gallery() {
   return (
     <div className="stack-lg">
       <div className="stack">
-        <h1 className="display">{t("gallery.title")}</h1>
+        <PageHeading title={t("gallery.title")} />
         <p className="lead" style={{ margin: 0 }}>
           {t("gallery.lead")}
         </p>

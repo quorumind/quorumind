@@ -5,6 +5,7 @@
   },
   "nav": {
     "home": "Start",
+    "skip": "Zum Inhalt springen",
     "newSession": "Neue Sitzung",
     "language": "Sprache",
     "theme": "Design",
@@ -66,6 +67,8 @@
     "lead": "Die Debatte stützt sich nur auf dieses Blatt. Korrigieren Sie, was nicht stimmt. Harte Vorgaben machen eine Option nicht umsetzbar.",
     "onePerLine": "Ein Eintrag pro Zeile",
     "weight": "Gewicht",
+    "priorityLabel": "Priorität {{number}}",
+    "weightLabel": "Gewicht der Priorität {{number}}",
     "removePriority": "Diese Priorität entfernen",
     "addPriority": "Priorität hinzufügen",
     "start": "Debatte starten",
@@ -459,6 +462,7 @@
   "matrix": {
     "hint": "Verschieben Sie ein Gewicht, und die Rangfolge passt sich an. Eine nicht umsetzbare Option bleibt unabhängig von ihren Punkten auf dem letzten Platz.",
     "reset": "Gewichte zurücksetzen",
+    "top": "Mit diesen Gewichten an erster Stelle: {{option}}",
     "score": "Gewichtete Punktzahl",
     "estimates": "Die Entwicklungskosten werden aus den Arbeitspaketen jeder Option kalkuliert; die Betriebskosten sind Schätzungen aus den Vorschlägen."
   },
@@ -998,6 +1002,7 @@
     "clear": "Filter zurücksetzen",
     "csv": "Als CSV exportieren",
     "loading": "Register wird geladen…",
+    "count": "Angezeigte Entscheidungen: {{count}}",
     "empty": "Keine Entscheidung entspricht diesen Filtern.",
     "decision": "Entscheidung",
     "recommendation": "Empfehlung",

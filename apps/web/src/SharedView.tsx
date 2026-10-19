@@ -5,6 +5,7 @@ import { ApiError, api, type SharedView as SharedData } from "./api.ts";
 import { ClientReport } from "./ClientReport.tsx";
 import { LanguageSelect } from "./components/LanguageSelect.tsx";
 import { Mark } from "./components/Logo.tsx";
+import { PageHeading, usePageTitle } from "./components/Page.tsx";
 import { failureText } from "./errors.ts";
 import { SessionBody } from "./SessionView.tsx";
 
@@ -27,6 +28,8 @@ export function SharedView({ token }: { token: string }) {
     );
   }, [token, grant]);
 
+  // A decision report names the tab itself; a full share does through its heading.
+  usePageTitle(state.kind === "open" && "deliverable" in state.view ? state.view.deliverable.title || "" : null);
   const reportUrl = api.sharedReportUrl(token, grant);
   let body: ReactNode;
   if (state.kind === "locked") {
@@ -119,7 +122,7 @@ function SharePassword({ token, onAccess }: { token: string; onAccess: (access: 
   };
   return (
     <form className="narrow card stack" onSubmit={submit}>
-      <h1 className="heading">{t("share.lockedTitle")}</h1>
+      <PageHeading className="heading" title={t("share.lockedTitle")} />
       <p style={{ margin: 0 }}>{t("share.lockedLead")}</p>
       <div className="field">
         <label className="field-label" htmlFor="share-password">

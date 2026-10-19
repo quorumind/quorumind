@@ -5,6 +5,7 @@
   },
   "nav": {
     "home": "Inicio",
+    "skip": "Ir al contenido",
     "newSession": "Nueva sesión",
     "language": "Idioma",
     "theme": "Tema",
@@ -66,6 +67,8 @@
     "lead": "El debate se basa solo en esta ficha. Corrija lo que no sea correcto. Las restricciones innegociables hacen inviable una opción.",
     "onePerLine": "Un elemento por línea",
     "weight": "Peso",
+    "priorityLabel": "Prioridad {{number}}",
+    "weightLabel": "Peso de la prioridad {{number}}",
     "removePriority": "Quitar esta prioridad",
     "addPriority": "Añadir una prioridad",
     "start": "Iniciar el debate",
@@ -459,6 +462,7 @@
   "matrix": {
     "hint": "Mueva un peso y la clasificación se actualiza. Una opción inviable queda la última, sean cuales sean sus puntuaciones.",
     "reset": "Restablecer los pesos",
+    "top": "En primer lugar con estos pesos: {{option}}",
     "score": "Puntuación ponderada",
     "estimates": "Los costes de desarrollo se valoran a partir de los paquetes de trabajo de cada opción; los costes de operación son estimaciones de los proponentes."
   },
@@ -998,6 +1002,7 @@
     "clear": "Borrar los filtros",
     "csv": "Exportar como CSV",
     "loading": "Cargando el registro…",
+    "count": "Decisiones mostradas: {{count}}",
     "empty": "Ninguna decisión coincide con estos filtros.",
     "decision": "Decisión",
     "recommendation": "Recomendación",

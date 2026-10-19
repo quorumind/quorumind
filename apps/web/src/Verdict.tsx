@@ -200,7 +200,7 @@ function Matrix({ session }: { session: Session }) {
               <th scope="col">{t("checks.title")}</th>
             </tr>
           </thead>
-          <tbody aria-live="polite" ref={body}>
+          <tbody ref={body}>
             {ranked.map((rankedOption, index) => {
               const option = verdict.options.find((item) => item.seat === rankedOption.seat);
               const proposal = proposals[rankedOption.seat];
@@ -256,6 +256,14 @@ function Matrix({ session }: { session: Session }) {
       </div>
       <p className="field-hint" style={{ margin: 0 }}>
         {t("matrix.estimates")}
+      </p>
+      {/* The new ranking in one line, rather than the whole table read out again at each move of a slider. */}
+      <p className="visually-hidden" role="status">
+        {changed && ranked[0]
+          ? t("matrix.top", {
+              option: `${seatName(ranked[0].seat, t)}, ${verdict.options.find((option) => option.seat === ranked[0]?.seat)?.title ?? ""}`,
+            })
+          : ""}
       </p>
     </section>
   );
@@ -538,7 +546,13 @@ export const Verdict = memo(function Verdict({
 
       {audit ? <AuditView audit={audit} /> : null}
       <Briefs session={session} readOnly={readOnly} />
-      {audit ? null : <Matrix session={session} />}
+      {/* The weights start again from the priorities of the version shown, a scenario's or a revision's. */}
+      {audit ? null : (
+        <Matrix
+          key={(session.sheet?.priorities ?? []).map((priority) => `${priority.criterion}:${priority.weight}`).join("|")}
+          session={session}
+        />
+      )}
       {audit ? null : <CostingSection session={session} />}
       <ComplianceSection session={session} />
       {!audit && recommended && proposals[recommended]?.components?.length ? (

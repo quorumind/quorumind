@@ -5,6 +5,7 @@ import type { Locale } from "@quorumind/core/locales";
 import type { Session } from "@quorumind/core/session";
 import type { EuropeanGateway, EuropeanPolicy } from "@quorumind/core/sovereignty";
 import { useTranslation } from "react-i18next";
+import { contentLanguage } from "../format.ts";
 
 /** The compliance templates to combine with the project type: several can be chosen. */
 export function CompliancePicker({
@@ -85,7 +86,7 @@ export function ComplianceSection({ session }: { session: Session }) {
   const labels = complianceLabels(session.locale as Locale);
   const tone = { met: "", partly: "severity-major", not_met: "severity-blocking", not_applicable: "severity-minor" } as const;
   return (
-    <section className="stack">
+    <section className="stack" {...contentLanguage(session.locale)}>
       <h2 className="heading">{labels.heading}</h2>
       <p className="field-hint" style={{ margin: 0 }}>
         {labels.intro}

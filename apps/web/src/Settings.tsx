@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { type AppConfig, api } from "./api.ts";
 import { BrandingSettings } from "./components/BrandingSettings.tsx";
 import { DownloadIcon } from "./components/Icons.tsx";
+import { PageHeading } from "./components/Page.tsx";
 import { ProfileSettings } from "./components/ProfileSettings.tsx";
 import { groupLabel } from "./format.ts";
 
@@ -17,7 +18,7 @@ export function Settings() {
 
   return (
     <div className="narrow stack-lg">
-      <h1 className="display">{t("settings.title")}</h1>
+      <PageHeading title={t("settings.title")} />
 
       <section className="card stack">
         <h2 className="heading">{t("settings.models")}</h2>

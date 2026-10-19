@@ -11,6 +11,7 @@ import { CompliancePicker, EuropeanToggle } from "./components/ComplianceOptions
 import { ContextPicker } from "./components/ContextPicker.tsx";
 import { ArrowIcon, AuditIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
 import { Skeleton } from "./components/Logo.tsx";
+import { PageHeading } from "./components/Page.tsx";
 import { failureText } from "./errors.ts";
 import { formatPrice, formatUsd, groupLabel } from "./format.ts";
 
@@ -386,7 +387,7 @@ export function NewSession() {
   return (
     <div className="narrow stack-lg new-session-page">
       <div className="stack">
-        <h1 className="display">{t("home.newTitle")}</h1>
+        <PageHeading title={t("home.newTitle")} />
         <p className="lead" style={{ margin: 0 }}>
           {t("home.newLead")}
         </p>

@@ -7,6 +7,7 @@ import { formatMoney } from "@quorumind/core/report";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckIcon, WarningIcon } from "./components/Icons.tsx";
+import { contentLanguage } from "./format.ts";
 
 // The audit of a document on screen: its findings (filtered by severity, with the passages they are about), what the
 // document covers, its price and timeline with its figures recomputed, the questions to send and the points to
@@ -47,7 +48,7 @@ function Findings({ audit }: { audit: AuditDeliverable }) {
       <p className="field-hint" style={{ margin: 0 }}>
         {w.a.severityLegend}
       </p>
-      <ol className="audit-findings" aria-live="polite">
+      <ol className="audit-findings">
         {findings.map((finding) => (
           <li key={`${finding.severity}-${finding.title}`} className={`card audit-finding audit-finding-${finding.severity}`}>
             <div className="row" style={{ gap: "var(--space-2)" }}>
@@ -328,7 +329,7 @@ export function DocumentRead({ session }: { session: Session }) {
   const a = auditLabels(session.locale);
   const money = (value: number) => formatMoney(value, check?.currency ?? debateCurrency(session), session.locale);
   return (
-    <div className="stack" style={{ gap: "var(--space-2)" }}>
+    <div className="stack" style={{ gap: "var(--space-2)" }} {...contentLanguage(session.locale)}>
       <div className="title">{extraction.title}</div>
       <p style={{ margin: 0 }}>{extraction.summary}</p>
       <dl className="audit-terms">
@@ -364,7 +365,7 @@ export function AuditView({ audit }: { audit: AuditDeliverable }) {
   const w = auditWords(audit);
   const { a } = w;
   return (
-    <div className="stack-lg audit-view">
+    <div className="stack-lg audit-view" {...contentLanguage(audit.locale)}>
       <dl className="audit-facts">
         <div>
           <dt className="field-hint">{a.documentAudited}</dt>
