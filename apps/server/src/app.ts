@@ -287,6 +287,9 @@ const ContextInput = z
   .max(MAX_CONTEXT_DOCUMENTS)
   .default([]);
 
+/** How often visits to a client link may try again to write its missing client brief. */
+const BRIEF_RETRY_MS = 15 * 60_000;
+
 /** Request bodies are capped at 512 KB, except session creation, which carries the attached documents. */
 export const BODY_LIMITS = { api: 512 * 1024, session: 4 * 1024 * 1024 } as const;
 
@@ -405,9 +408,10 @@ const slug = (session: Session) =>
 export function createApp(deps: AppDeps) {
   const { store, bus, env, hooks = {} } = deps;
   const settings = deps.brandingStore ?? new SqliteBrandingStore(":memory:");
-  const busy = new Set<string>();
-  /** The background work of each session that has some, to stop it. */
-  const workers = new Map<string, { controller: AbortController; done: Promise<void> }>();
+  /** The claim of each session some action is working on (see Claim). */
+  const claims = new Map<string, Claim>();
+  /** Set once the server shuts down: no new work starts. */
+  let draining = false;
   const users = new Map<string, User | null>();
   const attempts = { link: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.link), caller: new AttemptLimiter(SHARE_ATTEMPT_LIMITS.caller) };
   const mockOptions = deps.mockDelayMs === undefined ? {} : { mockDelayMs: deps.mockDelayMs };
@@ -436,11 +440,52 @@ export function createApp(deps: AppDeps) {
     return hasProfile(profile) ? structuredClone(profile) : null;
   };
 
+  /**
+   * Claims a session for one action, synchronously: a second action on it is refused (session_busy) until the claim is
+   * released, so two concurrent requests cannot both start work. Taken right after the session is loaded, before any
+   * await, and released by its holder only.
+   */
+  const claim = (session: Session): Claim => {
+    if (claims.has(session.id)) throw new InvalidStateError("This session is already working. Wait for it to finish.", "session_busy");
+    if (draining) throw new InvalidStateError("The server is shutting down. Try again in a moment.", "session_busy");
+    let finish = () => {};
+    const held: Claim = {
+      controller: new AbortController(),
+      background: false,
+      done: new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+      release: () => {
+        if (claims.get(session.id) === held) claims.delete(session.id);
+        finish();
+      },
+    };
+    claims.set(session.id, held);
+    return held;
+  };
+
+  /** Runs an action under a claim of the session: released when the action ends, unless a worker took its work over. */
+  const withClaim = async <T>(session: Session, action: (held: Claim) => Promise<T>): Promise<T> => {
+    const held = claim(session);
+    try {
+      return await action(held);
+    } finally {
+      if (!held.background) held.release();
+    }
+  };
+
   const engineFor = (session: Session, signal?: AbortSignal) => {
     const user = users.get(session.id) ?? null;
     let reported = session.usage.length;
+    let providers: ReturnType<typeof providersFor>;
+    try {
+      providers = providersFor(session, envFor(user), mockOptions);
+    } catch (error) {
+      // An SDK that cannot be set up, without its API key for instance.
+      throw new ProviderUnavailable(error);
+    }
     return new DebateEngine(
-      providersFor(session, envFor(user), mockOptions),
+      providers,
       {
         emit: (id, event) => bus.publish(id, event),
         save: async (updated) => {
@@ -524,45 +569,60 @@ export function createApp(deps: AppDeps) {
   };
 
   // A client share link shows the verdict rewritten for a client: it is written once the verdict exists and such a
-  // link does. Its failure only leaves the deliverable without it. The caller holds the session busy.
-  const clientBrief = async (session: Session) => {
+  // link does. Its failure only leaves the deliverable without it. The caller holds the session's claim.
+  const clientBrief = async (session: Session, held: Claim) => {
     if (session.phase !== "complete" || session.briefs.client) return;
     // Hosted, a model call is made on behalf of its owner only: through a link, the owner may be unknown here.
     if (hooks.identify && !users.get(session.id)) return;
     try {
       await authorize(session);
-      await engineFor(session).writeBrief(session, "client");
+      await engineFor(session, held.controller.signal).writeBrief(session, "client");
     } catch (error) {
       console.error(`The client brief of session ${session.id} failed:`, error);
     }
   };
+  /** Writes the client brief now, unless the session is working or has one. */
   const writeClientBrief = async (session: Session) => {
-    if (busy.has(session.id) || session.phase !== "complete" || session.briefs.client) return;
-    busy.add(session.id);
-    try {
-      await clientBrief(session);
-    } finally {
-      busy.delete(session.id);
+    if (claims.has(session.id) || draining || session.phase !== "complete" || session.briefs.client) return;
+    await withClaim(session, (held) => clientBrief(session, held));
+  };
+  /** When a visit to a client link last tried again to write a missing client brief, by session. */
+  const briefRetries = new Map<string, number>();
+  /**
+   * A visit to a client link whose brief is missing (its writing failed) tries again, once in a while only: visitors
+   * are anonymous, and each attempt calls a model on the owner's account.
+   */
+  const retryClientBrief = (session: Session) => {
+    if (session.phase !== "complete" || session.briefs.client) return;
+    const now = Date.now();
+    if ((briefRetries.get(session.id) ?? Number.NEGATIVE_INFINITY) > now - BRIEF_RETRY_MS) return;
+    briefRetries.set(session.id, now);
+    if (briefRetries.size > 1_000) {
+      for (const [id, at] of briefRetries) if (at <= now - BRIEF_RETRY_MS) briefRetries.delete(id);
     }
+    void writeClientBrief(session);
   };
 
   // Long operations run in the background; the client follows them through the event stream. Each one can be
-  // stopped (POST /stop), which cancels the model calls in flight.
-  const runInBackground = (session: Session, work: (engine: DebateEngine) => Promise<void>) => {
-    busy.add(session.id);
-    const controller = new AbortController();
-    const done = work(engineFor(session, controller.signal))
+  // stopped (POST /stop), which cancels the model calls in flight. The worker takes the action's claim over and
+  // releases it when its work ends.
+  const runInBackground = (session: Session, held: Claim, work: (engine: DebateEngine) => Promise<void>) => {
+    if (claims.get(session.id) !== held || held.background) throw new Error(`Session ${session.id} is not claimed by this action.`);
+    // Built before the hand-over: a provider that cannot be set up fails the request, and its claim is released.
+    const engine = engineFor(session, held.controller.signal);
+    held.background = true;
+    void Promise.resolve()
+      .then(() => work(engine))
       .then(async () => {
         // The person who stopped the session knows, and an interrupted one resumes: no e-mail for either.
-        if (session.error?.code !== "stopped" && session.error?.code !== "interrupted") await notify(session);
-        if (session.phase === "complete" && (await store.shareOf(session.id))?.mode === "client") await clientBrief(session);
+        if (session.error?.code !== "stopped" && session.error?.code !== "interrupted") {
+          // A mail server or chat channel that fails does not keep the client brief from being written.
+          await notify(session).catch((error: unknown) => console.error(`The notifications of session ${session.id} failed:`, error));
+        }
+        if (session.phase === "complete" && (await store.shareOf(session.id))?.mode === "client") await clientBrief(session, held);
       })
       .catch((error) => console.error(`Session ${session.id} failed:`, error))
-      .finally(() => {
-        busy.delete(session.id);
-        workers.delete(session.id);
-      });
-    workers.set(session.id, { controller, done });
+      .finally(() => held.release());
   };
 
   const app = new Hono<{ Variables: { user: User | null } }>();
@@ -729,11 +789,15 @@ export function createApp(deps: AppDeps) {
     });
     session.profile = await profileFor(user, session);
     users.set(session.id, user);
-    await authorize(session);
-    const workspace = (await scopeOf(user))?.workspace ?? null;
-    await store.save(session, ownerOf(user), { workspace, private: input.private && workspace !== null });
-    runInBackground(session, (engine) => engine.startInterview(session));
-    return c.json({ session: view(session) }, 201);
+    return withClaim(session, async (held) => {
+      await authorize(session);
+      // Its models are set up before it is saved: a missing API key leaves nothing behind.
+      engineFor(session);
+      const workspace = (await scopeOf(user))?.workspace ?? null;
+      await store.save(session, ownerOf(user), { workspace, private: input.private && workspace !== null });
+      runInBackground(session, held, (engine) => engine.startInterview(session));
+      return c.json({ session: view(session) }, 201);
+    });
   });
 
   /**
@@ -775,8 +839,9 @@ export function createApp(deps: AppDeps) {
   };
   const loadForEdit = async (id: string, user: User | null) => (await editable(id, user)).session;
 
+  /** Refuses an action while the session works, for one that changes it at once and starts no model work. */
   const startAction = (session: Session) => {
-    if (busy.has(session.id)) throw new InvalidStateError("This session is already working. Wait for it to finish.", "session_busy");
+    if (claims.has(session.id)) throw new InvalidStateError("This session is already working. Wait for it to finish.", "session_busy");
   };
 
   /**
@@ -788,32 +853,32 @@ export function createApp(deps: AppDeps) {
     session: Session,
     request: Omit<RevisionRequest, "by">,
     onMade: (number: number) => Promise<void> = async () => {},
-  ): Promise<PendingRevision> => {
-    startAction(session);
-    if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
-    const user = users.get(session.id) ?? null;
-    const number = (session.revisions.at(-1)?.number ?? 1) + 1;
-    await authorize(session, { kind: "revision", number });
-    const pending = await engineFor(session).beginRevision(session, { ...request, by: ownerOf(user) });
-    const tell = async (status: RevisionEvent["status"]) => {
-      if (!user || !hooks.onRevision || session.demo) return;
-      await hooks.onRevision(user, session, { id: pending.id, number: pending.number, reason: pending.reason, status });
-    };
-    try {
-      await tell("started");
-    } catch (error) {
-      pending.error = { code: "internal_error", message: "The revision could not start." };
-      await store.save(session);
-      throw error;
-    }
-    const cap = lowestCap(hooks.revisionBudgetUsd?.(session), hooks.maxBudgetUsd);
-    runInBackground(session, async (engine) => {
-      const made = await engine.runRevision(session, { budgetUsd: cap });
-      if (made) await onMade(pending.number).catch((error: unknown) => console.error(`After revision ${pending.number}:`, error));
-      await tell(made ? "completed" : "failed");
+  ): Promise<PendingRevision> =>
+    withClaim(session, async (held) => {
+      if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
+      const user = users.get(session.id) ?? null;
+      const number = (session.revisions.at(-1)?.number ?? 1) + 1;
+      await authorize(session, { kind: "revision", number });
+      const pending = await engineFor(session, held.controller.signal).beginRevision(session, { ...request, by: ownerOf(user) });
+      const tell = async (status: RevisionEvent["status"]) => {
+        if (!user || !hooks.onRevision || session.demo) return;
+        await hooks.onRevision(user, session, { id: pending.id, number: pending.number, reason: pending.reason, status });
+      };
+      try {
+        await tell("started");
+      } catch (error) {
+        pending.error = { code: "internal_error", message: "The revision could not start." };
+        await store.save(session);
+        throw error;
+      }
+      const cap = lowestCap(hooks.revisionBudgetUsd?.(session), hooks.maxBudgetUsd);
+      runInBackground(session, held, async (engine) => {
+        const made = await engine.runRevision(session, { budgetUsd: cap });
+        if (made) await onMade(pending.number).catch((error: unknown) => console.error(`After revision ${pending.number}:`, error));
+        await tell(made ? "completed" : "failed");
+      });
+      return pending;
     });
-    return pending;
-  };
 
   app.get("/api/sessions/:id", async (c) => {
     const id = c.req.param("id");
@@ -827,7 +892,7 @@ export function createApp(deps: AppDeps) {
       // the current revision (an adopted scenario has numbers of its own).
       costings: sessionCostings(currentView(session)),
       checks: deliveryChecks(currentView(session)),
-      busy: busy.has(id),
+      busy: claims.has(id),
       share: await store.shareOf(id),
       feedback: await store.feedbackOf(id),
       price: session.demo ? null : await priceOf(user, session, session.id),
@@ -852,10 +917,11 @@ export function createApp(deps: AppDeps) {
 
   app.delete("/api/sessions/:id", async (c) => {
     const { session, owner } = await editable(c.req.param("id"), c.get("user"));
-    startAction(session);
-    await store.delete(session.id, owner);
-    users.delete(session.id);
-    return c.body(null, 204);
+    return withClaim(session, async () => {
+      await store.delete(session.id, owner);
+      users.delete(session.id);
+      return c.body(null, 204);
+    });
   });
 
   // Hides a session from the other members of its workspace, or shares it with them again: its author only.
@@ -869,62 +935,66 @@ export function createApp(deps: AppDeps) {
 
   app.post("/api/sessions/:id/interview", async (c) => {
     const session = await loadForEdit(c.req.param("id"), c.get("user"));
-    startAction(session);
-    const { answers } = z.object({ answers: AnswerList }).parse(await c.req.json());
-    if (session.phase !== "interview") throw new InvalidStateError("The interview is over.");
-    await authorize(session);
-    runInBackground(session, (engine) => engine.answerInterview(session, answers));
-    return c.json({ accepted: true }, 202);
+    return withClaim(session, async (held) => {
+      const { answers } = z.object({ answers: AnswerList }).parse(await c.req.json());
+      if (session.phase !== "interview") throw new InvalidStateError("The interview is over.");
+      await authorize(session);
+      runInBackground(session, held, (engine) => engine.answerInterview(session, answers));
+      return c.json({ accepted: true }, 202);
+    });
   });
 
   app.put("/api/sessions/:id/sheet", async (c) => {
     const session = await loadForEdit(c.req.param("id"), c.get("user"));
-    startAction(session);
-    const { sheet, ignoreProfile } = z
-      .object({ sheet: RequirementsSheet, ignoreProfile: z.boolean().optional() })
-      .parse(await c.req.json());
-    await authorize(session);
-    await engineFor(session).confirmSheet(session, sheet, ignoreProfile === undefined ? {} : { ignoreProfile });
-    runInBackground(session, (engine) => engine.runDebate(session));
-    return c.json({ accepted: true }, 202);
+    return withClaim(session, async (held) => {
+      const { sheet, ignoreProfile } = z
+        .object({ sheet: RequirementsSheet, ignoreProfile: z.boolean().optional() })
+        .parse(await c.req.json());
+      await authorize(session);
+      await engineFor(session, held.controller.signal).confirmSheet(session, sheet, ignoreProfile === undefined ? {} : { ignoreProfile });
+      runInBackground(session, held, (engine) => engine.runDebate(session));
+      return c.json({ accepted: true }, 202);
+    });
   });
 
   app.post("/api/sessions/:id/answers", async (c) => {
     const session = await loadForEdit(c.req.param("id"), c.get("user"));
-    startAction(session);
-    const { answers } = z.object({ answers: AnswerList }).parse(await c.req.json());
-    await authorize(session);
-    await engineFor(session).answerDebate(session, answers);
-    runInBackground(session, (engine) => engine.runDebate(session));
-    return c.json({ accepted: true }, 202);
+    return withClaim(session, async (held) => {
+      const { answers } = z.object({ answers: AnswerList }).parse(await c.req.json());
+      await authorize(session);
+      await engineFor(session, held.controller.signal).answerDebate(session, answers);
+      runInBackground(session, held, (engine) => engine.runDebate(session));
+      return c.json({ accepted: true }, 202);
+    });
   });
 
   // Retries the step a failed session stopped on. `budgetUsd` sets a new cost cap first (null for none), within the
   // host's caps; a host that keeps provider costs to itself keeps each debate's cap fixed.
   app.post("/api/sessions/:id/resume", async (c) => {
     const session = await loadForEdit(c.req.param("id"), c.get("user"));
-    startAction(session);
-    const { budgetUsd } = ResumeInput.parse(await c.req.json().catch(() => ({})));
-    if (session.phase !== "failed") throw new InvalidStateError("Only a failed session can be resumed.");
-    let cap: number | null | undefined;
-    if (budgetUsd !== undefined) {
-      if (hooks.hideProviderCosts) throw new InvalidStateError("This server sets the cost cap of each debate.", "budget_fixed");
-      cap = lowestCap(budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.(session));
-    }
-    await authorize(session);
-    runInBackground(session, async (engine) => {
-      const next = await engine.resume(session, cap === undefined ? {} : { budgetUsd: cap });
-      if (next === "debate" && session.phase === "debating") await engine.runDebate(session);
+    return withClaim(session, async (held) => {
+      const { budgetUsd } = ResumeInput.parse(await c.req.json().catch(() => ({})));
+      if (session.phase !== "failed") throw new InvalidStateError("Only a failed session can be resumed.");
+      let cap: number | null | undefined;
+      if (budgetUsd !== undefined) {
+        if (hooks.hideProviderCosts) throw new InvalidStateError("This server sets the cost cap of each debate.", "budget_fixed");
+        cap = lowestCap(budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.(session));
+      }
+      await authorize(session);
+      runInBackground(session, held, async (engine) => {
+        const next = await engine.resume(session, cap === undefined ? {} : { budgetUsd: cap });
+        if (next === "debate" && session.phase === "debating") await engine.runDebate(session);
+      });
+      return c.json({ accepted: true, ...(cap === undefined ? {} : { budgetUsd: cap }) }, 202);
     });
-    return c.json({ accepted: true, ...(cap === undefined ? {} : { budgetUsd: cap }) }, 202);
   });
 
   // Stops the work in flight: the model calls are cancelled, nothing more is spent, and the session fails with the
   // code "stopped", ready to be resumed. Answers once the work has stopped, with the session as it was left.
   app.post("/api/sessions/:id/stop", async (c) => {
     const session = await loadForEdit(c.req.param("id"), c.get("user"));
-    const worker = workers.get(session.id);
-    if (!worker) throw new InvalidStateError("This session is not running.", "not_running");
+    const worker = claims.get(session.id);
+    if (!worker?.background) throw new InvalidStateError("This session is not running.", "not_running");
     worker.controller.abort();
     await worker.done;
     return c.json({ session: view(session) });
@@ -933,21 +1003,17 @@ export function createApp(deps: AppDeps) {
   // The verdict rewritten for another reader. Short enough to wait for.
   app.post("/api/sessions/:id/brief", async (c) => {
     const { session, access } = await accessOf(c.req.param("id"), c.get("user"));
-    startAction(session);
-    const { audience } = z.object({ audience: Audience }).parse(await c.req.json());
-    const cached = session.briefs[audience];
-    if (cached) return c.json({ brief: cached });
-    // Writing a new one calls a model: for those who may change the session.
-    if (!access.canEdit) throw new ReadOnly();
-    users.set(session.id, c.get("user"));
-    await authorize(session);
-    busy.add(session.id);
-    try {
-      await engineFor(session).writeBrief(session, audience);
-    } finally {
-      busy.delete(session.id);
-    }
-    return c.json({ brief: session.briefs[audience] });
+    return withClaim(session, async (held) => {
+      const { audience } = z.object({ audience: Audience }).parse(await c.req.json());
+      const cached = session.briefs[audience];
+      if (cached) return c.json({ brief: cached });
+      // Writing a new one calls a model: for those who may change the session.
+      if (!access.canEdit) throw new ReadOnly();
+      users.set(session.id, c.get("user"));
+      await authorize(session);
+      await engineFor(session, held.controller.signal).writeBrief(session, audience);
+      return c.json({ brief: session.briefs[audience] });
+    });
   });
 
   // Starts a new session from an earlier one, at the requirements review: the person
@@ -1042,7 +1108,7 @@ export function createApp(deps: AppDeps) {
   app.get("/api/shared/:token", async (c) => {
     const { session, share } = await openShare(c);
     if (share.mode === "full") return c.json({ share: shareInfo(share), session: publicView(session) });
-    void writeClientBrief(session);
+    retryClientBrief(session);
     return c.json({ share: shareInfo(share), deliverable: clientDeliverable(currentView(session)) });
   });
 
@@ -1218,6 +1284,10 @@ export function createApp(deps: AppDeps) {
     }
     if (error instanceof EuropeanUnavailable) return c.json({ error: error.code, message: error.message }, 400);
     if (error instanceof PaymentRequired) return c.json({ error: error.code, message: error.message }, 402);
+    if (error instanceof ProviderUnavailable) {
+      console.error(error.cause);
+      return c.json({ error: "provider_unavailable", message: error.message }, 503);
+    }
     if (error instanceof ShareRefused) return c.json({ error: error.code, message: error.message }, error.status);
     if (error instanceof z.ZodError) return c.json(invalidRequest(error), 400);
     if (error instanceof SyntaxError) return c.json({ error: "invalid_request", message: "The body is not valid JSON." }, 400);
@@ -1230,16 +1300,20 @@ export function createApp(deps: AppDeps) {
    * cancelled, nothing more is spent, and each session fails with the code "interrupted", ready to be resumed.
    */
   const interruptAll = async () => {
-    const running = [...workers.values()];
-    for (const worker of running) worker.controller.abort(INTERRUPTED);
-    await Promise.all(running.map((worker) => worker.done));
-    return running.length;
+    draining = true;
+    const running = [...claims.values()];
+    for (const held of running) held.controller.abort(INTERRUPTED);
+    await Promise.all(running.map((held) => held.done));
+    return running.filter((held) => held.background).length;
   };
 
   /** Sends the reminders of the decisions whose review date has come: run daily (hourly on the hosted version). */
   const sendReminders = (now?: Date) => sendReviewReminders(decisionDeps, now);
 
-  return Object.assign(app, { interruptAll, sendReminders, isRunning: (sessionId: string) => workers.has(sessionId) });
+  /** Whether some work on this session is in progress in this process (its claim is held). */
+  const isRunning = (sessionId: string) => claims.has(sessionId);
+
+  return Object.assign(app, { interruptAll, sendReminders, isRunning });
 }
 
 function markdown(c: { header(name: string, value: string): void; body(data: string): Response }, session: Session) {
@@ -1324,6 +1398,26 @@ const SHARE_REFUSALS = {
   wrong_password: "The password is not right.",
   too_many_attempts: "Too many wrong passwords. Wait a few minutes and try again.",
 } as const;
+
+/** A model of the session cannot be called from this server: its SDK refused to start, without an API key for instance. */
+class ProviderUnavailable extends Error {
+  constructor(cause: unknown) {
+    super(`A model of this session cannot be reached from this server: ${cause instanceof Error ? cause.message : String(cause)}`, {
+      cause,
+    });
+  }
+}
+
+/**
+ * What an action holds on a session while it works (createApp's claim). `background` is set once a worker took the
+ * work over; `controller` cancels its model calls (POST /stop, shutdown); `done` resolves once it is released.
+ */
+interface Claim {
+  readonly controller: AbortController;
+  background: boolean;
+  readonly done: Promise<void>;
+  release(): void;
+}
 
 class PaymentRequired extends Error {
   readonly code: string;
