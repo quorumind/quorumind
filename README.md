@@ -83,6 +83,21 @@ an excerpt; they are always treated as data and masked like the rest when PII ma
 API request bodies are capped at 512 KB, except session creation (4 MB, to carry the
 documents) and file uploads (10 MB).
 
+### Audit of a document
+
+Received a quote, a statement of work or an architecture from a provider? Choose "Audit a document", attach it (PDF,
+Word, text or a web page) and say in a few lines what it is for: the interview only asks what the document does not tell.
+The formalizer restates what the document commits to (scope, work packages with their days and amounts, total, timeline,
+hosting, maintenance, warranties, payment terms, ownership, exclusions), the critics and the devil's advocate examine it
+against your need and good practice, and the arbiter gives an opinion: sound, sound with reservations, or not sound as it
+stands. The report lists the findings by severity with the exact passage of the document they are about (every quote is
+checked word for word against the document, and dropped when it is not there), what the document covers of a checklist
+(tests, security, accessibility, data migration, documentation, training, maintenance, reversibility, ownership of the
+code and data, GDPR), the document's figures recomputed (days times rates, lines against the total, the price against your
+budget), a market range labelled as an estimate, and the questions to send the provider and the points to negotiate. An
+option sketches an independent alternative from your need alone, for comparison. Audits export to Markdown, HTML/PDF and
+Word, and share with a client link like any decision.
+
 ### European models and compliance
 
 A session can use European models only, and combine its project type with compliance templates (personal data, health
