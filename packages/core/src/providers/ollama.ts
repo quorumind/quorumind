@@ -87,7 +87,7 @@ export class OllamaProvider implements LlmProvider {
       throw new ProviderError("The Ollama stream was interrupted.", true, { cause: error, code: "provider_unavailable" });
     }
 
-    if (doneReason === "length") throw new ProviderError("The answer is incomplete (num_predict).", true);
+    if (doneReason === "length") throw new ProviderError("The answer is incomplete (num_predict).", true, { usage, model: this.model });
     // The requested name is reported as is, so the cost lookup (always free) matches it.
     return { text, model: this.model, usage };
   }

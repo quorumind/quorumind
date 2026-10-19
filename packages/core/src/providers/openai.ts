@@ -49,20 +49,16 @@ export class OpenAiProvider implements LlmProvider {
         stream.on("response.output_text.delta", (event) => onDelta(event.delta));
       }
       const response = await stream.finalResponse();
+      const usage = response.usage ? { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens } : undefined;
       if (response.status === "incomplete") {
+        // An incomplete answer is billed all the same: the error carries what it cost.
         const reason = response.incomplete_details?.reason;
         throw new ProviderError(`The answer is incomplete (${reason ?? "unknown reason"}).`, true, {
           code: reason === "content_filter" ? "provider_refused" : "provider_error",
+          ...(usage ? { usage, model: response.model } : {}),
         });
       }
-      return {
-        text: response.output_text,
-        model: response.model,
-        usage: {
-          inputTokens: response.usage?.input_tokens ?? 0,
-          outputTokens: response.usage?.output_tokens ?? 0,
-        },
-      };
+      return { text: response.output_text, model: response.model, usage: usage ?? { inputTokens: 0, outputTokens: 0 } };
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (error instanceof OpenAI.AuthenticationError) {

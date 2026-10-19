@@ -247,4 +247,18 @@ describe("stored sessions", () => {
     expect(upgraded.seats.A?.persona).toBeNull();
     expect(upgraded.verdict?.topics.map((topic) => topic.status)).toEqual(["agreement", "divided"]);
   });
+
+  it("gives the base lists to a session stored without them, and an id to every usage record", () => {
+    const { session } = setup();
+    const { usage: _usage, interview: _interview, debate: _debate, ...bare } = JSON.parse(JSON.stringify(session));
+    const upgraded = normalizeSession(bare);
+    expect([upgraded.usage, upgraded.interview, upgraded.debate]).toEqual([[], [], []]);
+
+    const legacy = JSON.parse(JSON.stringify(session));
+    legacy.usage = [
+      { task: "interview", seat: null, model: "mock", inputTokens: 1, outputTokens: 1, costUsd: 0 },
+      { task: "proposal", seat: "A", model: "mock", inputTokens: 1, outputTokens: 1, costUsd: 0 },
+    ];
+    expect(normalizeSession(legacy).usage.map((record) => record.id)).toEqual(["legacy-0", "legacy-1"]);
+  });
 });

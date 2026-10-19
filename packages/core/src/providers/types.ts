@@ -59,14 +59,34 @@ export type ProviderErrorCode =
   | "provider_refused"
   | "provider_error";
 
+export interface ProviderErrorOptions {
+  cause?: unknown;
+  code?: ProviderErrorCode;
+  /**
+   * What the provider reported for the failed call: the answer was generated, then rejected (cut by the token limit,
+   * declined, or interrupted after usage was reported). The provider bills it all the same.
+   */
+  usage?: Usage;
+  /** The model that served the failed call, when the provider said so. */
+  model?: string;
+  /** What the provider charged for the failed call in US dollars, when it says so. */
+  costUsd?: number;
+}
+
 export class ProviderError extends Error {
   readonly retryable: boolean;
   readonly code: ProviderErrorCode;
-  constructor(message: string, retryable: boolean, options?: { cause?: unknown; code?: ProviderErrorCode }) {
-    super(message, options);
+  readonly usage: Usage | undefined;
+  readonly model: string | undefined;
+  readonly costUsd: number | undefined;
+  constructor(message: string, retryable: boolean, options?: ProviderErrorOptions) {
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = "ProviderError";
     this.retryable = retryable;
     this.code = options?.code ?? "provider_error";
+    this.usage = options?.usage;
+    this.model = options?.model;
+    this.costUsd = options?.costUsd;
   }
 }
 

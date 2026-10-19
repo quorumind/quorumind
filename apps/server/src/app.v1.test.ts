@@ -309,7 +309,8 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(stopped.status).toBe(200);
       const body = (await stopped.json()) as { session: Session };
       expect(body.session).toMatchObject({ phase: "failed", error: { code: "stopped" }, interview: [] });
-      expect(records).toEqual([]);
+      // A call cut short is reported as failed, with an estimate of what the provider may bill for it.
+      expect(records.every((record) => record.failed)).toBe(true);
       expect((await (await app.request(`/api/sessions/${session.id}`)).json()) as { busy: boolean }).toMatchObject({ busy: false });
       expect((await store.get(session.id, "ada"))?.error?.code).toBe("stopped");
 
@@ -320,7 +321,7 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect((await app.request(`/api/sessions/${session.id}/resume`, json({}))).status).toBe(202);
       const resumed = await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy);
       expect(resumed.phase).toBe("interview");
-      expect(records.map((record) => record.task)).toEqual(["interview"]);
+      expect(records.filter((record) => !record.failed).map((record) => record.task)).toEqual(["interview"]);
     });
 
     it("interrupts the sessions working here when the server shuts down, without spending more", async () => {
@@ -347,7 +348,7 @@ describe.each(BACKENDS)("on $name", (each) => {
 
       expect(await app.interruptAll()).toBe(1);
       expect(app.isRunning(session.id)).toBe(false);
-      expect(records).toEqual([]);
+      expect(records.every((record) => record.failed)).toBe(true);
       expect(await store.get(session.id, "ada")).toMatchObject({ phase: "failed", error: { code: "interrupted" } });
     });
 

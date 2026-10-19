@@ -88,6 +88,11 @@ export type DebateEntry =
   | { kind: "verdict"; data: Verdict };
 
 export interface UsageRecord {
+  /**
+   * Stable and unique within the session: a host that bills each record (the server's onUsage hook) tells by it which
+   * records it already reported. Records stored before ids existed get "legacy-<index>".
+   */
+  id: string;
   task: Task;
   seat: string | null;
   model: string;
@@ -96,6 +101,18 @@ export interface UsageRecord {
   costUsd: number | null;
   /** The verdict revision the call was made for; absent for the debate itself. */
   revision?: number;
+  /**
+   * The attempt the call was made for, when it has a cap of its own: the id of the pending verdict revision, or of the
+   * brief. A revision asked again after a failure is a new attempt, capped without the calls of the one that failed.
+   */
+  attempt?: string;
+  /**
+   * The call failed after the provider took it (the answer was cut by the token limit, declined, interrupted or stopped):
+   * its answer was not used, but the provider bills it.
+   */
+  failed?: true;
+  /** The provider reported no usage for this call: its tokens are Quorumind's estimate from the prompt and the text received. */
+  estimated?: true;
 }
 
 /**
@@ -378,6 +395,13 @@ export function normalizeSession(stored: Session): Session {
   session.complianceTemplates ??= [];
   session.european ??= null;
   session.priceReference ??= null;
+  // Every base list, for sessions stored before it existed or edited by hand.
+  session.usage ??= [];
+  session.interview ??= [];
+  session.debate ??= [];
+  session.usage.forEach((record, index) => {
+    record.id ??= `legacy-${index}`;
+  });
   session.webResearch ??= null;
   session.research ??= null;
   session.sources ??= [];

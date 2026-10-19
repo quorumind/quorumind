@@ -120,11 +120,18 @@ describe("GeminiProvider", () => {
 
   it("retries an answer cut off by the token limit", async () => {
     const fetchMock = fakeFetch(() =>
-      streamed([sse({ candidates: [{ content: { parts: [{ text: "{" }] }, finishReason: "MAX_TOKENS" }] })]),
+      streamed([
+        sse({
+          candidates: [{ content: { parts: [{ text: "{" }] }, finishReason: "MAX_TOKENS" }],
+          usageMetadata: { promptTokenCount: 50, candidatesTokenCount: 1_000 },
+        }),
+      ]),
     );
     const error = await rejection(new GeminiProvider({ model: "m", fetch: fetchMock }).generate(request));
     expect(error.retryable).toBe(true);
     expect(error.message).toMatch(/incomplete/);
+    // The cut-off answer is billed: the error carries its usage.
+    expect(error.usage).toEqual({ inputTokens: 50, outputTokens: 1_000 });
   });
 
   it("does not retry a blocked answer or prompt", async () => {
@@ -200,8 +207,12 @@ describe("OllamaProvider", () => {
   it("retries server errors and truncated answers", async () => {
     const failing = fakeFetch(() => Response.json({ error: "out of memory" }, { status: 500 }));
     expect((await rejection(new OllamaProvider({ model: "m", fetch: failing }).generate(request))).retryable).toBe(true);
-    const truncated = fakeFetch(() => streamed([ndjson({ message: { content: "{" }, done: true, done_reason: "length" })]));
-    expect((await rejection(new OllamaProvider({ model: "m", fetch: truncated }).generate(request))).retryable).toBe(true);
+    const truncated = fakeFetch(() =>
+      streamed([ndjson({ message: { content: "{" }, done: true, done_reason: "length", prompt_eval_count: 9, eval_count: 1_000 })]),
+    );
+    const error = await rejection(new OllamaProvider({ model: "m", fetch: truncated }).generate(request));
+    expect(error.retryable).toBe(true);
+    expect(error.usage).toEqual({ inputTokens: 9, outputTokens: 1_000 });
   });
 });
 
@@ -428,6 +439,17 @@ describe("OpenRouterProvider", () => {
     const error = await rejection(new OpenRouterProvider({ model: "m", fetch: fetchMock }).generate(request));
     expect(error.retryable).toBe(true);
     expect(error.message).toMatch(/incomplete/);
+  });
+
+  it("carries what a cut-off answer cost, as billed", async () => {
+    const fetchMock = fakeFetch(() =>
+      streamed([
+        sse({ model: "m-served", choices: [{ delta: { content: "{" }, finish_reason: "length" }] }),
+        sse({ choices: [{ delta: {}, finish_reason: "length" }], usage: { prompt_tokens: 900, completion_tokens: 1_000, cost: 0.02 } }),
+      ]),
+    );
+    const error = await rejection(new OpenRouterProvider({ model: "m", fetch: fetchMock }).generate(request));
+    expect(error).toMatchObject({ usage: { inputTokens: 900, outputTokens: 1_000 }, model: "m-served", costUsd: 0.02 });
   });
 });
 

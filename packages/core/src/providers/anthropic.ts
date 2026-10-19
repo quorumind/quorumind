@@ -43,23 +43,23 @@ export class AnthropicProvider implements LlmProvider {
         stream.on("text", (delta) => onDelta(delta));
       }
       const message = await stream.finalMessage();
+      const usage = { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens };
+      // A declined or cut-off answer is billed all the same: the error carries what it cost.
       if (message.stop_reason === "refusal") {
         throw new ProviderError(`The model declined this request (${message.stop_details?.category ?? "no category"}).`, false, {
           code: "provider_refused",
+          usage,
+          model: message.model,
         });
       }
       if (message.stop_reason === "max_tokens") {
-        throw new ProviderError("The answer was cut off by the token limit.", true);
+        throw new ProviderError("The answer was cut off by the token limit.", true, { usage, model: message.model });
       }
       const text = message.content
         .filter((block) => block.type === "text")
         .map((block) => block.text)
         .join("");
-      return {
-        text,
-        model: message.model,
-        usage: { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens },
-      };
+      return { text, model: message.model, usage };
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (error instanceof Anthropic.AuthenticationError) {

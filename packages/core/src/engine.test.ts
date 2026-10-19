@@ -6,7 +6,7 @@ import { setModelPrice } from "./pricing.ts";
 import { MockProvider } from "./providers/mock.ts";
 import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError } from "./providers/types.ts";
 import { renderReport } from "./report.ts";
-import { createSession, currentProposals, type Session } from "./session.ts";
+import { createSession, currentProposals, type Session, totalCost } from "./session.ts";
 
 function setup(providers: ProviderSet = providersFor(DEMO_LINEUP, {}, { mockDelayMs: 0 }), budgetUsd: number | null = null) {
   const events: EngineEvent[] = [];
@@ -194,6 +194,56 @@ describe("cost cap", () => {
     await engine.startInterview(session);
     expect(session.usage.map((record) => record.costUsd)).toEqual([0.25]);
   });
+
+  /** Fails its first `failures` calls after a full answer, as a token limit does: the provider reports what it billed. */
+  const truncating = (failures: number): LlmProvider & { calls: number } => {
+    const inner = new MockProvider({ chunkDelayMs: 0 });
+    const provider = {
+      kind: "anthropic" as const,
+      model: "priced-test-model",
+      calls: 0,
+      async generate(request: GenerateRequest, onDelta?: (text: string) => void): Promise<GenerateResult> {
+        provider.calls++;
+        if (provider.calls <= failures) {
+          throw new ProviderError("The answer was cut off by the token limit.", true, {
+            usage: { inputTokens: 1_000_000, outputTokens: 0 },
+            model: "priced-test-model",
+          });
+        }
+        return {
+          ...(await inner.generate(request, onDelta)),
+          model: "priced-test-model",
+          usage: { inputTokens: 1_000_000, outputTokens: 0 },
+        };
+      },
+    };
+    return provider;
+  };
+
+  it("records a call the provider billed before it failed, and counts it against the cap", async () => {
+    setModelPrice("priced-test-model", { input: 1, output: 0 });
+    const provider = truncating(1);
+    const { engine, session } = setup({ interviewer: provider, arbiter: provider, proposers: { A: provider, B: provider } }, 5);
+    await engine.startInterview(session);
+    expect(session.phase).toBe("interview");
+    expect(session.usage.map(({ task, costUsd, failed }) => ({ task, costUsd, failed }))).toEqual([
+      { task: "interview", costUsd: 1, failed: true },
+      { task: "interview", costUsd: 1, failed: undefined },
+    ]);
+    expect(totalCost(session)).toEqual({ usd: 2, complete: true });
+    expect(new Set(session.usage.map((record) => record.id)).size).toBe(2);
+  });
+
+  it("does not retry a failed call when another one would pass the cap", async () => {
+    setModelPrice("priced-test-model", { input: 1, output: 0 });
+    const provider = truncating(2);
+    const { engine, session } = setup({ interviewer: provider, arbiter: provider, proposers: { A: provider, B: provider } }, 1.5);
+    await engine.startInterview(session);
+    expect(provider.calls).toBe(1);
+    expect(session.phase).toBe("failed");
+    expect(session.error).toMatchObject({ code: "budget_exceeded", params: { spentUsd: 1, budgetUsd: 1.5 } });
+    expect(session.usage).toHaveLength(1);
+  });
 });
 
 class FlakyProvider implements LlmProvider {
@@ -260,7 +310,7 @@ describe("failures", () => {
     await expect(engine.answerDebate(session, [])).rejects.toMatchObject({ code: "wrong_phase" });
   });
 
-  it("stops the calls in flight when asked, spends nothing more, and resumes from there", async () => {
+  it("stops the calls in flight when asked, records what they may cost, and resumes from there", async () => {
     let started = 0;
     const hanging: LlmProvider = {
       kind: "mock",
@@ -291,7 +341,13 @@ describe("failures", () => {
     await running;
     expect(session.phase).toBe("failed");
     expect(session.error).toEqual({ code: "stopped", message: "The session was stopped." });
-    expect(session.usage).toHaveLength(usage);
+    // The provider bills the prompt of a cancelled call: both are recorded as failed, with an estimate.
+    const stopped = session.usage.slice(usage);
+    expect(stopped.map(({ task, seat, failed, estimated }) => ({ task, seat, failed, estimated }))).toEqual([
+      { task: "proposal", seat: "A", failed: true, estimated: true },
+      { task: "proposal", seat: "B", failed: true, estimated: true },
+    ]);
+    expect(stopped.every((record) => record.inputTokens > 0 && record.outputTokens === 0)).toBe(true);
     expect(started).toBe(2);
 
     const { engine: fresh } = setup();

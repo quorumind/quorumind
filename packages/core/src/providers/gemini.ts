@@ -71,6 +71,9 @@ export class GeminiProvider implements LlmProvider {
     let model = this.model;
     let finishReason: string | undefined;
     let usage = { inputTokens: 0, outputTokens: 0 };
+    let usageSeen = false;
+    // What a failed call cost, when the stream reported it: the provider bills it all the same.
+    const billed = () => (usageSeen ? { usage, model } : {});
     try {
       for await (const line of readLines(response.body as ReadableStream<Uint8Array>)) {
         if (!line.startsWith("data:")) continue;
@@ -90,6 +93,7 @@ export class GeminiProvider implements LlmProvider {
             // Thinking tokens are billed as output.
             outputTokens: (meta.candidatesTokenCount ?? 0) + (meta.thoughtsTokenCount ?? 0),
           };
+          usageSeen = true;
         }
         const candidate = chunk.candidates?.[0];
         if (!candidate) continue;
@@ -110,11 +114,11 @@ export class GeminiProvider implements LlmProvider {
     }
 
     if (finishReason === "MAX_TOKENS") {
-      throw new ProviderError("The answer is incomplete (max_output_tokens).", true);
+      throw new ProviderError("The answer is incomplete (max_output_tokens).", true, billed());
     }
     if (finishReason && finishReason !== "STOP" && finishReason !== "FINISH_REASON_UNSPECIFIED") {
       // SAFETY, RECITATION, BLOCKLIST, PROHIBITED_CONTENT…: the model would not write this answer.
-      throw new ProviderError(`Gemini stopped the answer (${finishReason}).`, false, { code: "provider_refused" });
+      throw new ProviderError(`Gemini stopped the answer (${finishReason}).`, false, { code: "provider_refused", ...billed() });
     }
     return { text, model, usage };
   }

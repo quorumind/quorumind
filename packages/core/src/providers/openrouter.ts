@@ -168,7 +168,10 @@ export class OpenRouterProvider implements LlmProvider {
     let model = this.model;
     let finishReason: string | null | undefined;
     let usage = { inputTokens: 0, outputTokens: 0 };
+    let usageSeen = false;
     let costUsd: number | undefined;
+    // What a failed call cost, when the stream reported it before failing: the provider bills it all the same.
+    const billed = () => (usageSeen ? { usage, model, ...(costUsd === undefined ? {} : { costUsd }) } : {});
     try {
       for await (const line of readLines(response.body as ReadableStream<Uint8Array>)) {
         // Comment lines (": OPENROUTER PROCESSING") keep the connection alive while a model thinks.
@@ -176,17 +179,19 @@ export class OpenRouterProvider implements LlmProvider {
         const data = line.slice(5).trim();
         if (!data || data === "[DONE]") continue;
         const chunk = JSON.parse(data) as OpenRouterChunk;
+        if (chunk.model) model = chunk.model;
+        if (chunk.usage) {
+          usage = { inputTokens: chunk.usage.prompt_tokens ?? 0, outputTokens: chunk.usage.completion_tokens ?? 0 };
+          usageSeen = true;
+          if (typeof chunk.usage.cost === "number") costUsd = chunk.usage.cost;
+        }
         if (chunk.error) {
           // Once the stream has started, errors arrive as a chunk of their own, not as an HTTP status.
           const code = typeof chunk.error.code === "number" ? chunk.error.code : 500;
           throw new ProviderError(`OpenRouter stopped the answer: ${chunk.error.message ?? "unknown error"}`, retryable(code), {
             code: providerErrorCode(code),
+            ...billed(),
           });
-        }
-        if (chunk.model) model = chunk.model;
-        if (chunk.usage) {
-          usage = { inputTokens: chunk.usage.prompt_tokens ?? 0, outputTokens: chunk.usage.completion_tokens ?? 0 };
-          if (typeof chunk.usage.cost === "number") costUsd = chunk.usage.cost;
         }
         const choice = chunk.choices?.[0];
         if (!choice) continue;
@@ -203,9 +208,9 @@ export class OpenRouterProvider implements LlmProvider {
       throw new ProviderError("The OpenRouter stream was interrupted.", true, { cause: error, code: "provider_unavailable" });
     }
 
-    if (finishReason === "length") throw new ProviderError("The answer is incomplete (max_tokens).", true);
+    if (finishReason === "length") throw new ProviderError("The answer is incomplete (max_tokens).", true, billed());
     if (finishReason === "content_filter") {
-      throw new ProviderError("The model declined this request (content filter).", false, { code: "provider_refused" });
+      throw new ProviderError("The model declined this request (content filter).", false, { code: "provider_refused", ...billed() });
     }
     // OpenRouter credits are US dollars.
     return { text, model, usage, ...(costUsd === undefined ? {} : { costUsd }) };

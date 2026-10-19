@@ -53,7 +53,7 @@ import {
   revisionCriticSystem,
   scenarioSystem,
 } from "./prompts.ts";
-import { type ChatMessage, type LlmProvider, ProviderError, type Task } from "./providers/types.ts";
+import { type ChatMessage, type LlmProvider, ProviderError, type Task, type Usage } from "./providers/types.ts";
 import {
   citedSources,
   needsResearch,
@@ -109,6 +109,7 @@ import {
   sessionAtRevision,
   totalCost,
   USER_SEAT,
+  type UsageRecord,
   type VerdictRevision,
 } from "./session.ts";
 
@@ -243,7 +244,8 @@ export class DebateEngine {
 
   /**
    * @param options.signal stops the work: the calls in flight are cancelled and the session fails with the code
-   * "stopped", ready to be resumed. A call cut short is not recorded, so it costs the person nothing.
+   * "stopped", ready to be resumed. A call cut short is recorded as failed, with an estimate of what the provider may
+   * bill for it (the prompt it read and the text it sent), since providers bill a cancelled call too.
    */
   constructor(providers: ProviderSet, hooks: EngineHooks, options: { signal?: AbortSignal } = {}) {
     this.providers = providers;
@@ -743,14 +745,7 @@ export class DebateEngine {
             maxResults: MAX_RESULTS_PER_QUERY,
             ...(this.signal ? { signal: this.signal } : {}),
           });
-          session.usage.push({
-            task: "search",
-            seat: null,
-            model: result.model,
-            inputTokens: result.usage.inputTokens,
-            outputTokens: result.usage.outputTokens,
-            costUsd: result.costUsd,
-          });
+          this.record(session, "search", null, { model: result.model, usage: result.usage, costUsd: result.costUsd });
           query.searchedAt = new Date().toISOString();
           query.sources = addSources(session, result.hits, query.question, query.searchedAt);
           this.hooks.emit(session.id, { type: "spoke", task: "search", seat: null });
@@ -1071,6 +1066,10 @@ export class DebateEngine {
     override?: OutputSpec,
   ): Promise<z.infer<(typeof SCHEMAS)[K]["zod"]>> {
     const spec: OutputSpec = override ?? SCHEMAS[task];
+    const messages = session.redact
+      ? prompt.messages.map((message) => (message.role === "user" ? { ...message, content: redact(message.content) } : message))
+      : prompt.messages;
+    const promptChars = prompt.system.length + messages.reduce((sum, message) => sum + message.content.length, 0);
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt++) {
       this.checkStopped();
@@ -1078,15 +1077,14 @@ export class DebateEngine {
       this.hooks.emit(session.id, { type: "speaking", task, seat });
       let raw = "";
       let shown = "";
+      let recorded: UsageRecord | null = null;
       try {
         const result = await provider.generate(
           {
             task,
             seat,
             system: prompt.system,
-            messages: session.redact
-              ? prompt.messages.map((message) => (message.role === "user" ? { ...message, content: redact(message.content) } : message))
-              : prompt.messages,
+            messages,
             ...(EFFORT[session.depth] ? { effort: EFFORT[session.depth] } : {}),
             schema: spec.json,
             schemaName: spec.name,
@@ -1102,29 +1100,81 @@ export class DebateEngine {
             }
           },
         );
-        session.usage.push({
-          task,
-          seat,
+        recorded = this.record(session, task, seat, {
           model: result.model,
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
+          usage: result.usage,
           costUsd: result.costUsd ?? costOf(result.model, result.usage) ?? costOf(provider.model, result.usage),
-          ...(this.scope ? { revision: this.scope.revision } : {}),
         });
         const parsed = spec.zod.safeParse(JSON.parse(result.text));
         if (!parsed.success) throw new ProviderError(`The ${task} answer does not match its schema.`, true);
         this.hooks.emit(session.id, { type: "spoke", task, seat });
         return parsed.data as z.infer<(typeof SCHEMAS)[K]["zod"]>;
       } catch (error) {
+        // A call that fails once the provider took it is billed all the same: it counts against the cap like any other.
+        recorded ??= this.recordFailure(session, task, seat, provider, error, { promptChars, received: raw.length });
         // Whatever the provider made of the cancellation, the person stopped the call.
         this.checkStopped();
         lastError = error;
         const retryable = error instanceof SyntaxError || (error instanceof ProviderError && error.retryable);
         if (!retryable) break;
+        // Another try must fit in the cap as well: a call that failed after a full answer costs as much again.
+        if (attempt === 0 && recorded?.costUsd) this.checkBudget(session, recorded.costUsd);
       }
     }
     if (lastError instanceof Object) failedCalls.set(lastError, { provider: provider.kind, model: provider.model });
     throw lastError;
+  }
+
+  /** Records what a call cost, under the revision or the brief it was made for. */
+  private record(
+    session: Session,
+    task: Task,
+    seat: string | null,
+    call: { model: string; usage: Usage; costUsd: number | null },
+    flags: Pick<UsageRecord, "failed" | "estimated"> = {},
+  ): UsageRecord {
+    const record: UsageRecord = {
+      id: globalThis.crypto.randomUUID(),
+      task,
+      seat,
+      model: call.model,
+      inputTokens: call.usage.inputTokens,
+      outputTokens: call.usage.outputTokens,
+      costUsd: call.costUsd,
+      ...(this.scope ? { revision: this.scope.revision } : {}),
+      ...flags,
+    };
+    session.usage.push(record);
+    return record;
+  }
+
+  /**
+   * Records a call that failed, when the provider may bill it: the usage it reported (an answer cut by the token limit,
+   * declined, or interrupted after usage was sent), else an estimate for a call that was stopped or cut short after the
+   * answer started. A call refused before any answer (an HTTP error) costs nothing and is not recorded.
+   */
+  private recordFailure(
+    session: Session,
+    task: Task,
+    seat: string | null,
+    provider: LlmProvider,
+    error: unknown,
+    sent: { promptChars: number; received: number },
+  ): UsageRecord | null {
+    if (error instanceof ProviderError && error.usage) {
+      const model = error.model ?? provider.model;
+      const costUsd = error.costUsd ?? costOf(model, error.usage) ?? costOf(provider.model, error.usage);
+      return this.record(session, task, seat, { model, usage: error.usage, costUsd }, { failed: true });
+    }
+    if (!this.signal?.aborted && sent.received === 0) return null;
+    const usage = { inputTokens: Math.ceil(sent.promptChars / CHARS_PER_TOKEN), outputTokens: Math.ceil(sent.received / CHARS_PER_TOKEN) };
+    return this.record(
+      session,
+      task,
+      seat,
+      { model: provider.model, usage, costUsd: costOf(provider.model, usage) },
+      { failed: true, estimated: true },
+    );
   }
 
   private stopped() {
@@ -1135,11 +1185,12 @@ export class DebateEngine {
     if (this.signal?.aborted) throw this.stopped();
   }
 
-  private checkBudget(session: Session) {
+  /** Throws when the cap that applies is reached, or would be by a call of `nextUsd`. */
+  private checkBudget(session: Session, nextUsd = 0) {
     const cap = this.scope ? this.scope.budgetUsd : session.budgetUsd;
     if (cap === null) return;
     const spent = this.spent(session);
-    if (spent >= cap) throw new BudgetExceededError(spent, cap);
+    if (spent >= cap || spent + nextUsd > cap) throw new BudgetExceededError(spent, cap);
   }
 
   private async persist(session: Session) {
