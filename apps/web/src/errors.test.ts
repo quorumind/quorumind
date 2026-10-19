@@ -20,6 +20,23 @@ describe("error messages", () => {
     expect(failureText(t, new TypeError("Failed to fetch"))).toBe(t("error.request"));
   });
 
+  it("explains the refusals of the local server's guard and of a revision, each in its own words", () => {
+    const codes = ["already_applied", "verdict_changed", "cross_site", "forbidden_host", "unsupported_media_type"];
+    const texts = codes.map((code) => failureText(t, new ApiError(code === "unsupported_media_type" ? 415 : 409, code, "English")));
+    for (const text of texts) {
+      expect(text).not.toBe(t("errors.generic"));
+      expect(text).not.toBe("English");
+    }
+    expect(new Set(texts).size).toBe(codes.length);
+    expect(failureText(t, new ApiError(503, "provider_unavailable", "English"))).toContain("not set up on this server");
+    expect(failureText(t, new ApiError(402, "provider_quota", "English"))).toBe(t("errors.provider_quota"));
+  });
+
+  it("explains a revision stopped because the verdict changed meanwhile", () => {
+    const error = { code: "verdict_changed", message: "The decision changed while this revision was being made." };
+    expect(sessionErrorText(t, error, true, "en")).toBe(t("errors.verdict_changed"));
+  });
+
   it("explains a cost cap as the price's limit when the host keeps provider costs to itself", () => {
     const error = { code: "budget_exceeded", message: "", params: { capUsd: 2 } };
     expect(sessionErrorText(t, error, false, "en")).toBe(t("errors.price_limit"));

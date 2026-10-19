@@ -658,7 +658,7 @@
     "provider_auth": "Le fournisseur du modèle a refusé la clé API. Vérifiez la clé configurée sur le serveur.",
     "provider_quota": "Le compte du fournisseur du modèle n'a plus de crédit.",
     "provider_rate_limit": "Le fournisseur du modèle limite les requêtes en ce moment. Patientez une minute, puis réessayez.",
-    "provider_unavailable": "Le fournisseur du modèle est injoignable ou surchargé. Réessayez dans un instant.",
+    "provider_unavailable": "Le fournisseur du modèle est injoignable, surchargé ou pas configuré sur ce serveur. Réessayez dans un instant et, si l'erreur persiste, vérifiez les clés API du serveur.",
     "provider_refused": "Le modèle a refusé de répondre à cette demande. Reformulez la partie sensible, ou choisissez un autre modèle.",
     "insufficient_credits": "Vous n'avez plus de crédits. Achetez des crédits ou souscrivez un forfait pour continuer.",
     "plan_limit": "Votre forfait ne le permet pas. Choisissez d'autres paramètres ou un autre forfait.",
@@ -689,6 +689,11 @@
     "closed": "Cette décision est close. Rouvrez-la d'abord.",
     "not_closed": "Cette décision est déjà ouverte.",
     "self_superseding": "Une décision ne peut pas se remplacer elle-même.",
+    "already_applied": "Une révision a déjà été faite à partir de ces réponses, ou est en cours. Rechargez la page pour la voir.",
+    "verdict_changed": "Le verdict a changé entre-temps, par exemple parce qu'un scénario a été adopté. Réessayez pour repartir du verdict actuel.",
+    "cross_site": "Cette requête venait d'un autre site, le serveur l'a donc refusée. Ouvrez Quorumind à sa propre adresse et réessayez.",
+    "forbidden_host": "Ce serveur ne répond pas à cette adresse. Ouvrez-le à son adresse habituelle, ou ajoutez celle-ci à QUORUMIND_ALLOWED_HOSTS sur le serveur.",
+    "unsupported_media_type": "Le serveur n'a pas pu lire cette requête à cause de son format. Rechargez la page et réessayez.",
     "audit_document_missing": "Joignez le document à auditer : un devis, une description des prestations ou une proposition."
   },
   "costing": {

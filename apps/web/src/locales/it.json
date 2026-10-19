@@ -658,7 +658,7 @@
     "provider_auth": "Il fornitore del modello ha rifiutato la chiave API. Controlla la chiave configurata sul server.",
     "provider_quota": "L'account del fornitore del modello non ha più credito.",
     "provider_rate_limit": "Il fornitore del modello sta limitando le richieste in questo momento. Attendi un minuto, poi riprova.",
-    "provider_unavailable": "Il fornitore del modello non è raggiungibile o è sovraccarico. Riprova tra poco.",
+    "provider_unavailable": "Il fornitore del modello non è raggiungibile, è sovraccarico o non è configurato su questo server. Riprova tra poco e, se l'errore persiste, controlla le chiavi API del server.",
     "provider_refused": "Il modello si è rifiutato di rispondere a questa richiesta. Riformula la parte delicata o scegli un altro modello.",
     "insufficient_credits": "Non hai più crediti. Acquista crediti o abbonati a un piano per continuare.",
     "plan_limit": "Il tuo piano non lo consente. Scegli altre impostazioni o un altro piano.",
@@ -689,6 +689,11 @@
     "closed": "Questa decisione è chiusa. Prima riaprila.",
     "not_closed": "Questa decisione è già aperta.",
     "self_superseding": "Una decisione non può sostituire se stessa.",
+    "already_applied": "Da queste risposte è già stata fatta una revisione, oppure è in corso. Ricarica la pagina per vederla.",
+    "verdict_changed": "Il verdetto è cambiato nel frattempo, ad esempio perché è stato adottato uno scenario. Riprova per partire dal verdetto attuale.",
+    "cross_site": "Questa richiesta proveniva da un altro sito, quindi il server l'ha rifiutata. Apri Quorumind al suo indirizzo e riprova.",
+    "forbidden_host": "Questo server non risponde a questo indirizzo. Aprilo al suo indirizzo abituale, oppure aggiungi questo a QUORUMIND_ALLOWED_HOSTS sul server.",
+    "unsupported_media_type": "Il server non è riuscito a leggere questa richiesta a causa del suo formato. Ricarica la pagina e riprova.",
     "audit_document_missing": "Allega il documento da esaminare: un preventivo, una descrizione dei servizi o una proposta."
   },
   "costing": {

@@ -72,6 +72,11 @@ const ERROR_CODES = [
   "closed",
   "not_closed",
   "self_superseding",
+  "already_applied",
+  "verdict_changed",
+  "cross_site",
+  "forbidden_host",
+  "unsupported_media_type",
   "non_european_model",
   "european_unavailable",
 ];

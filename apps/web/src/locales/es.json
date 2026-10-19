@@ -658,7 +658,7 @@
     "provider_auth": "El proveedor del modelo ha rechazado la clave API. Revise la clave configurada en el servidor.",
     "provider_quota": "La cuenta del proveedor del modelo no tiene saldo.",
     "provider_rate_limit": "El proveedor del modelo está limitando las solicitudes en este momento. Espere un minuto y vuelva a intentarlo.",
-    "provider_unavailable": "No se puede contactar con el proveedor del modelo o está saturado. Vuelva a intentarlo en un momento.",
+    "provider_unavailable": "No se puede contactar con el proveedor del modelo, está saturado o no está configurado en este servidor. Vuelva a intentarlo en un momento y, si el error continúa, revise las claves API del servidor.",
     "provider_refused": "El modelo se ha negado a responder a esta solicitud. Reformule la parte delicada o elija otro modelo.",
     "insufficient_credits": "No le quedan créditos. Compre créditos o suscríbase a un plan para continuar.",
     "plan_limit": "Su plan no lo permite. Elija otros ajustes u otro plan.",
@@ -689,6 +689,11 @@
     "closed": "Esta decisión está cerrada. Reábrala primero.",
     "not_closed": "Esta decisión ya está abierta.",
     "self_superseding": "Una decisión no puede sustituirse a sí misma.",
+    "already_applied": "Ya se hizo una revisión con estas respuestas, o se está haciendo. Vuelva a cargar la página para verla.",
+    "verdict_changed": "El veredicto cambió mientras tanto, por ejemplo porque se adoptó un escenario. Vuelva a intentarlo para partir del veredicto actual.",
+    "cross_site": "Esta solicitud venía de otro sitio web, así que el servidor la rechazó. Abra Quorumind en su propia dirección y vuelva a intentarlo.",
+    "forbidden_host": "Este servidor no responde en esta dirección. Ábralo en su dirección habitual, o añada esta a QUORUMIND_ALLOWED_HOSTS en el servidor.",
+    "unsupported_media_type": "El servidor no pudo leer esta solicitud por su formato. Vuelva a cargar la página e inténtelo de nuevo.",
     "audit_document_missing": "Adjunte el documento que auditar: un presupuesto, una descripción de los servicios o una propuesta."
   },
   "costing": {

@@ -658,7 +658,7 @@
     "provider_auth": "O provedor do modelo recusou a chave de API. Confira a chave configurada no servidor.",
     "provider_quota": "A conta do provedor do modelo está sem crédito.",
     "provider_rate_limit": "O provedor do modelo está limitando as solicitações agora. Espere um minuto e tente de novo.",
-    "provider_unavailable": "O provedor do modelo está inacessível ou sobrecarregado. Tente de novo em instantes.",
+    "provider_unavailable": "O provedor do modelo está inacessível, sobrecarregado ou não está configurado neste servidor. Tente de novo em instantes e, se o erro continuar, confira as chaves de API do servidor.",
     "provider_refused": "O modelo se recusou a responder a esta solicitação. Reformule a parte sensível ou escolha outro modelo.",
     "insufficient_credits": "Você não tem mais créditos. Compre créditos ou assine um plano para continuar.",
     "plan_limit": "Seu plano não permite isso. Escolha outras configurações ou outro plano.",
@@ -689,6 +689,11 @@
     "closed": "Esta decisão está encerrada. Reabra-a primeiro.",
     "not_closed": "Esta decisão já está aberta.",
     "self_superseding": "Uma decisão não pode substituir a si mesma.",
+    "already_applied": "Já foi feita uma revisão com estas respostas, ou ela está em andamento. Recarregue a página para vê-la.",
+    "verdict_changed": "O veredito mudou nesse meio-tempo, por exemplo porque um cenário foi adotado. Tente de novo para partir do veredito atual.",
+    "cross_site": "Esta solicitação veio de outro site, por isso o servidor a recusou. Abra o Quorumind no endereço dele e tente de novo.",
+    "forbidden_host": "Este servidor não responde neste endereço. Abra-o no endereço de costume, ou adicione este a QUORUMIND_ALLOWED_HOSTS no servidor.",
+    "unsupported_media_type": "O servidor não conseguiu ler esta solicitação por causa do formato. Recarregue a página e tente de novo.",
     "audit_document_missing": "Anexe o documento a auditar: um orçamento, uma descrição dos serviços ou uma proposta."
   },
   "costing": {

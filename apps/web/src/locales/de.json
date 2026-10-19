@@ -658,7 +658,7 @@
     "provider_auth": "Der Modellanbieter hat den API-Schlüssel abgelehnt. Prüfen Sie den auf dem Server eingerichteten Schlüssel.",
     "provider_quota": "Das Konto beim Modellanbieter hat kein Guthaben mehr.",
     "provider_rate_limit": "Der Modellanbieter begrenzt gerade die Anfragen. Warten Sie eine Minute und versuchen Sie es dann erneut.",
-    "provider_unavailable": "Der Modellanbieter ist nicht erreichbar oder überlastet. Versuchen Sie es gleich noch einmal.",
+    "provider_unavailable": "Der Modellanbieter ist nicht erreichbar, überlastet oder auf diesem Server nicht eingerichtet. Versuchen Sie es gleich noch einmal, und prüfen Sie die API-Schlüssel des Servers, falls der Fehler bleibt.",
     "provider_refused": "Das Modell hat die Antwort auf diese Anfrage verweigert. Formulieren Sie den heiklen Teil um oder wählen Sie ein anderes Modell.",
     "insufficient_credits": "Sie haben kein Guthaben mehr. Kaufen Sie Guthaben oder schließen Sie einen Tarif ab, um fortzufahren.",
     "plan_limit": "Ihr Tarif erlaubt das nicht. Wählen Sie andere Einstellungen oder einen anderen Tarif.",
@@ -689,6 +689,11 @@
     "closed": "Diese Entscheidung ist abgeschlossen. Öffnen Sie sie zuerst wieder.",
     "not_closed": "Diese Entscheidung ist bereits offen.",
     "self_superseding": "Eine Entscheidung kann sich nicht selbst ersetzen.",
+    "already_applied": "Aus diesen Antworten wurde bereits eine Revision erstellt, oder sie wird gerade erstellt. Laden Sie die Seite neu, um sie zu sehen.",
+    "verdict_changed": "Das Urteil hat sich inzwischen geändert, zum Beispiel weil ein Szenario übernommen wurde. Versuchen Sie es erneut, um vom aktuellen Urteil auszugehen.",
+    "cross_site": "Diese Anfrage kam von einer anderen Website, deshalb hat der Server sie abgelehnt. Öffnen Sie Quorumind unter seiner eigenen Adresse und versuchen Sie es erneut.",
+    "forbidden_host": "Dieser Server antwortet nicht unter dieser Adresse. Öffnen Sie ihn unter seiner üblichen Adresse, oder fügen Sie diese zu QUORUMIND_ALLOWED_HOSTS auf dem Server hinzu.",
+    "unsupported_media_type": "Der Server konnte diese Anfrage wegen ihres Formats nicht lesen. Laden Sie die Seite neu und versuchen Sie es erneut.",
     "audit_document_missing": "Hängen Sie das zu prüfende Dokument an: ein Angebot, eine Leistungsbeschreibung oder ein Konzept."
   },
   "costing": {

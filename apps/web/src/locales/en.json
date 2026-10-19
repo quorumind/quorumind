@@ -658,7 +658,7 @@
     "provider_auth": "The model provider rejected the API key. Check the key configured on the server.",
     "provider_quota": "The model provider's account has no credit left.",
     "provider_rate_limit": "The model provider is limiting requests right now. Wait a minute, then retry.",
-    "provider_unavailable": "The model provider cannot be reached or is overloaded. Retry in a moment.",
+    "provider_unavailable": "The model provider cannot be reached, is overloaded, or is not set up on this server. Retry in a moment, and if it keeps failing, check the server's API keys.",
     "provider_refused": "The model declined to answer this request. Rephrase the sensitive part, or choose another model.",
     "insufficient_credits": "You have no credits left. Buy credits or subscribe to a plan to continue.",
     "plan_limit": "Your plan does not allow this. Choose other settings or another plan.",
@@ -689,6 +689,11 @@
     "closed": "This decision is closed. Reopen it first.",
     "not_closed": "This decision is already open.",
     "self_superseding": "A decision cannot supersede itself.",
+    "already_applied": "A revision has already been made from these answers, or is being made. Reload the page to see it.",
+    "verdict_changed": "The verdict changed in the meantime, for instance because a scenario was adopted. Try again to start from the current verdict.",
+    "cross_site": "This request came from another website, so the server refused it. Open Quorumind at its own address and try again.",
+    "forbidden_host": "This server does not answer at this address. Open it at its usual address, or add this one to QUORUMIND_ALLOWED_HOSTS on the server.",
+    "unsupported_media_type": "The server could not read this request because of its format. Reload the page and try again.",
     "audit_document_missing": "Attach the document to audit: a quote, a statement of work or a proposal."
   },
   "costing": {
