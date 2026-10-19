@@ -1,4 +1,23 @@
 import type { z } from "zod";
+import {
+  AUDIT_EXTRACTION,
+  AUDIT_FINDINGS,
+  type AuditCritiqueInput,
+  type AuditExtraction,
+  type AuditedVerdict,
+  auditUpdateOutput,
+  auditVerdictOutput,
+} from "./audit.ts";
+import { auditedDocuments, auditProposal, settleAudit, settleExtraction, settleFindings } from "./audit-check.ts";
+import {
+  auditAlternativePrompt,
+  auditCriticSystem,
+  auditCritiquePrompt,
+  auditDevilSystem,
+  auditExtractionPrompt,
+  auditReassessPrompt,
+  auditVerdictPrompt,
+} from "./audit-prompts.ts";
 import { PRICE_REFERENCE, priceReferenceRule } from "./cloud-prices.ts";
 import { activeRequirements, complianceInterviewRule, complianceRule, withTemplateFlags } from "./compliance.ts";
 import { COMPLIANCE_UPDATE, COMPLIANCE_VERDICT, settleCompliance, type VerdictWithCompliance } from "./compliance-verdict.ts";
@@ -6,6 +25,7 @@ import { checkFacts, debateCurrency, sessionCostings, sessionProfile } from "./c
 import { partialStringField } from "./partial-json.ts";
 import { costOf, TASK_PROFILE, typicalCallCost } from "./pricing.ts";
 import { fence, redact } from "./privacy.ts";
+import { currencyCode } from "./profile.ts";
 import {
   answersBlock,
   arbiterSystem,
@@ -50,6 +70,7 @@ import {
 import {
   type Answer,
   allAnswers,
+  alternativeSeat,
   criticSeats,
   currentProposals,
   currentRevision,
@@ -72,6 +93,8 @@ import {
 
 /** After this many answered turns the interviewer must produce the requirements sheet. */
 export const MAX_INTERVIEW_TURNS = 4;
+/** An audit's interview only asks what the document cannot tell: two turns at most. */
+export const AUDIT_INTERVIEW_TURNS = 2;
 const MAX_QUESTIONS_PER_ROUND = 3;
 
 export interface ProviderSet {
@@ -364,16 +387,11 @@ export class DebateEngine {
           throw new BudgetExceededError(spent, this.scope.budgetUsd);
       }
       // With compliance requirements, the new ruling assesses the options against them again (those of the
-      // requirements it rules on, a scenario's included).
+      // requirements it rules on, a scenario's included). An audit rules again on its audit too.
       const requirements = activeRequirements(work.subject);
-      const { costs, schedules, ...verdict } = await this.call(
-        session,
-        "reassess",
-        null,
-        this.providers.arbiter,
-        prompt,
-        revisionSchema(scenario !== null, requirements.length > 0),
-      );
+      const output =
+        session.mode === "audit" ? auditUpdateOutput(requirements.length > 0) : revisionSchema(scenario !== null, requirements.length > 0);
+      const { costs, schedules, ...verdict } = await this.call(session, "reassess", null, this.providers.arbiter, prompt, output);
       settleVerdict(session, verdict);
       if ("compliance" in verdict) settleCompliance(verdict as VerdictWithCompliance, requirements);
       const seats = new Set(verdict.options.map((option) => option.seat));
@@ -462,6 +480,7 @@ export class DebateEngine {
 
   private reassessPrompt(work: RevisionWork, critiques: VerdictRevision["critiques"]): { system: string; messages: ChatMessage[] } {
     const { subject } = work;
+    if (subject.mode === "audit") return auditReassessPrompt(subject, { facts: work.facts, note: work.note }, critiques);
     const verdict = subject.verdict as Verdict;
     const said = critiques.flatMap((entry) => entry.data.critiques.map((critique) => ({ from: entry.seat, ...critique })));
     const challenge = subject.mode === "challenge";
@@ -508,13 +527,15 @@ export class DebateEngine {
     }
     const userTurns = session.interview.filter((entry) => entry.kind === "user").length;
     const express = session.mode === "express";
+    const audit = session.mode === "audit";
     const turn = await this.call(session, "interview", null, this.providers.interviewer, {
       system:
         interviewerSystem(session.locale, {
-          forceDone: userTurns >= (express ? 1 : MAX_INTERVIEW_TURNS),
+          forceDone: userTurns >= (express ? 1 : audit ? AUDIT_INTERVIEW_TURNS : MAX_INTERVIEW_TURNS),
           express,
           template: session.template,
           challenge: session.mode === "challenge",
+          audit,
           today: new Date().toISOString().slice(0, 10),
         }) + complianceInterviewRule(session.complianceTemplates),
       messages,
@@ -534,6 +555,17 @@ export class DebateEngine {
     if (session.mode === "challenge") {
       if (!has("proposal", USER_SEAT, 0)) {
         await this.formalize(session);
+        return;
+      }
+    } else if (session.mode === "audit") {
+      if (!has("proposal", USER_SEAT, 0)) {
+        await this.readDocument(session);
+        return;
+      }
+      // The alternative is sketched once the document is read: by then the currency of the debate is settled.
+      const alternative = alternativeSeat(session);
+      if (alternative && !has("proposal", alternative, 0)) {
+        await this.propose(session, alternative);
         return;
       }
     } else {
@@ -638,7 +670,31 @@ export class DebateEngine {
     await this.persist(session);
   }
 
+  /**
+   * Audit mode: the formalizer restates what the document commits to, and the document becomes option U. A debate
+   * whose need names no amount takes the document's currency.
+   */
+  private async readDocument(session: Session) {
+    const audit = session.audit;
+    if (!audit) throw new InvalidStateError("This session has no document to audit.");
+    const prompt = auditExtractionPrompt(session);
+    const read = (await this.call(session, "proposal", USER_SEAT, this.providers.interviewer, prompt, AUDIT_EXTRACTION)) as unknown;
+    const extraction = settleExtraction(read as AuditExtraction, auditedDocuments(session));
+    const budget = requireSheet(session).budget;
+    const currency = currencyCode(extraction.currency);
+    if (currency && !budget.build && !budget.run) session.currency = currency;
+    audit.extraction = extraction;
+    session.debate.push({ kind: "proposal", round: 0, seat: USER_SEAT, data: auditProposal(extraction, debateCurrency(session)) });
+    await this.persist(session);
+  }
+
   private async propose(session: Session, seat: string) {
+    if (session.mode === "audit") {
+      const proposal = await this.call(session, "proposal", seat, this.proposer(seat), auditAlternativePrompt(session, seat));
+      session.debate.push({ kind: "proposal", round: 0, seat, data: proposal });
+      await this.persist(session);
+      return;
+    }
     const sheet = requireSheet(session);
     const proposal = await this.call(session, "proposal", seat, this.proposer(seat), {
       system: proposerSystem(session.locale, seat, session.seats[seat]?.persona ?? null) + designRules(session),
@@ -662,6 +718,10 @@ export class DebateEngine {
   }
 
   private async criticise(session: Session, seat: string, round: number, proposals: Record<string, Proposal>) {
+    if (session.mode === "audit") {
+      await this.examineDocument(session, seat, round);
+      return;
+    }
     const sheet = requireSheet(session);
     const devil = seat === DEVIL_SEAT;
     const targets = Object.fromEntries(Object.entries(proposals).filter(([other]) => other !== seat));
@@ -699,6 +759,18 @@ export class DebateEngine {
     });
     critiques.critiques = critiques.critiques.filter((critique) => critique.target !== seat && critique.target in proposals);
     session.debate.push({ kind: "critiques", round, seat, data: critiques });
+    await this.persist(session);
+  }
+
+  /** Audit mode: a critic or the devil's advocate examines the document, every quote checked against it. */
+  private async examineDocument(session: Session, seat: string, round: number) {
+    const devil = seat === DEVIL_SEAT;
+    const persona = devil ? (session.devil?.persona ?? null) : (session.seats[seat]?.persona ?? null);
+    const system = devil ? auditDevilSystem(session.locale, persona) : auditCriticSystem(session.locale, seat, persona);
+    const provider = devil ? this.devil() : this.proposer(seat);
+    const prompt = auditCritiquePrompt(session, seat, round, system);
+    const found = (await this.call(session, "critique", seat, provider, prompt, AUDIT_FINDINGS)) as unknown;
+    session.debate.push({ kind: "critiques", round, seat, data: settleFindings(found as AuditCritiqueInput, auditedDocuments(session)) });
     await this.persist(session);
   }
 
@@ -775,10 +847,10 @@ export class DebateEngine {
     const requirements = activeRequirements(session);
     const prompt = this.verdictPrompt(session);
     // With compliance requirements, the arbiter also assesses every option against each of them.
-    const verdict =
-      requirements.length > 0
-        ? await this.call(session, "verdict", null, this.providers.arbiter, prompt, COMPLIANCE_VERDICT)
-        : await this.call(session, "verdict", null, this.providers.arbiter, prompt);
+    // An audit's verdict carries the audit itself.
+    const output =
+      session.mode === "audit" ? auditVerdictOutput(requirements.length > 0) : requirements.length > 0 ? COMPLIANCE_VERDICT : undefined;
+    const verdict = await this.call(session, "verdict", null, this.providers.arbiter, prompt, output);
     settleVerdict(session, verdict);
     if ("compliance" in verdict) settleCompliance(verdict as VerdictWithCompliance, requirements);
     session.debate.push({ kind: "verdict", data: verdict });
@@ -789,6 +861,7 @@ export class DebateEngine {
   }
 
   private verdictPrompt(session: Session): { system: string; messages: ChatMessage[] } {
+    if (session.mode === "audit") return auditVerdictPrompt(session);
     const sheet = requireSheet(session);
     const transcript = session.debate.flatMap<object>((entry) => {
       if (entry.kind === "critiques") return [{ round: entry.round, from: entry.seat, critiques: entry.data.critiques }];
@@ -1011,8 +1084,13 @@ function revisionWork(session: Session, pending: PendingRevision): RevisionWork 
   };
 }
 
-/** Keeps a ruling to the options of the debate: unknown seats dropped, scores within 1 to 5. */
+/**
+ * Keeps a ruling to the options of the debate: unknown seats dropped, scores within 1 to 5. An audit's quotes are
+ * checked against the document.
+ */
 function settleVerdict(session: Session, verdict: Verdict) {
+  const audited = verdict as Partial<AuditedVerdict>;
+  if (session.mode === "audit" && audited.audit) audited.audit = settleAudit(audited.audit, auditedDocuments(session));
   const seats = new Set(Object.keys(currentProposals(session)));
   verdict.options = verdict.options.filter((option) => seats.has(option.seat));
   for (const option of verdict.options) {

@@ -1,4 +1,6 @@
 export * from "./agency-labels.ts";
+export * from "./audit.ts";
+export * from "./audit-check.ts";
 export * from "./branding.ts";
 export * from "./cloud-prices.ts";
 export * from "./compare.ts";

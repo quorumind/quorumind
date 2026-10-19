@@ -12,6 +12,8 @@ const DATA_TAGS = [
   "rates",
   "checks",
   "verdict",
+  "document",
+  "extraction",
 ];
 const TAG_PATTERN = new RegExp(`<(/?)(${DATA_TAGS.join("|")})\\b`, "gi");
 

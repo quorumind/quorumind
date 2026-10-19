@@ -124,6 +124,17 @@ export const TargetIcon = () => (
   </Icon>
 );
 
+/** An audit: a document under a magnifying glass. */
+export const AuditIcon = () => (
+  <Icon>
+    <path d="M13.5 3.5H6v17h5.5" />
+    <path d="M13.5 3.5L17.5 7.5V10M13.5 3.5v4h4" />
+    <path d="M9 10h3M9 13.5h2" />
+    <circle cx="16" cy="15.5" r="3.5" />
+    <path d="M18.5 18l2.5 2.5" />
+  </Icon>
+);
+
 /** The devil's advocate: a contrary arrow cutting across the line of agreement. */
 export const DevilIcon = () => (
   <Icon>

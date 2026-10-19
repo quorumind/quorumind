@@ -1,3 +1,4 @@
+import type { AuditSettings } from "./audit.ts";
 import type { ComplianceTemplateId } from "./compliance.ts";
 import type { Decision } from "./decisions.ts";
 import type { Locale } from "./locales.ts";
@@ -23,10 +24,11 @@ export type Phase = "interview" | "review" | "debating" | "awaiting_answers" | "
 
 /**
  * standard: the models design competing options. express: five questions and one short round.
- * challenge: the person brings their own solution and the models only look for its flaws.
+ * challenge: the person brings their own solution and the models only look for its flaws. audit: the person attaches a
+ * document a provider sent them (a quote, a statement of work, an architecture) and the models examine it.
  */
-export type Mode = "standard" | "express" | "challenge";
-export const MODES: readonly Mode[] = ["standard", "express", "challenge"];
+export type Mode = "standard" | "express" | "challenge" | "audit";
+export const MODES: readonly Mode[] = ["standard", "express", "challenge", "audit"];
 
 /** How hard the models think: maps to each provider's reasoning effort. */
 export type Depth = "quick" | "standard" | "deep";
@@ -42,7 +44,7 @@ export interface Seat extends Participant {
   persona: string | null;
 }
 
-/** Seat of the person's own solution in challenge mode. */
+/** Seat of the person's own solution in challenge mode, and of the audited document in audit mode. */
 export const USER_SEAT = "U";
 /** Seat of the devil's advocate: it criticises every option and proposes none. */
 export const DEVIL_SEAT = "devil";
@@ -213,6 +215,8 @@ export interface Session {
   devil: Seat | null;
   /** The person's own solution, in challenge mode. */
   challenge: string | null;
+  /** The audit settings and what the document commits to, in audit mode. */
+  audit: AuditSettings | null;
   context: ContextDocument[];
   /** Mask e-mails, phone numbers, card numbers and secrets before anything is sent to a provider. */
   redact: boolean;
@@ -279,6 +283,8 @@ export interface NewSessionInput {
   seats: Record<string, Participant & { persona?: string | null }>;
   devil?: (Participant & { persona?: string | null }) | null;
   challenge?: string | null;
+  /** In audit mode: the documents under audit (every attached one when none is named) and whether to sketch an alternative. */
+  audit?: { documentIds?: string[]; alternative?: boolean } | null;
   context?: ContextDocument[];
   redact?: boolean;
   parentId?: string | null;
@@ -323,6 +329,7 @@ export function createSession(input: NewSessionInput): Session {
     seats: Object.fromEntries(Object.entries(input.seats).map(([seat, value]) => [seat, { ...value, persona: value.persona ?? null }])),
     devil: input.devil ? { ...input.devil, persona: input.devil.persona ?? null } : null,
     challenge: mode === "challenge" ? (input.challenge ?? null) : null,
+    audit: mode === "audit" ? auditSettings(input.audit ?? null, input.context ?? []) : null,
     context: input.context ?? [],
     redact: input.redact ?? false,
     parentId: input.parentId ?? null,
@@ -345,6 +352,13 @@ export function createSession(input: NewSessionInput): Session {
   };
 }
 
+/** The documents under audit are the attached ones named, or every attached one when none is. */
+function auditSettings(input: NewSessionInput["audit"], context: ContextDocument[]): AuditSettings {
+  const ids = new Set(context.map((doc) => doc.id));
+  const named = (input?.documentIds ?? []).filter((id) => ids.has(id));
+  return { documentIds: named.length > 0 ? [...new Set(named)] : [...ids], alternative: input?.alternative ?? false, extraction: null };
+}
+
 /** Fills the fields added after a session was stored, so older sessions keep working. */
 export function normalizeSession(stored: Session): Session {
   const session = { ...stored } as Session & Partial<Session>;
@@ -356,6 +370,7 @@ export function normalizeSession(stored: Session): Session {
   session.depth ??= "standard";
   session.devil ??= null;
   session.challenge ??= null;
+  session.audit ??= null;
   session.context ??= [];
   session.redact ??= false;
   session.parentId ??= null;
@@ -472,9 +487,17 @@ export function markInterrupted(session: Session, now = new Date()): void {
   session.error = error;
 }
 
-/** Seats that design an option: none in challenge mode, where the person's solution is the only option. */
+/**
+ * Seats that design and revise an option: none in challenge mode, where the person's solution is the only option, nor in
+ * audit mode, where the document is (its alternative, when asked for, is sketched once and not revised).
+ */
 export function proposerSeats(session: Session): string[] {
-  return session.mode === "challenge" ? [] : Object.keys(session.seats);
+  return session.mode === "challenge" || session.mode === "audit" ? [] : Object.keys(session.seats);
+}
+
+/** The seat that sketches the alternative approach of an audit, when the person asked for one. */
+export function alternativeSeat(session: Session): string | null {
+  return session.mode === "audit" && session.audit?.alternative ? (Object.keys(session.seats)[0] ?? null) : null;
 }
 
 /** Every participant that criticises in a round, the devil's advocate last. */

@@ -1,5 +1,6 @@
 import { COMPLIANCE_VERDICT, DEMO_COMPLIANCE } from "../compliance-verdict.ts";
 import { DEMO_DONE, DEMO_QUESTIONS, DEMO_SCRIPT } from "../demo.ts";
+import { demoAuditAnswer } from "../demo-audit.ts";
 import type { GenerateRequest, GenerateResult, LlmProvider } from "./types.ts";
 
 export interface MockOptions {
@@ -35,6 +36,9 @@ export class MockProvider implements LlmProvider {
 
   private answer(request: GenerateRequest): unknown {
     const seat = request.seat ?? "A";
+    // The steps of an audit are told apart by their schema: they share the tasks of a debate.
+    const audit = demoAuditAnswer(request.schemaName, request.seat);
+    if (audit !== undefined) return audit;
     switch (request.task) {
       case "interview":
         return request.messages.length > 1 ? DEMO_DONE : DEMO_QUESTIONS;

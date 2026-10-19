@@ -9,13 +9,13 @@ import { navigate, useSessions } from "./App.tsx";
 import { type AppConfig, api, type PriceQuote } from "./api.ts";
 import { CompliancePicker, EuropeanToggle } from "./components/ComplianceOptions.tsx";
 import { ContextPicker } from "./components/ContextPicker.tsx";
-import { ArrowIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
+import { ArrowIcon, AuditIcon, BoltIcon, CompareIcon, CrossIcon, LocalIcon, PlayIcon, PlusIcon, TargetIcon } from "./components/Icons.tsx";
 import { Skeleton } from "./components/Logo.tsx";
 import { failureText } from "./errors.ts";
 import { formatPrice, formatUsd, groupLabel } from "./format.ts";
 
 const MODES: Mode[] = ["standard", "express", "challenge"];
-const MODE_ICONS = { standard: CompareIcon, express: BoltIcon, challenge: TargetIcon } as const;
+const MODE_ICONS = { standard: CompareIcon, express: BoltIcon, challenge: TargetIcon, audit: AuditIcon } as const;
 const DEPTHS: Depth[] = ["quick", "standard", "deep"];
 const SEAT_KEYS = ["A", "B", "C", "D"] as const;
 const CUSTOM = "__custom";
