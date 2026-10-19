@@ -15,6 +15,7 @@
     "./compliance-report": "./src/compliance-report.ts",
     "./sovereignty": "./src/sovereignty.ts",
     "./ranking": "./src/ranking.ts",
+    "./research-report": "./src/research-report.ts",
     "./revisions": "./src/revisions.ts",
     "./scenarios": "./src/scenarios.ts",
     "./compare": "./src/compare.ts",

@@ -176,7 +176,8 @@
     "probeTag": "Aspetto che nessuno ha esaminato",
     "yourSolution": "La tua soluzione",
     "personDays": "{{days}} giorni-persona",
-    "weeks": "{{range}} settimane"
+    "weeks": "{{range}} settimane",
+    "research": "Ricerca sul web"
   },
   "severity": {
     "blocking": "Bloccante",
@@ -273,7 +274,9 @@
     "critique": "Critiche",
     "revision": "Revisione",
     "verdict": "Verdetto",
-    "reassess": "Verdetto aggiornato"
+    "reassess": "Verdetto aggiornato",
+    "research": "Ricerca sul web",
+    "search": "Ricerca web"
   },
   "setup": {
     "modeLabel": "Di cosa hai bisogno?",
@@ -332,7 +335,10 @@
       "alternative": "Abbozza un'alternativa per confronto",
       "alternativeHint": "Un modello progetta un proprio approccio solo a partire dalla tua esigenza, senza leggere il documento: un ordine di grandezza indipendente. Costa una chiamata in più.",
       "start": "Esamina il documento"
-    }
+    },
+    "research": "Verificare i fatti sul web",
+    "researchHint": "Prima delle proposte, query brevi e generiche (mai i vostri documenti né dati personali) verificano prezzi, versioni, date di fine supporto e norme in vigore. Il rapporto cita le sue fonti.",
+    "researchEuropean": "Disattivata con i soli modelli europei: nessun motore di ricerca mantiene le query in Europa."
   },
   "persona": {
     "cloud_architect": "Architetto cloud",
@@ -1000,5 +1006,26 @@
     "copy": "Copia le domande",
     "copied": "Domande copiate: incollale nella tua risposta.",
     "copyFailed": "Non è stato possibile copiare le domande: selezionale e copiale a mano."
+  },
+  "research": {
+    "title": "Ricerca sul web",
+    "sources": "Fonti",
+    "intro": "Verificato sul web il {{date}} con {{engine}}, prima delle proposte. Una pagina web può sbagliare o essere superata: verificate quelle da cui dipende una decisione.",
+    "retrieved": "consultata il {{date}}",
+    "newTab": "si apre in una nuova scheda",
+    "running": "Verifica dei fatti da cui dipende il dibattito, prima delle proposte.",
+    "searching": "Ricerca in corso…",
+    "pages": "Pagine trovate: {{count}}",
+    "notSearched": "Non cercata",
+    "facts": "Fatti trovati: {{count}}",
+    "claimsNote": "Un'affermazione è contrassegnata come verificata solo quando cita una fonte trovata dalla ricerca sul web.",
+    "empty": "La ricerca sul web non ha trovato nulla di affidabile per il dibattito: i fatti vengono dalle conoscenze dei modelli, che possono essere superate.",
+    "failed": "La ricerca sul web non è riuscita e il dibattito è proseguito senza: i fatti vengono dalle conoscenze dei modelli, che possono essere superate.",
+    "skipped": {
+      "european": "Nessuna ricerca sul web: questo dibattito usa solo modelli europei, e nessun motore di ricerca mantiene le query in Europa.",
+      "unavailable": "Nessuna ricerca sul web: su questo server non è configurato alcun motore di ricerca.",
+      "budget": "La ricerca sul web è stata saltata per mantenere il dibattito entro il suo tetto di costo."
+    },
+    "engineDemo": "i risultati registrati della demo"
   }
 }

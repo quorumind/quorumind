@@ -2,6 +2,7 @@ import type { ClientDeliverable } from "@quorumind/core";
 import { useTranslation } from "react-i18next";
 import { AuditView, auditHeadline } from "./Audit.tsx";
 import { DownloadIcon, SparkIcon } from "./components/Icons.tsx";
+import { ResearchFacts } from "./components/Sources.tsx";
 import { CheckBadges, dayRange, moneyRange } from "./costing.tsx";
 import { FeasibilityChip, Score } from "./Verdict.tsx";
 
@@ -300,6 +301,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
           </section>
         ) : null}
       </div>
+      {deliverable.research ? <ResearchFacts section={deliverable.research} /> : null}
     </div>
   );
 }

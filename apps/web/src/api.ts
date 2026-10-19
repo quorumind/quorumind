@@ -57,6 +57,8 @@ export interface AppConfig {
   profileSettings?: boolean;
   /** True when the server names nobody (self-hosted): the register asks who approves. */
   typedNames?: boolean;
+  /** The search engine of the web research (null: none, the option is not offered), and its default for a standard debate. */
+  research?: { kind: "openrouter" | "brave" | null; default: boolean };
 }
 
 /** An organisation profile as the settings form sends it: the server derives the role ids and the time of the save. */
@@ -134,6 +136,8 @@ export interface NewSessionInput {
   template: TemplateId | null;
   complianceTemplates: ComplianceTemplateId[];
   europeanOnly: boolean;
+  /** Web research before the proposals; left out, the server's default for these settings applies. */
+  webResearch?: boolean;
   depth: Depth;
   rounds: number;
   budgetUsd: number | null;
@@ -220,11 +224,19 @@ const questionnaireHeaders = (access: string | null) => (access ? { "X-Questionn
 
 export const api = {
   config: () => request<AppConfig>("/api/config"),
-  /** `alternative`: an audit that sketches an alternative, which costs one more proposal. */
-  estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale, alternative = false) =>
-    request<{ estimateUsd: Estimate; price: PriceQuote | null }>(
+  /** `alternative`: an audit that sketches an alternative, which costs one more proposal. `webResearch`: left out, the default. */
+  estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale, alternative = false, webResearch?: boolean) =>
+    request<{ estimateUsd: Estimate; price: PriceQuote | null; research?: { default: boolean } }>(
       "/api/estimate",
-      post({ lineup, rounds, mode, depth, locale, ...(alternative ? { audit: { alternative } } : {}) }),
+      post({
+        lineup,
+        rounds,
+        mode,
+        depth,
+        locale,
+        ...(alternative ? { audit: { alternative } } : {}),
+        ...(webResearch === undefined ? {} : { webResearch }),
+      }),
     ),
   sessions: (mine = false) => request<{ sessions: SessionSummary[]; shared?: boolean }>(`/api/sessions${mine ? "?mine=1" : ""}`),
   session: (id: string) =>

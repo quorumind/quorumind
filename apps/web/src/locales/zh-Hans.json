@@ -176,7 +176,8 @@
     "probeTag": "无人考虑过的角度",
     "yourSolution": "您的方案",
     "personDays": "{{days}} 人天",
-    "weeks": "{{range}} 周"
+    "weeks": "{{range}} 周",
+    "research": "网络调研"
   },
   "severity": {
     "blocking": "致命",
@@ -273,7 +274,9 @@
     "critique": "批评",
     "revision": "修订",
     "verdict": "结论",
-    "reassess": "更新后的裁决"
+    "reassess": "更新后的裁决",
+    "research": "网络调研",
+    "search": "网络搜索"
   },
   "setup": {
     "modeLabel": "您需要什么？",
@@ -332,7 +335,10 @@
       "alternative": "勾勒一个替代方案以作比较",
       "alternativeHint": "模型不阅读文件，仅根据您的需求设计自己的方案：一个独立的数量级参考。会多一次调用。",
       "start": "审核文件"
-    }
+    },
+    "research": "在网上核实事实",
+    "researchHint": "在提出方案之前，用简短、通用的搜索词（从不包含您的文档或个人数据）核实当前的价格、版本、停止支持日期和规则。报告会注明其来源。",
+    "researchEuropean": "仅使用欧洲模型时关闭：没有任何搜索引擎能将搜索词保留在欧洲境内。"
   },
   "persona": {
     "cloud_architect": "云架构师",
@@ -1000,5 +1006,26 @@
     "copy": "复制问题",
     "copied": "问题已复制：粘贴到您的回复中即可。",
     "copyFailed": "无法复制问题：请选中后手动复制。"
+  },
+  "research": {
+    "title": "网络调研",
+    "sources": "来源",
+    "intro": "在提出方案之前，于{{date}}通过{{engine}}在网上核实。网页可能有误或已过时：请核实那些决定所依赖的内容。",
+    "retrieved": "于{{date}}获取",
+    "newTab": "在新标签页中打开",
+    "running": "在提出方案之前，正在核实辩论所依赖的事实。",
+    "searching": "正在搜索…",
+    "pages": "找到的网页：{{count}}",
+    "notSearched": "未搜索",
+    "facts": "找到的事实：{{count}}",
+    "claimsNote": "只有引用了网络调研所找到的来源的论断，才会标记为已核实。",
+    "empty": "网络调研没有找到辩论可以依据的内容：事实来自模型的知识，可能已经过时。",
+    "failed": "网络调研失败，辩论在没有调研的情况下继续进行：事实来自模型的知识，可能已经过时。",
+    "skipped": {
+      "european": "未进行网络调研：本次辩论只使用欧洲模型，而没有任何搜索引擎能将搜索词保留在欧洲境内。",
+      "unavailable": "未进行网络调研：此服务器未配置搜索引擎。",
+      "budget": "为使辩论不超出费用上限，已跳过网络调研。"
+    },
+    "engineDemo": "演示的录制结果"
   }
 }

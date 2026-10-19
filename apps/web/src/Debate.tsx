@@ -9,6 +9,7 @@ import { useCanEdit } from "./access.tsx";
 import { api } from "./api.ts";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ArrowIcon, DevilIcon, ProbeIcon } from "./components/Icons.tsx";
+import { ResearchCard } from "./components/Sources.tsx";
 import { CostingTable, dayRange, moneyRange, monthlyCurrency } from "./costing.tsx";
 import { failureText } from "./errors.ts";
 import type { LiveSpeech } from "./useSession.ts";
@@ -342,6 +343,14 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
   }
   flush();
 
+  // The web research comes first: it runs before the proposals.
+  if (session.research) {
+    pushDivider(t("debate.research"));
+    items.push(
+      <ResearchCard key="research" session={session} searching={Object.values(live).some((speech) => speech.task === "search")} />,
+    );
+  }
+
   ordered.forEach((entry, index) => {
     pushDivider(dividerFor(entry, t));
     const key = `e-${index}`;
@@ -407,6 +416,8 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
   for (const speech of Object.values(live)) {
     // A revision of the verdict is followed on the verdict tab, not in the transcript of the debate.
     if (speech.task === "interview" || speech.task === "brief" || speech.task === "reassess" || session.revising) continue;
+    // A search has no speech: the research card shows it.
+    if (speech.task === "search") continue;
     const round =
       session.debate.filter((entry) => entry.kind === (speech.task === "critique" ? "critiques" : "revision") && entry.seat === speech.seat)
         .length + 1;
@@ -415,13 +426,15 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
         ? speech.seat === "U"
           ? t("debate.yourSolution")
           : t("debate.blind")
-        : speech.task === "probe"
-          ? t("debate.probe")
-          : speech.task === "verdict"
-            ? t("debate.verdict")
-            : speech.task === "critique"
-              ? t("debate.critiques", { round })
-              : t("debate.revisions", { round }),
+        : speech.task === "research"
+          ? t("debate.research")
+          : speech.task === "probe"
+            ? t("debate.probe")
+            : speech.task === "verdict"
+              ? t("debate.verdict")
+              : speech.task === "critique"
+                ? t("debate.critiques", { round })
+                : t("debate.revisions", { round }),
     );
     items.push(
       <Message key={`live-${speech.task}-${speech.seat}`} session={session} seat={speech.seat} speech={speech.text || "…"} typing />,

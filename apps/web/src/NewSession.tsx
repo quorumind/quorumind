@@ -263,6 +263,9 @@ export function NewSession() {
   const [rounds, setRounds] = useState(1);
   const [budget, setBudget] = useState("");
   const [redact, setRedact] = useState(false);
+  // Null follows the default of the server (or of the price tier) for these settings, until the person ticks or unticks it.
+  const [webResearch, setWebResearch] = useState<boolean | null>(null);
+  const [researchDefault, setResearchDefault] = useState(false);
   const [notify, setNotify] = useState(false);
   const [estimate, setEstimate] = useState<{ low: number; high: number } | null>(null);
   const [price, setPrice] = useState<PriceQuote | null>(null);
@@ -284,14 +287,18 @@ export function NewSession() {
   }, [t]);
 
   const effectiveRounds = mode === "express" ? 1 : rounds;
+  // A European-only debate never searches: no search engine keeps the queries in Europe.
+  const researchAvailable = Boolean(config?.research?.kind) && !europeanOnly;
+  const researchOn = researchAvailable && (webResearch ?? researchDefault);
   const language = i18n.language as Locale;
   useEffect(() => {
     if (!lineup) return;
     const timer = setTimeout(() => {
-      api.estimate(lineup, effectiveRounds, mode, depth, language, mode === "audit" && alternative).then(
+      api.estimate(lineup, effectiveRounds, mode, depth, language, mode === "audit" && alternative, researchOn).then(
         (body) => {
           setEstimate(body.estimateUsd);
           setPrice(body.price);
+          if (body.research) setResearchDefault(body.research.default);
         },
         () => {
           setEstimate(null);
@@ -300,7 +307,7 @@ export function NewSession() {
       );
     }, 250);
     return () => clearTimeout(timer);
-  }, [lineup, effectiveRounds, mode, depth, language, alternative]);
+  }, [lineup, effectiveRounds, mode, depth, language, alternative, researchOn]);
 
   const allLocal = useMemo(() => {
     if (!config || !lineup) return false;
@@ -321,6 +328,7 @@ export function NewSession() {
         template,
         complianceTemplates: demo ? [] : complianceTemplates,
         europeanOnly: !demo && europeanOnly,
+        ...(demo ? {} : { webResearch: researchOn }),
         depth,
         rounds: effectiveRounds,
         budgetUsd: budgetUsd && budgetUsd > 0 ? budgetUsd : null,
@@ -554,6 +562,20 @@ export function NewSession() {
                 </label>
               ) : null}
               <LineupEditor config={editorConfig ?? config} lineup={lineup} onChange={setLineup} />
+              {config.research?.kind ? (
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={researchOn}
+                    disabled={!researchAvailable}
+                    onChange={(event) => setWebResearch(event.target.checked)}
+                  />
+                  <span>
+                    {t("setup.research")}
+                    <span className="field-hint">{europeanOnly ? t("setup.researchEuropean") : t("setup.researchHint")}</span>
+                  </span>
+                </label>
+              ) : null}
               <label className="check">
                 <input type="checkbox" checked={redact} onChange={(event) => setRedact(event.target.checked)} />
                 <span>

@@ -176,7 +176,8 @@
     "probeTag": "Ângulo que ninguém examinou",
     "yourSolution": "Sua solução",
     "personDays": "{{days}} dias-pessoa",
-    "weeks": "{{range}} semanas"
+    "weeks": "{{range}} semanas",
+    "research": "Pesquisa na web"
   },
   "severity": {
     "blocking": "Bloqueante",
@@ -273,7 +274,9 @@
     "critique": "Críticas",
     "revision": "Revisão",
     "verdict": "Veredito",
-    "reassess": "Veredito atualizado"
+    "reassess": "Veredito atualizado",
+    "research": "Pesquisa na web",
+    "search": "Pesquisa web"
   },
   "setup": {
     "modeLabel": "Do que você precisa?",
@@ -332,7 +335,10 @@
       "alternative": "Esboçar uma alternativa para comparar",
       "alternativeHint": "Um modelo concebe a sua própria abordagem apenas a partir da sua necessidade, sem ler o documento: uma ordem de grandeza independente. Custa uma chamada a mais.",
       "start": "Auditar o documento"
-    }
+    },
+    "research": "Verificar os factos na web",
+    "researchHint": "Antes das propostas, consultas curtas e genéricas (nunca os seus documentos nem dados pessoais) verificam preços, versões, datas de fim de suporte e regras em vigor. O relatório cita as suas fontes.",
+    "researchEuropean": "Desativada com apenas modelos europeus: nenhum motor de pesquisa mantém as consultas na Europa."
   },
   "persona": {
     "cloud_architect": "Arquiteto de nuvem",
@@ -1000,5 +1006,26 @@
     "copy": "Copiar as perguntas",
     "copied": "Perguntas copiadas: cole-as na sua resposta.",
     "copyFailed": "Não foi possível copiar as perguntas: selecione-as e copie-as manualmente."
+  },
+  "research": {
+    "title": "Pesquisa na web",
+    "sources": "Fontes",
+    "intro": "Verificado na web em {{date}} com {{engine}}, antes das propostas. Uma página web pode estar errada ou desatualizada: verifique aquelas de que depende uma decisão.",
+    "retrieved": "consultada em {{date}}",
+    "newTab": "abre num novo separador",
+    "running": "A verificar os factos de que o debate depende, antes das propostas.",
+    "searching": "A pesquisar…",
+    "pages": "Páginas encontradas: {{count}}",
+    "notSearched": "Não pesquisada",
+    "facts": "Factos encontrados: {{count}}",
+    "claimsNote": "Uma afirmação só é marcada como verificada quando cita uma fonte encontrada pela pesquisa na web.",
+    "empty": "A pesquisa na web não encontrou nada fiável para o debate: os factos vêm do conhecimento dos modelos, que pode estar desatualizado.",
+    "failed": "A pesquisa na web falhou e o debate continuou sem ela: os factos vêm do conhecimento dos modelos, que pode estar desatualizado.",
+    "skipped": {
+      "european": "Sem pesquisa na web: este debate usa apenas modelos europeus, e nenhum motor de pesquisa mantém as consultas na Europa.",
+      "unavailable": "Sem pesquisa na web: este servidor não tem nenhum motor de pesquisa configurado.",
+      "budget": "A pesquisa na web foi omitida para manter o debate dentro do seu limite de custo."
+    },
+    "engineDemo": "os resultados gravados da demonstração"
   }
 }

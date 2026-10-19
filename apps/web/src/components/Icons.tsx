@@ -257,3 +257,18 @@ export const LockIcon = () => (
     <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
   </Icon>
 );
+
+export const ExternalIcon = () => (
+  <Icon width="14" height="14">
+    <path d="M13.5 5.5h5v5" />
+    <path d="M18.5 5.5l-8 8" />
+    <path d="M16.5 13.5v4a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5V9.5A1.5 1.5 0 0 1 7 8h4" />
+  </Icon>
+);
+
+export const SearchIcon = () => (
+  <Icon>
+    <circle cx="10.5" cy="10.5" r="6" />
+    <path d="M15 15l5 5" />
+  </Icon>
+);

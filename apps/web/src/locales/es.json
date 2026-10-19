@@ -176,7 +176,8 @@
     "probeTag": "Ángulo que nadie ha examinado",
     "yourSolution": "Su solución",
     "personDays": "{{days}} jornadas-persona",
-    "weeks": "{{range}} semanas"
+    "weeks": "{{range}} semanas",
+    "research": "Búsqueda en la web"
   },
   "severity": {
     "blocking": "Bloqueante",
@@ -273,7 +274,9 @@
     "critique": "Críticas",
     "revision": "Revisión",
     "verdict": "Veredicto",
-    "reassess": "Veredicto actualizado"
+    "reassess": "Veredicto actualizado",
+    "research": "Búsqueda en la web",
+    "search": "Búsqueda web"
   },
   "setup": {
     "modeLabel": "¿Qué necesita?",
@@ -332,7 +335,10 @@
       "alternative": "Esbozar una alternativa para comparar",
       "alternativeHint": "Un modelo diseña su propio enfoque solo a partir de su necesidad, sin leer el documento: un orden de magnitud independiente. Cuesta una llamada más.",
       "start": "Auditar el documento"
-    }
+    },
+    "research": "Comprobar los hechos en la web",
+    "researchHint": "Antes de las propuestas, consultas breves y generales (nunca sus documentos ni sus datos personales) comprueban precios, versiones, fechas de fin de soporte y normas vigentes. El informe cita sus fuentes.",
+    "researchEuropean": "Desactivada con solo modelos europeos: ningún buscador mantiene las consultas en Europa."
   },
   "persona": {
     "cloud_architect": "Arquitecto cloud",
@@ -1000,5 +1006,26 @@
     "copy": "Copiar las preguntas",
     "copied": "Preguntas copiadas: péguelas en su respuesta.",
     "copyFailed": "No se pudieron copiar las preguntas: selecciónelas y cópielas a mano."
+  },
+  "research": {
+    "title": "Búsqueda en la web",
+    "sources": "Fuentes",
+    "intro": "Comprobado en la web el {{date}} con {{engine}}, antes de las propuestas. Una página web puede equivocarse o estar desactualizada: compruebe aquellas de las que depende una decisión.",
+    "retrieved": "consultada el {{date}}",
+    "newTab": "se abre en una pestaña nueva",
+    "running": "Comprobando los hechos de los que depende el debate, antes de las propuestas.",
+    "searching": "Buscando…",
+    "pages": "Páginas encontradas: {{count}}",
+    "notSearched": "No buscada",
+    "facts": "Hechos encontrados: {{count}}",
+    "claimsNote": "Una afirmación solo se marca como verificada cuando cita una fuente encontrada por la búsqueda en la web.",
+    "empty": "La búsqueda en la web no encontró nada fiable para el debate: los hechos proceden del conocimiento de los modelos, que puede estar desactualizado.",
+    "failed": "La búsqueda en la web falló y el debate continuó sin ella: los hechos proceden del conocimiento de los modelos, que puede estar desactualizado.",
+    "skipped": {
+      "european": "Sin búsqueda en la web: este debate solo usa modelos europeos, y ningún buscador mantiene las consultas en Europa.",
+      "unavailable": "Sin búsqueda en la web: este servidor no tiene ningún buscador configurado.",
+      "budget": "Se omitió la búsqueda en la web para que el debate no superara su límite de coste."
+    },
+    "engineDemo": "los resultados grabados de la demo"
   }
 }

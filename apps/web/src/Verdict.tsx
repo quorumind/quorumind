@@ -13,6 +13,7 @@ import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ComplianceSection } from "./components/ComplianceOptions.tsx";
 import { ExportMenu } from "./components/ExportMenu.tsx";
 import { CheckIcon, CrossIcon, DownloadIcon, MapIcon, SparkIcon, WarningIcon } from "./components/Icons.tsx";
+import { ClaimRefs, SourcesPanel } from "./components/Sources.tsx";
 import { CheckBadges, CostingTable, moneyRange, monthlyCurrency } from "./costing.tsx";
 import { seatName } from "./Debate.tsx";
 import { DecisionPanel } from "./Decisions.tsx";
@@ -590,7 +591,10 @@ export function Verdict({
             <h2 className="heading">{t("verdict.claims")}</h2>
             {verdict.claims.map((claim) => (
               <div className="claim" key={claim.claim}>
-                <span>{claim.claim}</span>
+                <span>
+                  {claim.claim}
+                  <ClaimRefs session={session} ids={claim.sources} />
+                </span>
                 <span
                   className={`chip ${claim.confidence === "verified" ? "" : claim.confidence === "estimated" ? "severity-major" : "severity-minor"}`}
                 >
@@ -611,6 +615,8 @@ export function Verdict({
           </section>
         ) : null}
       </div>
+
+      <SourcesPanel session={session} />
 
       {readOnly || !canEdit || shown !== latest ? null : <ClientLoop session={live} price={revisionPrice} onClient={setClient} />}
       {readOnly || !canEdit ? null : (

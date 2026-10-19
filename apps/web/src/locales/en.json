@@ -176,7 +176,8 @@
     "probeTag": "Angle nobody examined",
     "yourSolution": "Your solution",
     "personDays": "{{days}} person-days",
-    "weeks": "{{range}} weeks"
+    "weeks": "{{range}} weeks",
+    "research": "Web research"
   },
   "severity": {
     "blocking": "Blocking",
@@ -273,7 +274,9 @@
     "critique": "Critiques",
     "revision": "Revision",
     "verdict": "Verdict",
-    "reassess": "Updated verdict"
+    "reassess": "Updated verdict",
+    "research": "Web research",
+    "search": "Web search"
   },
   "setup": {
     "modeLabel": "What do you need?",
@@ -332,7 +335,10 @@
       "alternative": "Sketch an alternative for comparison",
       "alternativeHint": "A model designs its own approach from your need alone, without reading the document: an independent order of magnitude. It costs one more call.",
       "start": "Audit the document"
-    }
+    },
+    "research": "Check facts on the web",
+    "researchHint": "Before the proposals, short generic queries (never your documents or personal data) look up current prices, versions, end-of-life dates and rules. The report cites its sources.",
+    "researchEuropean": "Off with European models only: no search engine keeps the queries in Europe."
   },
   "persona": {
     "cloud_architect": "Cloud architect",
@@ -1000,5 +1006,26 @@
     "copy": "Copy the questions",
     "copied": "Questions copied: paste them into your reply.",
     "copyFailed": "The questions could not be copied: select them and copy them by hand."
+  },
+  "research": {
+    "title": "Web research",
+    "sources": "Sources",
+    "intro": "Checked on the web on {{date}} through {{engine}}, before the proposals. Web pages can be wrong or out of date: check those a decision hangs on.",
+    "retrieved": "retrieved on {{date}}",
+    "newTab": "opens in a new tab",
+    "running": "Checking the facts the debate depends on before the proposals.",
+    "searching": "Searching…",
+    "pages": "Pages found: {{count}}",
+    "notSearched": "Not searched",
+    "facts": "Facts found: {{count}}",
+    "claimsNote": "A claim is marked verified only when it cites a source found by the web research.",
+    "empty": "The web research found nothing the debate could rely on: the facts come from the models' knowledge, which may be out of date.",
+    "failed": "The web research failed and the debate went on without it: the facts come from the models' knowledge, which may be out of date.",
+    "skipped": {
+      "european": "No web research: this debate uses European models only, and no search engine keeps the queries in Europe.",
+      "unavailable": "No web research: this server has no search engine configured.",
+      "budget": "The web research was skipped to keep the debate within its cost cap."
+    },
+    "engineDemo": "the recorded results of the demo"
   }
 }

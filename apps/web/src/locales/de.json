@@ -176,7 +176,8 @@
     "probeTag": "Von niemandem geprüfter Aspekt",
     "yourSolution": "Ihre Lösung",
     "personDays": "{{days}} Personentage",
-    "weeks": "{{range}} Wochen"
+    "weeks": "{{range}} Wochen",
+    "research": "Websuche"
   },
   "severity": {
     "blocking": "Blockierend",
@@ -273,7 +274,9 @@
     "critique": "Kritik",
     "revision": "Überarbeitung",
     "verdict": "Urteil",
-    "reassess": "Aktualisiertes Urteil"
+    "reassess": "Aktualisiertes Urteil",
+    "research": "Websuche",
+    "search": "Suchanfrage"
   },
   "setup": {
     "modeLabel": "Was brauchen Sie?",
@@ -332,7 +335,10 @@
       "alternative": "Eine Alternative zum Vergleich skizzieren",
       "alternativeHint": "Ein Modell entwirft allein aus Ihrem Bedarf einen eigenen Ansatz, ohne das Dokument zu lesen: eine unabhängige Größenordnung. Das kostet einen Aufruf mehr.",
       "start": "Dokument prüfen"
-    }
+    },
+    "research": "Fakten im Web prüfen",
+    "researchHint": "Vor den Vorschlägen prüfen kurze, allgemeine Suchanfragen (nie Ihre Dokumente oder personenbezogenen Daten) aktuelle Preise, Versionen, Support-Enden und Regeln. Der Bericht nennt seine Quellen.",
+    "researchEuropean": "Aus bei nur europäischen Modellen: Keine Suchmaschine hält die Suchanfragen in Europa."
   },
   "persona": {
     "cloud_architect": "Cloud-Architekt",
@@ -1000,5 +1006,26 @@
     "copy": "Fragen kopieren",
     "copied": "Fragen kopiert: Fügen Sie sie in Ihre Antwort ein.",
     "copyFailed": "Die Fragen konnten nicht kopiert werden: Markieren und kopieren Sie sie von Hand."
+  },
+  "research": {
+    "title": "Websuche",
+    "sources": "Quellen",
+    "intro": "Am {{date}} über {{engine}} im Web geprüft, vor den Vorschlägen. Webseiten können sich irren oder veraltet sein: Prüfen Sie die, von denen eine Entscheidung abhängt.",
+    "retrieved": "abgerufen am {{date}}",
+    "newTab": "öffnet sich in einem neuen Tab",
+    "running": "Die Fakten, von denen die Debatte abhängt, werden vor den Vorschlägen geprüft.",
+    "searching": "Suche läuft…",
+    "pages": "Gefundene Seiten: {{count}}",
+    "notSearched": "Nicht gesucht",
+    "facts": "Gefundene Fakten: {{count}}",
+    "claimsNote": "Eine Aussage gilt nur dann als geprüft, wenn sie eine Quelle aus der Websuche nennt.",
+    "empty": "Die Websuche fand nichts, worauf sich die Debatte stützen konnte: Die Fakten stammen aus dem Wissen der Modelle, das veraltet sein kann.",
+    "failed": "Die Websuche ist fehlgeschlagen, und die Debatte lief ohne sie weiter: Die Fakten stammen aus dem Wissen der Modelle, das veraltet sein kann.",
+    "skipped": {
+      "european": "Keine Websuche: Diese Debatte nutzt nur europäische Modelle, und keine Suchmaschine hält die Suchanfragen in Europa.",
+      "unavailable": "Keine Websuche: Auf diesem Server ist keine Suchmaschine eingerichtet.",
+      "budget": "Die Websuche entfiel, damit die Debatte ihre Kostengrenze einhält."
+    },
+    "engineDemo": "die aufgezeichneten Ergebnisse der Demo"
   }
 }
