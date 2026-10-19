@@ -1,6 +1,8 @@
 import { HeadingLevel, Paragraph, type Table } from "docx";
 import type { Branding } from "../branding.ts";
 import { type Costing, deliveryChecks, proposalCosting, sessionProfile } from "../costing.ts";
+import { decisionLabels } from "../decision-labels.ts";
+import { decisionFacts } from "../decision-report.ts";
 import {
   budgetText,
   buildRange,
@@ -82,6 +84,9 @@ export async function renderDocx(session: Session, branding: Branding): Promise<
       children.push(labelled(t.buildTime, buildTime(proposal)));
       if (badges(chosen.seat)) children.push(labelled(t.checks, badges(chosen.seat)));
     }
+    // Who approved this version, once the register records it.
+    const register = session.decision ? decisionFacts(session) : [];
+    if (register.length > 0) children.push(heading(decisionLabels(session.locale).decision), ...bullets(register));
     if (revision?.changes) {
       children.push(heading(revision.changes.title));
       children.push(para(`${revision.label} · ${revision.reason}`, { style: { color: MUTED, size: 18 } }));

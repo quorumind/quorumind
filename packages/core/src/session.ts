@@ -1,7 +1,9 @@
 import type { ComplianceTemplateId } from "./compliance.ts";
+import type { Decision } from "./decisions.ts";
 import type { Locale } from "./locales.ts";
 import type { OrgProfile } from "./profile.ts";
 import type { ProviderKind, Task } from "./providers/types.ts";
+import type { RevisionScenario } from "./scenarios.ts";
 import type {
   Audience,
   Brief,
@@ -128,6 +130,12 @@ export interface CostRevision {
   monthlyCost: CostEstimate;
 }
 
+/** The calendar weeks of one option as a revision changed them: a larger or smaller team, a tighter scope. */
+export interface ScheduleRevision {
+  seat: string;
+  buildWeeks: { low: number; high: number };
+}
+
 /**
  * One version of the verdict. The debate's verdict is revision 1; each later one re-runs the arbiter (and, when the
  * facts call for it, a short critique of the options) with new facts, instead of the whole debate.
@@ -146,6 +154,16 @@ export interface VerdictRevision {
   critiques: { seat: string; data: CritiqueRound }[];
   /** Who asked for it: the user id on a hosted server; null for the local user and for the debate's own verdict. */
   by: string | null;
+  /** The build times the new facts changed; absent on the revisions made before they could. */
+  schedules?: ScheduleRevision[];
+  /** For a "what if" scenario: its title and the changes it tries. */
+  scenario?: RevisionScenario;
+  /**
+   * The requirements this revision ruled on, when they differ from those of the revision it starts from (a scenario
+   * changing the budget, the deadline, the team or the constraints). The revisions that start from it inherit them;
+   * absent, they are those of the revision before, and in the end the session's own sheet.
+   */
+  sheet?: RequirementsSheet;
 }
 
 /** A revision on its way: the arbiter works on it, or it stopped on `error` and can be asked again. */
@@ -157,6 +175,8 @@ export interface PendingRevision {
   inputs: RevisionInputs;
   basedOn: number;
   by: string | null;
+  /** For a scenario: its title and the changes it tries. */
+  scenario?: RevisionScenario;
   startedAt: string;
   /** Null while it runs. A failed revision changes nothing: the current verdict stays. */
   error: SessionError | null;
@@ -217,10 +237,14 @@ export interface Session {
   /** Set when the person validates the requirements sheet and the debate may start. */
   sheetConfirmedAt: string | null;
   debate: DebateEntry[];
-  /** The current verdict: that of the latest revision. */
+  /** The current verdict: that of the adopted scenario, else that of the latest revision that is not a scenario. */
   verdict: Verdict | null;
-  /** Every version of the verdict, oldest first; empty until the arbiter has ruled. */
+  /** Every version of the verdict, oldest first, scenarios included; empty until the arbiter has ruled. */
   revisions: VerdictRevision[];
+  /** The scenario adopted as the decision; null keeps the latest revision that is not a scenario. */
+  adopted: number | null;
+  /** The decision as the register records it: its approval, its note, its review date. Null until one is recorded. */
+  decision: Decision | null;
   /** The revision being made, or the last one that failed. */
   revising: PendingRevision | null;
   /** The current verdict rewritten for other readers, generated on demand. */
@@ -313,6 +337,8 @@ export function createSession(input: NewSessionInput): Session {
     verdict: null,
     revisions: [],
     revising: null,
+    adopted: null,
+    decision: null,
     briefs: {},
     usage: [],
     error: null,
@@ -349,6 +375,8 @@ export function normalizeSession(stored: Session): Session {
   // Proposals made before the single currency each named theirs: the debate keeps the first one's.
   session.currency ??= session.sheetConfirmedAt ? legacyCurrency(session) : null;
   session.revising ??= null;
+  session.adopted ??= null;
+  session.decision ??= null;
   // Verdicts stored before the debate map listed consensus and disagreements separately.
   const legacy = session.verdict as (Verdict & { consensus?: string[]; disagreements?: { topic: string; positions: string[] }[] }) | null;
   if (legacy && !legacy.topics) {
@@ -465,8 +493,8 @@ export function totalCost(session: Session): { usd: number; complete: boolean } 
 }
 
 /**
- * Latest version of each proposal: the revised one when a revision exists, with the running costs the verdict
- * revisions changed since.
+ * Latest version of each proposal: the revised one when a revision exists, with the running costs and build times
+ * changed since by the verdict revisions the current one descends from (never by a scenario beside it).
  */
 export function currentProposals(session: Session): Record<string, Proposal> {
   const proposals: Record<string, Proposal> = {};
@@ -474,11 +502,14 @@ export function currentProposals(session: Session): Record<string, Proposal> {
     if (entry.kind === "proposal") proposals[entry.seat] = entry.data;
     if (entry.kind === "revision") proposals[entry.seat] = entry.data.proposal;
   }
-  for (const revision of session.revisions ?? []) {
+  for (const revision of revisionLineage(session, currentRevision(session)?.number ?? null)) {
     for (const cost of revision.costs) {
       const proposal = proposals[cost.seat];
-      if (!proposal) continue;
-      proposals[cost.seat] = { ...proposal, monthlyCost: cost.monthlyCost };
+      if (proposal) proposals[cost.seat] = { ...proposal, monthlyCost: cost.monthlyCost };
+    }
+    for (const schedule of revision.schedules ?? []) {
+      const proposal = proposals[schedule.seat];
+      if (proposal) proposals[schedule.seat] = { ...proposal, buildWeeks: schedule.buildWeeks };
     }
   }
   return proposals;
@@ -499,22 +530,67 @@ export function firstRevision(verdict: Verdict, createdAt: string): VerdictRevis
   };
 }
 
-/** The revision the session shows: the latest. */
+export const isScenario = (revision: Pick<VerdictRevision, "reason">) => revision.reason === "scenario";
+
+/** The revision the session shows: the adopted scenario, else the latest revision that is not a scenario. */
 export function currentRevision(session: Session): VerdictRevision | null {
-  return session.revisions.at(-1) ?? null;
+  const revisions = session.revisions ?? [];
+  const adopted = session.adopted == null ? undefined : revisions.find((revision) => revision.number === session.adopted);
+  return adopted ?? revisions.findLast((revision) => !isScenario(revision)) ?? revisions.at(-1) ?? null;
 }
 
 /**
- * The session as it stood at one revision of its verdict, for the report of an earlier version: that verdict and the
- * revisions up to it (so the costs are those of that time), with no reader brief unless it is the latest. Null when
- * there is no such revision.
+ * The revisions one descends from, oldest first and itself last: each one's basedOn back to the debate's verdict.
+ * Its costs and requirements are those of this line, never of the scenarios beside it. Empty when there is no such
+ * revision.
+ */
+export function revisionLineage(session: Session, number: number | null): VerdictRevision[] {
+  const revisions = session.revisions ?? [];
+  const line: VerdictRevision[] = [];
+  const seen = new Set<number>();
+  let next = number === null ? undefined : revisions.find((revision) => revision.number === number);
+  while (next && !seen.has(next.number)) {
+    seen.add(next.number);
+    line.unshift(next);
+    const basedOn = next.basedOn;
+    next = basedOn === null ? undefined : revisions.find((revision) => revision.number === basedOn);
+  }
+  return line;
+}
+
+/** The requirements a revision ruled on: the latest ones its line of revisions set, else the session's sheet. */
+export function revisionSheet(session: Session, number: number): RequirementsSheet | null {
+  return revisionLineage(session, number).findLast((revision) => revision.sheet)?.sheet ?? session.sheet;
+}
+
+/**
+ * The session as it stood at one revision of its verdict, for the report of an earlier version or of a scenario:
+ * that verdict, the line of revisions it descends from (so the costs are those of that line), the requirements it
+ * ruled on, and no reader brief unless it is the current revision. Null when there is no such revision.
  */
 export function sessionAtRevision(session: Session, number: number): Session | null {
-  const index = session.revisions.findIndex((revision) => revision.number === number);
-  const revision = session.revisions[index];
+  const revision = session.revisions.find((item) => item.number === number);
   if (!revision) return null;
-  if (index === session.revisions.length - 1) return session;
-  return { ...session, verdict: revision.verdict, revisions: session.revisions.slice(0, index + 1), revising: null, briefs: {} };
+  const current = revision === currentRevision(session);
+  const lineage = revisionLineage(session, number);
+  const sheet = revisionSheet(session, number);
+  // The current revision of a session without branches nor changed requirements: the session itself.
+  if (current && lineage.length === session.revisions.length && sheet === session.sheet) return session;
+  return {
+    ...session,
+    sheet,
+    verdict: revision.verdict,
+    revisions: lineage,
+    adopted: isScenario(revision) ? revision.number : null,
+    revising: null,
+    briefs: current ? session.briefs : {},
+  };
+}
+
+/** The session as its current revision shows it: with the requirements and the costs of that revision's line. */
+export function currentView(session: Session): Session {
+  const current = currentRevision(session);
+  return (current && sessionAtRevision(session, current.number)) ?? session;
 }
 
 export function allAnswers(session: Session): Answer[] {

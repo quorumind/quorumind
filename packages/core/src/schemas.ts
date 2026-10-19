@@ -241,6 +241,9 @@ export const VerdictUpdate = Verdict.extend({
   costs: z
     .array(z.object({ seat: z.string(), monthlyCost: z.object({ low: z.number(), high: z.number(), basis: z.string() }) }))
     .describe("Only the options whose monthly running cost the new facts change, with the new estimate in the debate's currency."),
+  schedules: z
+    .array(z.object({ seat: z.string(), buildWeeks: z.object({ low: z.number(), high: z.number() }) }))
+    .describe("Only the options whose calendar weeks to the launch the new facts change, e.g. a larger or smaller team."),
 });
 export type VerdictUpdate = z.infer<typeof VerdictUpdate>;
 

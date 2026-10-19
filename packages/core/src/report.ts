@@ -9,6 +9,7 @@ import {
   sessionProfile,
   threeYearCost,
 } from "./costing.ts";
+import { decisionFacts, decisionMarkdown, decisionStatusText } from "./decision-report.ts";
 import type { DiagramComponent, DiagramFlow } from "./diagram.ts";
 import type { Locale } from "./locales.ts";
 import { isGenericRole, type OrgProfile } from "./profile.ts";
@@ -476,6 +477,7 @@ export function renderReport(session: Session): string {
       facts.push(say(t.weightedScore, fill(summary.margin.close ? t.closeCall : t.clearLead, values)));
     }
     if (facts.length > 0) lines.push(list(facts), "");
+    lines.push(...decisionMarkdown(session));
     if (revision) lines.push(...revisionMarkdown(revision));
   }
 
@@ -688,8 +690,11 @@ export function renderAdr(session: Session, numbering: { number?: number | null 
 
   const title = chosen?.proposal?.title ?? project;
   lines.push(numbering.number ? `# ${numbering.number}. ${title}` : `# ${t.adr}: ${title}`, "");
+  // The register's status: "Accepted, approved by … on …" once someone approved this version of the decision.
+  const register = decisionFacts(session);
   lines.push(
-    `- **${t.status}:** ${t.proposed}`,
+    `- **${t.status}:** ${decisionStatusText(session) ?? t.proposed}`,
+    ...register.slice(1).map((fact) => `- ${fact}`),
     `- **${t.date}:** ${session.updatedAt.slice(0, 10)}`,
     `- **${t.mode}:** ${modeName(session, t)}`,
     "",

@@ -508,6 +508,28 @@ const REASSESSMENT: VerdictUpdate = {
       monthlyCost: { low: 140, high: 220, basis: "Hosting, database and SMS at the confirmed provider's rate; estimate." },
     },
   ],
+  schedules: [],
+};
+
+/** A "what if" scenario of the demo ruled on: two more developers shorten option A's build. */
+const SCENARIO: VerdictUpdate = {
+  ...VERDICT,
+  speech:
+    "With four developers, option A's first release takes about ten weeks instead of thirteen: the deadline is no longer at risk. Option A stays the recommendation, now with margin.",
+  options: VERDICT.options.map((option) =>
+    option.seat === "A"
+      ? {
+          ...option,
+          reason: "Meets EU hosting and the monthly cap, and with four developers the first release fits the deadline with margin.",
+          scores: option.scores.map((score) => (score.criterion === "Time to market" ? { ...score, score: 4 } : score)),
+        }
+      : option,
+  ),
+  risks: VERDICT.risks.map((risk) =>
+    risk.risk === "Launch slips past September" ? { ...risk, likelihood: "low", mitigation: "Keep the two-weekly progress review." } : risk,
+  ),
+  costs: [],
+  schedules: [{ seat: "A", buildWeeks: { low: 9, high: 11 } }],
 };
 
 export const DEMO_SCRIPT = {
@@ -518,4 +540,5 @@ export const DEMO_SCRIPT = {
   revisions: { A: REVISION_A, B: REVISION_B } as Record<string, Revision>,
   verdict: VERDICT,
   reassessment: REASSESSMENT,
+  scenario: SCENARIO,
 };

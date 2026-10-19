@@ -1,5 +1,7 @@
 import { type AgencyLabels, agencyLabels } from "./agency-labels.ts";
 import { debateCurrency } from "./costing.ts";
+import { decisionLabels } from "./decision-labels.ts";
+import { scenarioLines } from "./decision-report.ts";
 import { fill, formatRange, formatScore, labelled, type ReportLabels, reportLabels, seatName } from "./report.ts";
 import { revisionChanges, unchanged } from "./revisions.ts";
 import { currentProposals, currentRevision, type RevisionReason, type Session } from "./session.ts";
@@ -47,14 +49,16 @@ export function revisionNote(session: Session): RevisionNote | null {
     const answer = [fact.answer || a.none, fact.comment ? `(${fact.comment})` : ""].filter(Boolean).join(" ");
     return fact.question ? labelled(fact.question, answer, session.locale) : answer;
   });
-  if (revision.inputs.note) facts.push(revision.inputs.note);
+  if (revision.inputs.note && !revision.scenario) facts.push(revision.inputs.note);
   const changes = revisionChanges(session, revision.number);
+  const d = decisionLabels(session.locale);
   return {
     number: revision.number,
     label,
-    reason: a[REASONS[revision.reason]],
-    facts,
-    factsTitle: a.newFacts,
+    reason: revision.scenario ? fill(d.scenarioNamed, { title: revision.scenario.title }) : a[REASONS[revision.reason]],
+    // A scenario's changes, in the document's language, rather than the sentences the models read.
+    facts: revision.scenario ? scenarioLines(revision.scenario, session.locale) : facts,
+    factsTitle: revision.scenario ? d.changes : a.newFacts,
     changes: changes
       ? {
           title: fill(a.whatChanged, { number: changes.since }),

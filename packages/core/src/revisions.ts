@@ -51,10 +51,18 @@ export function revisionChanges(session: Session, number: number): RevisionChang
   const before = sessionAtRevision(session, current.basedOn);
   const after = sessionAtRevision(session, number);
   if (!before?.verdict || !after?.verdict) return null;
-  const old = before.verdict;
-  const now = after.verdict;
+  return changesBetween(before, after, current.basedOn);
+}
 
-  const weights = Object.fromEntries((session.sheet?.priorities ?? []).map((priority) => [priority.criterion, priority.weight]));
+/**
+ * What changed from one state of a session to another (two of its revisions, as sessionAtRevision gives them), with
+ * `since` the number of the first. Both must have a verdict.
+ */
+export function changesBetween(before: Session, after: Session, since: number): RevisionChanges {
+  const old = before.verdict as Verdict;
+  const now = after.verdict as Verdict;
+
+  const weights = Object.fromEntries((after.sheet?.priorities ?? []).map((priority) => [priority.criterion, priority.weight]));
   const oldWeighted = new Map(rankOptions(old, weights).map((option) => [option.seat, option.score]));
   const newWeighted = new Map(rankOptions(now, weights).map((option) => [option.seat, option.score]));
   const seats = [...new Set([...old.options, ...now.options].map((option) => option.seat))];
@@ -104,7 +112,7 @@ export function revisionChanges(session: Session, number: number): RevisionChang
   const oldQuestions = new Set(old.openQuestions.map(key));
   const newQuestions = new Set(now.openQuestions.map(key));
   return {
-    since: current.basedOn,
+    since,
     recommendation:
       old.recommendation.seat === now.recommendation.seat ? null : { from: old.recommendation.seat, to: now.recommendation.seat },
     feasibility,

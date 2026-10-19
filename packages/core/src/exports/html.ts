@@ -1,6 +1,8 @@
 import { type Branding, isAccent, parseLogo, QUORUMIND_ACCENT } from "../branding.ts";
 import { complianceHtml } from "../compliance-report.ts";
 import { type Costing, deliveryChecks, type OptionChecks, proposalCosting, sessionProfile, threeYearCost } from "../costing.ts";
+import { decisionLabels } from "../decision-labels.ts";
+import { decisionFacts } from "../decision-report.ts";
 import { DIAGRAM_THEME, diagramSvg, layoutDiagram } from "../diagram.ts";
 import { type Locale, localeInfo } from "../locales.ts";
 import {
@@ -396,6 +398,10 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
     );
     if (verdict) {
       body.push(recommendationBox());
+      // Who approved this version, once the register records it.
+      const register = session.decision ? decisionFacts(session) : [];
+      if (register.length > 0)
+        body.push(`<section class="decision"><h2>${esc(decisionLabels(session.locale).decision)}</h2>${list(register)}</section>`);
       if (revision) body.push(revisionSection(revision));
       // In short: the arbiter's own summary and the four answers a decision maker looks for.
       const points: [string, string][] = [];

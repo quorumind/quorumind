@@ -18,7 +18,7 @@ import {
 } from "./report.ts";
 import { formatDate } from "./revision-report.ts";
 import type { Brief, Feasibility, Verdict } from "./schemas.ts";
-import { currentProposals, type Mode, type Session } from "./session.ts";
+import { currentProposals, currentRevision, type Mode, type Session } from "./session.ts";
 
 /**
  * What an option costs the client: its work packages with their days and amounts, the total, the running cost and the
@@ -125,7 +125,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
   };
   const seat = verdict.recommendation.seat;
   const brief = session.briefs.client;
-  const revision = session.revisions.at(-1);
+  const revision = currentRevision(session);
   return {
     ...base,
     complete: true,
@@ -334,7 +334,7 @@ export function clientProposal(session: Session, options: { client?: string | nu
   const sheet = session.sheet;
   const verdict = session.phase === "complete" ? session.verdict : null;
   const proposals = currentProposals(session);
-  const revision = verdict ? (session.revisions.at(-1) ?? null) : null;
+  const revision = verdict ? currentRevision(session) : null;
   const deliverable = clientDeliverable(session);
   const seat = verdict?.recommendation.seat ?? null;
   const chosen = seat ? proposals[seat] : undefined;

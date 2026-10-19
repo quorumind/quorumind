@@ -29,8 +29,10 @@ import {
   requirementsBlock,
   reviserSystem,
   revisionCriticSystem,
+  scenarioSystem,
 } from "./prompts.ts";
 import { type ChatMessage, type LlmProvider, ProviderError, type Task } from "./providers/types.ts";
+import { applyScenario, type RevisionScenario, scenarioFacts } from "./scenarios.ts";
 import {
   type Audience,
   Brief,
@@ -50,15 +52,19 @@ import {
   allAnswers,
   criticSeats,
   currentProposals,
+  currentRevision,
+  currentView,
   DEVIL_SEAT,
   type DebateEntry,
   type Depth,
   firstRevision,
   type PendingRevision,
   proposerSeats,
+  type RevisionFact,
   type RevisionInputs,
   type Session,
   type SessionError,
+  sessionAtRevision,
   totalCost,
   USER_SEAT,
   type VerdictRevision,
@@ -95,6 +101,9 @@ export interface RevisionRequest {
   inputs: RevisionInputs;
   /** The user id on a hosted server; null for the local user. */
   by: string | null;
+  /** For a scenario: its title and changes (required), and the revision it branches from (the current one by default). */
+  scenario?: RevisionScenario;
+  basedOn?: number;
 }
 
 export class BudgetExceededError extends Error {
@@ -168,6 +177,15 @@ const SCHEMAS = {
   reassess: { zod: VerdictUpdate, json: toStrictJsonSchema(VerdictUpdate), name: "verdict_update", maxTokens: 20_000 },
   brief: { zod: Brief, json: toStrictJsonSchema(Brief), name: "brief", maxTokens: 8_000 },
 } as const;
+
+/**
+ * The schema of a revision's ruling: with the compliance assessment when the debate has requirements, and under a name
+ * of its own for a "what if" scenario.
+ */
+function revisionSchema(scenario: boolean, compliance: boolean): OutputSpec {
+  const spec: OutputSpec = compliance ? COMPLIANCE_UPDATE : SCHEMAS.reassess;
+  return scenario ? { ...spec, name: spec.name.replace("verdict_update", "scenario_update") } : spec;
+}
 
 export class DebateEngine {
   private readonly providers: ProviderSet;
@@ -272,14 +290,16 @@ export class DebateEngine {
   /** Rewrites the verdict for another reader. Failures are thrown to the caller: the session stays complete. */
   async writeBrief(session: Session, audience: Audience): Promise<void> {
     if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
+    // The current revision as it stands: an adopted scenario brings its own requirements.
+    const shown = currentView(session);
     const brief = await this.call(session, "brief", null, this.providers.arbiter, {
       system: briefSystem(session.locale, audience),
       messages: [
         {
           role: "user",
           content: [
-            requirementsBlock(requireSheet(session)),
-            proposalsBlock(currentProposals(session), computedCosts(session)),
+            requirementsBlock(requireSheet(shown)),
+            proposalsBlock(currentProposals(shown), computedCosts(shown)),
             fence("debate", JSON.stringify({ verdict: stripSpeech(session.verdict) }, null, 2)),
             `Write the brief for this reader: ${audience}.`,
           ].join("\n\n"),
@@ -291,23 +311,30 @@ export class DebateEngine {
   }
 
   /**
-   * Records a new revision of the verdict as pending, from new facts: answers to the open questions or corrections.
-   * runRevision then makes it. A revision that failed is replaced.
+   * Records a new revision of the verdict as pending, from new facts: answers to the open questions or corrections,
+   * or a "what if" scenario. runRevision then makes it. A revision starts from the current one; a scenario may branch
+   * from any earlier revision. A revision that failed is replaced.
    */
   async beginRevision(session: Session, request: RevisionRequest): Promise<PendingRevision> {
     if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
     if (session.revising && !session.revising.error) {
       throw new InvalidStateError("The verdict is already being revised. Wait for it to finish.", "session_busy");
     }
+    if (request.reason === "scenario" && !request.scenario) throw new InvalidStateError("A scenario needs its title and changes.");
     if (session.revisions.length === 0) session.revisions.push(firstRevision(session.verdict, session.updatedAt));
     const latest = session.revisions.at(-1) as VerdictRevision;
+    const basedOn = (request.reason === "scenario" ? request.basedOn : undefined) ?? currentRevision(session)?.number ?? latest.number;
+    if (!session.revisions.some((revision) => revision.number === basedOn)) {
+      throw new InvalidStateError(`There is no revision ${basedOn} to start from.`, "no_such_revision", { number: basedOn });
+    }
     session.revising = {
       id: globalThis.crypto.randomUUID(),
       number: latest.number + 1,
       reason: request.reason,
       inputs: structuredClone(request.inputs),
-      basedOn: latest.number,
+      basedOn,
       by: request.by,
+      ...(request.reason === "scenario" && request.scenario ? { scenario: structuredClone(request.scenario) } : {}),
       startedAt: new Date().toISOString(),
       error: null,
     };
@@ -318,27 +345,35 @@ export class DebateEngine {
   /**
    * Makes the pending revision: a short critique of the options with the new facts when there is room for it, then
    * the arbiter rules again. Only these calls are made, never the debate. `budgetUsd` caps what they may cost
-   * together. A failure leaves the current verdict as it is, the pending revision carrying the error. Returns true
-   * when the new verdict was produced.
+   * together. A failure leaves the current verdict as it is, the pending revision carrying the error. A scenario
+   * becomes a revision beside the others: the current verdict stays until it is adopted. Returns true when the new
+   * verdict was produced.
    */
   async runRevision(session: Session, options: { budgetUsd?: number | null } = {}): Promise<boolean> {
     const pending = session.revising;
     if (!pending || pending.error || !session.verdict) throw new InvalidStateError("No revision is waiting to be made.");
+    const scenario = pending.reason === "scenario" ? (pending.scenario ?? null) : null;
     this.scope = { revision: pending.number, budgetUsd: options.budgetUsd ?? null };
     try {
-      const critiques = await this.reviewFacts(session, pending);
-      const prompt = this.reassessPrompt(session, pending, critiques);
+      const work = revisionWork(session, pending);
+      const critiques = await this.reviewFacts(session, work);
+      const prompt = this.reassessPrompt(work, critiques);
       if (this.scope.budgetUsd !== null) {
         const spent = this.spent(session);
         if (spent + this.promptEstimate(prompt, "reassess") > this.scope.budgetUsd)
           throw new BudgetExceededError(spent, this.scope.budgetUsd);
       }
-      // With compliance requirements, the new ruling assesses the options against them again.
-      const requirements = activeRequirements(session);
-      const { costs, ...verdict } =
-        requirements.length > 0
-          ? await this.call(session, "reassess", null, this.providers.arbiter, prompt, COMPLIANCE_UPDATE)
-          : await this.call(session, "reassess", null, this.providers.arbiter, prompt);
+      // With compliance requirements, the new ruling assesses the options against them again (those of the
+      // requirements it rules on, a scenario's included).
+      const requirements = activeRequirements(work.subject);
+      const { costs, schedules, ...verdict } = await this.call(
+        session,
+        "reassess",
+        null,
+        this.providers.arbiter,
+        prompt,
+        revisionSchema(scenario !== null, requirements.length > 0),
+      );
       settleVerdict(session, verdict);
       if ("compliance" in verdict) settleCompliance(verdict as VerdictWithCompliance, requirements);
       const seats = new Set(verdict.options.map((option) => option.seat));
@@ -353,13 +388,23 @@ export class DebateEngine {
           const monthlyCost = validRange(cost.monthlyCost);
           return seats.has(cost.seat) && monthlyCost ? [{ seat: cost.seat, monthlyCost }] : [];
         }),
+        schedules: schedules.flatMap((schedule) => {
+          const buildWeeks = validRange(schedule.buildWeeks);
+          return seats.has(schedule.seat) && buildWeeks ? [{ seat: schedule.seat, buildWeeks }] : [];
+        }),
         critiques,
         by: pending.by,
+        ...(scenario ? { scenario } : {}),
+        ...(work.changedSheet ? { sheet: work.changedSheet } : {}),
       });
-      session.verdict = verdict;
       session.revising = null;
-      // The reader versions were written for the previous verdict.
-      session.briefs = {};
+      if (!scenario) {
+        // A new revision of the decision's own line: it is the current one, whatever scenario was adopted before.
+        session.verdict = verdict;
+        session.adopted = null;
+        // The reader versions were written for the previous verdict.
+        session.briefs = {};
+      }
       await this.persist(session);
       return true;
     } catch (error) {
@@ -375,33 +420,34 @@ export class DebateEngine {
    * The short critique of a revision: one critic (the devil's advocate, or the first seat) reads the options with the
    * new facts, when there are facts and the budget leaves room for the arbiter after it.
    */
-  private async reviewFacts(session: Session, pending: PendingRevision): Promise<VerdictRevision["critiques"]> {
-    const verdict = session.verdict;
-    const facts = pending.inputs.facts.filter((fact) => fact.answer.trim() || fact.comment?.trim());
+  private async reviewFacts(session: Session, work: RevisionWork): Promise<VerdictRevision["critiques"]> {
+    const { subject } = work;
+    const verdict = subject.verdict;
+    const facts = work.facts.filter((fact) => fact.answer.trim() || fact.comment?.trim());
     if (!verdict || facts.length === 0) return [];
     const seat =
       session.devil && this.providers.devil ? DEVIL_SEAT : Object.keys(session.seats).find((key) => this.providers.proposers[key]);
     if (!seat) return [];
     const provider = seat === DEVIL_SEAT ? this.devil() : this.proposer(seat);
-    const proposals = currentProposals(session);
+    const proposals = currentProposals(subject);
     const targets = Object.fromEntries(Object.entries(proposals).filter(([key]) => verdict.options.some((option) => option.seat === key)));
     if (Object.keys(targets).length === 0) return [];
     if (this.scope?.budgetUsd != null) {
-      const reserve = this.promptEstimate(this.reassessPrompt(session, pending, []), "reassess");
+      const reserve = this.promptEstimate(this.reassessPrompt(work, []), "reassess");
       if (this.spent(session) + callEstimate(session, "critique", provider.model) + reserve > this.scope.budgetUsd) return [];
     }
     const persona = seat === DEVIL_SEAT ? (session.devil?.persona ?? null) : (session.seats[seat]?.persona ?? null);
     const data = await this.call(session, "critique", seat, provider, {
-      system: revisionCriticSystem(session.locale, persona) + complianceRule(activeRequirements(session), "critique"),
+      system: revisionCriticSystem(session.locale, persona) + complianceRule(activeRequirements(subject), "critique"),
       messages: [
         {
           role: "user",
           content: [
-            requirementsBlock(requireSheet(session)),
-            profileBlock(sessionProfile(session)),
-            proposalsBlock(targets, computedCosts(session)),
+            requirementsBlock(requireSheet(subject)),
+            profileBlock(sessionProfile(subject)),
+            proposalsBlock(targets, computedCosts(subject)),
             fence("verdict", JSON.stringify(stripSpeech(verdict), null, 2)),
-            factsBlock(facts, pending.inputs.note),
+            factsBlock(facts, work.note),
             `Criticise these options in the light of the new facts only. Valid targets: ${Object.keys(targets).join(", ")}.`,
           ]
             .filter(Boolean)
@@ -414,28 +460,30 @@ export class DebateEngine {
     return [{ seat, data }];
   }
 
-  private reassessPrompt(
-    session: Session,
-    pending: PendingRevision,
-    critiques: VerdictRevision["critiques"],
-  ): { system: string; messages: ChatMessage[] } {
-    const verdict = session.verdict as Verdict;
+  private reassessPrompt(work: RevisionWork, critiques: VerdictRevision["critiques"]): { system: string; messages: ChatMessage[] } {
+    const { subject } = work;
+    const verdict = subject.verdict as Verdict;
     const said = critiques.flatMap((entry) => entry.data.critiques.map((critique) => ({ from: entry.seat, ...critique })));
+    const challenge = subject.mode === "challenge";
     return {
-      system: reassessSystem(session.locale, session.mode === "challenge") + complianceRule(activeRequirements(session), "arbiter"),
+      system:
+        (work.scenario ? scenarioSystem(subject.locale, challenge) : reassessSystem(subject.locale, challenge)) +
+        complianceRule(activeRequirements(subject), "arbiter"),
       messages: [
         {
           role: "user",
           content: [
-            requirementsBlock(requireSheet(session)),
-            profileBlock(sessionProfile(session)),
-            ratesBlock(sessionProfile(session), debateCurrency(session)),
-            proposalsBlock(currentProposals(session), computedCosts(session)),
+            requirementsBlock(requireSheet(subject)),
+            profileBlock(sessionProfile(subject)),
+            ratesBlock(sessionProfile(subject), debateCurrency(subject)),
+            proposalsBlock(currentProposals(subject), computedCosts(subject)),
+            // A scenario changes the numbers the checks are made with: they are computed again for the arbiter.
+            work.scenario ? checksBlock(checkFacts(subject)) : "",
             fence("verdict", JSON.stringify(stripSpeech(verdict), null, 2)),
-            factsBlock(pending.inputs.facts, pending.inputs.note),
-            contextBlock(session.context, CONTEXT_BUDGET.critique),
+            factsBlock(work.facts, work.note),
+            contextBlock(subject.context, CONTEXT_BUDGET.critique),
             said.length > 0 ? fence("debate", JSON.stringify(said, null, 2)) : "",
-            "Rule again on these options with the new facts.",
+            work.scenario ? "Rule on these options as if this scenario were true." : "Rule again on these options with the new facts.",
           ]
             .filter(Boolean)
             .join("\n\n"),
@@ -933,6 +981,34 @@ function computedCosts(session: Session): Record<string, ComputedCost> {
       { currency: costing.currency, low: costing.total.low, high: costing.total.high, personDays: costing.days },
     ]),
   );
+}
+
+/**
+ * What a revision is ruled on: the session as it stood at the revision it starts from, with a scenario's changes
+ * applied to its requirements, and the facts the models read.
+ */
+interface RevisionWork {
+  subject: Session;
+  facts: RevisionFact[];
+  note: string | null;
+  scenario: boolean;
+  /** The requirements a scenario changed; null when they are those of the revision it starts from. */
+  changedSheet: RequirementsSheet | null;
+}
+
+function revisionWork(session: Session, pending: PendingRevision): RevisionWork {
+  const base = sessionAtRevision(session, pending.basedOn) ?? session;
+  const scenario = pending.reason === "scenario" ? pending.scenario : undefined;
+  if (!scenario) return { subject: base, facts: pending.inputs.facts, note: pending.inputs.note, scenario: false, changedSheet: null };
+  const { sheet, applied } = applyScenario(requireSheet(base), scenario.changes);
+  const changed = JSON.stringify(sheet) !== JSON.stringify(base.sheet);
+  return {
+    subject: changed ? { ...base, sheet } : base,
+    facts: scenarioFacts(applied, scenario.question),
+    note: "A hypothetical scenario: weigh it as if it were true.",
+    scenario: true,
+    changedSheet: changed ? sheet : null,
+  };
 }
 
 /** Keeps a ruling to the options of the debate: unknown seats dropped, scores within 1 to 5. */
