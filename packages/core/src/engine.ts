@@ -139,6 +139,10 @@ export type EngineEvent =
 
 export interface EngineHooks {
   emit(sessionId: string, event: EngineEvent): void;
+  /**
+   * Stores the session. An engine never calls it again before the previous call has finished, even when the calls of
+   * a step end together: the saves are made in order. Each usage record has a stable id for a hook that bills them.
+   */
   save(session: Session): void | Promise<void>;
 }
 
@@ -241,6 +245,8 @@ export class DebateEngine {
   private readonly signal: AbortSignal | undefined;
   /** The verdict revision being made: its calls are recorded under its number and capped by its own budget. */
   private scope: { revision: number; budgetUsd: number | null } | null = null;
+  /** The last save asked for: the next one waits for it. */
+  private saving: Promise<void> = Promise.resolve();
 
   /**
    * @param options.signal stops the work: the calls in flight are cancelled and the session fails with the code
@@ -1195,7 +1201,12 @@ export class DebateEngine {
 
   private async persist(session: Session) {
     session.updatedAt = new Date().toISOString();
-    await this.hooks.save(session);
+    // The calls of a step run side by side and each saves when it ends: the saves wait for one another, so they are
+    // made in order and the last one holds everything.
+    const save = this.saving.then(() => this.hooks.save(session));
+    // A failed save fails the step that made it, not the saves after it.
+    this.saving = save.catch(() => {});
+    await save;
     this.hooks.emit(session.id, { type: "session", session });
   }
 

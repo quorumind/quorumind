@@ -375,3 +375,48 @@ describe("failures", () => {
     expect(session.error).toBeNull();
   });
 });
+
+describe("saves", () => {
+  it("saves one at a time and in order while the calls of a step end together", async () => {
+    let inFlight = 0;
+    let most = 0;
+    const usageSaved: number[] = [];
+    const engine = new DebateEngine(providersFor(DEMO_LINEUP, {}, { mockDelayMs: 0 }), {
+      emit: () => {},
+      // A slow store: a save still running when the other proposal ends.
+      save: async (session) => {
+        inFlight++;
+        most = Math.max(most, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        usageSaved.push(session.usage.length);
+        inFlight--;
+      },
+    });
+    const session = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, ...DEMO_LINEUP });
+    await runToVerdict(engine, session);
+    expect(session.phase).toBe("complete");
+    expect(most).toBe(1);
+    expect(usageSaved).toEqual([...usageSaved].sort((a, b) => a - b));
+    expect(usageSaved.at(-1)).toBe(session.usage.length);
+    expect(new Set(session.usage.map((record) => record.id)).size).toBe(session.usage.length);
+  });
+
+  it("goes on saving after a save failed", async () => {
+    let failing = true;
+    const saved: string[] = [];
+    const engine = new DebateEngine(providersFor(DEMO_LINEUP, {}, { mockDelayMs: 0 }), {
+      emit: () => {},
+      save: async (session) => {
+        if (failing) {
+          failing = false;
+          throw new Error("The store is down.");
+        }
+        saved.push(session.phase);
+      },
+    });
+    const session = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, ...DEMO_LINEUP });
+    await engine.startInterview(session);
+    expect(session.phase).toBe("failed");
+    expect(saved).toEqual(["failed"]);
+  });
+});
