@@ -181,6 +181,61 @@ describe.each(BACKENDS)("questionnaires on $name", (backend) => {
     expect((await applied())?.appliedRevision).toBeNull();
   });
 
+  it("make one revision from the same answers, however many times and at once it is asked", async () => {
+    const { app } = await setup(backend);
+    const session = await ruled(app);
+    const questionnaire = await createQuestionnaire(app, session, { questions: [{ text: "Who approves the budget?" }] });
+    await answer(app, questionnaire.token, [{ questionId: "q1", answer: "The owner", comment: null }]);
+    const apply = () => app.request(`/api/sessions/${session.id}/questionnaires/${questionnaire.id}/revision`, send({}));
+    const [first, second] = await Promise.all([apply(), apply()]);
+    expect([first.status, second.status].sort()).toEqual([202, 409]);
+    await waitFor(app, session.id, (s) => s.revisions.length === 2 && !s.revising);
+    const again = await apply();
+    expect(again.status).toBe(409);
+    expect(await again.json()).toMatchObject({ error: "already_applied" });
+    expect((await detail(app, session.id)).session.revisions).toHaveLength(2);
+    // New answers make a new revision.
+    await app.request(`/api/sessions/${session.id}/questionnaires/${questionnaire.id}/reopen`, send({}));
+    await answer(app, questionnaire.token, [{ questionId: "q1", answer: "The board", comment: null }]);
+    expect((await apply()).status).toBe(202);
+    await waitFor(app, session.id, (s) => s.revisions.length === 3 && !s.revising);
+  });
+
+  it("never give a new question the id of a removed one, nor keep an answer to a question that changed", async () => {
+    const { app } = await setup(backend);
+    const session = await ruled(app);
+    const questionnaire = await createQuestionnaire(app, session, {
+      questions: [{ text: "Which SMS provider?" }, { text: "Who approves the budget?" }, { text: "When do you launch?" }],
+    });
+    await answer(app, questionnaire.token, [
+      { questionId: "q1", answer: "Brevo", comment: null },
+      { questionId: "q2", answer: "The owner", comment: null },
+      { questionId: "q3", answer: "In June", comment: null },
+    ]);
+    await app.request(`/api/sessions/${session.id}/questionnaires/${questionnaire.id}/reopen`, send({}));
+    const patch = async (questions: unknown[]) => {
+      const patched = await app.request(
+        `/api/sessions/${session.id}/questionnaires/${questionnaire.id}`,
+        send({ questions }, "ada", "PATCH"),
+      );
+      return ((await patched.json()) as { questionnaire: Questionnaire }).questionnaire;
+    };
+    // q2 removed, q3 reworded, and a new question.
+    let next = await patch([
+      { id: "q1", text: "Which SMS provider?" },
+      { id: "q3", text: "When do you open the first studio?" },
+      { text: "Who approves the budget?" },
+    ]);
+    expect(next.questions.map((question) => question.id).slice(0, 2)).toEqual(["q1", "q3"]);
+    expect(next.questions[2]?.id).not.toMatch(/^q[123]$/);
+    expect(next.answers).toEqual([{ questionId: "q1", answer: "Brevo", comment: null }]);
+    // A question that claims the id of the removed one gets a new id.
+    next = await patch([...next.questions, { id: "q2", text: "Who signs the contract?" }]);
+    const ids = next.questions.map((question) => question.id);
+    expect(ids).not.toContain("q2");
+    expect(new Set(ids).size).toBe(4);
+  });
+
   it("ask for their password, expire, and stop guessing and flooding", async () => {
     const { app } = await setup(backend);
     const session = await ruled(app);

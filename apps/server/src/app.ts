@@ -920,12 +920,12 @@ export function createApp(deps: AppDeps) {
   /**
    * Starts a revision of a session's verdict for the caller who may change it: recorded at once, then made in the
    * background (the arbiter only, and a short critique when needed). The host hears when it starts and how it ends;
-   * `onMade` runs once the new verdict exists.
+   * `onDone` runs once the revision ended: with its number once the new verdict exists, with null when it failed.
    */
   const startRevision = async (
     session: Session,
     request: Omit<RevisionRequest, "by">,
-    onMade: (number: number) => Promise<void> = async () => {},
+    onDone: (made: number | null) => Promise<void> = async () => {},
   ): Promise<PendingRevision> =>
     withClaim(session, async (held) => {
       if (session.phase !== "complete" || !session.verdict) throw new InvalidStateError("The verdict is not ready yet.");
@@ -946,8 +946,12 @@ export function createApp(deps: AppDeps) {
       }
       const cap = lowestCap(hooks.revisionBudgetUsd?.(session), hooks.maxBudgetUsd);
       runInBackground(session, held, async (engine) => {
-        const made = await engine.runRevision(session, { budgetUsd: cap });
-        if (made) await onMade(pending.number).catch((error: unknown) => console.error(`After revision ${pending.number}:`, error));
+        let made = false;
+        try {
+          made = await engine.runRevision(session, { budgetUsd: cap });
+        } finally {
+          await onDone(made ? pending.number : null).catch((error: unknown) => console.error(`After revision ${pending.number}:`, error));
+        }
         await tell(made ? "completed" : "failed");
       });
       return pending;
@@ -1306,7 +1310,7 @@ export function createApp(deps: AppDeps) {
       branding: settings,
       readable: load,
       editable,
-      revise: async (session, { inputs }, onMade) => startRevision(session, { reason: "client_answers", inputs }, onMade),
+      revise: async (session, { inputs }, onDone) => startRevision(session, { reason: "client_answers", inputs }, onDone),
       answered,
       callerOf: (c) => clientAddress(c, proxies),
     }),

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   type Branding,
   currentRevision,
@@ -46,11 +47,11 @@ export interface QuestionnaireDeps {
   readable(id: string, user: User | null): Promise<Session>;
   /** A session the caller may change, with its placement, or a 403/404. */
   editable(id: string, user: User | null): Promise<StoredSession>;
-  /** Starts a revision of the verdict from the answers; `onMade` runs once the new verdict exists. */
+  /** Starts a revision of the verdict from the answers; `onDone` runs once it ended, with its number when it was made. */
   revise(
     session: Session,
     request: { inputs: ReturnType<typeof questionnaireInputs> },
-    onMade: (number: number) => Promise<void>,
+    onDone: (made: number | null) => Promise<void>,
   ): Promise<{ number: number }>;
   /** Tells the agency the client answered (e-mail, host hook); its failure is logged, never the client's problem. */
   answered(found: StoredSession, questionnaire: StoredQuestionnaire): Promise<void>;
@@ -102,24 +103,43 @@ const Answers = z.object({
 
 const AccessInput = z.object({ password: z.string().max(SHARE_PASSWORD.max) });
 
-/** Questions with stable, unique ids: those given are kept, the others numbered after them. */
-function withIds(questions: z.infer<typeof Question>[]): QuestionnaireQuestion[] {
-  const used = new Set<string>();
+/**
+ * Questions with stable, unique ids. For a new questionnaire, the ids given are kept and the others numbered after
+ * them. When its questions change (`before`), an id given is kept only for a question it has now, and a new question
+ * gets an id never used before (q-<random>): a question removed earlier never comes back under another text, with
+ * the answers given to it.
+ */
+function withIds(questions: z.infer<typeof Question>[], before?: StoredQuestionnaire): QuestionnaireQuestion[] {
+  const existing = new Set(before?.questions.map((question) => question.id) ?? []);
+  const keeps = (id: string | undefined): id is string => id !== undefined && (!before || existing.has(id));
+  // The ids kept first, so that a fresh id never takes one of them.
+  const used = new Set(questions.flatMap((question) => (keeps(question.id) ? [question.id] : [])));
   const fresh = () => {
-    let n = used.size + 1;
+    if (before) return `q-${randomUUID().slice(0, 8)}`;
+    let n = 1;
     while (used.has(`q${n}`)) n++;
     return `q${n}`;
   };
+  const assigned = new Set<string>();
   return questions.map((question) => {
-    const id = question.id && !used.has(question.id) ? question.id : fresh();
+    const id = keeps(question.id) && !assigned.has(question.id) ? question.id : fresh();
     used.add(id);
+    assigned.add(id);
     return { id, text: question.text, why: question.why, origin: question.origin };
   });
 }
 
-/** Answers to questions of the questionnaire only, one per question. */
-function keptAnswers(questions: QuestionnaireQuestion[], answers: QuestionnaireAnswer[]): QuestionnaireAnswer[] {
+/**
+ * Answers to questions of the questionnaire only, one per question. With `before`, the questions as they were: an
+ * answer stays only with a question whose text did not change.
+ */
+function keptAnswers(
+  questions: QuestionnaireQuestion[],
+  answers: QuestionnaireAnswer[],
+  before?: QuestionnaireQuestion[],
+): QuestionnaireAnswer[] {
   return questions.flatMap((question) => {
+    if (before && before.find((old) => old.id === question.id)?.text !== question.text) return [];
     const answer = answers.findLast((item) => item.questionId === question.id);
     return answer ? [{ questionId: question.id, answer: answer.answer, comment: answer.comment ?? null }] : [];
   });
@@ -229,11 +249,11 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
     if (input.questions && questionnaire.status !== "open") {
       return refuse(c, 409, "already_submitted", "The client has already answered: reopen the questionnaire to change its questions.");
     }
-    const questions = input.questions ? withIds(input.questions) : questionnaire.questions;
+    const questions = input.questions ? withIds(input.questions, questionnaire) : questionnaire.questions;
     const next: StoredQuestionnaire = {
       ...questionnaire,
       questions,
-      answers: keptAnswers(questions, questionnaire.answers),
+      answers: keptAnswers(questions, questionnaire.answers, questionnaire.questions),
       client: input.client === undefined ? questionnaire.client : input.client,
       message: input.message === undefined ? questionnaire.message : input.message,
       passwordHash:
@@ -278,18 +298,43 @@ export function questionnaireRoutes(deps: QuestionnaireDeps) {
     return c.json({ questionnaire: publicQuestionnaire(next) });
   });
 
-  // "Update the recommendation": a revision of the verdict from the answers, without a new debate.
+  /** The questionnaires whose answers a revision is being made from, in this process. */
+  const applying = new Set<string>();
+
+  // "Update the recommendation": a revision of the verdict from the answers, without a new debate. Once per answers:
+  // a second revision (a second charge) from the same answers is refused, even asked at the same moment.
   app.post("/api/sessions/:id/questionnaires/:qid/revision", async (c) => {
-    const { found, questionnaire } = await owned(c);
-    if (!questionnaire) return missing(c);
-    if (questionnaire.status !== "submitted") return refuse(c, 409, "not_submitted", "The client has not answered yet.");
-    const inputs = questionnaireInputs(questionnaire);
-    if (inputs.facts.length === 0) return refuse(c, 409, "no_answers", "None of the questions has an answer.");
-    const { number } = await deps.revise(found.session, { inputs }, async (made) => {
-      const latest = await deps.store.questionnaire({ id: questionnaire.id });
-      if (latest) await deps.store.saveQuestionnaire({ ...latest, appliedRevision: made, updatedAt: new Date().toISOString() });
-    });
-    return c.json({ accepted: true, revision: number }, 202);
+    const { found, questionnaire: loaded } = await owned(c);
+    if (!loaded) return missing(c);
+    if (applying.has(loaded.id)) return refuse(c, 409, "already_applied", "A revision is already being made from these answers.");
+    applying.add(loaded.id);
+    let handedOver = false;
+    try {
+      // Read again once taken: a revision made from these answers meanwhile has recorded itself.
+      const questionnaire = await deps.store.questionnaire({ id: loaded.id });
+      if (!questionnaire) return missing(c);
+      if (questionnaire.status !== "submitted") return refuse(c, 409, "not_submitted", "The client has not answered yet.");
+      if (questionnaire.appliedRevision !== null) {
+        return refuse(c, 409, "already_applied", `These answers are already in revision ${questionnaire.appliedRevision}.`);
+      }
+      const inputs = questionnaireInputs(questionnaire);
+      if (inputs.facts.length === 0) return refuse(c, 409, "no_answers", "None of the questions has an answer.");
+      const { number } = await deps.revise(found.session, { inputs }, async (made) => {
+        try {
+          const latest = await deps.store.questionnaire({ id: questionnaire.id });
+          // Answers submitted again since are new answers: they are not the ones this revision used.
+          if (made !== null && latest && latest.submittedAt === questionnaire.submittedAt) {
+            await deps.store.saveQuestionnaire({ ...latest, appliedRevision: made, updatedAt: new Date().toISOString() });
+          }
+        } finally {
+          applying.delete(questionnaire.id);
+        }
+      });
+      handedOver = true;
+      return c.json({ accepted: true, revision: number }, 202);
+    } finally {
+      if (!handedOver) applying.delete(loaded.id);
+    }
   });
 
   app.delete("/api/sessions/:id/questionnaires/:qid", async (c) => {
