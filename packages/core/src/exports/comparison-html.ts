@@ -45,7 +45,7 @@ export function renderComparisonHtml(
   const brand = branded
     ? `${logo ? `<img src="${esc(logo)}" alt="${esc(branding.name ?? "")}">` : ""}${branding.name ? `<span>${esc(branding.name)}</span>` : ""}`
     : `${mark}<span>Quorumind</span>`;
-  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long" }).format(new Date());
+  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date());
   const head = `<thead><tr><td></td><th scope="col">${esc(doc.columns[0])}</th><th scope="col">${esc(doc.columns[1])}</th></tr></thead>`;
   const value = (text: string, differs: boolean) =>
     differs

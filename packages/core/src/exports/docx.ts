@@ -51,7 +51,7 @@ export async function renderDocx(session: Session, branding: Branding): Promise<
   const proposals = currentProposals(session);
   const chosen = chosenOption(session);
   const project = sheet?.projectName ?? session.idea;
-  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long" }).format(new Date(session.updatedAt));
+  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(session.updatedAt));
   const range = (value: { low: number; high: number; currency: string }) => formatRange(value, session.locale);
   const checks = deliveryChecks(session);
   const badges = (seat: string) => checkLine(checks[seat], t, session.locale);

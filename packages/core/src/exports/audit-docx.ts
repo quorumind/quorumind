@@ -16,7 +16,7 @@ export async function renderAuditDocx(session: Session, branding: Branding): Pro
   const audit = auditDeliverable(session);
   const w = audit ? auditWords(audit) : null;
   const title = session.sheet?.projectName ?? session.audit?.extraction?.title ?? session.idea;
-  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long" }).format(new Date(session.updatedAt));
+  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(session.updatedAt));
   // "Label: value" with the language's punctuation, the label in bold.
   const colon = session.locale === "fr" ? " : " : ": ";
   const labelled = (label: string, value: string) => para([run(`${label}${colon}`, { bold: true }), run(value)]);

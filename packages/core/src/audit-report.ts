@@ -414,7 +414,7 @@ export function renderAuditClientReport(
   return [
     `# ${meta.title || audit.document.title}`,
     "",
-    `_${a.title} · ${meta.date.slice(0, 10)}${revision ? ` · ${revision}` : ""}_`,
+    `_${a.title} · ${formatDate(meta.date, audit.locale)}${revision ? ` · ${revision}` : ""}_`,
     "",
     ...auditMarkdown(audit),
     `## ${a.method}`,

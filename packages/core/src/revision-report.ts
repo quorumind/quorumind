@@ -35,7 +35,7 @@ const REASONS: Record<RevisionReason, keyof AgencyLabels> = {
 };
 
 export function formatDate(iso: string, locale: Session["locale"]): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(iso));
+  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(iso));
 }
 
 /** The revision of the verdict a session shows, with its changes; null before the arbiter ruled. */

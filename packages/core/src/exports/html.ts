@@ -333,7 +333,7 @@ export function renderHtml(session: Session, branding: Branding, options: HtmlOp
   const summary = decisionSummary(session);
   const project = sheet?.projectName ?? session.idea;
   const reference = documentReference(session);
-  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long" }).format(new Date(session.updatedAt));
+  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(session.updatedAt));
   const accent = branding.accent && isAccent(branding.accent) ? branding.accent : QUORUMIND_ACCENT;
   const logo = branding.logoDataUrl && parseLogo(branding.logoDataUrl) ? branding.logoDataUrl : null;
   const branded = Boolean(branding.name || logo);

@@ -5,6 +5,7 @@ import { clientDeliverable, renderClientReport } from "../deliverable.ts";
 import { LOCALES } from "../locales.ts";
 import { renderReport } from "../report.ts";
 import { LABELS } from "../report-labels.ts";
+import { formatDate } from "../revision-report.ts";
 import { revisionChanges, unchanged } from "../revisions.ts";
 import { renderDocx } from "./docx.ts";
 import { renderHtml } from "./html.ts";
@@ -67,6 +68,22 @@ describe("reports of a revised verdict", () => {
     const report = renderReport(session);
     expect(report).not.toContain("The new facts changed neither");
     expect(report).toMatch(/- Option A · Build time: .* → 30 to 40 weeks/);
+  });
+
+  it("date in UTC whatever the server's time zone, and in the document's language", async () => {
+    const zone = process.env.TZ;
+    process.env.TZ = "Pacific/Kiritimati";
+    try {
+      expect(formatDate("2026-10-19T23:30:00.000Z", "en")).toBe("October 19, 2026");
+      const session = await revised("fr");
+      session.updatedAt = "2026-10-19T23:30:00.000Z";
+      const report = renderClientReport(clientDeliverable(session));
+      expect(report).toContain("19 octobre 2026");
+      expect(report).not.toContain("2026-10-19");
+    } finally {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
   });
 
   it("give the client deliverable its revision", async () => {

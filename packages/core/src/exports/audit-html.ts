@@ -39,7 +39,7 @@ export function renderAuditHtml(session: Session, branding: Branding, options: P
   const w = audit ? auditWords(audit) : null;
   const title = session.sheet?.projectName ?? session.audit?.extraction?.title ?? session.idea;
   const reference = documentReference(session);
-  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long" }).format(new Date(session.updatedAt));
+  const date = new Intl.DateTimeFormat(session.locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(session.updatedAt));
   const accent = branding.accent && isAccent(branding.accent) ? branding.accent : QUORUMIND_ACCENT;
   const logo = branding.logoDataUrl && parseLogo(branding.logoDataUrl) ? branding.logoDataUrl : null;
   const branded = Boolean(branding.name || logo);

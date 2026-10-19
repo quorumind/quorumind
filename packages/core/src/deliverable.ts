@@ -190,7 +190,12 @@ export function renderClientReport(deliverable: ClientDeliverable): string {
   const revision = deliverable.revision
     ? ` · ${fill(agencyLabels(deliverable.locale).revisionDated, { number: deliverable.revision.number, date: formatDate(deliverable.revision.date, deliverable.locale) })}`
     : "";
-  const lines = [`# ${deliverable.title || t.title}`, "", `_${t.title} · ${deliverable.date.slice(0, 10)}${revision}_`, ""];
+  const lines = [
+    `# ${deliverable.title || t.title}`,
+    "",
+    `_${t.title} · ${formatDate(deliverable.date, deliverable.locale)}${revision}_`,
+    "",
+  ];
   const recommendation = deliverable.recommendation;
   if (!deliverable.complete || !recommendation) {
     lines.push(`_${t.generated}_`, "");
