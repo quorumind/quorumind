@@ -37,6 +37,7 @@ import {
 import { type RevisionNote, revisionNote } from "../revision-report.ts";
 import type { Audience, Proposal, TopicStatus } from "../schemas.ts";
 import { currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "../session.ts";
+import { renderAuditHtml } from "./audit-html.ts";
 
 // The printable report: one self-contained HTML page (inline CSS and SVG, no request to anything),
 // styled with the "Contrepoint" palette. Opened with print enabled, it calls the browser's print
@@ -315,6 +316,8 @@ const cssString = (value: string) =>
   `"${value.replace(/\s+/g, " ").replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("<", "\\3C ").replaceAll(">", "\\3E ")}"`;
 
 export function renderHtml(session: Session, branding: Branding, options: HtmlOptions): string {
+  // A reader version of an audit is rendered as any brief; the audit itself has its own page.
+  if (session.mode === "audit" && !options.audience) return renderAuditHtml(session, branding, options);
   const t = reportLabels(session.locale);
   const info = localeInfo(session.locale);
   const verdict = session.verdict;

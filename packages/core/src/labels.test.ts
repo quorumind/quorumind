@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AGENCY_LABEL_KEYS, AGENCY_LABELS } from "./agency-labels.ts";
+import { AUDIT_LABEL_KEYS, AUDIT_LABELS } from "./audit-labels.ts";
 import { LOCALES } from "./locales.ts";
 import { LABEL_KEYS, LABELS } from "./report-labels.ts";
 
@@ -7,6 +8,7 @@ import { LABEL_KEYS, LABELS } from "./report-labels.ts";
 const SETS = [
   ["report", LABELS, LABEL_KEYS],
   ["agency", AGENCY_LABELS, AGENCY_LABEL_KEYS],
+  ["audit", AUDIT_LABELS, AUDIT_LABEL_KEYS],
 ] as const;
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();

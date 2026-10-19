@@ -30,6 +30,7 @@ import {
 import { revisionNote } from "../revision-report.ts";
 import type { Proposal } from "../schemas.ts";
 import { currentProposals, type Session } from "../session.ts";
+import { renderAuditDocx } from "./audit-docx.ts";
 import { docxKit, MUTED } from "./docx-kit.ts";
 
 // The decision report as a Word document, for people who edit and forward reports by e-mail.
@@ -38,6 +39,7 @@ import { docxKit, MUTED } from "./docx-kit.ts";
 // components and flows: Word needs a raster fallback for SVG, which would require an image library.
 
 export async function renderDocx(session: Session, branding: Branding): Promise<Uint8Array> {
+  if (session.mode === "audit") return renderAuditDocx(session, branding);
   const t = reportLabels(session.locale);
   const { rtl, accent, run, para, heading, bullets, labelled, table, masthead, document } = docxKit(session.locale, branding);
   const verdict = session.verdict;

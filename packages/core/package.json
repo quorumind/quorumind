@@ -23,7 +23,11 @@
     "./profile": "./src/profile.ts",
     "./costing": "./src/costing.ts",
     "./diagram": "./src/diagram.ts",
-    "./docx": "./src/exports/docx.ts"
+    "./docx": "./src/exports/docx.ts",
+    "./audit-check": "./src/audit-check.ts",
+    "./audit-labels": "./src/audit-labels.ts",
+    "./audit-report": "./src/audit-report.ts",
+    "./report": "./src/report.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",

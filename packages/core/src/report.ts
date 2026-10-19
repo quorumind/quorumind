@@ -1,3 +1,5 @@
+import { auditLabels } from "./audit-labels.ts";
+import { renderAuditReport } from "./audit-report.ts";
 import { complianceMarkdown, sovereigntyNotes } from "./compliance-report.ts";
 import {
   type CheckStatus,
@@ -35,6 +37,7 @@ export function seatName(seat: string, t: Labels): string {
 }
 
 export function modeName(session: Session, t: Labels): string {
+  if (session.mode === "audit") return auditLabels(session.locale).mode;
   return session.mode === "challenge" ? t.modeChallenge : session.mode === "express" ? t.modeExpress : t.modeStandard;
 }
 
@@ -423,6 +426,7 @@ export function mermaidFlowchart(components: DiagramComponent[] | undefined, flo
 
 /** The decision report as Markdown, readable by a person and by a coding agent. */
 export function renderReport(session: Session): string {
+  if (session.mode === "audit") return renderAuditReport(session);
   const t = reportLabels(session.locale);
   const verdict = session.verdict;
   const sheet = session.sheet;

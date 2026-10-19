@@ -1,4 +1,5 @@
 import { agencyLabels } from "./agency-labels.ts";
+import { type AuditDeliverable, auditDeliverable, renderAuditClientReport } from "./audit-report.ts";
 import { deliveryChecks, type OptionChecks, proposalCosting, type Range } from "./costing.ts";
 import type { Locale } from "./locales.ts";
 import { rankOptions } from "./ranking.ts";
@@ -75,6 +76,8 @@ export interface ClientDeliverable {
   openQuestions: string[];
   /** The verdict rewritten for a client, once it was written. */
   brief: Omit<Brief, "speech"> | null;
+  /** The audit, for an audit session: its findings, checks, questions and points to negotiate. */
+  audit: AuditDeliverable | null;
 }
 
 export function clientDeliverable(session: Session): ClientDeliverable {
@@ -100,6 +103,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
       roadmap: [],
       openQuestions: [],
       brief: null,
+      audit: null,
     };
   }
   const weights = Object.fromEntries(criteria.map((item) => [item.criterion, item.weight]));
@@ -150,6 +154,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
     roadmap: verdict.roadmap,
     openQuestions: verdict.openQuestions,
     brief: brief ? { headline: brief.headline, summary: brief.summary, sections: brief.sections, nextSteps: brief.nextSteps } : null,
+    audit: auditDeliverable(session),
   };
 }
 
@@ -158,6 +163,7 @@ const cell = (text: string) => text.replaceAll("|", "\\|").replaceAll("\n", " ")
 
 /** The client deliverable as Markdown, in the session's language: what a client share link downloads. */
 export function renderClientReport(deliverable: ClientDeliverable): string {
+  if (deliverable.audit) return renderAuditClientReport(deliverable.audit, deliverable);
   const t = reportLabels(deliverable.locale);
   const say = (label: string, value: string) => labelled(label, value, deliverable.locale);
   const revision = deliverable.revision
