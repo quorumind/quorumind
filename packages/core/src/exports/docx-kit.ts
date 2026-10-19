@@ -49,6 +49,18 @@ const LANGUAGE_TAGS: Record<Locale, string> = {
 
 const NUMBERED = "numbered";
 
+/**
+ * Text that XML 1.0 can hold: the control characters it forbids (a model, an idea or a branding name may carry them)
+ * and lone surrogates make a document Word refuses to open. Tabs and line breaks are kept.
+ */
+export function xmlText(text: string): string {
+  return text.replace(
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point.
+    /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    "",
+  );
+}
+
 export type RunStyle = { bold?: boolean; italics?: boolean; color?: string; size?: number };
 export type Block = Paragraph | Table;
 
@@ -56,7 +68,7 @@ export function docxKit(locale: Locale, branding: Branding) {
   const rtl = localeInfo(locale).dir === "rtl";
   const accent = (branding.accent && isAccent(branding.accent) ? branding.accent : QUORUMIND_ACCENT).slice(1).toUpperCase();
 
-  const run = (text: string, style: RunStyle = {}) => new TextRun({ text, rightToLeft: rtl, ...style });
+  const run = (text: string, style: RunStyle = {}) => new TextRun({ text: xmlText(text), rightToLeft: rtl, ...style });
   const para = (
     content: string | TextRun[],
     options: { style?: RunStyle; heading?: (typeof HeadingLevel)[keyof typeof HeadingLevel]; spacing?: number } = {},
@@ -130,9 +142,9 @@ export function docxKit(locale: Locale, branding: Branding) {
       paragraph: { spacing: { before: 280, after: 120 }, keepNext: true },
     });
     const file = new Document({
-      creator: branding.name ?? "Quorumind",
-      title: options.title,
-      description: options.description,
+      creator: xmlText(branding.name ?? "Quorumind"),
+      title: xmlText(options.title),
+      description: xmlText(options.description),
       numbering: {
         config: [
           {

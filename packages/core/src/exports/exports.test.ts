@@ -14,7 +14,9 @@ import { mermaidFlowchart, renderAdr, renderReport, reportSlug } from "../report
 import type { Proposal } from "../schemas.ts";
 import { createSession, type Session, USER_SEAT } from "../session.ts";
 import { renderDocx } from "./docx.ts";
+import { xmlText } from "./docx-kit.ts";
 import { renderHtml } from "./html.ts";
+import { readZip } from "./testing.ts";
 
 const mock = { provider: "mock" as const, model: "mock" };
 
@@ -211,6 +213,16 @@ describe("Word report", () => {
     expect(xml).toContain("تقرير القرار".toUpperCase());
     expect(xml).toContain("<w:tbl>");
     expect(unzip(document, "word/styles.xml")).toContain("AA3366");
+  });
+
+  it("drops the control characters XML forbids, which Word refuses to open", async () => {
+    expect(xmlText("Line\u0000 one\u000B,\ttab\nand \uD800lone \u{1F600}")).toBe("Line one,\ttab\nand lone \u{1F600}");
+    const session = await demo();
+    session.verdict!.recommendation.rationale = "Option A\u0000 fits\u001F the cap.";
+    const xml = readZip(await renderDocx(session, { name: "Agence\u0007", logoDataUrl: null, accent: null }), "word/document.xml");
+    expect(xml).toContain("Option A fits the cap.");
+    const forbidden = [...xml].filter((char) => char.charCodeAt(0) < 32 && !"\t\n\r".includes(char));
+    expect(forbidden).toEqual([]);
   });
 });
 
