@@ -796,6 +796,8 @@
     "risksChanged": "Risks reassessed",
     "costs": "Cost estimates",
     "monthly": "{{option}}, monthly cost",
+    "schedules": "Build times",
+    "buildTime": "{{option}}, build time",
     "answered": "Questions answered",
     "added": "New open questions",
     "facts": "New facts taken into account",

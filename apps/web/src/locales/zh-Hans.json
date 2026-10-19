@@ -796,6 +796,8 @@
     "risksChanged": "重新评估的风险",
     "costs": "成本估算",
     "monthly": "{{option}}，每月成本",
+    "schedules": "开发周期",
+    "buildTime": "{{option}}，开发周期",
     "answered": "已解答的问题",
     "added": "新的待解决问题",
     "facts": "纳入考虑的新信息",

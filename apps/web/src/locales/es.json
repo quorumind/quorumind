@@ -796,6 +796,8 @@
     "risksChanged": "Riesgos reevaluados",
     "costs": "Estimaciones de coste",
     "monthly": "{{option}}, coste mensual",
+    "schedules": "Plazos de desarrollo",
+    "buildTime": "{{option}}, plazo de desarrollo",
     "answered": "Preguntas resueltas",
     "added": "Nuevas preguntas abiertas",
     "facts": "Nuevos datos tenidos en cuenta",

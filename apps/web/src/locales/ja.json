@@ -796,6 +796,8 @@
     "risksChanged": "再評価されたリスク",
     "costs": "費用の見積もり",
     "monthly": "{{option}}、月額費用",
+    "schedules": "開発期間",
+    "buildTime": "{{option}}、開発期間",
     "answered": "回答済みの質問",
     "added": "新たな未解決の質問",
     "facts": "反映した新しい情報",

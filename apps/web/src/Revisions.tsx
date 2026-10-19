@@ -6,6 +6,7 @@ import { type FormEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type PriceQuote } from "./api.ts";
 import { RetryIcon } from "./components/Icons.tsx";
+import { dayRange } from "./costing.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText, sessionErrorText } from "./errors.ts";
 import { formatMoney, formatPrice } from "./format.ts";
@@ -205,6 +206,8 @@ export function WhatChanged({ session, number }: { session: Session; number: num
   const currency = debateCurrency(session);
   const range = (value: RevisionChanges["costs"][number]["from"]) =>
     value ? `${formatMoney(value.low, currency, i18n.language)} – ${formatMoney(value.high, currency, i18n.language)}` : "–";
+  const weeks = (value: RevisionChanges["schedules"][number]["from"]) =>
+    value ? t("debate.weeks", { range: dayRange(value, i18n.language) }) : "–";
   const groups: [string, string[]][] = [
     [
       t("revision.recommendation"),
@@ -236,6 +239,12 @@ export function WhatChanged({ session, number }: { session: Session; number: num
       t("revision.costs"),
       changes.costs.map(
         (item) => `${t("revision.monthly", { option: seatName(item.seat, t) })}: ${arrow(range(item.from), range(item.to))}`,
+      ),
+    ],
+    [
+      t("revision.schedules"),
+      (changes.schedules ?? []).map(
+        (item) => `${t("revision.buildTime", { option: seatName(item.seat, t) })}: ${arrow(weeks(item.from), weeks(item.to))}`,
       ),
     ],
     [t("revision.answered"), changes.questions.answered],
