@@ -3363,3 +3363,166 @@ button.chip:active {
     justify-content: center;
   }
 }
+
+/* What if scenarios, two versions side by side, and the decision register */
+
+.what-if > summary {
+  cursor: pointer;
+}
+
+.what-if[open] > summary {
+  margin-block-end: var(--space-4);
+}
+
+.scenario-changes {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.scenario-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.scenario-change .select {
+  inline-size: auto;
+}
+
+.scenario-change .input {
+  flex: 1;
+  min-inline-size: 160px;
+}
+
+.scenario-change .scenario-number {
+  flex: 0 1 120px;
+  min-inline-size: 90px;
+}
+
+.scenario-notice {
+  gap: var(--space-2);
+  border-inline-start: 4px solid var(--conditional);
+}
+
+.scenario-notice ul {
+  padding-inline-start: var(--space-4);
+}
+
+.compare-pickers,
+.decision-review {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.compare-versions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.compare-version {
+  border-inline-start: 3px solid var(--thesis);
+  padding-inline-start: var(--space-3);
+}
+
+.compare-version ul {
+  margin: var(--space-1) 0 0;
+  padding-inline-start: var(--space-4);
+}
+
+.compare-table caption {
+  text-align: start;
+  font-weight: 600;
+  padding-block-end: var(--space-2);
+}
+
+.compare-table th[scope="row"] {
+  inline-size: 30%;
+  font-weight: 500;
+}
+
+.compare-table td {
+  inline-size: 35%;
+}
+
+/* A difference is never told by color alone: the value is bold, marked by a bar, and named for screen readers. */
+.compare-table td.differs {
+  background: var(--thesis-soft);
+  box-shadow: inset 3px 0 0 var(--thesis);
+}
+
+[dir="rtl"] .compare-table td.differs {
+  box-shadow: inset -3px 0 0 var(--thesis);
+}
+
+.decision-status.decision-approved {
+  background: var(--feasible-soft);
+  color: var(--feasible);
+  border-color: transparent;
+}
+
+.decision-status.decision-proposed {
+  background: var(--conditional-soft);
+  color: var(--conditional);
+  border-color: transparent;
+}
+
+.decision-status.decision-rejected {
+  background: var(--infeasible-soft);
+  color: var(--infeasible);
+  border-color: transparent;
+}
+
+.decision-actions {
+  gap: var(--space-3);
+}
+
+.register-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.register-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.register-table th[scope="row"] {
+  min-inline-size: 220px;
+}
+
+.register-table th[scope="row"] a {
+  font-weight: 600;
+}
+
+.register-meta,
+.register-note,
+.register-link {
+  display: block;
+  margin-block-start: var(--space-1);
+}
+
+.register-note {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .register-tools {
+    justify-content: flex-start;
+  }
+
+  .compare-table th[scope="row"] {
+    inline-size: auto;
+  }
+}

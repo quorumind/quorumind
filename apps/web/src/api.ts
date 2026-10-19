@@ -18,7 +18,10 @@ import type {
   RequirementsSheet,
   Session,
 } from "@quorumind/core";
+import type { RevisionComparison } from "@quorumind/core/compare";
 import type { ComplianceTemplateId } from "@quorumind/core/compliance";
+import type { DecisionStatus, RegisterEntry } from "@quorumind/core/decisions";
+import type { ScenarioChange } from "@quorumind/core/scenarios";
 import type { EuropeanGateway, EuropeanPolicy } from "@quorumind/core/sovereignty";
 import type { TemplateId } from "@quorumind/core/templates";
 
@@ -52,6 +55,8 @@ export interface AppConfig {
   providerCosts: boolean;
   /** False when the host provides the organisation profile (a workspace's, hosted): it is not edited in Settings. */
   profileSettings?: boolean;
+  /** True when the server names nobody (self-hosted): the register asks who approves. */
+  typedNames?: boolean;
 }
 
 /** An organisation profile as the settings form sends it: the server derives the role ids and the time of the save. */
@@ -164,6 +169,34 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const post = (body: unknown = {}) => ({ method: "POST", body: JSON.stringify(body) });
+const put = (body: unknown) => ({ method: "PUT", body: JSON.stringify(body) });
+
+/** A "what if" scenario to try: its title, its question, its changes, and the revision it branches from. */
+export interface ScenarioInput {
+  title: string;
+  question: string | null;
+  changes: ScenarioChange[];
+  basedOn?: number;
+}
+
+/** A row of the decision register, with who started it and whether the caller may change it. */
+export type DecisionRow = RegisterEntry & { author: Author | null; mine: boolean; canEdit: boolean; private: boolean };
+
+/** The filters of the register; a field left out keeps every decision. author: a user id, or "me". */
+export interface DecisionFilters {
+  status?: DecisionStatus;
+  author?: string;
+  from?: string;
+  to?: string;
+}
+
+export type DecisionAction = "request" | "approve" | "reject" | "reopen" | "supersede";
+
+const query = (values: Record<string, string | undefined>) => {
+  const params = new URLSearchParams(Object.entries(values).filter((entry): entry is [string, string] => Boolean(entry[1])));
+  const text = params.toString();
+  return text ? `?${text}` : "";
+};
 const patch = (body: unknown) => ({ method: "PATCH", body: JSON.stringify(body) });
 
 /** What creating or changing a questionnaire sets; a field left out keeps its value. password: null removes it. */
@@ -259,4 +292,23 @@ export const api = {
   sharedReportUrl: (token: string, access: string | null = null) =>
     `/api/shared/${token}/report.md${access ? `?access=${encodeURIComponent(access)}` : ""}`,
   exportUrl: () => "/api/export",
+  /** A "what if" scenario: a revision of its own, at the price of a revision. */
+  scenario: (id: string, input: ScenarioInput) =>
+    request<{ accepted: true; revision: number }>(`/api/sessions/${id}/scenarios`, post(input)),
+  /** Adopts a scenario as the decision, or goes back to the latest revision (null). */
+  adopt: (id: string, revision: number | null) =>
+    request<{ adopted: number | null; decision: RegisterEntry | null }>(`/api/sessions/${id}/adopted`, put({ revision })),
+  compare: (id: string, a: number, b: number) =>
+    request<{ comparison: RevisionComparison }>(`/api/sessions/${id}/compare${query({ a: String(a), b: String(b) })}`),
+  compareUrl: (id: string, a: number, b: number, format: "md" | "html" | "pdf") =>
+    `/api/sessions/${id}/compare.${format === "md" ? "md" : "html"}${query({ a: String(a), b: String(b), print: format === "pdf" ? "1" : undefined })}`,
+  decisions: (filters: DecisionFilters = {}) =>
+    request<{ decisions: DecisionRow[]; authors: (Author & { id: string })[]; shared: boolean }>(`/api/decisions${query({ ...filters })}`),
+  decisionsCsvUrl: (filters: DecisionFilters, lang: string) => `/api/decisions.csv${query({ ...filters, lang })}`,
+  /** A step of the register; `by` names the superseding session. */
+  decide: (id: string, action: DecisionAction, input: { comment?: string | null; name?: string | null; by?: string } = {}) =>
+    request<{ decision: RegisterEntry }>(`/api/sessions/${id}/decision/${action}`, post(input)),
+  /** The note and the review of a decision; a field left out keeps its value. */
+  decisionDetails: (id: string, details: { note?: string | null; review?: { on: string | null; when: string | null } }) =>
+    request<{ decision: RegisterEntry }>(`/api/sessions/${id}/decision`, put(details)),
 };

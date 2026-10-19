@@ -559,6 +559,8 @@ export function createApp(deps: AppDeps) {
       providerCosts: !hooks.hideProviderCosts,
       // False when the host provides the organisation profiles (AppHooks.profile): they are not edited in this app.
       profileSettings: !hooks.profile,
+      // True when nobody names the people who approve decisions (self-hosted): the register asks for a name.
+      typedNames: !hooks.authors,
     });
   });
 

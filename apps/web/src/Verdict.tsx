@@ -1,7 +1,7 @@
 import type { Audience, Feasibility, Session, TopicStatus } from "@quorumind/core";
 import { deliveryChecks, proposalCosting } from "@quorumind/core/costing";
 import { rankOptions } from "@quorumind/core/ranking";
-import { currentProposals, sessionAtRevision } from "@quorumind/core/session";
+import { currentProposals, currentRevision, sessionAtRevision } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCanEdit } from "./access.tsx";
@@ -13,8 +13,10 @@ import { ExportMenu } from "./components/ExportMenu.tsx";
 import { CheckIcon, CrossIcon, DownloadIcon, MapIcon, SparkIcon, WarningIcon } from "./components/Icons.tsx";
 import { CheckBadges, CostingTable, moneyRange, monthlyCurrency } from "./costing.tsx";
 import { seatName } from "./Debate.tsx";
+import { DecisionPanel } from "./Decisions.tsx";
 import { failureText } from "./errors.ts";
 import { RevisionBar, WhatChanged } from "./Revisions.tsx";
+import { ComparePanel, ScenarioForm } from "./Scenarios.tsx";
 import { useFlip } from "./useFlip.ts";
 
 export function FeasibilityChip({ value }: { value: Feasibility }) {
@@ -446,10 +448,11 @@ export function Verdict({
 }) {
   const { t } = useTranslation();
   const canEdit = useCanEdit();
-  // The revision on screen: the latest unless the person picks an earlier one.
+  // The revision on screen: the current one (the adopted scenario, or the latest revision) unless the person picks
+  // another one.
   const [picked, setPicked] = useState<number | null>(null);
   const [client, setClient] = useState<string | null>(null);
-  const latest = live.revisions.at(-1)?.number ?? 1;
+  const latest = currentRevision(live)?.number ?? 1;
   const shown = picked ?? latest;
   const session = sessionAtRevision(live, shown) ?? live;
   const verdict = session.verdict;
@@ -506,6 +509,7 @@ export function Verdict({
       </section>
 
       <WhatChanged session={live} number={shown} />
+      {readOnly ? null : <DecisionPanel session={live} />}
 
       <Briefs session={session} readOnly={readOnly} />
       <Matrix session={session} />
@@ -598,6 +602,13 @@ export function Verdict({
       </div>
 
       {readOnly || !canEdit || shown !== latest ? null : <ClientLoop session={live} price={revisionPrice} onClient={setClient} />}
+      {readOnly || !canEdit ? null : (
+        <details className="card what-if">
+          <summary className="title">{t("scenario.title")}</summary>
+          <ScenarioForm session={live} price={revisionPrice} />
+        </details>
+      )}
+      {readOnly || live.revisions.length < 2 ? null : <ComparePanel session={live} />}
       {readOnly ? null : <FeedbackBox session={session} feedback={feedback} />}
     </div>
   );

@@ -187,6 +187,13 @@ export const GalleryIcon = () => (
   </Icon>
 );
 
+/** The decision register: a list whose lines are ticked. */
+export const RegisterIcon = () => (
+  <Icon>
+    <path d="M4 6.5l1.5 1.5L8 5.5M4 12.5l1.5 1.5L8 11.5M4 18.5l1.5 1.5L8 17.5M11 7h9M11 13h9M11 19h9" />
+  </Icon>
+);
+
 export const SettingsIcon = () => (
   <Icon>
     <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />

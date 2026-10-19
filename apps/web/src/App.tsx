@@ -4,8 +4,20 @@ import { useTranslation } from "react-i18next";
 import { authorName } from "./access.tsx";
 import { api, type SessionSummary } from "./api.ts";
 import { ClientQuestionnaire } from "./ClientQuestionnaire.tsx";
-import { CrossIcon, GalleryIcon, LockIcon, MenuIcon, MonitorIcon, MoonIcon, PlusIcon, SettingsIcon, SunIcon } from "./components/Icons.tsx";
+import {
+  CrossIcon,
+  GalleryIcon,
+  LockIcon,
+  MenuIcon,
+  MonitorIcon,
+  MoonIcon,
+  PlusIcon,
+  RegisterIcon,
+  SettingsIcon,
+  SunIcon,
+} from "./components/Icons.tsx";
 import { Mark } from "./components/Logo.tsx";
+import { Register } from "./Decisions.tsx";
 import { Gallery } from "./Gallery.tsx";
 import { LOCALES } from "./i18n.ts";
 import { NewSession } from "./NewSession.tsx";
@@ -153,6 +165,10 @@ function Sidebar({ current }: { current: string | null }) {
         )}
       </nav>
       <nav className="sidebar-links" aria-label={t("nav.more")}>
+        <a href="#/decisions" aria-current={current === "decisions" ? "page" : undefined}>
+          <RegisterIcon />
+          {t("nav.decisions")}
+        </a>
         <a href="#/gallery" aria-current={current === "gallery" ? "page" : undefined}>
           <GalleryIcon />
           {t("nav.gallery")}
@@ -215,6 +231,8 @@ function Shell({ route }: { route: string }) {
     <Gallery />
   ) : route === "settings" ? (
     <Settings />
+  ) : route === "decisions" ? (
+    <Register />
   ) : (
     <NewSession />
   );
