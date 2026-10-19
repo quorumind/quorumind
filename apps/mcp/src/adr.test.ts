@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -60,8 +60,29 @@ describe("ADR folder", () => {
   it("never replaces a file", async () => {
     await touch("docs/adr/0002-mine.md", "mine");
     const target = { ...(await findAdrTarget(root)), number: 2 };
-    await expect(writeAdr(target, "mine", "theirs")).rejects.toThrow("already exists");
+    await expect(writeAdr(target, "mine", "theirs")).rejects.toThrow("Nothing was written");
     expect(await readFile(join(root, "docs", "adr", "0002-mine.md"), "utf8")).toBe("mine");
+  });
+
+  it("never takes a number another record took meanwhile", async () => {
+    const target = await findAdrTarget(root);
+    // Another agent records ADR 1 between the lookup and the write.
+    await touch("docs/adr/0001-their-decision.md", "theirs");
+    await expect(writeAdr(target, "mine", "mine")).rejects.toThrow("ADR 1 was just recorded");
+    expect(await readdir(join(root, "docs", "adr"))).toEqual(["0001-their-decision.md"]);
+  });
+
+  it("refuses an ADR folder that leads outside the repository through a link", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "quorumind-outside-"));
+    try {
+      await mkdir(join(root, "docs"), { recursive: true });
+      await symlink(outside, join(root, "docs", "adr"), "junction");
+      await expect(findAdrTarget(root)).rejects.toThrow("outside the repository");
+      await writeFile(join(root, ".adr-dir"), "docs/adr\n");
+      await expect(findAdrTarget(root)).rejects.toThrow("outside the repository");
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 
   it("slugs titles in any script to a safe file name", () => {

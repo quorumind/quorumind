@@ -1,6 +1,6 @@
 import { crc32, deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { readZip } from "./zip.ts";
+import { readZip, ZIP_LIMITS } from "./zip.ts";
 
 /** One-entry archive, stored (method 0) or deflated (method 8). */
 function archive(name: string, content: string, method: 0 | 8, comment = "") {
@@ -44,5 +44,17 @@ describe("readZip", () => {
     const first = 30 + "PLAN.md".length;
     damaged.writeUInt8(damaged.readUInt8(first) ^ 0xff, first);
     expect(() => readZip(damaged)).toThrow("checksum");
+  });
+
+  it("inflates an entry no further than the size it declares, within the limits", () => {
+    const bomb = archive("PLAN.md", "x".repeat(1_000_000), 8);
+    // The central directory says 10 bytes: a lie about a megabyte.
+    const end = bomb.length - 22;
+    const central = bomb.readUInt32LE(end + 16);
+    bomb.writeUInt32LE(10, central + 24);
+    expect(() => readZip(bomb)).toThrow("larger than it declares");
+    const huge = archive("PLAN.md", "x", 0);
+    huge.writeUInt32LE(ZIP_LIMITS.entry + 1, huge.readUInt32LE(huge.length - 22 + 16) + 24);
+    expect(() => readZip(huge)).toThrow("too large");
   });
 });

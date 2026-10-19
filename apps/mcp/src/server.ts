@@ -1,4 +1,5 @@
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { access, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { type CallToolResult, McpServer, ResourceTemplate, type ServerContext } from "@modelcontextprotocol/server";
 import {
@@ -42,8 +43,10 @@ export interface McpOptions {
   waitMs?: number;
   /** Polling interval when the live event stream is unavailable. */
   pollMs?: number;
-  /** Directory that relative paths are resolved against. */
+  /** Directory that relative paths are resolved against: the project, whose files only can be attached. */
   cwd?: string;
+  /** Attaches files outside `cwd` too (QUORUMIND_MCP_ALLOW_OUTSIDE=1). */
+  allowOutside?: boolean;
   /** Runs the GitHub CLI; replaced in tests. */
   run?: RunCommand;
 }
@@ -55,6 +58,7 @@ export function optionsFromEnv(env: Record<string, string | undefined>): McpOpti
     demo: env.QUORUMIND_MCP_DEMO === "1" || env.QUORUMIND_MCP_DEMO === "true",
     waitMs: (Number.isFinite(seconds) && seconds > 0 ? seconds : 600) * 1_000,
     cwd: process.cwd(),
+    allowOutside: env.QUORUMIND_MCP_ALLOW_OUTSIDE === "1",
   };
 }
 
@@ -277,7 +281,7 @@ export function createMcpServer(options: McpOptions): McpServer {
           .max(MAX_FILES)
           .optional()
           .describe(
-            `Paths of up to ${MAX_FILES} local text files the models should read: README, architecture notes, schema, package.json... Absolute, or relative to the directory this MCP server runs in. Files longer than ${MAX_FILE_CHARS} characters are cut.`,
+            `Paths of up to ${MAX_FILES} local text files the models should read: README, architecture notes, schema, package.json... Absolute, or relative to the directory this MCP server runs in, and inside it (the project): files elsewhere and files of secrets (.env, private keys) are refused. Files longer than ${MAX_FILE_CHARS} characters are cut.`,
           ),
         redact: z.boolean().optional().describe("Mask e-mails, phone numbers, card numbers and secrets before anything reaches a model."),
         web_research: z
@@ -306,7 +310,7 @@ export function createMcpServer(options: McpOptions): McpServer {
           );
         }
         const { documents, notes } = input.context_files?.length
-          ? await readContextFiles(input.context_files, cwd)
+          ? await readContextFiles(input.context_files, cwd, { allowOutside: options.allowOutside ?? false })
           : { documents: [], notes: [] };
         const config = await client.config().catch(() => null);
         const session = await client.createSession({
@@ -586,8 +590,22 @@ export function createMcpServer(options: McpOptions): McpServer {
           }
         }
         await mkdir(target, { recursive: true });
-        for (const file of files) await writeFile(join(target, file.name), file.data);
-        const written = files.map((file) => join(target, file.name));
+        const written: string[] = [];
+        for (const file of files) {
+          const path = join(target, file.name);
+          try {
+            await writeHandoffFile(path, file.data, overwrite);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+            // Created between the check and the write: it is kept.
+            return failure(
+              `${file.name} appeared in ${target} meanwhile and was kept.${written.length > 0 ? ` Written: ${written.join(", ")}.` : ""} ` +
+                "Ask the user before calling again with overwrite: true.",
+              { directory: target, existing: [file.name], files: written },
+            );
+          }
+          written.push(path);
+        }
         return text(
           `Wrote ${written.join(", ")}.\n\nNext: read PLAN.md and follow it; CLAUDE.md and AGENTS.md hold the decisions coding agents must respect.`,
           { directory: target, files: written },
@@ -941,3 +959,23 @@ const exists = (path: string) =>
     () => true,
     () => false,
   );
+
+/**
+ * Writes one hand-off file. Without `overwrite`, it is created only if it does not exist, in the same step (an existing
+ * file is never replaced, even one created a moment before). With it, the new content goes to a temporary file that
+ * replaces the old one at once: a reader never sees half a file.
+ */
+export async function writeHandoffFile(path: string, data: Uint8Array, overwrite: boolean) {
+  if (!overwrite) {
+    await writeFile(path, data, { flag: "wx" });
+    return;
+  }
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, data, { flag: "wx" });
+    await rename(temporary, path);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}

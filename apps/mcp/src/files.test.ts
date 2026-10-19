@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_CONTEXT_CHARS, MAX_CONTEXT_DOCUMENTS } from "@quorumind/core";
@@ -20,6 +20,31 @@ describe("context files", () => {
   it("uses the server's limits", () => {
     expect(MAX_FILES).toBe(MAX_CONTEXT_DOCUMENTS);
     expect(MAX_FILE_CHARS).toBe(MAX_CONTEXT_CHARS);
+  });
+
+  it("reads files of the project only, links resolved, and never a file of secrets", async () => {
+    const project = join(workdir, "project");
+    const outside = join(workdir, "outside");
+    await mkdir(join(project, "docs"), { recursive: true });
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(project, "docs", "spec.md"), "# Spec");
+    await writeFile(join(outside, "notes.md"), "# Private notes");
+    await writeFile(join(project, ".env"), "OPENAI_API_KEY=secret");
+    await writeFile(join(project, "server.key"), "-----BEGIN PRIVATE KEY-----");
+    // A link inside the project that leads out of it.
+    await symlink(outside, join(project, "elsewhere"), "junction");
+
+    const { documents } = await readContextFiles(["docs/spec.md"], project);
+    expect(documents[0]).toMatchObject({ name: "docs/spec.md", text: "# Spec" });
+    await expect(readContextFiles([join(outside, "notes.md")], project)).rejects.toThrow("outside the project");
+    await expect(readContextFiles(["../outside/notes.md"], project)).rejects.toThrow("outside the project");
+    await expect(readContextFiles(["elsewhere/notes.md"], project)).rejects.toThrow("outside the project");
+    await expect(readContextFiles([".env"], project)).rejects.toThrow("secrets");
+    await expect(readContextFiles(["server.key"], project)).rejects.toThrow("secrets");
+    // Allowed by the user: the file outside is read, and sent under its name only.
+    const allowed = await readContextFiles([join(outside, "notes.md")], project, { allowOutside: true });
+    expect(allowed.documents[0]).toMatchObject({ name: "notes.md", text: "# Private notes" });
+    await expect(readContextFiles([".env"], project, { allowOutside: true })).rejects.toThrow("secrets");
   });
 
   it("refuses more files than a session can carry", async () => {

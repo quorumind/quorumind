@@ -24,6 +24,7 @@ The examples below use `/path/to/quorumind`: replace it with the absolute path o
 | `QUORUMIND_TOKEN` | A personal API token of the hosted version (`qmd_...`), sent as `Authorization: Bearer <token>`. |
 | `QUORUMIND_MCP_WAIT_SECONDS` | Longest a single tool call waits for the models, default `600`. After that the tool answers "still running" and the agent calls `quorumind_status` with `wait: true`. |
 | `QUORUMIND_MCP_DEMO=1` | Replays the recorded demo debate instead of calling models: no key, no cost. To try the tools. |
+| `QUORUMIND_MCP_ALLOW_OUTSIDE=1` | Lets `quorumind_start` attach files outside the directory the MCP server runs in. Off by default: the agent picks the paths, and the files go to the Quorumind server and the model providers. Files of secrets (`.env`, private keys, credentials) are refused either way. |
 
 A debate takes several minutes. Make sure your client's tool timeout is longer than
 `QUORUMIND_MCP_WAIT_SECONDS`, or lower that value.
@@ -138,6 +139,15 @@ seconds if the stream is unavailable), and send MCP progress notifications when 
 asks for them.
 
 The report of a finished session is also a resource: `quorumind://sessions/{id}/report`.
+
+## Security
+
+- `context_files` are read inside the project directory only (symbolic links resolved), and never a file named like
+  a secret, so that an agent steered by text it read elsewhere cannot send `~/.ssh` or `.env` to the models.
+- The hand-off files and ADRs are written from the verdict, which models wrote: coding agents treat `CLAUDE.md` and
+  `AGENTS.md` as instructions. Read them before committing them, as you would any generated instructions. They never
+  replace an existing file unless `overwrite` is true.
+- The archives the server sends are inflated within fixed limits.
 
 ## Decision records
 

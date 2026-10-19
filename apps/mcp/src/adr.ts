@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 // Where a repository keeps its Architecture Decision Records, and the name of the next one. The usual
@@ -41,13 +41,25 @@ async function numbers(directory: string): Promise<string[]> {
   return names.flatMap((name) => NUMBERED.exec(name)?.[1] ?? []);
 }
 
+const within = (root: string, path: string) => {
+  const inside = relative(root, path);
+  return inside !== "" && !inside.startsWith("..") && !isAbsolute(inside);
+};
+
+/** Refuses a folder that leads outside the repository once symbolic links are resolved. */
+async function mustStayInside(root: string, folder: string, named: string) {
+  const real = await realpath(join(root, folder)).catch(() => null);
+  if (real && !within(await realpath(root), real)) throw new AdrError(`${named} leads outside the repository (${folder}).`);
+}
+
 /** The folder named by adr-tools' .adr-dir file, when it stays inside the repository. */
 async function adrDirFile(root: string): Promise<string | null> {
   const content = await readFile(join(root, ".adr-dir"), "utf8").catch(() => null);
   const folder = content?.trim();
   if (!folder) return null;
   const inside = relative(root, resolve(root, folder));
-  if (!inside || inside.startsWith("..") || isAbsolute(inside)) throw new AdrError(`.adr-dir points outside the repository (${folder}).`);
+  if (!within(root, resolve(root, folder))) throw new AdrError(`.adr-dir points outside the repository (${folder}).`);
+  await mustStayInside(root, inside, ".adr-dir");
   return inside;
 }
 
@@ -58,6 +70,7 @@ export async function findAdrTarget(root: string): Promise<AdrTarget> {
   let best: { folder: string; found: string[] } | null = null;
   for (const folder of candidates) {
     if (!(await isDirectory(join(root, folder)))) continue;
+    await mustStayInside(root, folder, folder);
     const found = await numbers(join(root, folder));
     // The first existing folder, unless a later one holds more records.
     if (!best || found.length > best.found.length) best = { folder, found };
@@ -91,9 +104,15 @@ export function adrSlug(text: string): string {
 
 export const adrFileName = (number: number, width: number, slug: string) => `${String(number).padStart(width, "0")}-${slug}.md`;
 
-/** Writes the record, creating the folder if needed; never replaces a file. Returns its absolute path. */
+/**
+ * Writes the record, creating the folder if needed; never replaces a file, and never takes a number another record
+ * took since findAdrTarget (two agents recording at once). Returns its absolute path.
+ */
 export async function writeAdr(target: AdrTarget, slug: string, content: string | Uint8Array): Promise<string> {
   await mkdir(target.directory, { recursive: true });
+  if ((await numbers(target.directory)).some((digits) => Number(digits) === target.number)) {
+    throw new AdrError(`ADR ${target.number} was just recorded in ${target.relativeDirectory}. Nothing was written: try again.`);
+  }
   const path = join(target.directory, adrFileName(target.number, target.width, slug));
   try {
     await writeFile(path, content, { flag: "wx" });

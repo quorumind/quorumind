@@ -10,13 +10,17 @@ const CENTRAL_HEADER = 0x02014b50;
 const LOCAL_HEADER = 0x04034b50;
 const STORED = 0;
 const DEFLATED = 8;
+/** The largest entry, and the largest archive once inflated: a hand-off is a few files of text. */
+export const ZIP_LIMITS = { entry: 16 * 1024 * 1024, total: 64 * 1024 * 1024 } as const;
 
 /**
  * Reads the files of a ZIP archive. Quorumind writes uncompressed ("stored") entries; deflated
  * entries are read too, since zlib ships with Node. ZIP64, encryption and multi-disk archives
- * are not supported: the hand-off archive never needs them.
+ * are not supported: the hand-off archive never needs them. Entries are inflated no further than the size they declare,
+ * within ZIP_LIMITS: a crafted archive from the server cannot exhaust this process's memory.
  */
 export function readZip(archive: Buffer): ZipEntry[] {
+  let total = 0;
   const end = findEndOfCentralDirectory(archive);
   const count = archive.readUInt16LE(end + 10);
   let offset = archive.readUInt32LE(end + 16);
@@ -44,10 +48,19 @@ export function readZip(archive: Buffer): ZipEntry[] {
     const start = localOffset + 30 + archive.readUInt16LE(localOffset + 26) + archive.readUInt16LE(localOffset + 28);
     if (start + compressedSize > archive.length) throw new ZipError(`Truncated entry ${name}.`);
     const raw = archive.subarray(start, start + compressedSize);
+    total += size;
+    if (size > ZIP_LIMITS.entry || total > ZIP_LIMITS.total) throw new ZipError(`${name} is too large.`);
     let data: Buffer;
     if (method === STORED) data = Buffer.from(raw);
-    else if (method === DEFLATED) data = inflateRawSync(raw);
-    else throw new ZipError(`${name} uses an unsupported compression method (${method}).`);
+    else if (method === DEFLATED) {
+      try {
+        // One byte more than declared tells an entry that lies about its size.
+        data = inflateRawSync(raw, { maxOutputLength: size + 1 });
+      } catch (error) {
+        if (error instanceof RangeError) throw new ZipError(`${name} is larger than it declares.`);
+        throw new ZipError(`${name} is damaged.`);
+      }
+    } else throw new ZipError(`${name} uses an unsupported compression method (${method}).`);
     if (data.length !== size || crc32(data) !== checksum) throw new ZipError(`${name} is damaged (checksum mismatch).`);
     entries.push({ name, data });
   }
