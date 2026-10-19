@@ -4,7 +4,7 @@ import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 import type { HostNavigation } from "./api.ts";
-import { json, stubApi } from "./test/dom.ts";
+import { failure, json, stubApi } from "./test/dom.ts";
 
 const config = (navigation?: HostNavigation | null) =>
   json({
@@ -63,7 +63,7 @@ afterEach(() => {
 });
 
 describe("the menu, self-hosted", () => {
-  it("has the app's pages, the sessions among them, and lists no session itself", async () => {
+  it("has the app's pages on top, the latest sessions under them, and its foot at the bottom", async () => {
     stub();
     window.location.hash = "#/decisions";
     render(<App />);
@@ -76,8 +76,23 @@ describe("the menu, self-hosted", () => {
       ["Settings", "#/settings"],
     ]);
     expect(sidebar().getByRole("link", { name: "Decisions" }).getAttribute("aria-current")).toBe("page");
-    expect(sidebar().queryByText("A booking app")).toBeNull();
-    expect(sidebar().queryByRole("heading")).toBeNull();
+    const list = await sidebar().findByRole("list", { name: "Recent sessions" });
+    expect(Array.from(list.querySelectorAll("a"), (link) => link.getAttribute("href"))).toEqual(["#/s/s1"]);
+    // The state and the day are said with the title.
+    expect(
+      within(list)
+        .getByRole("link", { name: /^A booking app\W+Verdict\W+Oct 1$/ })
+        .getAttribute("aria-current"),
+    ).toBeNull();
+    expect(links("Recent")).toEqual([
+      ["A booking app, Verdict, Oct 1", "#/s/s1"],
+      ["See all sessions", "#/sessions"],
+    ]);
+    expect(
+      sidebar()
+        .getAllByRole("heading")
+        .map((heading) => heading.textContent),
+    ).toEqual(["Recent"]);
     expect(sidebar().queryByRole("button", { name: /Workspace/ })).toBeNull();
   });
 
@@ -88,6 +103,56 @@ describe("the menu, self-hosted", () => {
     await waitFor(() => expect(sidebar().queryByRole("link", { name: "New debate" })).toBeNull());
     expect(sidebar().getByRole("link", { name: "Sessions" }).getAttribute("href")).toBe("#/sessions");
     expect(sidebar().queryByRole("heading", { name: "Workspace and account" })).toBeNull();
+  });
+});
+
+describe("the latest sessions in the menu", () => {
+  const many = Array.from({ length: 20 }, (_, index) => ({
+    id: `s${index + 1}`,
+    idea: `Idea ${index + 1}`,
+    phase: index === 0 ? "debating" : "complete",
+    updatedAt: new Date(Date.UTC(2026, 9, 20 - index, 10)).toISOString(),
+  }));
+
+  it("lists the fifteen latest, the one shown marked, then leads to all of them", async () => {
+    stub(undefined, {
+      "GET /api/sessions": () => json({ sessions: many, shared: false }),
+      "GET /api/sessions/s3": () => failure(404, "not_found"),
+    });
+    window.location.hash = "#/s/s3";
+    render(<App />);
+    const list = await sidebar().findByRole("list", { name: "Recent sessions" });
+    const rows = within(list).getAllByRole("link");
+    expect(rows).toHaveLength(15);
+    expect(rows[0]?.textContent).toContain("Idea 1");
+    expect(rows.at(-1)?.textContent).toContain("Idea 15");
+    expect(rows.filter((row) => row.getAttribute("aria-current") === "page").map((row) => row.getAttribute("href"))).toEqual(["#/s/s3"]);
+    // The full title on hover, as the line cuts it short.
+    expect(rows[2]?.getAttribute("title")).toBe("Idea 3");
+    expect(sidebar().getByRole("link", { name: "See all sessions" }).getAttribute("href")).toBe("#/sessions");
+  });
+
+  it("says so in a short line when there is none yet", async () => {
+    stub(undefined, { "GET /api/sessions": () => json({ sessions: [], shared: false }) });
+    render(<App />);
+    expect(await sidebar().findByText("No session yet.")).toBeTruthy();
+    expect(sidebar().queryByRole("list", { name: "Recent sessions" })).toBeNull();
+    expect(sidebar().queryByRole("link", { name: "See all sessions" })).toBeNull();
+  });
+
+  it("leaves no section when the history cannot be read", async () => {
+    const { calls } = stub(undefined, { "GET /api/sessions": () => failure(500, "internal") });
+    render(<App />);
+    await waitFor(() => expect(calls.some((call) => call.path === "/api/sessions")).toBe(true));
+    await waitFor(() => expect(sidebar().queryByRole("heading", { name: "Recent" })).toBeNull());
+    expect(sidebar().queryByRole("navigation", { name: "Recent" })).toBeNull();
+    expect(sidebar().getByRole("link", { name: "Sessions" })).toBeTruthy();
+  });
+
+  it("names them debates on a hosted service", async () => {
+    stub(HOSTED, { "GET /api/sessions": () => json({ sessions: [], shared: true }) });
+    render(<App />);
+    expect(await sidebar().findByText("No debate yet.")).toBeTruthy();
   });
 });
 
@@ -104,15 +169,27 @@ describe("the menu, hosted", () => {
       ["Decisions", "#/decisions"],
       ["Gallery", "#/gallery"],
       ["Settings", "#/settings"],
+    ]);
+    expect(links("Recent")).toEqual([
+      ["A booking app, Verdict, Oct 1", "#/s/s1"],
+      ["See all debates", "#/sessions"],
+    ]);
+    expect(sidebar().getByRole("list", { name: "Recent debates" })).toBeTruthy();
+    expect(links("Workspace and account")).toEqual([
       ["Home", "https://app.example.com/account/#/"],
       ["Billing", "https://app.example.com/account/#/billing"],
       ["Members", "https://app.example.com/account/#/members"],
       ["Organisation profile", "https://app.example.com/account/#/profile"],
       ["Account", "https://app.example.com/account/#/account"],
     ]);
+    // The menu's three parts in this order: the debates, the latest of them, the workspace and the account.
+    expect(
+      sidebar()
+        .getAllByRole("heading")
+        .map((heading) => heading.textContent),
+    ).toEqual(["Debates", "Recent", "Workspace and account"]);
     expect(sidebar().getByRole("link", { name: "Gallery" }).getAttribute("aria-current")).toBe("page");
     expect(sidebar().queryByRole("link", { name: "Back-office" })).toBeNull();
-    expect(sidebar().queryByText("A booking app")).toBeNull();
     // Who is signed in, the way back to the website, the language and the theme.
     expect(sidebar().getByText("Ada Lovelace")).toBeTruthy();
     expect(sidebar().getByText("ada@example.com")).toBeTruthy();

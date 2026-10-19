@@ -253,8 +253,8 @@ main[tabindex="-1"]:focus {
   block-size: 100dvh;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   overflow-y: auto;
 }
 
@@ -307,7 +307,7 @@ main[tabindex="-1"]:focus {
   display: flex;
   gap: var(--space-2);
   margin-block-start: auto;
-  padding-block-start: var(--space-3);
+  padding-block-start: var(--space-2);
   border-block-start: 1px solid var(--line);
 }
 
@@ -4074,7 +4074,7 @@ button.chip:active {
 
 /* The place of the workspace while the host's part of the menu loads. */
 .workspace-pending {
-  min-block-size: 50px;
+  min-block-size: 46px;
 }
 
 .workspace-button,
@@ -4090,7 +4090,7 @@ button.chip:active {
 }
 
 .workspace-button {
-  padding: var(--space-2);
+  padding: 6px var(--space-2);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
@@ -4205,9 +4205,7 @@ button.chip:active {
 }
 
 .sidebar-nav {
-  flex: 0 1 auto;
-  min-block-size: 0;
-  overflow-y: auto;
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -4246,7 +4244,7 @@ button.chip:active {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 6px var(--space-3);
+  padding: 4px var(--space-3);
   line-height: 20px;
   border-radius: var(--radius-md);
   color: var(--ink-muted);
@@ -4272,6 +4270,170 @@ button.chip:active {
   transform: scale(1.12);
 }
 
+/* The latest debates, in the height the rest of the menu leaves: they scroll in it, so that the menu's top and bottom
+   always stay in sight. */
+.sidebar-recent {
+  flex: 1 1 0;
+  min-block-size: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.recent-scroll {
+  flex: 0 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-inline: calc(-1 * var(--space-2));
+  padding: 2px var(--space-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+/* Where the browser follows a scroll in CSS, the list fades out at an edge that has more beyond it. */
+@property --recent-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --recent-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes recent-fade {
+  0% {
+    --recent-fade-start: 0px;
+    --recent-fade-end: 16px;
+  }
+  8% {
+    --recent-fade-start: 16px;
+  }
+  92% {
+    --recent-fade-end: 16px;
+  }
+  100% {
+    --recent-fade-start: 16px;
+    --recent-fade-end: 0px;
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  .recent-scroll {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--recent-fade-start),
+      #000 calc(100% - var(--recent-fade-end)),
+      transparent
+    );
+    animation: recent-fade linear both;
+    animation-timeline: scroll(self);
+  }
+}
+
+.recent-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One line per debate: its state's dot where the menu's icons are, its title cut short, the day it last moved. The
+   line holds what is said of it to screen readers only, which would otherwise make the whole menu scroll. */
+.recent-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 4px var(--space-3);
+  line-height: 20px;
+  border-radius: var(--radius-md);
+  color: var(--ink-muted);
+  font-size: 14px;
+  text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.recent-link:hover,
+.recent-link[aria-current="page"] {
+  background: var(--thesis-soft);
+  color: var(--ink);
+}
+
+.recent-link:focus-visible {
+  outline-offset: -2px;
+}
+
+.recent-link .phase-dot {
+  margin-inline: 5px;
+}
+
+.recent-title {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-date {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.recent-all {
+  display: inline-block;
+  margin-block-start: var(--space-1);
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--thesis);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  text-decoration: none;
+}
+
+.recent-all:hover {
+  text-decoration: underline;
+}
+
+.recent-empty {
+  margin: 0;
+  padding-inline: var(--space-3);
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+/* The workspace's and the account's pages, the person and the menu's foot: always at the bottom, whatever the
+   debates above. */
+.sidebar-bottom {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-start: auto;
+}
+
+/* Too short a screen for the top and the bottom of the menu with the debates between them: the whole menu scrolls,
+   with a few of the debates in it. */
+@media (max-height: 699px) {
+  .sidebar-recent {
+    flex: none;
+  }
+  .recent-scroll {
+    max-block-size: 240px;
+  }
+}
+
 .sidebar-user-row {
   margin-block-start: auto;
   display: flex;
@@ -4294,11 +4456,6 @@ button.chip:active {
 .sidebar-user-row .sign-out:not(:disabled):hover {
   background: var(--infeasible-soft);
   color: var(--infeasible);
-}
-
-/* The person sits right above the menu's foot: the free space goes above them, not between. */
-.sidebar-user-row + .sidebar-foot {
-  margin-block-start: var(--space-3);
 }
 
 .sidebar-user {

@@ -1,4 +1,4 @@
-import { createContext, lazy, type ReactNode, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, lazy, type ReactNode, Suspense, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type HostNavigation, type SessionSummary } from "./api.ts";
 import { HostLinks, HostUser, SiteLink, WorkspaceSwitch } from "./components/HostMenu.tsx";
@@ -197,10 +197,67 @@ function ThemeButton() {
   );
 }
 
+/** How many of the latest sessions the menu lists: the sessions page has them all. */
+const RECENT_COUNT = 15;
+
 /**
- * The menu: a new session, then the app's pages (the sessions, the decisions, the gallery, the settings), the same
- * few lines whatever the history holds. Hosted, it is the menu of the host's screens, so it stays the same from one
- * side to the other: the workspace on top, the app's pages under the debates, the host's pages, then the person.
+ * The latest sessions, between the app's pages and the account's: one line each, the one shown marked, then the way
+ * to all of them. They take the height the rest of the menu leaves and scroll in it, so the menu's foot stays in
+ * sight. A history that could not be read leaves no empty section behind.
+ */
+function RecentSessions({ current, hosted }: { current: string | null; hosted: boolean }) {
+  const { t, i18n } = useTranslation();
+  const { sessions, status } = useSessions();
+  const headingId = useId();
+  if (status === "failed" && sessions.length === 0) return null;
+  const date = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "short" });
+  const recent = sessions.slice(0, RECENT_COUNT);
+  return (
+    <nav className="sidebar-recent" aria-labelledby={headingId}>
+      <h2 className="nav-group-label" id={headingId}>
+        {t("nav.recent")}
+      </h2>
+      <div className="recent-scroll">
+        {recent.length > 0 ? (
+          <>
+            <ul className="recent-list" aria-label={hosted ? t("host.recentDebates") : t("nav.recentSessions")}>
+              {recent.map((item) => (
+                <li key={item.id}>
+                  <a
+                    className="recent-link"
+                    href={`#/s/${item.id}`}
+                    title={item.idea}
+                    aria-current={item.id === current ? "page" : undefined}
+                  >
+                    <span className={`phase-dot phase-${item.phase}`} aria-hidden="true" />
+                    <span className="recent-title" dir="auto">
+                      {item.idea}
+                    </span>
+                    <span className="visually-hidden">, {t(`phase.${item.phase}`)}, </span>
+                    <time className="recent-date" dateTime={item.updatedAt}>
+                      {date.format(new Date(item.updatedAt))}
+                    </time>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <a className="recent-all" href="#/sessions">
+              {hosted ? t("host.seeAllDebates") : t("nav.seeAllSessions")}
+            </a>
+          </>
+        ) : status === "ready" ? (
+          <p className="recent-empty">{hosted ? t("host.noDebates") : t("nav.noRecent")}</p>
+        ) : null}
+      </div>
+    </nav>
+  );
+}
+
+/**
+ * The menu, in three parts: on top, a new session and the app's pages (the sessions, the decisions, the gallery, the
+ * settings); in the middle, the latest sessions, in the height left; at the bottom, the host's pages, the person and
+ * the menu's foot. Hosted, it is the menu of the host's screens, so it stays the same from one side to the other: the
+ * workspace on top, the app's pages under the debates, then the latest debates, then the host's pages and the person.
  */
 function Sidebar({ current, host }: { current: string | null; host: HostNavigation | null | undefined }) {
   const { t } = useTranslation();
@@ -247,13 +304,20 @@ function Sidebar({ current, host }: { current: string | null; host: HostNavigati
         ) : (
           pages
         )}
-        {host ? <HostLinks links={host.links} /> : null}
       </nav>
-      {host ? <HostUser user={host.user} signOut={host.signOut ?? null} /> : null}
-      <div className="sidebar-foot sidebar-foot-host">
-        {host?.siteUrl ? <SiteLink url={host.siteUrl} /> : null}
-        <LanguageSelect id="language" />
-        <ThemeButton />
+      <RecentSessions current={current} hosted={hosted} />
+      <div className="sidebar-bottom">
+        {host && host.links.length > 0 ? (
+          <nav className="sidebar-nav" aria-label={t("host.group")}>
+            <HostLinks links={host.links} />
+          </nav>
+        ) : null}
+        {host ? <HostUser user={host.user} signOut={host.signOut ?? null} /> : null}
+        <div className="sidebar-foot sidebar-foot-host">
+          {host?.siteUrl ? <SiteLink url={host.siteUrl} /> : null}
+          <LanguageSelect id="language" />
+          <ThemeButton />
+        </div>
       </div>
     </div>
   );
