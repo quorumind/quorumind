@@ -126,8 +126,8 @@
     "teamSize": "Team di {{count}}",
     "unknown": "Sconosciuto",
     "commas": "Le separi con delle virgole.",
-    "currencyHint": "Codice ISO, come EUR o USD.",
-    "currencyInvalid": "Indichi la valuta del budget con il codice ISO, come EUR.",
+    "currencyHint": "Entrambi gli importi sono in questa valuta.",
+    "currencyInvalid": "Scegli la valuta del budget dall'elenco.",
     "currencyNote": "Tutti gli importi di questo dibattito saranno in {{currency}}.",
     "complianceHint": "Ogni casella spuntata è un vincolo non negoziabile per tutte le opzioni.",
     "compliance": {
@@ -697,7 +697,8 @@
     "cross_site": "Questa richiesta proveniva da un altro sito, quindi il server l'ha rifiutata. Apri Quorumind al suo indirizzo e riprova.",
     "forbidden_host": "Questo server non risponde a questo indirizzo. Aprilo al suo indirizzo abituale, oppure aggiungi questo a QUORUMIND_ALLOWED_HOSTS sul server.",
     "unsupported_media_type": "Il server non è riuscito a leggere questa richiesta a causa del suo formato. Ricarica la pagina e riprova.",
-    "audit_document_missing": "Allega il documento da esaminare: un preventivo, una descrizione dei servizi o una proposta."
+    "audit_document_missing": "Allega il documento da esaminare: un preventivo, una descrizione dei servizi o una proposta.",
+    "invalid_currency": "«{{currency}}» non è un codice valuta. Scegli la valuta dall'elenco, ad esempio EUR."
   },
   "costing": {
     "title": "Stima per pacchetto di lavoro",
@@ -771,7 +772,7 @@
     "saved": "Profilo salvato. Vale per i dibattiti avviati da adesso.",
     "clear": "Elimina il profilo",
     "cleared": "Profilo eliminato.",
-    "currencyInvalid": "Indichi la valuta con il codice ISO, come EUR.",
+    "currencyInvalid": "Scegli la valuta dall'elenco.",
     "rateInvalid": "Dia a ogni ruolo una tariffa giornaliera superiore a zero.",
     "managed": "Il profilo del suo spazio di lavoro è gestito dai proprietari e dagli amministratori, nelle impostazioni dello spazio del suo account."
   },
@@ -1110,5 +1111,10 @@
     "recapDepth": "Profondità: {{depth}}",
     "edit": "Modifica",
     "editStep": "Modifica: {{step}}"
+  },
+  "currency": {
+    "common": "Valute più usate",
+    "others": "Altre valute",
+    "unknown": "{{code}} (non è una valuta)"
   }
 }

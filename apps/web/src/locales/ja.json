@@ -126,8 +126,8 @@
     "teamSize": "{{count}} 人のチーム",
     "unknown": "不明",
     "commas": "カンマで区切ってください。",
-    "currencyHint": "JPY や USD などの ISO コード。",
-    "currencyInvalid": "予算の通貨を JPY などの ISO コードで入力してください。",
+    "currencyHint": "どちらの金額もこの通貨です。",
+    "currencyInvalid": "予算の通貨を一覧から選んでください。",
     "currencyNote": "この討論の金額はすべて {{currency}} で示されます。",
     "complianceHint": "チェックした項目は、すべての案にとって譲れない制約になります。",
     "compliance": {
@@ -697,7 +697,8 @@
     "cross_site": "このリクエストは別のサイトから送られたため、サーバーが拒否しました。Quorumind を本来のアドレスで開き、もう一度お試しください。",
     "forbidden_host": "このサーバーはこのアドレスでは応答しません。通常のアドレスで開くか、サーバーの QUORUMIND_ALLOWED_HOSTS にこのアドレスを追加してください。",
     "unsupported_media_type": "形式が正しくないため、サーバーはこのリクエストを読み取れませんでした。ページを再読み込みして、もう一度お試しください。",
-    "audit_document_missing": "監査する文書を添付してください（見積書、作業範囲記述書、提案書など）。"
+    "audit_document_missing": "監査する文書を添付してください（見積書、作業範囲記述書、提案書など）。",
+    "invalid_currency": "「{{currency}}」は通貨コードではありません。JPY などの通貨を一覧から選んでください。"
   },
   "costing": {
     "title": "作業パッケージ別の費用",
@@ -771,7 +772,7 @@
     "saved": "プロフィールを保存しました。今後開始する討論に適用されます。",
     "clear": "プロフィールを削除",
     "cleared": "プロフィールを削除しました。",
-    "currencyInvalid": "通貨を JPY などの ISO コードで入力してください。",
+    "currencyInvalid": "通貨を一覧から選んでください。",
     "rateInvalid": "各役割に 0 より大きい日単価を設定してください。",
     "managed": "ワークスペースのプロフィールは、アカウントのワークスペース設定でオーナーと管理者が管理します。"
   },
@@ -1110,5 +1111,10 @@
     "recapDepth": "深さ：{{depth}}",
     "edit": "変更",
     "editStep": "変更：{{step}}"
+  },
+  "currency": {
+    "common": "主な通貨",
+    "others": "その他の通貨",
+    "unknown": "{{code}}（通貨ではありません）"
   }
 }

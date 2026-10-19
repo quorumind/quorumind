@@ -66,6 +66,31 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(await report.text()).toContain("_Rapport de décision");
     });
 
+    it("refuses a budget in a currency that does not exist, and writes a known one as its ISO code", async () => {
+      const app = await makeApp();
+      const created = await app.request("/api/sessions", json({ locale: "en", demo: true }));
+      const { session } = (await created.json()) as { session: Session };
+      await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy);
+      await app.request(`/api/sessions/${session.id}/interview`, json({ answers: [{ question: "Budget?", answer: "15,000" }] }));
+      const review = await waitFor(app, session.id, (s, busy) => s.phase === "review" && !busy);
+      const sheet = review.sheet as NonNullable<Session["sheet"]>;
+      const withCurrency = (currency: string) => ({
+        ...sheet,
+        budget: { ...sheet.budget, build: { amount: 15000, currency }, run: { amount: 200, currency, period: "month" } },
+      });
+
+      const refused = await app.request(`/api/sessions/${session.id}/sheet`, { ...json({ sheet: withCurrency("DOL") }), method: "PUT" });
+      expect(refused.status).toBe(400);
+      expect(await refused.json()).toMatchObject({ error: "invalid_currency", params: { currency: "DOL" } });
+      expect((await waitFor(app, session.id, (_, busy) => !busy)).phase).toBe("review");
+
+      const confirmed = await app.request(`/api/sessions/${session.id}/sheet`, { ...json({ sheet: withCurrency("chf") }), method: "PUT" });
+      expect(confirmed.status).toBe(202);
+      const debating = await waitFor(app, session.id, (s) => s.phase !== "review");
+      expect(debating.sheet?.budget.build).toEqual({ amount: 15000, currency: "CHF" });
+      expect(debating.sheet?.budget.run?.currency).toBe("CHF");
+    });
+
     it("refuses a live session when no API key is configured", async () => {
       const app = await makeApp();
       const response = await app.request("/api/sessions", json({ locale: "en", demo: false, idea: "A CRM" }));

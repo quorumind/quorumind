@@ -54,7 +54,10 @@ export function profileFrom(input: ProfileInput, now = new Date()): OrgProfile {
 
 /** Only the known fields of a stored profile are read back, so a field removed later cannot leak into a debate. */
 export function storedProfile(value: unknown, updatedAt: string | null): OrgProfile | null {
-  const parsed = ProfileInput.safeParse(value);
+  // A currency saved before the server checked it against the known codes ("DOL") does not lose the whole profile.
+  const saved = value && typeof value === "object" ? (value as { currency?: unknown }) : null;
+  const currency = typeof saved?.currency === "string" ? saved.currency : null;
+  const parsed = ProfileInput.safeParse(saved && !currencyCode(currency) ? { ...saved, currency: "EUR" } : value);
   return parsed.success ? { ...parsed.data, roles: withRoleIds(parsed.data.roles), updatedAt } : null;
 }
 

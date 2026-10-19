@@ -5,6 +5,7 @@ import { COMPLIANCE_KEYS } from "@quorumind/core/session";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "./api.ts";
+import { CurrencySelect } from "./components/CurrencySelect.tsx";
 import { ArrowIcon, CrossIcon } from "./components/Icons.tsx";
 import { failureText } from "./errors.ts";
 
@@ -268,16 +269,11 @@ export function Review({ session }: { session: Session }) {
               <label className="field-label" htmlFor="budgetCurrency">
                 {t("review.fields.currency")}
               </label>
-              <input
+              <CurrencySelect
                 id="budgetCurrency"
-                className="input mono"
-                maxLength={3}
-                autoCapitalize="characters"
-                spellCheck={false}
                 value={budget.currency}
-                aria-invalid={currencyInvalid || undefined}
-                aria-describedby="budgetCurrency-hint"
-                onChange={(event) => setBudget((current) => ({ ...current, currency: event.target.value.toUpperCase() }))}
+                describedBy="budgetCurrency-hint"
+                onChange={(code) => setBudget((current) => ({ ...current, currency: code }))}
               />
               <span className="field-hint" id="budgetCurrency-hint">
                 {t("review.currencyHint")}

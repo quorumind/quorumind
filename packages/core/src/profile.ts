@@ -147,16 +147,59 @@ export const localeCurrency = (locale: Locale): string => LOCALE_CURRENCIES[loca
 
 const SYMBOLS: Record<string, string> = { "€": "EUR", $: "USD", US$: "USD", "£": "GBP", "₹": "INR", "¥": "JPY", "₩": "KRW", "CHF.": "CHF" };
 
-/** An ISO 4217 code from what a model or a person wrote ("eur", "€"), or null when it is not one. */
+/**
+ * The ISO 4217 codes the runtime knows, null where it cannot list them. Intl.NumberFormat accepts any three letters
+ * ("DOL"), so it cannot tell a currency from a typo on its own.
+ */
+const KNOWN_CURRENCIES: ReadonlySet<string> | null = (() => {
+  try {
+    return new Set(Intl.supportedValuesOf("currency"));
+  } catch {
+    return null;
+  }
+})();
+
+/** Every ISO 4217 code the runtime knows, sorted; empty where it cannot list them. */
+export const currencyCodes = (): string[] => [...(KNOWN_CURRENCIES ?? [])].sort();
+
+/** An ISO 4217 code from what a model or a person wrote ("eur", "€"), or null when it is not one ("DOL"). */
 export function currencyCode(value: string | null | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim();
   const code = (SYMBOLS[trimmed] ?? trimmed).toUpperCase();
   if (!/^[A-Z]{3}$/.test(code)) return null;
+  if (KNOWN_CURRENCIES) return KNOWN_CURRENCIES.has(code) ? code : null;
   try {
     new Intl.NumberFormat("en", { style: "currency", currency: code });
     return code;
   } catch {
     return null;
   }
+}
+
+interface Budget {
+  build: { amount: number; currency: string } | null;
+  run: { amount: number; currency: string; period: "month" | "year" } | null;
+}
+
+/** The currencies of a requirements sheet's budget that are not ISO 4217 codes, as written. */
+export function unknownCurrencies(sheet: { budget: Budget }): string[] {
+  return [sheet.budget.build, sheet.budget.run].flatMap((money) => (money && !currencyCode(money.currency) ? [money.currency] : []));
+}
+
+/**
+ * A requirements sheet whose budget is in ISO 4217 codes: "eur" or "€" become EUR, and a currency that is not one
+ * (a model's "DOL") takes the other amount's currency, else `fallback`. A model's mistake never fails a debate.
+ */
+export function withCurrencyCodes<T extends { budget: Budget }>(sheet: T, fallback: string): T {
+  const { build, run } = sheet.budget;
+  const known = currencyCode(build?.currency) ?? currencyCode(run?.currency) ?? fallback;
+  return {
+    ...sheet,
+    budget: {
+      ...sheet.budget,
+      build: build ? { ...build, currency: currencyCode(build.currency) ?? known } : null,
+      run: run ? { ...run, currency: currencyCode(run.currency) ?? known } : null,
+    },
+  };
 }

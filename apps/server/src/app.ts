@@ -24,6 +24,7 @@ import {
   type Lineup,
   LOCALES,
   liveLineupFromEnv,
+  localeCurrency,
   MAX_CONTEXT_CHARS,
   MAX_CONTEXT_DOCUMENTS,
   MAX_ROUNDS,
@@ -51,6 +52,8 @@ import {
   sessionCostings,
   TEMPLATE_IDS,
   type UsageRecord,
+  unknownCurrencies,
+  withCurrencyCodes,
 } from "@quorumind/core";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -62,7 +65,7 @@ import { clientAddress, trustedProxies } from "./caller.ts";
 import type { ChatNotifier } from "./chat.ts";
 import { contextRoutes } from "./context/routes.ts";
 import { decisionRoutes, sendReviewReminders } from "./decisions.ts";
-import { invalidRequest } from "./errors.ts";
+import { InvalidInput, invalidRequest } from "./errors.ts";
 import { EuropeanUnavailable, europeanConfig, europeanSession, NonEuropeanModel, wantsEuropean } from "./european.ts";
 import { exportRoutes } from "./exports.ts";
 import { localGuard } from "./guard.ts";
@@ -1090,8 +1093,17 @@ export function createApp(deps: AppDeps) {
       const { sheet, ignoreProfile } = z
         .object({ sheet: RequirementsSheet, ignoreProfile: z.boolean().optional() })
         .parse(await c.req.json());
+      // A budget in a currency that does not exist ("DOL") is refused: the person picks one. "eur" or "€" become EUR.
+      const [unknown] = unknownCurrencies(sheet);
+      if (unknown !== undefined) {
+        throw new InvalidInput(`"${unknown}" is not an ISO 4217 currency code, such as EUR.`, "invalid_currency", { currency: unknown });
+      }
       await authorize(session);
-      await engineFor(session, held.controller.signal).confirmSheet(session, sheet, ignoreProfile === undefined ? {} : { ignoreProfile });
+      await engineFor(session, held.controller.signal).confirmSheet(
+        session,
+        withCurrencyCodes(sheet, localeCurrency(session.locale)),
+        ignoreProfile === undefined ? {} : { ignoreProfile },
+      );
       runInBackground(session, held, (engine) => engine.runDebate(session));
       return c.json({ accepted: true }, 202);
     });
@@ -1432,6 +1444,9 @@ export function createApp(deps: AppDeps) {
       return c.json({ error: "provider_unavailable", message }, 503);
     }
     if (error instanceof ShareRefused) return c.json({ error: error.code, message: error.message }, error.status);
+    if (error instanceof InvalidInput) {
+      return c.json({ error: error.code, message: error.message, ...(error.params ? { params: error.params } : {}) }, 400);
+    }
     if (error instanceof z.ZodError) return c.json(invalidRequest(error), 400);
     if (error instanceof SyntaxError) return c.json({ error: "invalid_request", message: "The body is not valid JSON." }, 400);
     console.error(error);

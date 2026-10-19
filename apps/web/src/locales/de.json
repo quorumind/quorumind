@@ -126,8 +126,8 @@
     "teamSize": "Team von {{count}}",
     "unknown": "Unbekannt",
     "commas": "Durch Kommas trennen.",
-    "currencyHint": "ISO-Code, etwa EUR oder USD.",
-    "currencyInvalid": "Geben Sie die Währung des Budgets als ISO-Code an, etwa EUR.",
+    "currencyHint": "Beide Beträge sind in dieser Währung.",
+    "currencyInvalid": "Wählen Sie die Währung des Budgets aus der Liste.",
     "currencyNote": "Alle Beträge dieser Debatte werden in {{currency}} angegeben.",
     "complianceHint": "Jedes angekreuzte Kästchen ist eine harte Vorgabe für alle Optionen.",
     "compliance": {
@@ -697,7 +697,8 @@
     "cross_site": "Diese Anfrage kam von einer anderen Website, deshalb hat der Server sie abgelehnt. Öffnen Sie Quorumind unter seiner eigenen Adresse und versuchen Sie es erneut.",
     "forbidden_host": "Dieser Server antwortet nicht unter dieser Adresse. Öffnen Sie ihn unter seiner üblichen Adresse, oder fügen Sie diese zu QUORUMIND_ALLOWED_HOSTS auf dem Server hinzu.",
     "unsupported_media_type": "Der Server konnte diese Anfrage wegen ihres Formats nicht lesen. Laden Sie die Seite neu und versuchen Sie es erneut.",
-    "audit_document_missing": "Hängen Sie das zu prüfende Dokument an: ein Angebot, eine Leistungsbeschreibung oder ein Konzept."
+    "audit_document_missing": "Hängen Sie das zu prüfende Dokument an: ein Angebot, eine Leistungsbeschreibung oder ein Konzept.",
+    "invalid_currency": "„{{currency}}“ ist kein Währungscode. Wählen Sie die Währung aus der Liste, etwa EUR."
   },
   "costing": {
     "title": "Kalkulation nach Arbeitspaketen",
@@ -771,7 +772,7 @@
     "saved": "Profil gespeichert. Es gilt für die ab jetzt gestarteten Debatten.",
     "clear": "Profil entfernen",
     "cleared": "Profil entfernt.",
-    "currencyInvalid": "Geben Sie die Währung als ISO-Code an, etwa EUR.",
+    "currencyInvalid": "Wählen Sie die Währung aus der Liste.",
     "rateInvalid": "Geben Sie jeder Rolle einen Tagessatz über null.",
     "managed": "Das Profil Ihres Arbeitsbereichs verwalten dessen Inhaber und Administratoren, in den Arbeitsbereichseinstellungen Ihres Kontos."
   },
@@ -1110,5 +1111,10 @@
     "recapDepth": "Tiefe: {{depth}}",
     "edit": "Ändern",
     "editStep": "Ändern: {{step}}"
+  },
+  "currency": {
+    "common": "Gängige Währungen",
+    "others": "Weitere Währungen",
+    "unknown": "{{code}} (keine Währung)"
   }
 }

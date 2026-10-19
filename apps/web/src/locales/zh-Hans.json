@@ -126,8 +126,8 @@
     "teamSize": "{{count}} 人团队",
     "unknown": "未知",
     "commas": "用逗号分隔。",
-    "currencyHint": "ISO 代码，例如 CNY 或 USD。",
-    "currencyInvalid": "请用 ISO 代码填写预算货币，例如 CNY。",
+    "currencyHint": "两项金额均使用此货币。",
+    "currencyInvalid": "请从列表中选择预算的货币。",
     "currencyNote": "本次辩论的所有金额都将以 {{currency}} 表示。",
     "complianceHint": "每个勾选项都是所有方案必须满足的硬性约束。",
     "compliance": {
@@ -697,7 +697,8 @@
     "cross_site": "此请求来自其他网站，因此服务器拒绝了它。请通过 Quorumind 自己的地址打开它，然后重试。",
     "forbidden_host": "此服务器不响应这个地址。请通过它的常用地址打开，或在服务器上把这个地址加入 QUORUMIND_ALLOWED_HOSTS。",
     "unsupported_media_type": "由于格式问题，服务器无法读取此请求。请重新加载页面，然后重试。",
-    "audit_document_missing": "请附上要审核的文件：报价单、工作说明书或方案。"
+    "audit_document_missing": "请附上要审核的文件：报价单、工作说明书或方案。",
+    "invalid_currency": "“{{currency}}”不是货币代码。请从列表中选择货币，例如 CNY。"
   },
   "costing": {
     "title": "按工作包测算成本",
@@ -771,7 +772,7 @@
     "saved": "资料已保存，适用于此后开始的辩论。",
     "clear": "删除资料",
     "cleared": "资料已删除。",
-    "currencyInvalid": "请用 ISO 代码填写货币，例如 CNY。",
+    "currencyInvalid": "请从列表中选择货币。",
     "rateInvalid": "请为每个角色设置大于零的日费率。",
     "managed": "工作区的资料由其所有者和管理员在您账户的工作区设置中管理。"
   },
@@ -1110,5 +1111,10 @@
     "recapDepth": "深度：{{depth}}",
     "edit": "修改",
     "editStep": "修改：{{step}}"
+  },
+  "currency": {
+    "common": "常用货币",
+    "others": "其他货币",
+    "unknown": "{{code}}（不是货币）"
   }
 }

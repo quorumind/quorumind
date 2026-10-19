@@ -126,8 +126,8 @@
     "teamSize": "Équipe de {{count}}",
     "unknown": "Inconnu",
     "commas": "Séparez-les par des virgules.",
-    "currencyHint": "Code ISO, comme EUR ou USD.",
-    "currencyInvalid": "Indiquez la devise du budget par son code ISO, comme EUR.",
+    "currencyHint": "Les deux montants sont dans cette devise.",
+    "currencyInvalid": "Choisissez la devise du budget dans la liste.",
     "currencyNote": "Tous les montants de ce débat seront en {{currency}}.",
     "complianceHint": "Chaque case cochée est une contrainte non négociable pour toutes les options.",
     "compliance": {
@@ -697,7 +697,8 @@
     "cross_site": "Cette requête venait d'un autre site, le serveur l'a donc refusée. Ouvrez Quorumind à sa propre adresse et réessayez.",
     "forbidden_host": "Ce serveur ne répond pas à cette adresse. Ouvrez-le à son adresse habituelle, ou ajoutez celle-ci à QUORUMIND_ALLOWED_HOSTS sur le serveur.",
     "unsupported_media_type": "Le serveur n'a pas pu lire cette requête à cause de son format. Rechargez la page et réessayez.",
-    "audit_document_missing": "Joignez le document à auditer : un devis, une description des prestations ou une proposition."
+    "audit_document_missing": "Joignez le document à auditer : un devis, une description des prestations ou une proposition.",
+    "invalid_currency": "« {{currency}} » n'est pas un code de devise. Choisissez la devise dans la liste, comme EUR."
   },
   "costing": {
     "title": "Chiffrage par lot",
@@ -771,7 +772,7 @@
     "saved": "Profil enregistré. Il s'applique aux débats lancés à partir de maintenant.",
     "clear": "Supprimer le profil",
     "cleared": "Profil supprimé.",
-    "currencyInvalid": "Indiquez la devise par son code ISO, comme EUR.",
+    "currencyInvalid": "Choisissez la devise dans la liste.",
     "rateInvalid": "Donnez à chaque rôle un taux journalier supérieur à zéro.",
     "managed": "Le profil de votre espace de travail est géré par ses propriétaires et ses administrateurs, dans les réglages de l'espace de votre compte."
   },
@@ -1110,5 +1111,10 @@
     "recapDepth": "Profondeur : {{depth}}",
     "edit": "Modifier",
     "editStep": "Modifier : {{step}}"
+  },
+  "currency": {
+    "common": "Devises courantes",
+    "others": "Autres devises",
+    "unknown": "{{code}} (pas une devise)"
   }
 }

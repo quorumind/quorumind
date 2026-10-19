@@ -126,8 +126,8 @@
     "teamSize": "Equipe de {{count}}",
     "unknown": "Desconhecido",
     "commas": "Separe-as com vírgulas.",
-    "currencyHint": "Código ISO, como BRL ou USD.",
-    "currencyInvalid": "Informe a moeda do orçamento pelo código ISO, como BRL.",
+    "currencyHint": "Os dois valores estão nesta moeda.",
+    "currencyInvalid": "Escolha a moeda do orçamento na lista.",
     "currencyNote": "Todos os valores deste debate estarão em {{currency}}.",
     "complianceHint": "Cada caixa marcada é uma restrição inegociável para todas as opções.",
     "compliance": {
@@ -697,7 +697,8 @@
     "cross_site": "Esta solicitação veio de outro site, por isso o servidor a recusou. Abra o Quorumind no endereço dele e tente de novo.",
     "forbidden_host": "Este servidor não responde neste endereço. Abra-o no endereço de costume, ou adicione este a QUORUMIND_ALLOWED_HOSTS no servidor.",
     "unsupported_media_type": "O servidor não conseguiu ler esta solicitação por causa do formato. Recarregue a página e tente de novo.",
-    "audit_document_missing": "Anexe o documento a auditar: um orçamento, uma descrição dos serviços ou uma proposta."
+    "audit_document_missing": "Anexe o documento a auditar: um orçamento, uma descrição dos serviços ou uma proposta.",
+    "invalid_currency": "“{{currency}}” não é um código de moeda. Escolha a moeda na lista, por exemplo BRL."
   },
   "costing": {
     "title": "Orçamento por pacote de trabalho",
@@ -771,7 +772,7 @@
     "saved": "Perfil salvo. Ele vale para os debates iniciados a partir de agora.",
     "clear": "Remover o perfil",
     "cleared": "Perfil removido.",
-    "currencyInvalid": "Informe a moeda pelo código ISO, como BRL.",
+    "currencyInvalid": "Escolha a moeda na lista.",
     "rateInvalid": "Dê a cada função uma diária maior que zero.",
     "managed": "O perfil do seu espaço de trabalho é gerenciado pelos proprietários e administradores, nas configurações do espaço da sua conta."
   },
@@ -1110,5 +1111,10 @@
     "recapDepth": "Profundidade: {{depth}}",
     "edit": "Alterar",
     "editStep": "Alterar: {{step}}"
+  },
+  "currency": {
+    "common": "Moedas mais usadas",
+    "others": "Outras moedas",
+    "unknown": "{{code}} (não é uma moeda)"
   }
 }

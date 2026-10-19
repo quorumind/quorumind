@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type ProfileInput } from "../api.ts";
 import { failureText } from "../errors.ts";
+import { CurrencySelect } from "./CurrencySelect.tsx";
 import { CrossIcon } from "./Icons.tsx";
 import { LoadFailed } from "./LoadFailed.tsx";
 
@@ -236,16 +237,7 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
           <label className="field-label" htmlFor={`${id}-currency`}>
             {t("profile.currency")}
           </label>
-          <input
-            id={`${id}-currency`}
-            className="input mono"
-            maxLength={3}
-            autoCapitalize="characters"
-            spellCheck={false}
-            value={draft.currency}
-            onChange={(event) => update({ currency: event.target.value.toUpperCase() })}
-            disabled={!loaded}
-          />
+          <CurrencySelect id={`${id}-currency`} value={draft.currency} onChange={(currency) => update({ currency })} disabled={!loaded} />
         </div>
         {draft.roles.map((role, index) => (
           <div className="profile-role" key={role.key}>

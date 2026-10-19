@@ -126,8 +126,8 @@
     "teamSize": "Team of {{count}}",
     "unknown": "Unknown",
     "commas": "Separate them with commas.",
-    "currencyHint": "ISO code, such as EUR or USD.",
-    "currencyInvalid": "Enter the budget's currency as an ISO code, such as EUR.",
+    "currencyHint": "Both amounts are in this currency.",
+    "currencyInvalid": "Choose the budget's currency in the list.",
     "currencyNote": "Every amount of this debate will be in {{currency}}.",
     "complianceHint": "Each box checked is a hard constraint for every option.",
     "compliance": {
@@ -697,7 +697,8 @@
     "cross_site": "This request came from another website, so the server refused it. Open Quorumind at its own address and try again.",
     "forbidden_host": "This server does not answer at this address. Open it at its usual address, or add this one to QUORUMIND_ALLOWED_HOSTS on the server.",
     "unsupported_media_type": "The server could not read this request because of its format. Reload the page and try again.",
-    "audit_document_missing": "Attach the document to audit: a quote, a statement of work or a proposal."
+    "audit_document_missing": "Attach the document to audit: a quote, a statement of work or a proposal.",
+    "invalid_currency": "“{{currency}}” is not a currency code. Choose the currency in the list, such as EUR."
   },
   "costing": {
     "title": "Costing by work package",
@@ -771,7 +772,7 @@
     "saved": "Profile saved. It applies to the debates started from now on.",
     "clear": "Remove the profile",
     "cleared": "Profile removed.",
-    "currencyInvalid": "Enter the currency as an ISO code, such as EUR.",
+    "currencyInvalid": "Choose the currency in the list.",
     "rateInvalid": "Give every role a day rate above zero.",
     "managed": "Your workspace's profile is managed by its owners and admins, in the workspace settings of your account."
   },
@@ -1110,5 +1111,10 @@
     "recapDepth": "Depth: {{depth}}",
     "edit": "Change",
     "editStep": "Change: {{step}}"
+  },
+  "currency": {
+    "common": "Common currencies",
+    "others": "Other currencies",
+    "unknown": "{{code}} (not a currency)"
   }
 }

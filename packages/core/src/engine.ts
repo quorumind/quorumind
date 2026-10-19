@@ -26,7 +26,7 @@ import { InvalidStateError, requireSheet } from "./errors.ts";
 import { partialStringField } from "./partial-json.ts";
 import { cappedCostOf, costOf, TASK_PROFILE, typicalCappedCost } from "./pricing.ts";
 import { fence, redact, withoutRates } from "./privacy.ts";
-import { currencyCode } from "./profile.ts";
+import { currencyCode, localeCurrency, withCurrencyCodes } from "./profile.ts";
 import {
   answersBlock,
   arbiterSystem,
@@ -623,7 +623,7 @@ export class DebateEngine {
     );
     session.interview.push({ kind: "interviewer", data: turn });
     if ((turn.status === "done" || forceDone) && turn.sheet) {
-      session.sheet = withTemplateFlags(turn.sheet, session.complianceTemplates);
+      session.sheet = withTemplateFlags(withCurrencyCodes(turn.sheet, localeCurrency(session.locale)), session.complianceTemplates);
       session.phase = "review";
     }
     await this.persist(session);

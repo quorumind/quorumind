@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type AppHooks, createApp } from "./app.ts";
 import { SqliteBrandingStore } from "./branding.ts";
 import { EventBus } from "./bus.ts";
+import { storedProfile } from "./profile.ts";
 import { BACKENDS, type Backend, type TestStorage } from "./testing.ts";
 
 let backend: Backend;
@@ -117,6 +118,8 @@ describe.each(BACKENDS)("the organisation profile on $name", (each) => {
     const wrong = await saveProfile(app, "ada", { ...INPUT, currency: "euros" });
     expect(wrong.status).toBe(400);
     expect(((await wrong.json()) as { params: { field: string } }).params.field).toBe("profile.currency");
+    // Three letters that are no currency, as the person typed them before the currency was a list.
+    expect((await saveProfile(app, "ada", { ...INPUT, currency: "DOL" })).status).toBe(400);
     expect((await saveProfile(app, "ada", { ...INPUT, roles: [{ name: "Developer", dailyRate: -1 }] })).status).toBe(400);
 
     const saved = await saveProfile(app, "ada", INPUT);
@@ -206,6 +209,14 @@ describe.each(BACKENDS)("the organisation profile on $name", (each) => {
     const review = await toReview(app, "ada");
     expect(review.profile?.name).toBe("Workspace of ada");
     expect(asked).toEqual([`ada:${review.id}`]);
+  });
+});
+
+describe("a profile stored before currencies were checked against the known codes", () => {
+  it("is read with the euro rather than lost", () => {
+    const { currency: _, ...rest } = INPUT;
+    expect(storedProfile({ ...rest, currency: "DOL" }, null)?.currency).toBe("EUR");
+    expect(storedProfile({ ...rest, currency: "chf" }, null)?.currency).toBe("CHF");
   });
 });
 

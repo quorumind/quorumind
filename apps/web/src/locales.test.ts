@@ -80,6 +80,7 @@ const ERROR_CODES = [
   "unsupported_media_type",
   "non_european_model",
   "european_unavailable",
+  "invalid_currency",
 ];
 
 // Every task a usage record can name (Costs.tsx shows `task.<task>`). A task added to the engine fails the typecheck
