@@ -30,7 +30,8 @@ async function makeApp(backend: Backend, hooks: AppHooks, store?: (storage: Test
   /** The recipients whose e-mail fails ("chat" for the channel). */
   const failing = new Set<string>();
   const notifier: Notifier = {
-    notify: async (session, reason, to) => {
+    notify: async (session, reason, recipient) => {
+      const to = typeof recipient === "string" ? recipient : (recipient?.address ?? null);
       if (failing.has(to ?? "")) throw new Error("The mail server refused it.");
       mails.push({ sessionId: session.id, reason, to });
     },

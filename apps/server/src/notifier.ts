@@ -1,5 +1,7 @@
-import type { Session } from "@quorumind/core";
+import { DECISION_LABELS, localeInfo, type Session } from "@quorumind/core";
 import { createTransport } from "nodemailer";
+import { type MailBrand, type MailFact, oneLine, type RenderedMail, renderMail } from "./mail.ts";
+import { mailLocale, NOTIFIER_LABELS } from "./mail-labels.ts";
 
 type Env = Record<string, string | undefined>;
 
@@ -9,63 +11,103 @@ type Env = Record<string, string | undefined>;
  */
 export type NotifyReason = "complete" | "awaiting_answers" | "failed" | "answers_received" | "review_due" | "approval_requested";
 
-/** Sends an e-mail when a long debate ends or waits for the person. Optional: needs an SMTP URL. */
-export interface Notifier {
-  notify(session: Session, reason: NotifyReason, recipient: string | null): Promise<void>;
+/** Someone to notify: their address and, when the host knows it, the language they read (the debate's otherwise). */
+export interface NotifyRecipient {
+  address: string;
+  locale?: string | null;
 }
 
-const SUBJECTS: Record<NotifyReason, string> = {
-  complete: "Your Quorumind verdict is ready",
-  awaiting_answers: "The Quorumind debate needs your answer",
-  failed: "Your Quorumind session stopped",
-  answers_received: "Your client answered the questionnaire",
-  review_due: "A decision is due for review",
-  approval_requested: "A decision is waiting for approval",
-};
+/** Sends an e-mail when a long debate ends or waits for the person. Optional: needs an SMTP URL. */
+export interface Notifier {
+  /** Without a recipient, the self-hosted server's own address (QUORUMIND_NOTIFY_EMAIL). */
+  notify(session: Session, reason: NotifyReason, recipient: string | NotifyRecipient | null): Promise<void>;
+}
 
-/** What each notification asks of the person, in e-mails and chat messages. */
-export const BODIES: Record<NotifyReason, string> = {
-  complete: "The arbiter has ruled. Open the session to read the verdict and download the report.",
-  awaiting_answers: "The models need information only you have before they can go on. Answer to resume the debate.",
-  failed: "The session stopped on an error. Open it to resume from where it stopped.",
-  answers_received: "Open the session to read the answers, then update the recommendation with them.",
-  review_due:
-    "The date set to revisit this decision has come. Open it to check that it still holds: approve it again, update it with what changed, or mark it superseded.",
-  approval_requested: "A member of the team asks for this decision to be approved. Open the decision register to approve or reject it.",
-};
+/** What each notification asks of the person, in chat messages (in English: a channel is shared by the team). */
+export const BODIES: Record<NotifyReason, string> = Object.fromEntries(
+  Object.entries(NOTIFIER_LABELS.en.messages).map(([reason, labels]) => [reason, labels.body]),
+) as Record<NotifyReason, string>;
 
-/** For a review reminder: the condition and the note the team gave the decision, each on its own line. */
-function reviewLines(session: Session, reason: NotifyReason): string {
+export interface NotificationOptions {
+  /** The address of the session in the interface. */
+  link: string;
+  brand: MailBrand;
+  /** The language of the recipient, when known; the debate's language otherwise. */
+  locale?: string | null;
+  /** False when the e-mail goes to the server's own address rather than to someone the host named. */
+  personal: boolean;
+}
+
+/** One notification e-mail, in HTML and plain text. */
+export function notificationMail(session: Session, reason: NotifyReason, options: NotificationOptions): RenderedMail {
+  const locale = mailLocale(options.locale ?? session.locale);
+  const labels = NOTIFIER_LABELS[locale];
+  const message = labels.messages[reason];
+  const title = oneLine(session.sheet?.projectName ?? session.idea) || "Quorumind";
+  // A review reminder recalls the condition and the note the team gave the decision.
   const decision = reason === "review_due" ? session.decision : null;
-  if (!decision) return "";
-  return [decision.review.when ? `Revisit if: ${decision.review.when}` : "", decision.note ? `Note: ${decision.note}` : ""]
-    .filter(Boolean)
-    .map((line) => `${line}\n`)
-    .join("");
+  const facts: MailFact[] = [];
+  if (decision?.review.when) facts.push({ label: DECISION_LABELS[locale].reviewCondition, value: decision.review.when });
+  if (decision?.note) facts.push({ label: DECISION_LABELS[locale].note, value: decision.note });
+  const why = !options.personal
+    ? labels.footerServer
+    : reason === "review_due"
+      ? labels.footerReview
+      : reason === "answers_received" || reason === "approval_requested"
+        ? labels.footerAuthor
+        : labels.footerNotify;
+  return renderMail(
+    {
+      lang: locale,
+      dir: localeInfo(locale).dir,
+      subject: message.subject.replace("{title}", oneLine(title, 60)),
+      preheader: message.preheader,
+      heading: message.heading,
+      highlight: title,
+      paragraphs: [message.body],
+      facts,
+      action: { label: message.action, url: options.link },
+      linkHint: labels.linkHint,
+      footer: [why],
+    },
+    options.brand,
+  );
+}
+
+/** What sends the messages: nodemailer's SMTP transport, or a stand-in in tests. */
+export interface MailTransport {
+  sendMail(message: { from: string; to: string; subject: string; text: string; html: string }): Promise<unknown>;
+}
+
+export interface NotifierOptions {
+  /** The hosted service's brand (its logo, site and address); a neutral "Quorumind" for a self-hosted server. */
+  brand?: Partial<MailBrand>;
+  transport?: MailTransport;
 }
 
 /**
  * QUORUMIND_SMTP_URL (e.g. smtps://user:password@smtp.example.com:465) and QUORUMIND_MAIL_FROM enable it.
  * QUORUMIND_NOTIFY_EMAIL is the self-hosted default recipient; QUORUMIND_PUBLIC_URL builds the link.
- * Messages are in English for now: they only point back to the interface, which speaks the person's language.
+ * Each e-mail is in the recipient's language when the host knows it, in the debate's language otherwise.
  */
-export function notifierFromEnv(env: Env): Notifier | null {
+export function notifierFromEnv(env: Env, options: NotifierOptions = {}): Notifier | null {
   if (!env.QUORUMIND_SMTP_URL) return null;
-  const transport = createTransport(env.QUORUMIND_SMTP_URL);
+  const transport = options.transport ?? createTransport(env.QUORUMIND_SMTP_URL);
   const from = env.QUORUMIND_MAIL_FROM ?? "Quorumind <quorumind@localhost>";
   const base = (env.QUORUMIND_PUBLIC_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
+  const brand: MailBrand = { name: "Quorumind", siteUrl: base, ...options.brand };
   return {
     async notify(session, reason, recipient) {
-      const to = recipient ?? env.QUORUMIND_NOTIFY_EMAIL;
+      const named = typeof recipient === "string" ? { address: recipient } : recipient;
+      const to = named?.address ?? env.QUORUMIND_NOTIFY_EMAIL;
       if (!to) return;
-      const title = session.sheet?.projectName ?? session.idea.slice(0, 80);
-      const link = `${base}/#/s/${session.id}`;
-      await transport.sendMail({
-        from,
-        to,
-        subject: `${SUBJECTS[reason]}: ${title}`,
-        text: `${BODIES[reason]}\n\n${title}\n${reviewLines(session, reason)}${link}\n`,
+      const mail = notificationMail(session, reason, {
+        link: `${base}/#/s/${session.id}`,
+        brand,
+        locale: named?.locale ?? null,
+        personal: named !== null,
       });
+      await transport.sendMail({ from, to, subject: mail.subject, text: mail.text, html: mail.html });
     },
   };
 }

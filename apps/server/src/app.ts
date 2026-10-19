@@ -69,7 +69,7 @@ import { InvalidInput, invalidRequest } from "./errors.ts";
 import { EuropeanUnavailable, europeanConfig, europeanSession, NonEuropeanModel, wantsEuropean } from "./european.ts";
 import { exportRoutes } from "./exports.ts";
 import { localGuard } from "./guard.ts";
-import type { Notifier } from "./notifier.ts";
+import type { Notifier, NotifyRecipient } from "./notifier.ts";
 import { profileRoutes } from "./profile.ts";
 import { questionnaireRoutes } from "./questionnaires.ts";
 import {
@@ -224,8 +224,8 @@ export interface AppHooks {
   catalog?(user: User): Promise<ModelOption[]>;
   /** The environment (API keys, base URLs) used to call the models for this user. */
   providerEnv?(user: User): Env;
-  /** Where to send this user's notifications. */
-  notifyRecipient?(user: User): Promise<string | null>;
+  /** Where to send this user's notifications: an address, or one with the language the person reads. */
+  notifyRecipient?(user: User): Promise<string | NotifyRecipient | null>;
   /** Forces a cost cap on every session, in US dollars. */
   maxBudgetUsd?: number;
   /**

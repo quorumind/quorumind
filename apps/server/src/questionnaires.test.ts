@@ -43,7 +43,7 @@ async function setup(backend: (typeof BACKENDS)[number], extra: Parameters<typeo
   const submitted: { owner: User | null; questionnaire: Questionnaire }[] = [];
   const notifier: Notifier = {
     async notify(session, reason, recipient) {
-      sent.push({ reason, recipient, sessionId: session.id });
+      sent.push({ reason, recipient: typeof recipient === "string" ? recipient : (recipient?.address ?? null), sessionId: session.id });
     },
   };
   const opened = await openApp(
