@@ -438,11 +438,12 @@ function codeOnly(error: SessionError | null): SessionError | null {
 /**
  * A failure as sent to someone who must not see what the providers charge nor what they say. A cost cap reached is
  * named in dollars by its message and parameters: the code alone explains it. A provider's failure carries the
- * provider's own words (an account's dashboard URL, a key's limits): only its code, provider and model are kept.
+ * provider's own words (an account's dashboard URL, a key's limits): only its code, provider and model are kept. An
+ * internal error's message is whatever was thrown (a database's address, a query): its code is enough.
  */
 function hostedError(error: SessionError | null): SessionError | null {
   if (!error) return null;
-  if (error.code === "budget_exceeded") return codeOnly(error);
+  if (error.code === "budget_exceeded" || error.code === "internal_error") return codeOnly(error);
   if (!error.code.startsWith("provider_")) return error;
   const { provider, model } = error.params ?? {};
   const params = { ...(provider === undefined ? {} : { provider }), ...(model === undefined ? {} : { model }) };

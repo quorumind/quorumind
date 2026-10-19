@@ -108,6 +108,18 @@ describe("a provider's refusal", () => {
     expect(await (await app.request("/api/export")).text()).not.toContain("openrouter.ai");
   });
 
+  it("sends an internal error to a hosted service's customers as its code only", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    refuseCalls(402);
+    const { app } = await makeApp(hosted({ hideProviderCosts: true }));
+    const session = await failedSession(app);
+    const stored = (await storage?.store.find(session.id))?.session as Session;
+    const error = { code: "internal_error", message: "connect ECONNREFUSED 10.0.4.7:5432" };
+    await storage?.store.save({ ...stored, error }, "ada");
+    const detail = (await (await app.request(`/api/sessions/${session.id}`)).json()) as { session: Session };
+    expect(detail.session.error).toEqual({ code: "internal_error", message: "" });
+  });
+
   it("keeps the provider's words on a server that shows provider costs", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     refuseCalls(402);
