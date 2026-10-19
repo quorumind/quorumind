@@ -17,8 +17,10 @@ that matter are looked up before the proposals and carry their sources.
    answer.
 4. The researcher states what the excerpts say, each fact with the ids of its sources. Facts that cite no source found
    are dropped.
-5. Proposers, critics, the devil's advocate and the arbiter read the facts with their ids, in the debate and in every
-   revision or what-if ruling. A claim of the verdict is "verified" only when it cites at least one of those sources;
+5. Proposers, critics, the devil's advocate and the arbiter read the facts with their ids, in the debate, in every
+   revision or what-if ruling, and in an audit (its alternative, its findings and its ruling, market price ranges
+   included). From the MCP server, `quorumind_start` takes `web_research`, and the verdict summary ends with the facts
+   and their sources. A claim of the verdict is "verified" only when it cites at least one of those sources;
    one marked verified without a source is downgraded to "estimated" in code, as are verified claims stored before
    sources existed.
 6. The report, its HTML/PDF and Word exports, the client deliverable and the client proposal list the facts and the
