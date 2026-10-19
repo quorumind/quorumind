@@ -3309,6 +3309,34 @@ button.chip:active {
   color: var(--ink);
 }
 
+/* An agency's accent on its client's page (brandStyle): the shade that stays readable in each theme for text, links
+   and focus rings, the accent itself for the main button's fill. */
+.client-page[data-brand] {
+  --thesis: var(--brand-text-light);
+  --on-thesis: var(--brand-on-light);
+  --thesis-soft: color-mix(in srgb, var(--brand-fill) 14%, var(--surface-raised));
+  --focus-ring: var(--brand-text-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .client-page[data-brand] {
+    --thesis: var(--brand-text-dark);
+    --on-thesis: var(--brand-on-dark);
+    --focus-ring: var(--brand-text-dark);
+  }
+}
+
+:root[data-theme="dark"] .client-page[data-brand] {
+  --thesis: var(--brand-text-dark);
+  --on-thesis: var(--brand-on-dark);
+  --focus-ring: var(--brand-text-dark);
+}
+
+.client-page[data-brand] .button-primary {
+  background: var(--brand-fill);
+  color: var(--brand-on-fill);
+}
+
 /* A share link's page: the shared session alone, under a bar of its own. */
 .shared-page {
   min-block-size: 100dvh;

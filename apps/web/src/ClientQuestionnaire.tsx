@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api, type PublicQuestionnaire } from "./api.ts";
 import { CheckIcon, DownloadIcon } from "./components/Icons.tsx";
 import { Loader } from "./components/Logo.tsx";
+import { blend, isHexColor, readableOn, textOn } from "./contrast.ts";
 import { errorText, failureText } from "./errors.ts";
 
 // The page a client opens from a questionnaire link: no account, the agency's branding, the session's language, one
@@ -33,18 +34,28 @@ function write(key: string, value: string | null) {
   }
 }
 
-/** The agency's accent as the page's main color, with readable text on it. */
-function brandStyle(branding: Branding): CSSProperties | undefined {
+// The surfaces the accent is read on, as styles.css sets them: the page, the cards, and the cards tinted with the
+// accent (selected chips, notices).
+const LIGHT_SURFACES = ["#ffffff", "#f6f7fb"];
+const DARK_SURFACES = ["#0e1121", "#161a2e"];
+
+/**
+ * The agency's accent on its client's page. The accent itself fills the main button, with black or white text,
+ * whichever reads better; as text, links and focus rings, each theme gets the closest shade of it that keeps WCAG's
+ * 4.5:1 on every surface (a yellow accent turns ochre on white, a navy one turns light on the dark theme).
+ */
+export function brandStyle(branding: Branding): CSSProperties | undefined {
   const accent = branding.accent;
-  if (!accent || !/^#[0-9a-f]{6}$/i.test(accent)) return undefined;
-  const [r, g, b] = [1, 3, 5].map((start) => Number.parseInt(accent.slice(start, start + 2), 16) / 255) as [number, number, number];
-  const linear = (value: number) => (value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
-  const luminance = 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+  if (!isHexColor(accent)) return undefined;
+  const light = readableOn(accent, [...LIGHT_SURFACES, blend("#ffffff", accent, 0.14)]);
+  const dark = readableOn(accent, [...DARK_SURFACES, blend("#161a2e", accent, 0.14)]);
   return {
-    "--thesis": accent,
-    "--thesis-soft": `color-mix(in srgb, ${accent} 14%, var(--surface-raised))`,
-    "--on-thesis": luminance > 0.4 ? "#141a3a" : "#ffffff",
-    "--focus-ring": accent,
+    "--brand-fill": accent,
+    "--brand-on-fill": textOn(accent),
+    "--brand-text-light": light,
+    "--brand-on-light": textOn(light),
+    "--brand-text-dark": dark,
+    "--brand-on-dark": textOn(dark),
   } as CSSProperties;
 }
 
@@ -73,8 +84,9 @@ export function ClientQuestionnaire({ token }: { token: string }) {
   }, [token, access, i18n]);
 
   const branding = state.kind === "open" ? state.branding : null;
+  const style = branding ? brandStyle(branding) : undefined;
   return (
-    <div className="client-page" style={branding ? brandStyle(branding) : undefined}>
+    <div className="client-page" style={style} data-brand={style ? "" : undefined}>
       <main className="client-page-main narrow stack-lg">
         {branding?.logoDataUrl || branding?.name ? (
           <header className="client-brand">
