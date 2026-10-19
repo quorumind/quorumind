@@ -388,6 +388,23 @@ describe.each(BACKENDS)("on $name", (backend) => {
       expect(posts).toHaveLength(1);
     });
 
+    it("never fall back to the server's default address for a signed-in user without one", async () => {
+      const { app, mails } = await makeApp(backend, teamHooks({ notifyRecipient: async () => null }));
+      const created = await app.request("/api/sessions", send({ locale: "en", idea: "Online booking", notify: true }, "dan"));
+      const id = ((await created.json()) as { session: Session }).session.id;
+      await waitFor(app, id, (s) => s.interview.length === 1, "dan");
+      await app.request(`/api/sessions/${id}/interview`, send({ answers: [{ question: "Budget?", answer: "€15,000" }] }, "dan"));
+      const review = await waitFor(app, id, (s) => s.phase === "review", "dan");
+      await app.request(`/api/sessions/${id}/sheet`, send({ sheet: review.sheet }, "dan", "PUT"));
+      await waitFor(app, id, (s) => s.phase === "awaiting_answers", "dan");
+      await app.request(`/api/sessions/${id}/answers`, send({ answers: [{ question: "Hosted?", answer: "Yes" }] }, "dan"));
+      const session = await waitFor(app, id, (s) => s.phase === "complete", "dan");
+      expect(session.notify).toBe(true);
+      await app.request(`/api/sessions/${session.id}/decision`, send({ review: { on: "2026-11-02", when: null } }, "dan", "PUT"));
+      await app.sendReminders(day);
+      expect(mails.filter((mail) => mail.to === null)).toEqual([]);
+    });
+
     it("go on with the others when one cannot be saved", async () => {
       let broken = "";
       const { app, mails } = await makeApp(backend, teamHooks(), (opened) => {

@@ -9,6 +9,7 @@ import {
   DEMO_LINEUP,
   DEPTHS,
   DebateEngine,
+  type DecisionActor,
   deliveryChecks,
   type EuropeanPolicy,
   estimateDebateCost,
@@ -363,8 +364,15 @@ const RevisionInput = z.object({
     .transform((value) => value || null),
 });
 
-/** A session through a "full" share link: everything but its costs, its cost cap and its attached documents. */
+/**
+ * A session through a "full" share link: everything but its costs, its cost cap, its attached documents and what is
+ * internal to the organisation: the day rates, capacity and notes of its profile, who did what (user ids), and the
+ * comments and note of the decision. The names of those who asked for and gave the approval stay: the owner chose
+ * to show the whole decision.
+ */
 function publicView(session: Session): Session {
+  const actor = (by: DecisionActor): DecisionActor => ({ id: null, name: by.name });
+  const decision = session.decision;
   return {
     ...session,
     context: session.context.map(({ source: _source, ...doc }) => ({ ...doc, text: "" })),
@@ -372,6 +380,33 @@ function publicView(session: Session): Session {
     budgetUsd: null,
     error: session.error ? { code: session.error.code, message: "" } : null,
     notify: false,
+    profile: session.profile
+      ? {
+          ...session.profile,
+          roles: session.profile.roles.map((role) => ({ ...role, dailyRate: 0 })),
+          capacity: { people: null, typicalTeamSize: null },
+          hosting: { ...session.profile.hosting, notes: "" },
+          notes: "",
+        }
+      : null,
+    revisions: session.revisions.map((revision) => ({ ...revision, by: null })),
+    revising: session.revising
+      ? {
+          ...session.revising,
+          by: null,
+          error: session.revising.error ? { code: session.revising.error.code, message: "" } : null,
+        }
+      : null,
+    decision: decision
+      ? {
+          ...decision,
+          note: null,
+          approval: decision.approval ? { ...decision.approval, by: actor(decision.approval.by), comment: null } : null,
+          request: decision.request ? { ...decision.request, by: actor(decision.request.by), comment: null } : null,
+          closure: decision.closure ? { ...decision.closure, by: actor(decision.closure.by), comment: null } : null,
+          history: decision.history.map((event) => ({ ...event, by: actor(event.by), comment: null })),
+        }
+      : null,
   };
 }
 
@@ -586,6 +621,8 @@ export function createApp(deps: AppDeps) {
     if (!deps.notifier || !session.notify) return;
     const user = users.get(session.id) ?? null;
     const recipient = user && hooks.notifyRecipient ? await hooks.notifyRecipient(user) : null;
+    // With sign-in, the server's default address (QUORUMIND_NOTIFY_EMAIL) is nobody's: no recipient, no e-mail.
+    if (!recipient && hooks.identify) return;
     await deps.notifier.notify(session, session.phase, recipient);
   };
 
@@ -1240,7 +1277,7 @@ export function createApp(deps: AppDeps) {
     if (deps.chat) await deps.chat.notify(found.session, "answers_received", found);
     if (deps.notifier) {
       const recipient = owner && hooks.notifyRecipient ? await hooks.notifyRecipient(owner) : null;
-      await deps.notifier.notify(found.session, "answers_received", recipient);
+      if (recipient || !hooks.identify) await deps.notifier.notify(found.session, "answers_received", recipient);
     }
     await hooks.onQuestionnaireSubmitted?.(owner, found.session, publicQuestionnaire(questionnaire));
   };

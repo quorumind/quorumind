@@ -230,7 +230,7 @@ export function decisionRoutes(deps: DecisionDeps) {
     await deps.chat?.notify(session, "approval_requested", found);
     if (deps.notifier && found.owner !== deps.ownerOf(user)) {
       const recipient = found.owner && hooks.notifyRecipient ? await hooks.notifyRecipient({ userId: found.owner }) : null;
-      if (recipient || !found.owner) await deps.notifier.notify(session, "approval_requested", recipient);
+      if (recipient || (!found.owner && !hooks.identify)) await deps.notifier.notify(session, "approval_requested", recipient);
     }
     return c.json({ decision });
   });
@@ -400,8 +400,10 @@ async function remind(deps: Pick<DecisionDeps, "hooks" | "notifier" | "chat">, f
   if (notifier) {
     const approver = found.session.decision?.approval?.by.id ?? null;
     const people = [...new Set([found.owner, approver].filter((person): person is string => person !== null))];
-    if (people.length === 0 || !hooks.notifyRecipient) await attempt(() => notifier.notify(found.session, "review_due", null));
-    else {
+    // The server's default address is for a server without sign-in only: with it, someone without an address gets none.
+    if (people.length === 0 || !hooks.notifyRecipient) {
+      if (!hooks.identify) await attempt(() => notifier.notify(found.session, "review_due", null));
+    } else {
       for (const person of people) {
         await attempt(async () => {
           const recipient = await hooks.notifyRecipient?.({ userId: person });

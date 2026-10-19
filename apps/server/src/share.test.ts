@@ -173,6 +173,45 @@ describe.each(BACKENDS)("share links on $name", (each) => {
     expect((await app.request(`/api/shared/${share.token}`)).status).toBe(200);
   });
 
+  it("show the whole decision through a full link, without what is internal to the organisation", async () => {
+    const app = await makeApp();
+    const done = await completeDemo(app);
+    const live = (await storage?.store.find(done.id))?.session as Session;
+    live.profile = {
+      name: "Atelier",
+      preferredTechnologies: ["TypeScript"],
+      forbiddenTechnologies: [],
+      hosting: { euOnly: true, providers: [], onPremises: false, notes: "Our OVH discount" },
+      currency: "EUR",
+      roles: [{ id: "senior", name: "Senior developer", dailyRate: 720 }],
+      capacity: { people: 4, typicalTeamSize: 3 },
+      deliverables: [],
+      guarantees: [],
+      notes: "Margin 35 %",
+      updatedAt: null,
+    };
+    const actor = { id: "user-42", name: "Ada" };
+    live.decision = {
+      note: "Internal: the client pays late",
+      approval: { by: actor, at: live.updatedAt, comment: "Fine by me", revision: 1 },
+      request: null,
+      closure: null,
+      review: { on: null, when: null, remindedFor: null },
+      history: [{ kind: "approved", by: actor, at: live.updatedAt, comment: "Fine by me", revision: 1 }],
+    };
+    live.revisions = live.revisions.map((revision) => ({ ...revision, by: "user-42" }));
+    await storage?.store.save(live);
+    const { share } = (await (await app.request(`/api/sessions/${done.id}/share`, json({ mode: "full" }))).json()) as ShareBody;
+    const body = await (await app.request(`/api/shared/${share.token}`)).text();
+    for (const secret of ["720", "Margin 35", "OVH discount", "user-42", "client pays late", "Fine by me"])
+      expect(body).not.toContain(secret);
+    const { session } = JSON.parse(body) as { session: Session };
+    expect(session.decision?.approval?.by).toEqual({ id: null, name: "Ada" });
+    expect(session.profile).toMatchObject({ name: "Atelier", hosting: { euOnly: true }, roles: [{ name: "Senior developer" }] });
+    const report = await (await app.request(`/api/shared/${share.token}/report.md`)).text();
+    for (const secret of ["Margin 35", "client pays late", "Fine by me"]) expect(report).not.toContain(secret);
+  });
+
   it("stop guessing after too many wrong passwords", async () => {
     const app = await makeApp();
     const session = await completeDemo(app);
