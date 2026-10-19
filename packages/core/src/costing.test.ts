@@ -167,6 +167,13 @@ describe("budget and deadline checks", () => {
     expect(checksFor(budget(null, { amount: 300, period: "month" })).run).toMatchObject({ status: "within", by: 0 });
   });
 
+  it("compares with the running budget unrounded, and never says an option may exceed it by nothing", () => {
+    // 3,118.80 a year is 259.90 a month: a cost of up to 260 passes it by a gap that rounds to nothing.
+    expect(checksFor(budget(null, { amount: 3_118.8, period: "year" })).run).toMatchObject({ status: "within", budget: 260, by: 0 });
+    // 3,110.40 a year is 259.20 a month: 0.80 over, shown as 1.
+    expect(checksFor(budget(null, { amount: 3_110.4, period: "year" })).run).toMatchObject({ status: "at_risk", budget: 259, by: 1 });
+  });
+
   it("compares the build time with the deadline, as a duration or a date from the confirmation", () => {
     const months = (amount: number) => ({ deadline: { date: null, duration: { amount, unit: "month" as const }, note: "" } });
     expect(checksFor(months(3)).time).toEqual({ status: "at_risk", availableWeeks: 13, by: 1 });

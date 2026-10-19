@@ -218,10 +218,17 @@ export function availableWeeks(sheet: RequirementsSheet, from: string): number |
   return null;
 }
 
+/**
+ * A cost range against a budget, compared unrounded (a yearly budget gives a monthly one with decimals); the budget and
+ * the gap are rounded for display only, and a gap that rounds to nothing is within.
+ */
 function moneyCheck(range: Range, budget: number, currency: string): MoneyCheck {
-  if (range.low > budget) return { status: "over", budget, currency, by: roundMoney(range.low - budget) };
-  if (range.high > budget) return { status: "at_risk", budget, currency, by: roundMoney(range.high - budget) };
-  return { status: "within", budget, currency, by: 0 };
+  const shown = roundMoney(budget);
+  const over = roundMoney(range.low - budget);
+  const atRisk = roundMoney(range.high - budget);
+  if (range.low > budget && over > 0) return { status: "over", budget: shown, currency, by: over };
+  if (range.high > budget && atRisk > 0) return { status: "at_risk", budget: shown, currency, by: atRisk };
+  return { status: "within", budget: shown, currency, by: 0 };
 }
 
 const sameCurrency = (a: string | null | undefined, b: string) => currencyCode(a) === b;
@@ -250,7 +257,7 @@ export function deliveryChecks(session: Session): Record<string, OptionChecks> {
           : null,
       run:
         monthlyBudget !== null && monthlyBudget > 0 && (!legacyCurrency || sameCurrency(legacyCurrency, currency))
-          ? moneyCheck(ordered(proposal.monthlyCost.low, proposal.monthlyCost.high), roundMoney(monthlyBudget), currency)
+          ? moneyCheck(ordered(proposal.monthlyCost.low, proposal.monthlyCost.high), monthlyBudget, currency)
           : null,
       time: weeks !== null && proposal.buildWeeks ? timeCheck(ordered(proposal.buildWeeks.low, proposal.buildWeeks.high), weeks) : null,
     };
