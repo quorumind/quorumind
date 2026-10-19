@@ -245,6 +245,7 @@ export class DebateEngine {
   private readonly providers: ProviderSet;
   private readonly hooks: EngineHooks;
   private readonly signal: AbortSignal | undefined;
+  private readonly retryDelayMs: number;
   /**
    * The attempt being made with a cap of its own (a verdict revision): its calls are recorded under its id (and the
    * revision's number) and capped by its own budget. A revision asked again after a failure is a new attempt.
@@ -257,11 +258,14 @@ export class DebateEngine {
    * @param options.signal stops the work: the calls in flight are cancelled and the session fails with the code
    * "stopped", ready to be resumed. A call cut short is recorded as failed, with an estimate of what the provider may
    * bill for it (the prompt it read and the text it sent), since providers bill a cancelled call too.
+   * @param options.retryDelayMs the first wait before a call that hit a rate limit or an outage is tried again; each
+   * later wait doubles, with jitter, unless the provider says how long to wait. 0 in tests.
    */
-  constructor(providers: ProviderSet, hooks: EngineHooks, options: { signal?: AbortSignal } = {}) {
+  constructor(providers: ProviderSet, hooks: EngineHooks, options: { signal?: AbortSignal; retryDelayMs?: number } = {}) {
     this.providers = providers;
     this.hooks = hooks;
     this.signal = options.signal;
+    this.retryDelayMs = options.retryDelayMs ?? RETRY_DELAY_MS;
   }
 
   /** First interviewer turn, from the idea alone. */
@@ -1085,7 +1089,7 @@ export class DebateEngine {
       : prompt.messages;
     const promptChars = prompt.system.length + messages.reduce((sum, message) => sum + message.content.length, 0);
     let lastError: unknown;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; ; attempt++) {
       this.checkStopped();
       this.checkBudget(session);
       this.hooks.emit(session.id, { type: "speaking", task, seat });
@@ -1129,10 +1133,11 @@ export class DebateEngine {
         // Whatever the provider made of the cancellation, the person stopped the call.
         this.checkStopped();
         lastError = error;
-        const retryable = error instanceof SyntaxError || (error instanceof ProviderError && error.retryable);
-        if (!retryable) break;
+        const delay = retryDelay(error, attempt, this.retryDelayMs);
+        if (delay === null) break;
         // Another try must fit in the cap as well: a call that failed after a full answer costs as much again.
-        if (attempt === 0 && recorded?.costUsd) this.checkBudget(session, recorded.costUsd);
+        if (recorded?.costUsd) this.checkBudget(session, recorded.costUsd);
+        await this.pause(delay);
       }
     }
     if (lastError instanceof Object) failedCalls.set(lastError, { provider: provider.kind, model: provider.model });
@@ -1191,6 +1196,22 @@ export class DebateEngine {
     );
   }
 
+  /** Waits before a call is tried again; the stop signal ends the wait at once. */
+  private async pause(ms: number) {
+    if (ms > 0) {
+      await new Promise<void>((resolve) => {
+        const end = () => {
+          clearTimeout(timer);
+          this.signal?.removeEventListener("abort", end);
+          resolve();
+        };
+        const timer = setTimeout(end, ms);
+        this.signal?.addEventListener("abort", end, { once: true });
+      });
+    }
+    this.checkStopped();
+  }
+
   private stopped() {
     return new StoppedError(this.signal?.reason === INTERRUPTED ? "interrupted" : "stopped");
   }
@@ -1227,6 +1248,29 @@ export class DebateEngine {
       await this.persist(session);
     }
   }
+}
+
+/**
+ * How often a call is tried: an answer that is not valid JSON or misses its schema, or that was cut off, once more at
+ * once; a call that hit a rate limit or an outage twice more, after a wait. Calls of a step run side by side against
+ * the same provider: the jitter keeps their retries from hitting its rate limit together again.
+ */
+const MAX_ATTEMPTS = 2;
+const MAX_TRANSIENT_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 2_000;
+/** A provider that asks to wait longer than this is not waited for: the session fails, and can be resumed later. */
+const MAX_RETRY_WAIT_MS = 60_000;
+
+/** How long to wait before trying a failed call again, or null when it is not tried again. */
+export function retryDelay(error: unknown, attempt: number, baseMs: number, random = Math.random): number | null {
+  if (error instanceof SyntaxError) return attempt + 1 < MAX_ATTEMPTS ? 0 : null;
+  if (!(error instanceof ProviderError) || !error.retryable) return null;
+  const transient = error.code === "provider_rate_limit" || error.code === "provider_unavailable";
+  if (attempt + 1 >= (transient ? MAX_TRANSIENT_ATTEMPTS : MAX_ATTEMPTS)) return null;
+  if (!transient) return 0;
+  if (error.retryAfterMs !== undefined) return error.retryAfterMs <= MAX_RETRY_WAIT_MS ? error.retryAfterMs : null;
+  // Exponential backoff with jitter: between half and one and a half times the delay, doubled at each attempt.
+  return Math.round(baseMs * 2 ** attempt * (0.5 + random()));
 }
 
 // The verdict's estimate is kept with this margin while the rounds run: what the arbiter reads still grows.

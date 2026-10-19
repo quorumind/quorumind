@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { catalogFromEnv, liveLineupFromEnv, providersFor } from "./config.ts";
 import { costOf, priceOf } from "./pricing.ts";
 import { GeminiProvider } from "./providers/gemini.ts";
-import type { FetchLike } from "./providers/http.ts";
+import { type FetchLike, retryAfterMs } from "./providers/http.ts";
 import { OllamaProvider } from "./providers/ollama.ts";
 import { OpenRouterProvider } from "./providers/openrouter.ts";
 import { type GenerateRequest, ProviderError } from "./providers/types.ts";
@@ -78,13 +78,17 @@ describe("GeminiProvider", () => {
 
   it("sends the system prompt, the conversation and the schema as is", async () => {
     const fetchMock = fakeFetch(() => streamed(answer));
-    const signal = new AbortController().signal;
+    const caller = new AbortController();
+    const signal = caller.signal;
     await new GeminiProvider({ model: "gemini-test", apiKey: "key", fetch: fetchMock }).generate({ ...request, signal });
 
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-test:streamGenerateContent?alt=sse");
     expect(init?.headers).toMatchObject({ "x-goog-api-key": "key" });
-    expect(init?.signal).toBe(signal);
+    // The request is cancelled with the caller's signal, or when it stalls.
+    expect(init?.signal?.aborted).toBe(false);
+    caller.abort();
+    expect(init?.signal?.aborted).toBe(true);
     expect(sentBody(fetchMock)).toEqual({
       systemInstruction: { parts: [{ text: "You are a proposer." }] },
       contents: [
@@ -373,7 +377,8 @@ describe("OpenRouterProvider", () => {
 
   it("asks for a strict schema, from endpoints that support it and keep no data", async () => {
     const fetchMock = fakeFetch(() => streamed(answer));
-    const signal = new AbortController().signal;
+    const caller = new AbortController();
+    const signal = caller.signal;
     const provider = new OpenRouterProvider({ model: "mistralai/mistral-test", apiKey: "key", fetch: fetchMock });
     await provider.generate({ ...request, effort: "high", signal });
 
@@ -384,7 +389,10 @@ describe("OpenRouterProvider", () => {
       "HTTP-Referer": "https://quorumind.com",
       "X-OpenRouter-Title": "Quorumind",
     });
-    expect(init?.signal).toBe(signal);
+    // The request is cancelled with the caller's signal, or when it stalls.
+    expect(init?.signal?.aborted).toBe(false);
+    caller.abort();
+    expect(init?.signal?.aborted).toBe(true);
     // Without reasoning support, the effort is not sent: no endpoint would accept it.
     expect(sentBody(fetchMock)).toEqual({
       model: "mistralai/mistral-test",
@@ -545,5 +553,102 @@ describe("catalogFromEnv with OpenRouter", () => {
     expect(JSON.parse(String(chat.mock.calls[0]?.[1]?.body)).reasoning).toEqual({ effort: "high", exclude: true });
     expect(JSON.parse(String(chat.mock.calls[1]?.[1]?.body))).not.toHaveProperty("reasoning");
     expect(chat.mock.calls[0]?.[1]?.headers).toMatchObject({ authorization: "Bearer or" });
+  });
+});
+
+/**
+ * A fetch that behaves like a real one on a call that stalls: it sends `pieces`, then nothing more (or keep-alive
+ * comments every `keepAliveMs`), and fails the body once the request's signal aborts. Without pieces, it never answers.
+ */
+function stallingFetch(pieces: string[] | null, keepAliveMs?: number) {
+  return vi.fn<FetchLike>(
+    (_url, init) =>
+      new Promise((resolve, reject) => {
+        const signal = init?.signal ?? undefined;
+        if (pieces === null) {
+          signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+          return;
+        }
+        const encoder = new TextEncoder();
+        let timer: ReturnType<typeof setInterval> | undefined;
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            for (const piece of pieces) controller.enqueue(encoder.encode(piece));
+            if (keepAliveMs) timer = setInterval(() => controller.enqueue(encoder.encode(": OPENROUTER PROCESSING\n\n")), keepAliveMs);
+            signal?.addEventListener(
+              "abort",
+              () => {
+                clearInterval(timer);
+                controller.error(signal.reason);
+              },
+              { once: true },
+            );
+          },
+        });
+        resolve(new Response(body));
+      }),
+  );
+}
+
+describe("timeouts of the providers that stream with fetch", () => {
+  const short = { idleMs: 40, totalMs: 2_000 };
+
+  it("fails a stream that stops sending, to be tried again", async () => {
+    const fetchMock = stallingFetch([sse({ choices: [{ delta: { content: '{"speech":' } }] })]);
+    const error = await rejection(new OpenRouterProvider({ model: "m", fetch: fetchMock, timeouts: short }).generate(request));
+    expect(error).toMatchObject({ retryable: true, code: "provider_unavailable" });
+    expect(error.message).toMatch(/^OpenRouter sent nothing for .*: the call stalled\.$/);
+  });
+
+  it("fails a stream kept alive by comments that never ends", async () => {
+    const fetchMock = stallingFetch([], 10);
+    const provider = new OpenRouterProvider({ model: "m", fetch: fetchMock, timeouts: { idleMs: 1_000, totalMs: 80 } });
+    const error = await rejection(provider.generate(request));
+    expect(error).toMatchObject({ retryable: true, code: "provider_unavailable" });
+    expect(error.message).toMatch(/did not finish the answer within/);
+  });
+
+  it("fails a request that gets no answer at all", async () => {
+    for (const provider of [
+      new GeminiProvider({ model: "m", fetch: stallingFetch(null), timeouts: short }),
+      new OllamaProvider({ model: "m", fetch: stallingFetch(null), timeouts: short }),
+    ]) {
+      const error = await rejection(provider.generate(request));
+      expect(error).toMatchObject({ retryable: true, code: "provider_unavailable" });
+      expect(error.message).toMatch(/the call stalled/);
+    }
+  });
+
+  it("still reports a call the caller cancelled as cancelled", async () => {
+    const controller = new AbortController();
+    const fetchMock = stallingFetch([sse({ choices: [{ delta: { content: "{" } }] })]);
+    const pending = new GeminiProvider({ model: "m", fetch: fetchMock, timeouts: short }).generate({
+      ...request,
+      signal: controller.signal,
+    });
+    controller.abort();
+    expect(await rejection(pending)).toMatchObject({ retryable: false, message: "The request was cancelled." });
+  });
+
+  it("passes on how long a rate-limited call should wait", async () => {
+    const limited = () => Response.json({ error: { message: "Slow down" } }, { status: 429, headers: { "retry-after": "7" } });
+    expect(await rejection(new OpenRouterProvider({ model: "m", fetch: fakeFetch(limited) }).generate(request))).toMatchObject({
+      retryable: true,
+      retryAfterMs: 7_000,
+    });
+    expect(await rejection(new GeminiProvider({ model: "m", fetch: fakeFetch(limited) }).generate(request))).toMatchObject({
+      retryAfterMs: 7_000,
+    });
+  });
+});
+
+describe("retryAfterMs", () => {
+  it("reads seconds, a date or milliseconds", () => {
+    const now = Date.parse("2026-10-19T10:00:00Z");
+    expect(retryAfterMs(new Headers({ "retry-after": "2" }), now)).toBe(2_000);
+    expect(retryAfterMs(new Headers({ "retry-after": "Mon, 19 Oct 2026 10:00:30 GMT" }), now)).toBe(30_000);
+    expect(retryAfterMs(new Headers({ "retry-after-ms": "250", "retry-after": "9" }), now)).toBe(250);
+    expect(retryAfterMs(new Headers({ "retry-after": "soon" }), now)).toBeUndefined();
+    expect(retryAfterMs(new Headers(), now)).toBeUndefined();
   });
 });

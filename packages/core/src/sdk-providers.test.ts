@@ -42,7 +42,11 @@ interface AnthropicMessage {
  * far, and returns the final message or throws.
  */
 function anthropicClient(
-  script: (stream: { text: (delta: string) => void; received: (message: Partial<AnthropicMessage>) => void }) => Promise<AnthropicMessage>,
+  script: (stream: {
+    text: (delta: string) => void;
+    received: (message: Partial<AnthropicMessage>) => void;
+    signal: AbortSignal | undefined;
+  }) => Promise<AnthropicMessage>,
 ) {
   const calls: { params: Record<string, unknown>; options: { signal?: AbortSignal } }[] = [];
   const client = {
@@ -68,6 +72,7 @@ function anthropicClient(
                 received: (message) => {
                   current = message;
                 },
+                signal: options.signal,
               }),
           };
         },
@@ -96,7 +101,8 @@ describe("AnthropicProvider", () => {
       return message();
     });
     const deltas: string[] = [];
-    const signal = new AbortController().signal;
+    const caller = new AbortController();
+    const signal = caller.signal;
     const result = await new AnthropicProvider({ client, model: "claude-test" }).generate({ ...request, effort: "low", signal }, (delta) =>
       deltas.push(delta),
     );
@@ -108,7 +114,9 @@ describe("AnthropicProvider", () => {
       system: "You are the arbiter.",
       output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
     });
-    expect(calls[0]?.options.signal).toBe(signal);
+    // The call is cancelled with the caller's signal, or when its stream stalls.
+    caller.abort();
+    expect(calls[0]?.options.signal?.aborted).toBe(true);
   });
 
   it("thinks with the configured effort when the session sets none", async () => {
@@ -182,6 +190,28 @@ describe("AnthropicProvider", () => {
     const error = await rejection(new AnthropicProvider({ client }).generate(request));
     expect(error).toMatchObject({ retryable, code });
     expect(error.message).toMatch(text);
+  });
+
+  it("fails a stream that stops sending, to be tried again", async () => {
+    const { client } = anthropicClient(
+      (stream) =>
+        new Promise((_resolve, reject) => {
+          stream.text("{");
+          // The SDK reports the abort of its signal as a user abort.
+          stream.signal?.addEventListener("abort", () => reject(new Anthropic.APIUserAbortError()), { once: true });
+        }),
+    );
+    const error = await rejection(new AnthropicProvider({ client, timeouts: { idleMs: 30, totalMs: 1_000 } }).generate(request));
+    expect(error).toMatchObject({ retryable: true, code: "provider_unavailable" });
+    expect(error.message).toMatch(/^Anthropic sent nothing for .*: the call stalled.$/);
+  });
+
+  it("passes on how long a rate-limited call should wait", async () => {
+    const { client } = anthropicClient(async () => {
+      const body = { type: "error", error: { type: "rate_limit_error", message: "Slow down" } };
+      throw Anthropic.APIError.generate(429, body, undefined, new Headers({ "retry-after": "3" }));
+    });
+    expect(await rejection(new AnthropicProvider({ client }).generate(request))).toMatchObject({ retryable: true, retryAfterMs: 3_000 });
   });
 
   it("reports a cancelled call as cancelled, never to retry", async () => {

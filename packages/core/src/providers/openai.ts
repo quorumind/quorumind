@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { CLOUD_TIMEOUTS, retryAfterMs, type Timeouts, timeoutMessage, watch } from "./http.ts";
 import {
   type GenerateRequest,
   type GenerateResult,
@@ -23,6 +24,8 @@ export interface OpenAiOptions {
   reasoning?: boolean;
   /** The SDK client to call instead of one made from the key and the address. */
   client?: OpenAiClient;
+  /** When a stream that stalls or never ends fails, to be tried again: CLOUD_TIMEOUTS unless set. */
+  timeouts?: Timeouts;
 }
 
 // Error codes of a failed response, or of an error event in the middle of a stream, that trying again may get past.
@@ -33,6 +36,7 @@ export class OpenAiProvider implements LlmProvider {
   readonly model: string;
   private readonly client: OpenAiClient;
   private readonly reasoning: boolean;
+  private readonly timeouts: Timeouts;
 
   constructor(options: OpenAiOptions) {
     this.client =
@@ -43,9 +47,12 @@ export class OpenAiProvider implements LlmProvider {
       });
     this.model = options.model;
     this.reasoning = options.reasoning ?? false;
+    this.timeouts = options.timeouts ?? CLOUD_TIMEOUTS;
   }
 
   async generate(request: GenerateRequest, onDelta?: (text: string) => void): Promise<GenerateResult> {
+    // The SDK times out a request that gets no answer, not a stream that stops in the middle: the watch does.
+    const call = watch(request.signal, this.timeouts);
     try {
       const stream = this.client.responses.stream(
         {
@@ -60,8 +67,9 @@ export class OpenAiProvider implements LlmProvider {
             format: { type: "json_schema", name: request.schemaName, schema: request.schema, strict: true },
           },
         },
-        { signal: request.signal },
+        { signal: call.signal },
       );
+      stream.on("event", call.touch);
       if (onDelta) {
         stream.on("response.output_text.delta", (event) => onDelta(event.delta));
       }
@@ -88,7 +96,12 @@ export class OpenAiProvider implements LlmProvider {
       return { text: response.output_text, model: response.model, usage: usage ?? { inputTokens: 0, outputTokens: 0 } };
     } catch (error) {
       if (error instanceof ProviderError) throw error;
+      const expired = call.expired();
+      if (expired)
+        throw new ProviderError(timeoutMessage("OpenAI", expired, this.timeouts), true, { cause: error, code: "provider_unavailable" });
       throw openAiError(error);
+    } finally {
+      call.done();
     }
   }
 }
@@ -119,10 +132,13 @@ export function openAiError(error: unknown): ProviderError {
     if (error.code === "insufficient_quota") {
       return new ProviderError(`The OpenAI account is out of credits: ${error.message}`, false, options("provider_quota"));
     }
-    return new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, options("provider_rate_limit"));
   }
-  if (error instanceof OpenAI.InternalServerError) {
-    return new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, options("provider_unavailable"));
+  if (error instanceof OpenAI.RateLimitError || error instanceof OpenAI.InternalServerError) {
+    const wait = retryAfterMs(error.headers);
+    return new ProviderError(`OpenAI is unavailable right now: ${error.message}`, true, {
+      ...options(error instanceof OpenAI.RateLimitError ? "provider_rate_limit" : "provider_unavailable"),
+      ...(wait === undefined ? {} : { retryAfterMs: wait }),
+    });
   }
   if (error instanceof OpenAI.APIError) {
     if (typeof error.status !== "number") {

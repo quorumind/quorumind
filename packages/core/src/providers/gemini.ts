@@ -1,4 +1,14 @@
-import { errorMessage, type FetchLike, isAbort, readLines } from "./http.ts";
+import {
+  CLOUD_TIMEOUTS,
+  callFailure,
+  errorMessage,
+  type FetchLike,
+  readLines,
+  retryAfterMs,
+  type Timeouts,
+  type Watch,
+  watch,
+} from "./http.ts";
 import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError, providerErrorCode } from "./types.ts";
 
 export interface GeminiOptions {
@@ -7,6 +17,8 @@ export interface GeminiOptions {
   model: string;
   baseUrl?: string;
   fetch?: FetchLike;
+  /** When a stalled or endless call fails, to be tried again: CLOUD_TIMEOUTS unless set. */
+  timeouts?: Timeouts;
 }
 
 interface GeminiChunk {
@@ -28,12 +40,14 @@ export class GeminiProvider implements LlmProvider {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly fetch: FetchLike;
+  private readonly timeouts: Timeouts;
 
   constructor(options: GeminiOptions) {
     this.model = options.model.replace(/^models\//, "");
     this.apiKey = options.apiKey ?? "";
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.fetch = options.fetch ?? globalThis.fetch;
+    this.timeouts = options.timeouts ?? CLOUD_TIMEOUTS;
   }
 
   async generate(request: GenerateRequest, onDelta?: (text: string) => void): Promise<GenerateResult> {
@@ -53,17 +67,32 @@ export class GeminiProvider implements LlmProvider {
       },
     };
 
+    const call = watch(request.signal, this.timeouts);
+    try {
+      return await this.stream(url, body, request, call, onDelta);
+    } finally {
+      call.done();
+    }
+  }
+
+  private async stream(
+    url: string,
+    body: object,
+    request: GenerateRequest,
+    call: Watch,
+    onDelta?: (text: string) => void,
+  ): Promise<GenerateResult> {
+    const context = { api: "Gemini", timeouts: this.timeouts };
     let response: Response;
     try {
       response = await this.fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
         body: JSON.stringify(body),
-        ...(request.signal ? { signal: request.signal } : {}),
+        signal: call.signal,
       });
     } catch (error) {
-      if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("Could not reach the Gemini API.", true, { cause: error, code: "provider_unavailable" });
+      throw callFailure(error, call, request.signal, { ...context, interrupted: "Could not reach the Gemini API." });
     }
     if (!response.ok || !response.body) await this.fail(response);
 
@@ -75,7 +104,7 @@ export class GeminiProvider implements LlmProvider {
     // What a failed call cost, when the stream reported it: the provider bills it all the same.
     const billed = () => (usageSeen ? { usage, model } : {});
     try {
-      for await (const line of readLines(response.body as ReadableStream<Uint8Array>)) {
+      for await (const line of readLines(response.body as ReadableStream<Uint8Array>, call.touch)) {
         if (!line.startsWith("data:")) continue;
         const data = line.slice(5).trim();
         if (!data) continue;
@@ -109,8 +138,7 @@ export class GeminiProvider implements LlmProvider {
       }
     } catch (error) {
       if (error instanceof ProviderError) throw error;
-      if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("The Gemini stream was interrupted.", true, { cause: error, code: "provider_unavailable" });
+      throw callFailure(error, call, request.signal, { ...context, interrupted: "The Gemini stream was interrupted.", billed: billed() });
     }
 
     if (finishReason === "MAX_TOKENS") {
@@ -129,7 +157,13 @@ export class GeminiProvider implements LlmProvider {
     const code = providerErrorCode(status);
     if (status === 401 || status === 403) throw new ProviderError("The Gemini API key was rejected.", false, { code });
     if (status === 400) throw new ProviderError(`Gemini rejected the request: ${message}`, false);
-    if (status === 429 || status >= 500) throw new ProviderError(`Gemini is unavailable right now: ${message}`, true, { code });
+    if (status === 429 || status >= 500) {
+      const wait = retryAfterMs(response.headers);
+      throw new ProviderError(`Gemini is unavailable right now: ${message}`, true, {
+        code,
+        ...(wait === undefined ? {} : { retryAfterMs: wait }),
+      });
+    }
     throw new ProviderError(`Gemini API error ${status}: ${message}`, false, { code });
   }
 }

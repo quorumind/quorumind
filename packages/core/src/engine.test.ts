@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEMO_LINEUP, providersFor } from "./config.ts";
 import { DEMO_IDEA } from "./demo.ts";
-import { BudgetExceededError, DebateEngine, type EngineEvent, type ProviderSet } from "./engine.ts";
+import { BudgetExceededError, DebateEngine, type EngineEvent, type ProviderSet, retryDelay } from "./engine.ts";
 import { setModelPrice } from "./pricing.ts";
 import { MockProvider } from "./providers/mock.ts";
 import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError } from "./providers/types.ts";
@@ -425,5 +425,93 @@ describe("BudgetExceededError", () => {
   it("states a cap of a few cents without rounding it to the cent", () => {
     expect(new BudgetExceededError(0.0191, 0.0192).message).toBe("The cost cap of $0.0192 is reached ($0.0191 spent).");
     expect(new BudgetExceededError(2.5, 3).message).toBe("The cost cap of $3.00 is reached ($2.50 spent).");
+  });
+});
+
+describe("retries", () => {
+  const limited = (retryAfterMs?: number) =>
+    new ProviderError("Slow down.", true, { code: "provider_rate_limit", ...(retryAfterMs === undefined ? {} : { retryAfterMs }) });
+
+  it("waits longer before each new try of a rate-limited call, with jitter, and as long as the provider asks", () => {
+    const half = () => 0.5;
+    expect(retryDelay(limited(), 0, 2_000, half)).toBe(2_000);
+    expect(retryDelay(limited(), 1, 2_000, half)).toBe(4_000);
+    expect(retryDelay(limited(), 0, 2_000, () => 0)).toBe(1_000);
+    expect(retryDelay(limited(), 0, 2_000, () => 0.999)).toBe(2_998);
+    expect(retryDelay(limited(), 2, 2_000, half)).toBeNull();
+    expect(retryDelay(limited(7_000), 0, 2_000, half)).toBe(7_000);
+    // Longer than a session should hang: it fails, to be resumed later.
+    expect(retryDelay(limited(120_000), 0, 2_000, half)).toBeNull();
+  });
+
+  it("tries an invalid or cut-off answer once more at once, and never what cannot succeed", () => {
+    expect(retryDelay(new SyntaxError("Unexpected end"), 0, 2_000)).toBe(0);
+    expect(retryDelay(new SyntaxError("Unexpected end"), 1, 2_000)).toBeNull();
+    const cut = new ProviderError("The answer was cut off by the token limit.", true);
+    expect(retryDelay(cut, 0, 2_000)).toBe(0);
+    expect(retryDelay(cut, 1, 2_000)).toBeNull();
+    expect(retryDelay(new ProviderError("Bad key.", false, { code: "provider_auth" }), 0, 2_000)).toBeNull();
+    expect(retryDelay(new Error("A bug."), 0, 2_000)).toBeNull();
+  });
+
+  /** Fails its first calls with a rate limit, then answers like the demo. */
+  const throttled = (failures: number) => {
+    const inner = new MockProvider({ chunkDelayMs: 0 });
+    const provider = {
+      kind: "mock" as const,
+      model: "mock",
+      calls: [] as number[],
+      async generate(request: GenerateRequest, onDelta?: (text: string) => void) {
+        provider.calls.push(Date.now());
+        if (provider.calls.length <= failures) throw limited();
+        return inner.generate(request, onDelta);
+      },
+    };
+    return provider;
+  };
+
+  it("tries a rate-limited call twice more, after a wait", async () => {
+    const provider = throttled(2);
+    const mock = new MockProvider({ chunkDelayMs: 0 });
+    const engine = new DebateEngine(
+      { interviewer: provider, arbiter: mock, proposers: { A: mock, B: mock }, devil: mock },
+      { emit: () => {}, save: () => {} },
+      { retryDelayMs: 20 },
+    );
+    const session = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, ...DEMO_LINEUP });
+    await engine.startInterview(session);
+    expect(session.error).toBeNull();
+    expect(provider.calls).toHaveLength(3);
+    const [first = 0, second = 0, third = 0] = provider.calls;
+    expect(second - first).toBeGreaterThanOrEqual(9);
+    expect(third - second).toBeGreaterThanOrEqual(19);
+  });
+
+  it("fails with the provider's reason once the tries are spent, and stops waiting when stopped", async () => {
+    const provider = throttled(10);
+    const mock = new MockProvider({ chunkDelayMs: 0 });
+    const controller = new AbortController();
+    const engine = new DebateEngine(
+      { interviewer: provider, arbiter: mock, proposers: { A: mock, B: mock }, devil: mock },
+      { emit: () => {}, save: () => {} },
+      { retryDelayMs: 0 },
+    );
+    const session = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, ...DEMO_LINEUP });
+    await engine.startInterview(session);
+    expect(provider.calls).toHaveLength(3);
+    expect(session.error?.code).toBe("provider_rate_limit");
+
+    const waiting = new DebateEngine(
+      { interviewer: throttled(10), arbiter: mock, proposers: { A: mock, B: mock }, devil: mock },
+      { emit: () => {}, save: () => {} },
+      { signal: controller.signal, retryDelayMs: 60_000 },
+    );
+    const other = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, ...DEMO_LINEUP });
+    const started = Date.now();
+    const running = waiting.startInterview(other);
+    setTimeout(() => controller.abort(), 20);
+    await running;
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(other.error?.code).toBe("stopped");
   });
 });

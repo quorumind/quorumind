@@ -97,12 +97,41 @@ function searchError(response: Response, engine: string, message: string): Provi
   return new ProviderError(`${engine} search failed (${status}): ${message}`, retryable, { code });
 }
 
-async function send(fetchImpl: FetchLike, url: string, init: RequestInit, engine: string, signal?: AbortSignal): Promise<Response> {
+/** A search that has not answered after this long fails: the research goes on without it. */
+export const SEARCH_TIMEOUT_MS = 30_000;
+
+/** One search request, cancelled with the caller's signal or after its timeout, which `failure` tells apart. */
+function searchCall(engine: string, signal: AbortSignal | undefined, timeoutMs: number) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return {
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    failure(error: unknown, what: string): ProviderError {
+      if (timeout.aborted && !signal?.aborted) {
+        return new ProviderError(`${engine} did not answer within ${Math.round(timeoutMs / 1000)} s.`, true, {
+          cause: error,
+          code: "provider_unavailable",
+        });
+      }
+      if (isAbort(error, signal)) return new ProviderError("The search was cancelled.", false, { cause: error });
+      return new ProviderError(what, true, { cause: error, code: "provider_unavailable" });
+    },
+  };
+}
+
+async function send(fetchImpl: FetchLike, url: string, init: RequestInit, call: ReturnType<typeof searchCall>, engine: string) {
   try {
-    return await fetchImpl(url, { ...init, ...(signal ? { signal } : {}) });
+    return await fetchImpl(url, { ...init, signal: call.signal });
   } catch (error) {
-    if (isAbort(error, signal)) throw new ProviderError("The search was cancelled.", false, { cause: error });
-    throw new ProviderError(`Could not reach ${engine}.`, true, { cause: error, code: "provider_unavailable" });
+    throw call.failure(error, `Could not reach ${engine}.`);
+  }
+}
+
+/** The JSON body of a search answer, read within the same timeout. */
+async function bodyOf<T>(response: Response, call: ReturnType<typeof searchCall>, engine: string): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    throw call.failure(error, `${engine}'s search answer is not valid JSON.`);
   }
 }
 
@@ -156,6 +185,8 @@ export interface OpenRouterSearchOptions {
   engine?: OpenRouterSearchEngine;
   baseUrl?: string;
   fetch?: FetchLike;
+  /** SEARCH_TIMEOUT_MS unless set. */
+  timeoutMs?: number;
 }
 
 /**
@@ -173,6 +204,7 @@ export class OpenRouterSearch implements SearchProvider {
   private readonly engine: OpenRouterSearchEngine;
   private readonly baseUrl: string;
   private readonly fetch: FetchLike;
+  private readonly timeoutMs: number;
 
   constructor(options: OpenRouterSearchOptions = {}) {
     this.apiKey = options.apiKey ?? "";
@@ -180,6 +212,7 @@ export class OpenRouterSearch implements SearchProvider {
     this.engine = options.engine ?? "exa";
     this.baseUrl = (options.baseUrl ?? OPENROUTER_BASE_URL).replace(/\/+$/, "");
     this.fetch = options.fetch ?? globalThis.fetch;
+    this.timeoutMs = options.timeoutMs ?? SEARCH_TIMEOUT_MS;
     this.name = `openrouter:${this.engine}`;
     // The engine's price, and the reading model's share: the results it reads and a short answer.
     this.estimateUsd = OPENROUTER_SEARCH_ENGINES[this.engine] + (costOf(this.model, { inputTokens: 4_000, outputTokens: 400 }) ?? 0.003);
@@ -202,6 +235,7 @@ export class OpenRouterSearch implements SearchProvider {
       plugins: [{ id: "web", engine: this.engine, max_results: maxResults }],
       provider: { data_collection: "deny" },
     };
+    const call = searchCall("OpenRouter", options.signal, this.timeoutMs);
     const response = await send(
       this.fetch,
       `${this.baseUrl}/chat/completions`,
@@ -215,17 +249,11 @@ export class OpenRouterSearch implements SearchProvider {
         },
         body: JSON.stringify(body),
       },
+      call,
       "OpenRouter",
-      options.signal,
     );
     if (!response.ok) throw searchError(response, "OpenRouter", await errorMessage(response));
-    let completion: OpenRouterCompletion;
-    try {
-      completion = (await response.json()) as OpenRouterCompletion;
-    } catch (error) {
-      if (isAbort(error, options.signal)) throw new ProviderError("The search was cancelled.", false, { cause: error });
-      throw new ProviderError("OpenRouter's search answer is not valid JSON.", true, { cause: error });
-    }
+    const completion = await bodyOf<OpenRouterCompletion>(response, call, "OpenRouter");
     if (completion.error) {
       const status = typeof completion.error.code === "number" ? completion.error.code : 500;
       throw new ProviderError(`OpenRouter search failed: ${completion.error.message ?? "unknown error"}`, status >= 500 || status === 429, {
@@ -261,6 +289,8 @@ export interface BraveSearchOptions {
   priceUsd?: number;
   baseUrl?: string;
   fetch?: FetchLike;
+  /** SEARCH_TIMEOUT_MS unless set. */
+  timeoutMs?: number;
 }
 
 /** The Brave Search API (web search): the pages and their excerpts, priced per request. For a self-hosted server. */
@@ -271,26 +301,29 @@ export class BraveSearch implements SearchProvider {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly fetch: FetchLike;
+  private readonly timeoutMs: number;
 
   constructor(options: BraveSearchOptions) {
     this.apiKey = options.apiKey;
     this.estimateUsd = options.priceUsd ?? BRAVE_SEARCH_PRICE_USD;
     this.baseUrl = (options.baseUrl ?? BRAVE_SEARCH_BASE_URL).replace(/\/+$/, "");
     this.fetch = options.fetch ?? globalThis.fetch;
+    this.timeoutMs = options.timeoutMs ?? SEARCH_TIMEOUT_MS;
   }
 
   async search(query: string, options: { maxResults?: number; signal?: AbortSignal } = {}): Promise<SearchResult> {
     const maxResults = options.maxResults ?? MAX_RESULTS_PER_QUERY;
     const params = new URLSearchParams({ q: query, count: String(maxResults), safesearch: "moderate", extra_snippets: "true" });
+    const call = searchCall("Brave Search", options.signal, this.timeoutMs);
     const response = await send(
       this.fetch,
       `${this.baseUrl}/res/v1/web/search?${params}`,
       { headers: { accept: "application/json", "x-subscription-token": this.apiKey } },
+      call,
       "Brave Search",
-      options.signal,
     );
     if (!response.ok) throw searchError(response, "Brave Search", await errorMessage(response));
-    const body = (await response.json()) as BraveResponse;
+    const body = await bodyOf<BraveResponse>(response, call, "Brave Search");
     const hits = (body.web?.results ?? []).flatMap((result): SearchHit[] => {
       const url = webUrl(result.url);
       if (!url) return [];

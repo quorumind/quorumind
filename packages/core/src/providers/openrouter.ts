@@ -1,5 +1,15 @@
 import type { ModelPrice } from "../pricing.ts";
-import { errorMessage, type FetchLike, isAbort, readLines } from "./http.ts";
+import {
+  CLOUD_TIMEOUTS,
+  callFailure,
+  errorMessage,
+  type FetchLike,
+  readLines,
+  retryAfterMs,
+  type Timeouts,
+  type Watch,
+  watch,
+} from "./http.ts";
 import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError, providerErrorCode } from "./types.ts";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -34,6 +44,8 @@ export interface OpenRouterOptions {
    */
   only?: string[];
   fetch?: FetchLike;
+  /** When a stalled or endless call fails, to be tried again: CLOUD_TIMEOUTS unless set. */
+  timeouts?: Timeouts;
 }
 
 interface OpenRouterChunk {
@@ -120,6 +132,7 @@ export class OpenRouterProvider implements LlmProvider {
   private readonly reasoning: boolean;
   private readonly only: string[] | null;
   private readonly fetch: FetchLike;
+  private readonly timeouts: Timeouts;
 
   constructor(options: OpenRouterOptions) {
     this.model = options.model;
@@ -128,6 +141,7 @@ export class OpenRouterProvider implements LlmProvider {
     this.reasoning = options.reasoning ?? false;
     this.only = options.only && options.only.length > 0 ? options.only : null;
     this.fetch = options.fetch ?? globalThis.fetch;
+    this.timeouts = options.timeouts ?? CLOUD_TIMEOUTS;
   }
 
   async generate(request: GenerateRequest, onDelta?: (text: string) => void): Promise<GenerateResult> {
@@ -150,17 +164,26 @@ export class OpenRouterProvider implements LlmProvider {
       ...(this.reasoning && request.effort ? { reasoning: { effort: request.effort, exclude: true } } : {}),
     };
 
+    const call = watch(request.signal, this.timeouts);
+    try {
+      return await this.stream(body, request, call, onDelta);
+    } finally {
+      call.done();
+    }
+  }
+
+  private async stream(body: object, request: GenerateRequest, call: Watch, onDelta?: (text: string) => void): Promise<GenerateResult> {
+    const context = { api: "OpenRouter", timeouts: this.timeouts };
     let response: Response;
     try {
       response = await this.fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${this.apiKey}`, ...ATTRIBUTION },
         body: JSON.stringify(body),
-        ...(request.signal ? { signal: request.signal } : {}),
+        signal: call.signal,
       });
     } catch (error) {
-      if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("Could not reach the OpenRouter API.", true, { cause: error, code: "provider_unavailable" });
+      throw callFailure(error, call, request.signal, { ...context, interrupted: "Could not reach the OpenRouter API." });
     }
     if (!response.ok || !response.body) await this.fail(response);
 
@@ -173,7 +196,7 @@ export class OpenRouterProvider implements LlmProvider {
     // What a failed call cost, when the stream reported it before failing: the provider bills it all the same.
     const billed = () => (usageSeen ? { usage, model, ...(costUsd === undefined ? {} : { costUsd }) } : {});
     try {
-      for await (const line of readLines(response.body as ReadableStream<Uint8Array>)) {
+      for await (const line of readLines(response.body as ReadableStream<Uint8Array>, call.touch)) {
         // Comment lines (": OPENROUTER PROCESSING") keep the connection alive while a model thinks.
         if (!line.startsWith("data:")) continue;
         const data = line.slice(5).trim();
@@ -204,8 +227,11 @@ export class OpenRouterProvider implements LlmProvider {
       }
     } catch (error) {
       if (error instanceof ProviderError) throw error;
-      if (isAbort(error, request.signal)) throw new ProviderError("The request was cancelled.", false, { cause: error });
-      throw new ProviderError("The OpenRouter stream was interrupted.", true, { cause: error, code: "provider_unavailable" });
+      throw callFailure(error, call, request.signal, {
+        ...context,
+        interrupted: "The OpenRouter stream was interrupted.",
+        billed: billed(),
+      });
     }
 
     if (finishReason === "length") throw new ProviderError("The answer is incomplete (max_tokens).", true, billed());
@@ -229,7 +255,13 @@ export class OpenRouterProvider implements LlmProvider {
         false,
       );
     }
-    if (retryable(status)) throw new ProviderError(`OpenRouter is unavailable right now: ${message}`, true, { code });
+    if (retryable(status)) {
+      const wait = retryAfterMs(response.headers);
+      throw new ProviderError(`OpenRouter is unavailable right now: ${message}`, true, {
+        code,
+        ...(wait === undefined ? {} : { retryAfterMs: wait }),
+      });
+    }
     throw new ProviderError(`OpenRouter API error ${status}: ${message}`, false, { code });
   }
 }

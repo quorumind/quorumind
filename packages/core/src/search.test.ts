@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ProviderError } from "./providers/types.ts";
 import { BraveSearch, OpenRouterSearch, openRouterCitations } from "./search.ts";
 
 const recorded = JSON.parse(readFileSync(join(import.meta.dirname, "testdata", "openrouter-web-search.json"), "utf8")) as {
@@ -122,5 +123,35 @@ describe("Brave web search", () => {
     expect(url.origin + url.pathname).toBe("https://api.search.brave.com/res/v1/web/search");
     expect(url.searchParams.get("q")).toBe("Node.js release schedule");
     expect(new Headers(calls[0]?.init?.headers).get("x-subscription-token")).toBe("brave-key");
+  });
+});
+
+describe("search timeouts", () => {
+  /** A fetch that never answers, until its request is aborted. */
+  const silent = (async (_url: string | URL | Request, init?: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+    })) as typeof globalThis.fetch;
+
+  it("fails a search that does not answer in time, without hanging the research", async () => {
+    for (const search of [
+      new OpenRouterSearch({ apiKey: "key", fetch: silent, timeoutMs: 30 }),
+      new BraveSearch({ apiKey: "key", fetch: silent, timeoutMs: 30 }),
+    ]) {
+      const error = await search.search("Node.js release schedule").then(
+        () => null,
+        (reason: unknown) => reason,
+      );
+      expect(error).toBeInstanceOf(ProviderError);
+      expect(error).toMatchObject({ retryable: true, code: "provider_unavailable" });
+      expect((error as Error).message).toMatch(/did not answer within/);
+    }
+  });
+
+  it("still reports a search the caller cancelled as cancelled", async () => {
+    const controller = new AbortController();
+    const pending = new BraveSearch({ apiKey: "key", fetch: silent }).search("query", { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ retryable: false, message: "The search was cancelled." });
   });
 });

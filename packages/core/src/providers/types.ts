@@ -71,6 +71,8 @@ export interface ProviderErrorOptions {
   model?: string;
   /** What the provider charged for the failed call in US dollars, when it says so. */
   costUsd?: number;
+  /** How long the provider asked to wait before trying again (its Retry-After), in milliseconds. */
+  retryAfterMs?: number;
 }
 
 export class ProviderError extends Error {
@@ -79,6 +81,7 @@ export class ProviderError extends Error {
   readonly usage: Usage | undefined;
   readonly model: string | undefined;
   readonly costUsd: number | undefined;
+  readonly retryAfterMs: number | undefined;
   constructor(message: string, retryable: boolean, options?: ProviderErrorOptions) {
     super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = "ProviderError";
@@ -87,6 +90,7 @@ export class ProviderError extends Error {
     this.usage = options?.usage;
     this.model = options?.model;
     this.costUsd = options?.costUsd;
+    this.retryAfterMs = options?.retryAfterMs;
   }
 }
 

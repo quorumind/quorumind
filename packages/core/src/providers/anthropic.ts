@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { CLOUD_TIMEOUTS, retryAfterMs, type Timeouts, timeoutMessage, watch } from "./http.ts";
 import {
   type GenerateRequest,
   type GenerateResult,
@@ -17,6 +18,8 @@ export interface AnthropicOptions {
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
   /** The SDK client to call instead of one made from the key. */
   client?: AnthropicClient;
+  /** When a stream that stalls or never ends fails, to be tried again: CLOUD_TIMEOUTS unless set. */
+  timeouts?: Timeouts;
 }
 
 // Errors the API sends in the middle of a stream, as an SSE "error" event without an HTTP status: they are transient.
@@ -27,17 +30,21 @@ export class AnthropicProvider implements LlmProvider {
   readonly model: string;
   private readonly client: AnthropicClient;
   private readonly effort: NonNullable<AnthropicOptions["effort"]>;
+  private readonly timeouts: Timeouts;
 
   constructor(options: AnthropicOptions = {}) {
     this.client = options.client ?? new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {});
     this.model = options.model ?? "claude-opus-5-5";
     this.effort = options.effort ?? "high";
+    this.timeouts = options.timeouts ?? CLOUD_TIMEOUTS;
   }
 
   async generate(request: GenerateRequest, onDelta?: (text: string) => void): Promise<GenerateResult> {
     // What the stream has received so far, for the usage of a call that fails in the middle.
     let received: () => { usage?: { input_tokens?: number | null; output_tokens?: number | null }; model?: string } | undefined = () =>
       undefined;
+    // The SDK times out a request that gets no answer, not a stream that stops in the middle: the watch does.
+    const call = watch(request.signal, this.timeouts);
     try {
       const stream = this.client.beta.messages.stream(
         {
@@ -55,9 +62,10 @@ export class AnthropicProvider implements LlmProvider {
           betas: ["server-side-fallback-2026-07-01"],
           fallbacks: "default",
         },
-        { signal: request.signal },
+        { signal: call.signal },
       );
       received = () => stream.currentMessage;
+      stream.on("streamEvent", call.touch);
       if (onDelta) {
         stream.on("text", (delta) => onDelta(delta));
       }
@@ -89,7 +97,17 @@ export class AnthropicProvider implements LlmProvider {
             ...(partial.model ? { model: partial.model } : {}),
           }
         : {};
+      const expired = call.expired();
+      if (expired) {
+        throw new ProviderError(timeoutMessage("Anthropic", expired, this.timeouts), true, {
+          cause: error,
+          code: "provider_unavailable",
+          ...billed,
+        });
+      }
       throw anthropicError(error, billed);
+    } finally {
+      call.done();
     }
   }
 }
@@ -108,11 +126,12 @@ export function anthropicError(error: unknown, billed: ProviderErrorOptions = {}
   if (error instanceof Anthropic.BadRequestError) {
     return new ProviderError(`Anthropic rejected the request: ${error.message}`, false, options(undefined));
   }
-  if (error instanceof Anthropic.RateLimitError) {
-    return new ProviderError(`Anthropic is unavailable right now: ${error.message}`, true, options("provider_rate_limit"));
-  }
-  if (error instanceof Anthropic.InternalServerError) {
-    return new ProviderError(`Anthropic is unavailable right now: ${error.message}`, true, options("provider_unavailable"));
+  if (error instanceof Anthropic.RateLimitError || error instanceof Anthropic.InternalServerError) {
+    const wait = retryAfterMs(error.headers);
+    return new ProviderError(`Anthropic is unavailable right now: ${error.message}`, true, {
+      ...options(error instanceof Anthropic.RateLimitError ? "provider_rate_limit" : "provider_unavailable"),
+      ...(wait === undefined ? {} : { retryAfterMs: wait }),
+    });
   }
   if (error instanceof Anthropic.APIError) {
     if (typeof error.status !== "number") {
