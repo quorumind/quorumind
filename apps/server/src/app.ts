@@ -1131,10 +1131,13 @@ export function createApp(deps: AppDeps) {
           await stream.writeSSE({ id: String(id++), event: "message", data: next });
           continue;
         }
+        let timer: ReturnType<typeof setTimeout> | undefined;
         await new Promise<void>((resolve) => {
           wake = resolve;
-          setTimeout(resolve, 15_000);
+          timer = setTimeout(resolve, 15_000);
         });
+        // Woken by an event: the keep-alive timer of this wait is no longer needed.
+        clearTimeout(timer);
         wake = null;
         if (queue.length === 0 && !stream.aborted) await stream.writeSSE({ event: "ping", data: "" });
       }

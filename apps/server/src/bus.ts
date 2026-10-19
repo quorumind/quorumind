@@ -10,16 +10,27 @@ export class EventBus {
     for (const listener of this.listeners.get(sessionId) ?? []) listener(event);
   }
 
+  /** Listens to a session's events. The function it returns stops listening; calling it again does nothing. */
   subscribe(sessionId: string, listener: Listener): () => void {
     let set = this.listeners.get(sessionId);
     if (!set) {
       set = new Set();
       this.listeners.set(sessionId, set);
     }
-    set.add(listener);
+    const own = set;
+    own.add(listener);
+    let subscribed = true;
     return () => {
-      set.delete(listener);
-      if (set.size === 0) this.listeners.delete(sessionId);
+      if (!subscribed) return;
+      subscribed = false;
+      own.delete(listener);
+      // Another subscriber may have created a new set for this session since: only an empty set of ours goes.
+      if (own.size === 0 && this.listeners.get(sessionId) === own) this.listeners.delete(sessionId);
     };
+  }
+
+  /** How many listeners a session has, for tests and diagnostics. */
+  listenerCount(sessionId: string): number {
+    return this.listeners.get(sessionId)?.size ?? 0;
   }
 }

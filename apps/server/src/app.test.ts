@@ -1,5 +1,5 @@
-import type { Session } from "@quorumind/core";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createSession, DEMO_IDEA, DEMO_LINEUP, type Session } from "@quorumind/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
 import { EventBus } from "./bus.ts";
 import { BACKENDS, type Backend, type TestStorage } from "./testing.ts";
@@ -138,6 +138,41 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(text).toContain('"type":"session"');
       controller.abort();
       await reader.cancel();
+    });
+
+    it("leaves no keep-alive timer behind when events wake the stream", async () => {
+      storage = await backend.open();
+      const bus = new EventBus();
+      const app = createApp({ store: storage.store, brandingStore: storage.brandingStore, bus, env: {}, mockDelayMs: 0 });
+      const session = createSession({ locale: "en", idea: DEMO_IDEA, demo: true, ...DEMO_LINEUP });
+      await storage.store.save(session);
+      const keepAlives = new Set<unknown>();
+      const setTimer = vi.spyOn(globalThis, "setTimeout");
+      const cleared = vi.spyOn(globalThis, "clearTimeout");
+      try {
+        const controller = new AbortController();
+        const response = await app.request(`/api/sessions/${session.id}/events`, { signal: controller.signal });
+        const reader = response.body!.getReader();
+        await reader.read();
+        for (let i = 0; i < 20; i++) {
+          // Each event comes once the stream waits for the next one.
+          for (let turn = 0; turn < 5; turn++) await new Promise((resolve) => setImmediate(resolve));
+          bus.publish(session.id, { type: "speaking", task: "interview", seat: null });
+          await reader.read();
+        }
+        for (const [index, call] of setTimer.mock.calls.entries()) {
+          if (call[1] === 15_000) keepAlives.add(setTimer.mock.results[index]?.value);
+        }
+        for (const [handle] of cleared.mock.calls) keepAlives.delete(handle);
+        expect(setTimer.mock.calls.filter((call) => call[1] === 15_000).length).toBeGreaterThan(10);
+        // Only the wait in progress keeps its timer.
+        expect(keepAlives.size).toBeLessThanOrEqual(1);
+        controller.abort();
+        await reader.cancel();
+      } finally {
+        setTimer.mockRestore();
+        cleared.mockRestore();
+      }
     });
   });
 });
