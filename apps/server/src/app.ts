@@ -278,6 +278,15 @@ const ContextInput = z
 /** Request bodies are capped at 512 KB, except session creation, which carries the attached documents. */
 export const BODY_LIMITS = { api: 512 * 1024, session: 4 * 1024 * 1024 } as const;
 
+/** Audit mode: the attached documents under audit (every attached one when none is named), and the alternative to sketch. */
+const AuditInput = z
+  .object({
+    documentIds: z.array(z.string().max(100)).max(MAX_CONTEXT_DOCUMENTS).default([]),
+    alternative: z.boolean().default(false),
+  })
+  .nullable()
+  .default(null);
+
 const NewSession = z.object({
   locale: z.string().refine(isLocale, "Unsupported language"),
   idea: z.string().trim().max(4_000).default(""),
@@ -293,6 +302,7 @@ const NewSession = z.object({
   budgetUsd: z.number().positive().max(1_000).nullable().default(null),
   lineup: LineupInput.nullable().default(null),
   challenge: z.string().trim().max(8_000).nullable().default(null),
+  audit: AuditInput,
   context: ContextInput,
   redact: z.boolean().default(false),
   notify: z.boolean().default(false),
@@ -402,9 +412,12 @@ export function createApp(deps: AppDeps) {
   const priceOf = (user: User | null, priced: PricedSettings, sessionId: string | null, item: PricedItem = "debate") =>
     user && hooks.quote ? hooks.quote(user, priced, sessionId, item) : Promise.resolve(null);
 
-  /** The profile a new session follows: the host's, else the one saved in the settings. The recorded demo follows none. */
+  /**
+   * The profile a new session follows: the host's, else the one saved in the settings. The recorded demo follows none,
+   * nor does an audit: the document is a third party's, judged on its own figures.
+   */
   const profileFor = async (user: User | null, session: Session): Promise<OrgProfile | null> => {
-    if (session.demo) return null;
+    if (session.demo || session.mode === "audit") return null;
     const profile = hooks.profile ? (user ? await hooks.profile(user, session) : null) : await settings.profile(ownerOf(user));
     return hasProfile(profile) ? structuredClone(profile) : null;
   };
@@ -434,12 +447,17 @@ export function createApp(deps: AppDeps) {
     arbiter: { model: string };
     rounds: number;
     mode: Session["mode"];
+    audit?: { alternative: boolean } | null;
   }) => {
     const seatModels = Object.values(session.seats).map((seat) => seat.model);
     const devil = session.devil ? [session.devil.model] : [];
+    // Challenge and audit: every seat criticises the one option. An audit's alternative is one more proposal, not revised.
+    const criticsOnly = session.mode === "challenge" || session.mode === "audit";
+    const alternative = session.mode === "audit" && session.audit?.alternative ? seatModels.slice(0, 1) : [];
     return estimateDebateCost({
-      proposerModels: session.mode === "challenge" ? [] : seatModels,
-      criticModels: session.mode === "challenge" ? [...seatModels, ...devil] : devil,
+      proposerModels: criticsOnly ? [] : seatModels,
+      ...(alternative.length > 0 ? { draftModels: alternative } : {}),
+      criticModels: criticsOnly ? [...seatModels, ...devil] : devil,
       arbiterModel: session.arbiter.model,
       rounds: session.rounds,
     });
@@ -570,12 +588,15 @@ export function createApp(deps: AppDeps) {
         lineup: LineupInput,
         rounds: NewSession.shape.rounds,
         mode: NewSession.shape.mode,
+        audit: NewSession.shape.audit,
         depth: NewSession.shape.depth,
         locale: NewSession.shape.locale.default("en"),
       })
       .parse(await c.req.json());
     return c.json({
-      estimateUsd: hooks.hideProviderCosts ? null : estimateFor({ ...input.lineup, rounds: input.rounds, mode: input.mode }),
+      estimateUsd: hooks.hideProviderCosts
+        ? null
+        : estimateFor({ ...input.lineup, rounds: input.rounds, mode: input.mode, audit: input.audit }),
       price: await priceOf(c.get("user"), { mode: input.mode, depth: input.depth, locale: input.locale as Session["locale"] }, null),
     });
   });
@@ -622,6 +643,12 @@ export function createApp(deps: AppDeps) {
       if (input.mode === "challenge" && !input.challenge) {
         return c.json({ error: "challenge_missing", message: "Describe the solution you want challenged." }, 400);
       }
+      if (input.mode === "audit" && input.context.length === 0) {
+        return c.json(
+          { error: "audit_document_missing", message: "Attach the document to audit: a quote, a statement of work or a proposal." },
+          400,
+        );
+      }
     }
     const mode = input.demo ? "standard" : input.mode;
     const session = createSession({
@@ -637,6 +664,7 @@ export function createApp(deps: AppDeps) {
       budgetUsd: lowestCap(input.budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.({ mode, depth: input.depth })),
       ...lineup,
       challenge: input.challenge,
+      audit: input.audit,
       context: input.context,
       redact: input.redact,
       notify: input.notify && Boolean(deps.notifier),
@@ -885,6 +913,7 @@ export function createApp(deps: AppDeps) {
       seats: source.seats,
       devil: source.devil,
       challenge: source.challenge,
+      audit: source.audit ? { documentIds: source.audit.documentIds, alternative: source.audit.alternative } : null,
       context: source.context,
       redact: source.redact,
       notify: source.notify,

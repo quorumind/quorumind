@@ -54,6 +54,8 @@ export interface DebatePlan {
   proposerModels: string[];
   /** Participants that only criticise: the devil's advocate, or every seat in challenge mode. */
   criticModels?: string[];
+  /** Participants that propose once and are never revised: the alternative of an audit. */
+  draftModels?: string[];
   arbiterModel: string;
   rounds: number;
 }
@@ -67,6 +69,11 @@ export function estimateDebateCost(plan: DebatePlan): { low: number; high: numbe
     const revision = costOf(model, { inputTokens: TASK_PROFILE.revision.input, outputTokens: TASK_PROFILE.revision.output });
     if (proposal === null || critique === null || revision === null) return null;
     total += proposal + plan.rounds * (critique + revision);
+  }
+  for (const model of plan.draftModels ?? []) {
+    const proposal = costOf(model, { inputTokens: TASK_PROFILE.proposal.input, outputTokens: TASK_PROFILE.proposal.output });
+    if (proposal === null) return null;
+    total += proposal;
   }
   for (const model of plan.criticModels ?? []) {
     const critique = costOf(model, { inputTokens: TASK_PROFILE.critique.input, outputTokens: TASK_PROFILE.critique.output });
