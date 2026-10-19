@@ -4287,6 +4287,18 @@ button.chip:active {
 
 .sidebar-user-row .sign-out {
   flex: none;
+  color: var(--infeasible);
+  border-color: color-mix(in srgb, var(--infeasible) 40%, transparent);
+}
+
+.sidebar-user-row .sign-out:not(:disabled):hover {
+  background: var(--infeasible-soft);
+  color: var(--infeasible);
+}
+
+/* The person sits right above the menu's foot: the free space goes above them, not between. */
+.sidebar-user-row + .sidebar-foot {
+  margin-block-start: var(--space-3);
 }
 
 .sidebar-user {
