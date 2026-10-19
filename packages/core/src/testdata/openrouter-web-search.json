@@ -1,0 +1,62 @@
+{
+  "note": "An answer of OpenRouter's chat completions with the web plugin (engine exa), in the shape its documentation gives: the cited pages come back as url_citation annotations of the message. Replayed by the tests and the bench: no live call.",
+  "query": "PostgreSQL versioning policy end of life current version",
+  "response": {
+    "id": "gen-1760860800-recorded",
+    "object": "chat.completion",
+    "created": 1760860800,
+    "model": "google/gemini-3.8-flash",
+    "choices": [
+      {
+        "index": 0,
+        "finish_reason": "stop",
+        "message": {
+          "role": "assistant",
+          "content": "PostgreSQL supports each major version for five years after its first release ([postgresql.org](https://www.postgresql.org/support/versioning/)). PostgreSQL 18 was released in September 2025 and is supported until November 2030 ([postgresql.org](https://www.postgresql.org/support/versioning/)). Managed offers follow the same calendar ([aws.amazon.com](https://aws.amazon.com/rds/postgresql/)).",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "url_citation": {
+                "url": "https://www.postgresql.org/support/versioning/",
+                "title": "PostgreSQL: Versioning Policy",
+                "content": "The PostgreSQL Global Development Group supports a major version for 5 years after its initial release. PostgreSQL 18: first release September 25, 2025, final release November 14, 2030.",
+                "start_index": 78,
+                "end_index": 144
+              }
+            },
+            {
+              "type": "url_citation",
+              "url_citation": {
+                "url": "https://www.postgresql.org/support/versioning/",
+                "title": "PostgreSQL: Versioning Policy",
+                "start_index": 228,
+                "end_index": 294
+              }
+            },
+            {
+              "type": "url_citation",
+              "url_citation": {
+                "url": "https://aws.amazon.com/rds/postgresql/",
+                "title": "Amazon RDS for PostgreSQL",
+                "start_index": 336,
+                "end_index": 394
+              }
+            },
+            {
+              "type": "file",
+              "file": {
+                "name": "ignored"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 3120,
+      "completion_tokens": 96,
+      "total_tokens": 3216,
+      "cost": 0.00794
+    }
+  }
+}
