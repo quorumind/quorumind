@@ -337,7 +337,8 @@
     "solutionLabel": "Sua solução",
     "solutionPlaceholder": "Descreva o que você pretende construir e como: tecnologias, hospedagem, equipe, prazo…",
     "templateLabel": "Tipo de projeto",
-    "templateNone": "Outro",
+    "templateNone": "Outro projeto",
+    "templateLead": "Orienta as primeiras perguntas da entrevista.",
     "contextLabel": "Documentos (opcional)",
     "depth": "Profundidade",
     "depthOption": {
@@ -388,11 +389,19 @@
     "privacy": "Advogado de proteção de dados"
   },
   "template": {
-    "saas": "App web SaaS",
+    "saas": "App web",
     "mobile": "App mobile",
     "data_ai": "Dados e IA",
-    "migration": "Migração de infraestrutura",
-    "ecommerce": "E-commerce"
+    "migration": "Migração",
+    "ecommerce": "Loja online"
+  },
+  "templateHint": {
+    "saas": "Um software online usado pelos seus clientes ou pelas suas equipes.",
+    "mobile": "Um app para iPhone e Android.",
+    "data_ai": "Aproveitar seus dados, automatizar tarefas ou adicionar IA.",
+    "migration": "Mover ou modernizar um sistema que você já usa.",
+    "ecommerce": "Vender online, com pagamento e pedidos.",
+    "none": "Sem ponto de partida definido: a entrevista parte da sua descrição."
   },
   "compliance": {
     "label": "Conformidade",

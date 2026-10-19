@@ -337,7 +337,8 @@
     "solutionLabel": "Votre solution",
     "solutionPlaceholder": "Décrivez ce que vous prévoyez de construire et comment : technologies, hébergement, équipe, calendrier…",
     "templateLabel": "Type de projet",
-    "templateNone": "Autre",
+    "templateNone": "Autre projet",
+    "templateLead": "Il oriente les premières questions de l'entretien.",
     "contextLabel": "Documents (facultatif)",
     "depth": "Profondeur",
     "depthOption": {
@@ -388,11 +389,19 @@
     "privacy": "Juriste RGPD"
   },
   "template": {
-    "saas": "Application web SaaS",
+    "saas": "Application web",
     "mobile": "Application mobile",
     "data_ai": "Données et IA",
-    "migration": "Migration d'infrastructure",
-    "ecommerce": "E-commerce"
+    "migration": "Migration",
+    "ecommerce": "Boutique en ligne"
+  },
+  "templateHint": {
+    "saas": "Un logiciel en ligne utilisé par vos clients ou vos équipes.",
+    "mobile": "Une application pour iPhone et Android.",
+    "data_ai": "Exploiter vos données, automatiser des tâches ou ajouter de l'IA.",
+    "migration": "Déplacer ou moderniser un système que vous utilisez déjà.",
+    "ecommerce": "Vendre en ligne, avec paiement et commandes.",
+    "none": "Sans cadre de départ : l'entretien part de votre description."
   },
   "compliance": {
     "label": "Conformité",

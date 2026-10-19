@@ -337,7 +337,8 @@
     "solutionLabel": "Ihre Lösung",
     "solutionPlaceholder": "Beschreiben Sie, was Sie bauen möchten und wie: Technologien, Hosting, Team, Zeitplan…",
     "templateLabel": "Projektart",
-    "templateNone": "Sonstiges",
+    "templateNone": "Anderes Projekt",
+    "templateLead": "Gibt dem Interview die ersten Fragen vor.",
     "contextLabel": "Dokumente (optional)",
     "depth": "Tiefe",
     "depthOption": {
@@ -388,11 +389,19 @@
     "privacy": "Datenschutzjurist"
   },
   "template": {
-    "saas": "SaaS-Web-App",
+    "saas": "Web-App",
     "mobile": "Mobile App",
     "data_ai": "Daten und KI",
-    "migration": "Infrastrukturmigration",
-    "ecommerce": "E-Commerce"
+    "migration": "Migration",
+    "ecommerce": "Onlineshop"
+  },
+  "templateHint": {
+    "saas": "Eine Online-Software für Ihre Kunden oder Ihre Teams.",
+    "mobile": "Eine App für iPhone und Android.",
+    "data_ai": "Daten nutzen, Aufgaben automatisieren oder KI einsetzen.",
+    "migration": "Ein bestehendes System umziehen oder modernisieren.",
+    "ecommerce": "Online verkaufen, mit Zahlung und Bestellungen.",
+    "none": "Ohne Vorgabe: Das Interview geht von Ihrer Beschreibung aus."
   },
   "compliance": {
     "label": "Compliance",

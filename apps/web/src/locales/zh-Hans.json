@@ -337,7 +337,8 @@
     "solutionLabel": "您的方案",
     "solutionPlaceholder": "描述您打算构建什么、如何构建：技术栈、托管、团队、时间表…",
     "templateLabel": "项目类型",
-    "templateNone": "其他",
+    "templateNone": "其他项目",
+    "templateLead": "决定访谈的第一批问题。",
     "contextLabel": "资料（可选）",
     "depth": "深度",
     "depthOption": {
@@ -388,11 +389,19 @@
     "privacy": "数据保护律师"
   },
   "template": {
-    "saas": "SaaS Web 应用",
+    "saas": "Web 应用",
     "mobile": "移动应用",
     "data_ai": "数据与 AI",
-    "migration": "基础设施迁移",
-    "ecommerce": "电子商务"
+    "migration": "迁移",
+    "ecommerce": "网店"
+  },
+  "templateHint": {
+    "saas": "供您的客户或团队使用的在线软件。",
+    "mobile": "适用于 iPhone 和 Android 的应用。",
+    "data_ai": "利用数据、自动化任务或引入 AI。",
+    "migration": "迁移或升级您现有的系统。",
+    "ecommerce": "在线销售，包含支付和订单。",
+    "none": "没有预设框架：访谈从您的描述开始。"
   },
   "compliance": {
     "label": "合规",

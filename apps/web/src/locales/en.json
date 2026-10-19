@@ -337,7 +337,8 @@
     "solutionLabel": "Your solution",
     "solutionPlaceholder": "Describe what you plan to build and how: stack, hosting, team, timeline…",
     "templateLabel": "Kind of project",
-    "templateNone": "Other",
+    "templateNone": "Other project",
+    "templateLead": "Sets the first questions of the interview.",
     "contextLabel": "Documents (optional)",
     "depth": "Depth",
     "depthOption": {
@@ -388,11 +389,19 @@
     "privacy": "Data protection lawyer"
   },
   "template": {
-    "saas": "SaaS web app",
+    "saas": "Web app",
     "mobile": "Mobile app",
     "data_ai": "Data and AI",
-    "migration": "Infrastructure migration",
-    "ecommerce": "E-commerce"
+    "migration": "Migration",
+    "ecommerce": "Online shop"
+  },
+  "templateHint": {
+    "saas": "Online software your customers or your teams use.",
+    "mobile": "An app for iPhone and Android.",
+    "data_ai": "Put your data to use, automate tasks or add AI.",
+    "migration": "Move or modernise a system you already run.",
+    "ecommerce": "Sell online, with payment and orders.",
+    "none": "No starting frame: the interview starts from your description."
   },
   "compliance": {
     "label": "Compliance",

@@ -3,7 +3,7 @@ import type { ComplianceTemplateId } from "@quorumind/core/compliance";
 import type { Locale } from "@quorumind/core/locales";
 import { europeanCatalog } from "@quorumind/core/sovereignty";
 import type { TemplateId } from "@quorumind/core/templates";
-import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate, useSessions } from "./App.tsx";
 import { type AppConfig, api, MAX_BUDGET_USD, type PriceQuote } from "./api.ts";
@@ -79,19 +79,30 @@ function playable(lineup: Lineup | null | undefined, catalog: ModelOption[]): li
 function ChoiceCards<T extends string | number>({
   name,
   legend,
+  lead,
   options,
   value,
   onChange,
+  disabled,
 }: {
   name: string;
   legend: string;
+  /** A line under the legend: what the choice is for. */
+  lead?: string;
   options: { value: T; label: string; hint: string }[];
   value: T;
   onChange: (next: T) => void;
+  disabled?: boolean;
 }) {
+  const leadId = useId();
   return (
-    <fieldset className="choice-group">
+    <fieldset className="choice-group" disabled={disabled} aria-describedby={lead ? leadId : undefined}>
       <legend className="field-label">{legend}</legend>
+      {lead ? (
+        <p className="field-hint choice-lead" id={leadId}>
+          {lead}
+        </p>
+      ) : null}
       <div className="choice-cards">
         {options.map((option) => (
           <label key={option.value} className="choice-card" data-checked={option.value === value}>
@@ -554,25 +565,19 @@ export function NewSession() {
             ) : null}
 
             {config && config.templates.length > 0 ? (
-              <fieldset className="template-picker" disabled={!live}>
-                <legend className="field-label">{t("setup.templateLabel")}</legend>
-                <div className="chips">
-                  <button type="button" className="chip-toggle" aria-pressed={template === null} onClick={() => setTemplate(null)}>
-                    {t("setup.templateNone")}
-                  </button>
-                  {config.templates.map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className="chip-toggle"
-                      aria-pressed={template === value}
-                      onClick={() => setTemplate(value)}
-                    >
-                      {t(`template.${value}`)}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
+              <ChoiceCards<TemplateId | "none">
+                name="template"
+                legend={t("setup.templateLabel")}
+                lead={t("setup.templateLead")}
+                disabled={!live}
+                value={template ?? "none"}
+                onChange={(next) => setTemplate(next === "none" ? null : next)}
+                options={[
+                  ...config.templates.map((value) => ({ value, label: t(`template.${value}`), hint: t(`templateHint.${value}`) })),
+                  // No frame: last, since the frames are what most projects start from.
+                  { value: "none" as const, label: t("setup.templateNone"), hint: t("templateHint.none") },
+                ]}
+              />
             ) : null}
           </section>
 

@@ -337,7 +337,8 @@
     "solutionLabel": "あなたの解決策",
     "solutionPlaceholder": "何をどのように作る予定かを説明してください：技術スタック、ホスティング、チーム、スケジュール…",
     "templateLabel": "プロジェクトの種類",
-    "templateNone": "その他",
+    "templateNone": "その他のプロジェクト",
+    "templateLead": "ヒアリングの最初の質問が決まります。",
     "contextLabel": "資料（任意）",
     "depth": "深さ",
     "depthOption": {
@@ -388,11 +389,19 @@
     "privacy": "データ保護の弁護士"
   },
   "template": {
-    "saas": "SaaS Web アプリ",
+    "saas": "Web アプリ",
     "mobile": "モバイルアプリ",
     "data_ai": "データと AI",
-    "migration": "インフラ移行",
-    "ecommerce": "EC サイト"
+    "migration": "移行",
+    "ecommerce": "オンラインショップ"
+  },
+  "templateHint": {
+    "saas": "顧客や社内のチームが使うオンラインのソフトウェア。",
+    "mobile": "iPhone と Android 向けのアプリ。",
+    "data_ai": "データの活用、作業の自動化、AI の導入。",
+    "migration": "今使っているシステムの移行や刷新。",
+    "ecommerce": "決済と注文管理を備えたオンライン販売。",
+    "none": "決まった枠はありません。ヒアリングはあなたの説明から始まります。"
   },
   "compliance": {
     "label": "コンプライアンス",
