@@ -1,6 +1,7 @@
 import type { Branding } from "@quorumind/core";
 import { isLocale } from "@quorumind/core/locales";
 import { QUESTIONNAIRE_LIMITS } from "@quorumind/core/questionnaire";
+import i18next from "i18next";
 import { type CSSProperties, type FormEvent, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api, type PublicQuestionnaire } from "./api.ts";
@@ -73,12 +74,13 @@ export function ClientQuestionnaire({ token }: { token: string }) {
 
   // The page is shown in the questionnaire's language for this visit only, never remembered: an agency member who
   // checks a client's link gets their own language back on leaving it.
-  useEffect(() => {
-    const own = i18n.language;
-    return () => {
-      if (isLocale(own) && i18n.language !== own) void switchLanguage(own, false).catch(() => undefined);
-    };
-  }, [i18n]);
+  const [own] = useState(() => i18n.language);
+  useEffect(
+    () => () => {
+      if (isLocale(own) && i18next.language !== own) void switchLanguage(own, false).catch(() => undefined);
+    },
+    [own],
+  );
 
   useEffect(() => {
     api.questionnaire(token, access).then(

@@ -33,6 +33,18 @@ Every pull request must pass the same checks as CI:
 npm run lint && npm run typecheck && npm test && npm run bench && npm run build
 ```
 
+The interface's component tests (`apps/web/src/*.test.tsx`, on happy-dom with Testing Library) run with the
+rest in `npm test`. Its browser tests run apart, as they build the interface and start servers:
+
+```bash
+npm run test:e2e
+```
+
+They live in `apps/web/e2e` and play the recorded demo on two servers started for them: a self-hosted one,
+and a hosted workspace whose members are named by an `x-user` header (`apps/web/e2e/hosted-server.ts`). Locally
+they use the installed Microsoft Edge; set `QUORUMIND_E2E_CHANNEL=chromium` to use Playwright's Chromium
+instead (`npx playwright install chromium` once), as CI does. Ports 8811 and 8812 must be free.
+
 `npm run format` fixes formatting. Run the bench after any change to prompts, schemas or the
 debate engine: it replays reference projects end to end and checks what every verdict must
 contain. `QUORUMIND_BENCH=live npm run bench` runs it on real models and costs money.
