@@ -26,7 +26,7 @@
     "main": "Menú principal",
     "newDebate": "Nuevo debate",
     "debates": "Debates",
-    "allDebates": "Ver todos los debates",
+    "allDebates": "Todos los debates",
     "group": "Espacio y cuenta",
     "home": "Inicio",
     "billing": "Facturación",
@@ -42,6 +42,12 @@
       "member": "Miembro"
     },
     "backToSite": "Volver al sitio web, {{host}}"
+  },
+  "sessions": {
+    "search": "Buscar por título",
+    "found": "Resultados: {{count}}",
+    "noMatch": "Nada coincide con esta búsqueda.",
+    "clear": "Borrar la búsqueda"
   },
   "home": {
     "ideaLabel": "Su idea de proyecto",

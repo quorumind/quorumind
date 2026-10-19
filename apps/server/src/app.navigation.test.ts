@@ -43,11 +43,7 @@ const menuOf = (userId: string): HostNavigation => ({
     list: [{ name: "Team", role: userId === "ada" ? "owner" : "member", current: true, switchUrl: "/host/workspaces/team/switch" }],
     createUrl: "/host/#/workspaces/new",
   },
-  links: [
-    { kind: "debates", url: "/host/#/debates" },
-    { kind: "billing", url: "/host/#/billing" },
-    ...(userId === "ada" ? [{ kind: "staff" as const, url: "/host/#/staff" }] : []),
-  ],
+  links: [{ kind: "billing", url: "/host/#/billing" }, ...(userId === "ada" ? [{ kind: "staff" as const, url: "/host/#/staff" }] : [])],
   user: { name: userId === "ada" ? "Ada" : null, email: `${userId}@example.com` },
   siteUrl: "https://example.com",
 });

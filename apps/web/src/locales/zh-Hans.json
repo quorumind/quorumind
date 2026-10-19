@@ -26,7 +26,7 @@
     "main": "主菜单",
     "newDebate": "新辩论",
     "debates": "辩论",
-    "allDebates": "查看所有辩论",
+    "allDebates": "所有辩论",
     "group": "工作区和账户",
     "home": "首页",
     "billing": "账单",
@@ -42,6 +42,12 @@
       "member": "成员"
     },
     "backToSite": "返回网站（{{host}}）"
+  },
+  "sessions": {
+    "search": "按标题搜索",
+    "found": "结果：{{count}} 项",
+    "noMatch": "没有与此搜索匹配的结果。",
+    "clear": "清除搜索"
   },
   "home": {
     "ideaLabel": "您的项目想法",

@@ -69,7 +69,7 @@ export interface AppConfig {
 }
 
 /** A page of the host's own screens, by a stable kind the menu names in the interface's language. */
-export type HostLinkKind = "debates" | "home" | "billing" | "members" | "profile" | "account" | "staff";
+export type HostLinkKind = "home" | "billing" | "members" | "profile" | "account" | "staff";
 
 /** The host's part of the menu: the caller's workspaces, the host's pages, who is signed in, the host's website. */
 export interface HostNavigation {

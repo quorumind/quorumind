@@ -26,7 +26,7 @@
     "main": "Main menu",
     "newDebate": "New debate",
     "debates": "Debates",
-    "allDebates": "See all debates",
+    "allDebates": "All debates",
     "group": "Workspace and account",
     "home": "Home",
     "billing": "Billing",
@@ -42,6 +42,12 @@
       "member": "Member"
     },
     "backToSite": "Back to the website, {{host}}"
+  },
+  "sessions": {
+    "search": "Search by title",
+    "found": "Results: {{count}}",
+    "noMatch": "Nothing matches this search.",
+    "clear": "Clear the search"
   },
   "home": {
     "ideaLabel": "Your project idea",

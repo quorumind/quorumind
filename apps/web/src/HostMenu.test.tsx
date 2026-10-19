@@ -32,7 +32,6 @@ const HOSTED: HostNavigation = {
     createUrl: "https://app.example.com/account/#/workspaces/new",
   },
   links: [
-    { kind: "debates", url: "https://app.example.com/account/#/debates" },
     { kind: "home", url: "https://app.example.com/account/#/" },
     { kind: "billing", url: "https://app.example.com/account/#/billing" },
     { kind: "members", url: "https://app.example.com/account/#/members" },
@@ -54,8 +53,8 @@ function stub(navigation?: HostNavigation | null, extra: Parameters<typeof stubA
 
 const sidebar = () => within(document.getElementById("sidebar") as HTMLElement);
 const links = (name: string) =>
-  Array.from(sidebar().getByRole("navigation", { name }).querySelectorAll<HTMLAnchorElement>("a.nav-link, a[href^='#/s/']"), (link) => [
-    (link.querySelector(".session-title") ?? link).textContent,
+  Array.from(sidebar().getByRole("navigation", { name }).querySelectorAll<HTMLAnchorElement>("a"), (link) => [
+    link.textContent,
     link.getAttribute("href"),
   ]);
 
@@ -64,40 +63,44 @@ afterEach(() => {
 });
 
 describe("the menu, self-hosted", () => {
-  it("has the app's pages only, as before", async () => {
+  it("has the app's pages, the sessions among them, and lists no session itself", async () => {
     stub();
     window.location.hash = "#/decisions";
     render(<App />);
-    await sidebar().findByText("A booking app");
+    await waitFor(() => expect(localStorage.getItem("quorumind.hostMenu")).toBeNull());
     expect(sidebar().getByRole("link", { name: "New session" })).toBeTruthy();
-    expect(sidebar().getByRole("heading", { name: "Sessions" })).toBeTruthy();
+    expect(links("Main menu")).toEqual([
+      ["Sessions", "#/sessions"],
+      ["Decisions", "#/decisions"],
+      ["Gallery", "#/gallery"],
+      ["Settings", "#/settings"],
+    ]);
     expect(sidebar().getByRole("link", { name: "Decisions" }).getAttribute("aria-current")).toBe("page");
-    expect(sidebar().queryByRole("heading", { name: "Workspace and account" })).toBeNull();
+    expect(sidebar().queryByText("A booking app")).toBeNull();
+    expect(sidebar().queryByRole("heading")).toBeNull();
     expect(sidebar().queryByRole("button", { name: /Workspace/ })).toBeNull();
-    expect(localStorage.getItem("quorumind.hostMenu")).toBeNull();
   });
 
   it("stays so when the server sends no host menu", async () => {
-    stub(null);
+    const { calls } = stub(null);
     render(<App />);
-    await sidebar().findByText("A booking app");
+    await waitFor(() => expect(calls.some((call) => call.path === "/api/config")).toBe(true));
     await waitFor(() => expect(sidebar().queryByRole("link", { name: "New debate" })).toBeNull());
-    expect(sidebar().queryByRole("navigation", { name: "Main menu" })).toBeNull();
+    expect(sidebar().getByRole("link", { name: "Sessions" }).getAttribute("href")).toBe("#/sessions");
+    expect(sidebar().queryByRole("heading", { name: "Workspace and account" })).toBeNull();
   });
 });
 
 describe("the menu, hosted", () => {
-  it("lists the debates and the app's pages, then the host's pages, as the host's screens do", async () => {
+  it("has the debates and the app's pages, then the host's pages, as the host's screens do", async () => {
     stub(HOSTED);
     window.location.hash = "#/gallery";
     render(<App />);
     await sidebar().findByRole("heading", { name: "Workspace and account" });
     expect(sidebar().getByRole("link", { name: "New debate" }).getAttribute("href")).toBe("#/");
     expect(sidebar().getByRole("heading", { name: "Debates" })).toBeTruthy();
-    await sidebar().findByText("A booking app");
     expect(links("Main menu")).toEqual([
-      ["A booking app", "#/s/s1"],
-      ["See all debates", "https://app.example.com/account/#/debates"],
+      ["All debates", "#/sessions"],
       ["Decisions", "#/decisions"],
       ["Gallery", "#/gallery"],
       ["Settings", "#/settings"],
@@ -109,6 +112,7 @@ describe("the menu, hosted", () => {
     ]);
     expect(sidebar().getByRole("link", { name: "Gallery" }).getAttribute("aria-current")).toBe("page");
     expect(sidebar().queryByRole("link", { name: "Back-office" })).toBeNull();
+    expect(sidebar().queryByText("A booking app")).toBeNull();
     // Who is signed in, the way back to the website, the language and the theme.
     expect(sidebar().getByText("Ada Lovelace")).toBeTruthy();
     expect(sidebar().getByText("ada@example.com")).toBeTruthy();

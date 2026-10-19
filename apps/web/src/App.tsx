@@ -1,14 +1,11 @@
 import { createContext, lazy, type ReactNode, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { authorName } from "./access.tsx";
 import { api, type HostNavigation, type SessionSummary } from "./api.ts";
-import { Segmented } from "./components/Controls.tsx";
 import { HostLinks, HostUser, SiteLink, WorkspaceSwitch } from "./components/HostMenu.tsx";
 import {
   CrossIcon,
   DebatesIcon,
   GalleryIcon,
-  LockIcon,
   MenuIcon,
   MonitorIcon,
   MoonIcon,
@@ -31,6 +28,7 @@ const ClientQuestionnaire = lazy(() => import("./ClientQuestionnaire.tsx").then(
 const Register = lazy(() => import("./Decisions.tsx").then((module) => ({ default: module.Register })));
 const Gallery = lazy(() => import("./Gallery.tsx").then((module) => ({ default: module.Gallery })));
 const Settings = lazy(() => import("./Settings.tsx").then((module) => ({ default: module.Settings })));
+const Sessions = lazy(() => import("./Sessions.tsx").then((module) => ({ default: module.Sessions })));
 
 function PageLoader({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -67,6 +65,8 @@ interface SessionsState {
   /** In a shared history, the person's own sessions only. */
   mine: boolean;
   setMine: (mine: boolean) => void;
+  /** Whether the history came, and whether its last request failed. */
+  status: "loading" | "ready" | "failed";
 }
 
 const SessionsContext = createContext<SessionsState>({
@@ -76,6 +76,7 @@ const SessionsContext = createContext<SessionsState>({
   shared: false,
   mine: false,
   setMine: () => {},
+  status: "loading",
 });
 export const useSessions = () => useContext(SessionsContext);
 
@@ -83,6 +84,7 @@ function useSessionList(): SessionsState {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [shared, setShared] = useState(false);
   const [mine, setMine] = useState(false);
+  const [status, setStatus] = useState<SessionsState["status"]>("loading");
   // Only the latest request's answer is shown: switching between Everyone and Mine quickly keeps the last choice.
   const latest = useRef(0);
   const refresh = useCallback(() => {
@@ -92,8 +94,11 @@ function useSessionList(): SessionsState {
         if (request !== latest.current) return;
         setSessions(body.sessions);
         setShared(body.shared ?? false);
+        setStatus("ready");
       },
-      () => undefined,
+      () => {
+        if (request === latest.current) setStatus("failed");
+      },
     );
   }, [mine]);
   const listed = useRef(sessions);
@@ -131,7 +136,7 @@ function useSessionList(): SessionsState {
     document.addEventListener("visibilitychange", visible);
     return () => document.removeEventListener("visibilitychange", visible);
   }, [refresh]);
-  return { sessions, refresh, upsert, shared, mine, setMine };
+  return { sessions, refresh, upsert, shared, mine, setMine, status };
 }
 
 const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = { system: "light", light: "dark", dark: "system" };
@@ -175,57 +180,6 @@ function useHostNavigation(): HostNavigation | null | undefined {
   return navigation;
 }
 
-/** In a shared history, whose sessions to list. */
-function HistoryFilter() {
-  const { t } = useTranslation();
-  const { shared, mine, setMine } = useSessions();
-  if (!shared) return null;
-  return (
-    <Segmented
-      className="history-filter"
-      legend={t("workspace.filter")}
-      options={[
-        { key: "everyone", value: false, label: t("workspace.everyone") },
-        { key: "mine", value: true, label: t("workspace.mine") },
-      ]}
-      value={mine}
-      onChange={setMine}
-    />
-  );
-}
-
-/** The sessions of the history, the one shown marked; nothing when there is none. */
-function SessionItems({ current, className }: { current: string | null; className?: string }) {
-  const { t, i18n } = useTranslation();
-  const { sessions, shared } = useSessions();
-  const date = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "short" });
-  if (sessions.length === 0) return null;
-  return (
-    <ul className={className}>
-      {sessions.map((item) => (
-        <li key={item.id}>
-          <a href={`#/s/${item.id}`} aria-current={item.id === current ? "page" : undefined}>
-            <span className="session-title">
-              {item.private ? (
-                <span className="session-private" title={t("workspace.private")}>
-                  <LockIcon />
-                  <span className="visually-hidden">{t("workspace.private")}</span>
-                </span>
-              ) : null}
-              {item.idea}
-            </span>
-            <span className="session-meta">
-              <span className={`phase-dot phase-${item.phase}`} />
-              {t(`phase.${item.phase}`)} · {date.format(new Date(item.updatedAt))}
-            </span>
-            {shared && item.mine === false ? <span className="session-meta session-author">{authorName(item.author, t)}</span> : null}
-          </a>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function ThemeButton() {
   const { t } = useTranslation();
   const [theme, setTheme] = useTheme();
@@ -243,86 +197,56 @@ function ThemeButton() {
   );
 }
 
-/** The app's own pages, after the sessions. */
-function AppLinks({ current, className }: { current: string | null; className?: string }) {
+/**
+ * The menu: a new session, then the app's pages (the sessions, the decisions, the gallery, the settings), the same
+ * few lines whatever the history holds. Hosted, it is the menu of the host's screens, so it stays the same from one
+ * side to the other: the workspace on top, the app's pages under the debates, the host's pages, then the person.
+ */
+function Sidebar({ current, host }: { current: string | null; host: HostNavigation | null | undefined }) {
   const { t } = useTranslation();
+  const { sessions } = useSessions();
+  const hosted = host !== null;
+  const newLabel = hosted ? t("host.newDebate") : t("nav.newSession");
   const page = (path: string, label: string, icon: ReactNode) => (
-    <a className={className} href={`#/${path}`} aria-current={current === path ? "page" : undefined}>
+    <a className="nav-link" href={`#/${path}`} aria-current={current === path ? "page" : undefined}>
       {icon}
       {label}
     </a>
   );
-  return (
+  const pages = (
     <>
+      {page("sessions", hosted ? t("host.allDebates") : t("nav.sessions"), <DebatesIcon />)}
       {page("decisions", t("nav.decisions"), <RegisterIcon />)}
       {page("gallery", t("nav.gallery"), <GalleryIcon />)}
       {page("settings", t("nav.settings"), <SettingsIcon />)}
     </>
   );
-}
 
-function Sidebar({ current, host }: { current: string | null; host: HostNavigation | null | undefined }) {
-  const { t } = useTranslation();
-  const { sessions } = useSessions();
-  const brand = (label: string) => (
-    <a className="brand" href="#/" aria-label={`Quorumind, ${label}`}>
-      <Mark busy={sessions.some((item) => item.phase === "debating")} />
-      <span>quorumind</span>
-    </a>
-  );
-
-  if (host === null) {
-    return (
-      <div className="sidebar-inner">
-        {brand(t("nav.newSession"))}
-        <a className="button button-primary new-session" href="#/">
-          <PlusIcon />
-          {t("nav.newSession")}
-        </a>
-        <nav className="session-list" aria-label={t("nav.sessions")}>
-          <h2 className="label muted">{t("nav.sessions")}</h2>
-          <HistoryFilter />
-          {sessions.length === 0 ? <p className="field-hint">{t("nav.noSessions")}</p> : <SessionItems current={current} />}
-        </nav>
-        <nav className="sidebar-links" aria-label={t("nav.more")}>
-          <AppLinks current={current} />
-        </nav>
-        <div className="sidebar-foot">
-          <LanguageSelect id="language" />
-          <ThemeButton />
-        </div>
-      </div>
-    );
-  }
-
-  // Hosted: the menu of the host's own screens, so it stays the same from one side to the other. Until the host's part
-  // comes, the place of its workspace is kept.
-  const allDebates = host?.links.find((link) => link.kind === "debates");
   return (
     <div className="sidebar-inner">
-      {brand(t("host.newDebate"))}
+      <a className="brand" href="#/" aria-label={`Quorumind, ${newLabel}`}>
+        <Mark busy={sessions.some((item) => item.phase === "debating")} />
+        <span>quorumind</span>
+      </a>
+      {/* Until the host's part of the menu comes, the place of its workspace is kept. */}
       {host === undefined ? (
         <div className="workspace-switch workspace-pending" aria-hidden="true" />
-      ) : host.workspaces ? (
+      ) : host?.workspaces ? (
         <WorkspaceSwitch workspaces={host.workspaces} />
       ) : null}
       <a className="button button-primary new-session" href="#/">
         <PlusIcon />
-        {t("host.newDebate")}
+        {newLabel}
       </a>
       <nav className="sidebar-nav" aria-label={t("host.main")}>
-        <div className="nav-group">
-          <h2 className="nav-group-label">{t("host.debates")}</h2>
-          <HistoryFilter />
-          <SessionItems current={current} className="nav-sessions" />
-          {allDebates ? (
-            <a className="nav-link" href={allDebates.url}>
-              <DebatesIcon />
-              {t("host.allDebates")}
-            </a>
-          ) : null}
-          <AppLinks current={current} className="nav-link" />
-        </div>
+        {hosted ? (
+          <div className="nav-group">
+            <h2 className="nav-group-label">{t("host.debates")}</h2>
+            {pages}
+          </div>
+        ) : (
+          pages
+        )}
         {host ? <HostLinks links={host.links} /> : null}
       </nav>
       {host ? <HostUser user={host.user} /> : null}
@@ -372,6 +296,8 @@ function Shell({ route }: { route: string }) {
     <Settings />
   ) : route === "decisions" ? (
     <Register />
+  ) : route === "sessions" ? (
+    <Sessions hosted={host !== null} />
   ) : (
     <NewSession />
   );

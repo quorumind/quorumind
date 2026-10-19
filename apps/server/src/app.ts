@@ -162,7 +162,7 @@ export interface PriceQuote {
 }
 
 /** A page of the host's own screens, by a stable kind the web app names in its language. */
-export type HostLinkKind = "debates" | "home" | "billing" | "members" | "profile" | "account" | "staff";
+export type HostLinkKind = "home" | "billing" | "members" | "profile" | "account" | "staff";
 
 /** A workspace of the caller, as the menu lists it: picking another one posts to `switchUrl`. */
 export interface HostWorkspace {
@@ -179,7 +179,7 @@ export interface HostWorkspace {
 export interface HostNavigation {
   /** Null when the host has no workspaces; with none in the list, the menu offers to create one at `createUrl`. */
   workspaces: { list: HostWorkspace[]; createUrl: string } | null;
-  /** In the order the menu shows them. "debates" goes with the sessions, the others in a group of their own. */
+  /** In the order the menu shows them, in a group of their own under the app's pages. */
   links: { kind: HostLinkKind; url: string }[];
   user: { name: string | null; email: string };
   /** The host's website, for a way back to it; null for none. */

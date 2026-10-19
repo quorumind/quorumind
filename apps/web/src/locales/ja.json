@@ -26,7 +26,7 @@
     "main": "メインメニュー",
     "newDebate": "新しい議論",
     "debates": "議論",
-    "allDebates": "すべての議論を見る",
+    "allDebates": "すべての議論",
     "group": "ワークスペースとアカウント",
     "home": "ホーム",
     "billing": "請求",
@@ -42,6 +42,12 @@
       "member": "メンバー"
     },
     "backToSite": "ウェブサイトに戻る（{{host}}）"
+  },
+  "sessions": {
+    "search": "タイトルで検索",
+    "found": "検索結果：{{count}}件",
+    "noMatch": "この検索に一致するものはありません。",
+    "clear": "検索をクリア"
   },
   "home": {
     "ideaLabel": "プロジェクトのアイデア",

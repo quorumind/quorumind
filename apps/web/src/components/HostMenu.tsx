@@ -177,7 +177,7 @@ const menuItems = (menu: HTMLElement | null) => [
   ...(menu?.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]') ?? []),
 ];
 
-const ICONS: Record<Exclude<HostLinkKind, "debates">, () => ReactNode> = {
+const ICONS: Record<HostLinkKind, () => ReactNode> = {
   home: HomeIcon,
   billing: CardIcon,
   members: UsersIcon,
@@ -189,12 +189,11 @@ const ICONS: Record<Exclude<HostLinkKind, "debates">, () => ReactNode> = {
 /** The host's pages, the workspace's and the account's, in a group of their own. */
 export function HostLinks({ links }: { links: HostNavigation["links"] }) {
   const { t } = useTranslation();
-  const pages = links.filter((link): link is { kind: Exclude<HostLinkKind, "debates">; url: string } => link.kind !== "debates");
-  if (pages.length === 0) return null;
+  if (links.length === 0) return null;
   return (
     <div className="nav-group">
       <h2 className="nav-group-label">{t("host.group")}</h2>
-      {pages.map((link) => {
+      {links.map((link) => {
         const Icon = ICONS[link.kind];
         return (
           <a key={link.kind} className="nav-link" href={link.url}>

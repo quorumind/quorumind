@@ -26,7 +26,7 @@
     "main": "Menu principal",
     "newDebate": "Novo debate",
     "debates": "Debates",
-    "allDebates": "Ver todos os debates",
+    "allDebates": "Todos os debates",
     "group": "Espaço e conta",
     "home": "Início",
     "billing": "Faturamento",
@@ -42,6 +42,12 @@
       "member": "Membro"
     },
     "backToSite": "Voltar ao site, {{host}}"
+  },
+  "sessions": {
+    "search": "Pesquisar por título",
+    "found": "Resultados: {{count}}",
+    "noMatch": "Nada corresponde a esta pesquisa.",
+    "clear": "Limpar a pesquisa"
   },
   "home": {
     "ideaLabel": "Sua ideia de projeto",

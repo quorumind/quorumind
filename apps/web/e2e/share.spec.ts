@@ -13,7 +13,8 @@ test("a full share link made mid-interview is read-only, outside the app", async
   await expect(page.locator("textarea")).toHaveCount(0);
   // No sidebar: neither the app's actions nor the history of the server's sessions.
   await expect(page.getByRole("link", { name: "New session" })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Sessions" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Main menu" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Sessions" })).toHaveCount(0);
 });
 
 test("Enter in the share password sets it, and the link then asks for it", async ({ page, request, browser }) => {
