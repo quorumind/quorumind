@@ -22,6 +22,27 @@
     "more": "Mais",
     "decisions": "Decisões"
   },
+  "host": {
+    "main": "Menu principal",
+    "newDebate": "Novo debate",
+    "debates": "Debates",
+    "allDebates": "Ver todos os debates",
+    "group": "Espaço e conta",
+    "home": "Início",
+    "billing": "Faturamento",
+    "members": "Membros",
+    "profile": "Perfil da organização",
+    "account": "Conta",
+    "staff": "Back-office",
+    "workspace": "Espaço de trabalho",
+    "createWorkspace": "Criar um espaço",
+    "roles": {
+      "owner": "Proprietário",
+      "admin": "Administrador",
+      "member": "Membro"
+    },
+    "backToSite": "Voltar ao site, {{host}}"
+  },
   "home": {
     "ideaLabel": "Sua ideia de projeto",
     "ideaPlaceholder": "ex.: Um app de reservas para nossos 12 estúdios de ioga, com pacotes e lembretes",

@@ -4189,6 +4189,370 @@ button.chip:active {
   gap: var(--space-2);
 }
 
+/* The menu of the hosted version, the same on the debate app's pages and on the account's: these rules are kept
+   identical in the hosted service's account screens, but for the history filter and the list of sessions, which only
+   the debate app has. When the menu is taller than the screen, the list gives way first, down to two sessions and a
+   half, then the menu scrolls between the button and the person's name. */
+
+.workspace-switch {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* The place of the workspace while the host's part of the menu loads. */
+.workspace-pending {
+  min-block-size: 50px;
+}
+
+.workspace-button,
+.workspace-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  inline-size: 100%;
+  border-radius: var(--radius-md);
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+
+.workspace-button {
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.workspace-button:not(:disabled):hover,
+.workspace-button[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--thesis) 45%, var(--line));
+}
+
+.workspace-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.workspace-switch button.workspace-button > svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.workspace-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: var(--radius-md);
+  background: var(--thesis-soft);
+  color: var(--thesis);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.workspace-text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+  line-height: 1.3;
+}
+
+.workspace-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-role {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.workspace-menu {
+  position: absolute;
+  z-index: 30;
+  inset-inline: 0;
+  inset-block-start: calc(100% + var(--space-1));
+  display: grid;
+  gap: 2px;
+  padding: var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lift);
+  animation: rise 160ms var(--ease-out);
+}
+
+.workspace-item {
+  padding: var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.workspace-item:hover,
+.workspace-item:focus-visible {
+  background: var(--thesis-soft);
+}
+
+.workspace-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.workspace-item .workspace-avatar {
+  inline-size: 28px;
+  block-size: 28px;
+  font-size: 13px;
+}
+
+.workspace-check {
+  display: inline-flex;
+  flex: none;
+  inline-size: 18px;
+  color: var(--thesis);
+}
+
+.workspace-separator {
+  margin: var(--space-1) 0;
+  border: 0;
+  border-block-start: 1px solid var(--line);
+}
+
+.workspace-create {
+  color: var(--thesis);
+  font-weight: 600;
+  padding-inline: var(--space-3);
+}
+
+.sidebar-nav {
+  flex: 0 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-inline: calc(-1 * var(--space-2));
+  padding: var(--space-1) var(--space-2);
+}
+
+/* The debates first, then the workspace and the account: one column, so that only the sessions give way. */
+.nav-group {
+  display: contents;
+}
+
+.nav-group > * {
+  flex: none;
+}
+
+.nav-group-label {
+  margin: 0 0 var(--space-1);
+  padding-inline: var(--space-3);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink-muted);
+}
+
+.nav-group + .nav-group > .nav-group-label {
+  margin-block-start: var(--space-4);
+}
+
+.sidebar-nav .history-filter {
+  align-self: flex-start;
+  margin-block-end: var(--space-1);
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--ink-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.nav-link:hover,
+.nav-link[aria-current="page"] {
+  background: var(--thesis-soft);
+  color: var(--ink);
+}
+
+.sidebar-nav a.nav-link svg {
+  flex: none;
+  transition: transform 200ms var(--ease-spring);
+}
+
+.sidebar-nav a.nav-link:hover svg {
+  transform: scale(1.12);
+}
+
+.nav-sessions {
+  list-style: none;
+  margin: 0 0 2px;
+  padding: 0;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+
+/* A long list scrolls on its own, never shorter than two sessions and a half. */
+.nav-group > .nav-sessions:has(> li:nth-child(3)) {
+  flex: 0 1 auto;
+  min-block-size: 9rem;
+  overflow-y: auto;
+}
+
+.nav-sessions a {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    transform 160ms var(--ease-out);
+}
+
+.sidebar-nav .nav-sessions a:hover {
+  background: var(--surface);
+  transform: translateX(2px);
+}
+
+[dir="rtl"] .sidebar-nav .nav-sessions a:hover {
+  transform: translateX(-2px);
+}
+
+.nav-sessions a[aria-current="page"] {
+  background: var(--thesis-soft);
+}
+
+.nav-sessions .session-title {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-sessions .session-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.nav-sessions .session-private {
+  display: inline-flex;
+  vertical-align: -4px;
+  margin-inline-end: var(--space-1);
+  color: var(--ink-muted);
+}
+
+.nav-sessions .session-author {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-sessions .phase-dot {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: var(--radius-full);
+  background: var(--line);
+  flex: none;
+}
+
+.nav-sessions .phase-interview,
+.nav-sessions .phase-review,
+.nav-sessions .phase-debating {
+  background: var(--thesis);
+}
+
+.nav-sessions .phase-awaiting_answers {
+  background: var(--antithesis);
+}
+
+.nav-sessions .phase-complete {
+  background: var(--feasible);
+}
+
+.nav-sessions .phase-failed {
+  background: var(--infeasible);
+}
+
+.sidebar-user {
+  margin-block-start: auto;
+  display: grid;
+  gap: 2px;
+  font-size: 14px;
+  min-inline-size: 0;
+}
+
+.sidebar-user span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The way back to the host's website: discreet, next to the controls of the page. */
+.site-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  font-size: 14px;
+  color: var(--ink-muted);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.site-link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.sidebar-foot a.site-link:any-link svg {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.sidebar-foot-host {
+  flex-wrap: wrap;
+  margin-block-start: auto;
+}
+
+.sidebar-user + .sidebar-foot-host {
+  margin-block-start: 0;
+}
+
+.sidebar-foot-host .site-link {
+  flex-basis: 100%;
+}
+
+.sidebar-foot-host .select {
+  flex: 1;
+  min-inline-size: 0;
+}
+
 /* Agency kit: the costing by work package, the budget and deadline checks, the structured requirements and the
    organisation profile */
 

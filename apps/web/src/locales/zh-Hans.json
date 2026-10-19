@@ -22,6 +22,27 @@
     "more": "更多",
     "decisions": "决策"
   },
+  "host": {
+    "main": "主菜单",
+    "newDebate": "新辩论",
+    "debates": "辩论",
+    "allDebates": "查看所有辩论",
+    "group": "工作区和账户",
+    "home": "首页",
+    "billing": "账单",
+    "members": "成员",
+    "profile": "组织资料",
+    "account": "账户",
+    "staff": "后台",
+    "workspace": "工作区",
+    "createWorkspace": "创建工作区",
+    "roles": {
+      "owner": "所有者",
+      "admin": "管理员",
+      "member": "成员"
+    },
+    "backToSite": "返回网站（{{host}}）"
+  },
   "home": {
     "ideaLabel": "您的项目想法",
     "ideaPlaceholder": "例如：为我们的 12 家瑜伽馆开发预约应用，支持次卡和提醒",

@@ -284,3 +284,66 @@ export const SearchIcon = () => (
     <path d="M15 15l5 5" />
   </Icon>
 );
+
+// The host's pages in the menu (hosted version), drawn as on its own screens.
+
+export const HomeIcon = () => (
+  <Icon>
+    <path d="M4 10.5L12 4l8 6.5V20h-5.5v-5.5h-5V20H4z" />
+  </Icon>
+);
+
+export const CardIcon = () => (
+  <Icon>
+    <rect x="3" y="5.5" width="18" height="13" rx="2" />
+    <path d="M3 10h18M7 15h4" />
+  </Icon>
+);
+
+export const UsersIcon = () => (
+  <Icon>
+    <circle cx="9" cy="9" r="3" />
+    <path d="M3.5 18.5c.9-2.7 2.9-4 5.5-4s4.6 1.3 5.5 4" />
+    <path d="M15.5 6.2a3 3 0 0 1 0 5.6M17.5 14.8c1.5.6 2.5 1.8 3 3.7" />
+  </Icon>
+);
+
+export const BuildingIcon = () => (
+  <Icon>
+    <path d="M4.5 20.5V5.5l8-2v17M12.5 8.5l7 2v10M3 20.5h18M7.5 8h2M7.5 11.5h2M7.5 15h2M15.5 13.5h1M15.5 16.5h1" />
+  </Icon>
+);
+
+export const UserIcon = () => (
+  <Icon>
+    <circle cx="12" cy="8.5" r="3.5" />
+    <path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" />
+  </Icon>
+);
+
+export const ShieldIcon = () => (
+  <Icon>
+    <path d="M12 3.5l7 2.5v5.5c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z" />
+  </Icon>
+);
+
+export const BackIcon = () => (
+  <Icon className="flip-rtl">
+    <path d="M19 12H5M10.5 6.5L5 12l5.5 5.5" />
+  </Icon>
+);
+
+/** Up and down: a button that opens a list to choose from. */
+export const ChevronsIcon = () => (
+  <Icon>
+    <path d="M8 9.5l4-4 4 4M8 14.5l4 4 4-4" />
+  </Icon>
+);
+
+/** The debates: two voices in conversation. */
+export const DebatesIcon = () => (
+  <Icon>
+    <path d="M3.5 5.5a1.5 1.5 0 0 1 1.5-1.5h9a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H8.5L5 16v-3a1.5 1.5 0 0 1-1.5-1.5z" />
+    <path d="M18 8.5h1a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5v3l-3.5-3h-5a1.5 1.5 0 0 1-1.5-1.5V16" />
+  </Icon>
+);

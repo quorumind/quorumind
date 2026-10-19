@@ -161,6 +161,31 @@ export interface PriceQuote {
   label: string;
 }
 
+/** A page of the host's own screens, by a stable kind the web app names in its language. */
+export type HostLinkKind = "debates" | "home" | "billing" | "members" | "profile" | "account" | "staff";
+
+/** A workspace of the caller, as the menu lists it: picking another one posts to `switchUrl`. */
+export interface HostWorkspace {
+  name: string;
+  role: "owner" | "admin" | "member";
+  current: boolean;
+  switchUrl: string;
+}
+
+/**
+ * The host's part of the menu, so the debate app and the host's screens show the same one: the caller's workspaces,
+ * links to the host's pages, who is signed in, and the way back to the host's website.
+ */
+export interface HostNavigation {
+  /** Null when the host has no workspaces; with none in the list, the menu offers to create one at `createUrl`. */
+  workspaces: { list: HostWorkspace[]; createUrl: string } | null;
+  /** In the order the menu shows them. "debates" goes with the sessions, the others in a group of their own. */
+  links: { kind: HostLinkKind; url: string }[];
+  user: { name: string | null; email: string };
+  /** The host's website, for a way back to it; null for none. */
+  siteUrl: string | null;
+}
+
 /**
  * Extension points used by the hosted version. Self-hosted, none is set: there is a single
  * local user, every configured model is available and nothing is metered.
@@ -253,6 +278,11 @@ export interface AppHooks {
    * research is ticked once QUORUMIND_SEARCH is configured, with the limits of QUORUMIND_RESEARCH_*.
    */
   research?(settings: Pick<Session, "mode" | "depth">): { default: boolean; limits: ResearchSettings };
+  /**
+   * The host's part of the menu for this caller (their workspaces, the host's pages, who they are): the debate app shows
+   * it under its own pages, as the host's screens do. Null, or without this hook, the menu has the app's pages only.
+   */
+  navigation?(user: User): Promise<HostNavigation | null>;
 }
 
 export interface AppDeps {
@@ -825,6 +855,8 @@ export function createApp(deps: AppDeps) {
       typedNames: !hooks.authors,
       // The search engine of the web research (null: off), and whether a standard debate has it ticked.
       research: (({ kind, default: on }) => ({ kind, default: on }))(researchOf(user, { mode: "standard", depth: "standard" })),
+      // The host's part of the menu (AppHooks.navigation); null self-hosted, whose menu has the app's pages only.
+      navigation: hooks.navigation && user ? await hooks.navigation(user) : null,
     });
   });
 

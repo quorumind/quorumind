@@ -64,6 +64,22 @@ export interface AppConfig {
   typedNames?: boolean;
   /** The search engine of the web research (null: none, the option is not offered), and its default for a standard debate. */
   research?: { kind: "openrouter" | "brave" | null; default: boolean };
+  /** The host's part of the menu (hosted version); null or absent, the menu has the app's pages only. */
+  navigation?: HostNavigation | null;
+}
+
+/** A page of the host's own screens, by a stable kind the menu names in the interface's language. */
+export type HostLinkKind = "debates" | "home" | "billing" | "members" | "profile" | "account" | "staff";
+
+/** The host's part of the menu: the caller's workspaces, the host's pages, who is signed in, the host's website. */
+export interface HostNavigation {
+  workspaces: {
+    list: { name: string; role: "owner" | "admin" | "member"; current: boolean; switchUrl: string }[];
+    createUrl: string;
+  } | null;
+  links: { kind: HostLinkKind; url: string }[];
+  user: { name: string | null; email: string };
+  siteUrl: string | null;
 }
 
 /** An organisation profile as the settings form sends it: the server derives the role ids and the time of the save. */
@@ -241,6 +257,8 @@ const learnProviderCosts = <T extends { providerCosts: boolean }>(body: T): T =>
 
 export const api = {
   config: () => request<AppConfig>("/api/config").then(learnProviderCosts),
+  /** Works in another of the host's workspaces from now on, at the address its menu gives (HostNavigation). */
+  switchWorkspace: (url: string) => request<unknown>(url, post()),
   /** `alternative`: an audit that sketches an alternative, which costs one more proposal. `webResearch`: left out, the default. */
   estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale, alternative = false, webResearch?: boolean) =>
     request<{ estimateUsd: Estimate; price: PriceQuote | null; research?: { default: boolean } }>(

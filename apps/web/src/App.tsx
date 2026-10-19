@@ -1,10 +1,12 @@
 import { createContext, lazy, type ReactNode, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authorName } from "./access.tsx";
-import { api, type SessionSummary } from "./api.ts";
+import { api, type HostNavigation, type SessionSummary } from "./api.ts";
 import { Segmented } from "./components/Controls.tsx";
+import { HostLinks, HostUser, SiteLink, WorkspaceSwitch } from "./components/HostMenu.tsx";
 import {
   CrossIcon,
+  DebatesIcon,
   GalleryIcon,
   LockIcon,
   MenuIcon,
@@ -134,89 +136,200 @@ function useSessionList(): SessionsState {
 
 const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = { system: "light", light: "dark", dark: "system" };
 
-function Sidebar({ current }: { current: string | null }) {
-  const { t, i18n } = useTranslation();
-  const [theme, setTheme] = useTheme();
-  const { sessions, shared, mine, setMine } = useSessions();
-  const themeLabel = { system: t("nav.themeSystem"), light: t("nav.themeLight"), dark: t("nav.themeDark") }[theme];
-  const date = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "short" });
+/**
+ * A server that sent the host's part of the menu once (hosted version) is expected to send it again: the menu is laid
+ * out for it from the first paint, and filled once the configuration comes. A self-hosted server never sends one.
+ */
+const HOST_MENU_KEY = "quorumind.hostMenu";
 
+function hostMenuExpected() {
+  try {
+    return localStorage.getItem(HOST_MENU_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** The host's part of the menu: null for none (self-hosted), undefined while it is awaited. */
+function useHostNavigation(): HostNavigation | null | undefined {
+  const [navigation, setNavigation] = useState<HostNavigation | null | undefined>(() => (hostMenuExpected() ? undefined : null));
+  useEffect(() => {
+    let live = true;
+    api.config().then(
+      (config) => {
+        const value = config.navigation ?? null;
+        try {
+          if (value) localStorage.setItem(HOST_MENU_KEY, "1");
+          else localStorage.removeItem(HOST_MENU_KEY);
+        } catch {
+          // Without storage, the menu takes the host's part once it comes.
+        }
+        if (live) setNavigation(value);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  return navigation;
+}
+
+/** In a shared history, whose sessions to list. */
+function HistoryFilter() {
+  const { t } = useTranslation();
+  const { shared, mine, setMine } = useSessions();
+  if (!shared) return null;
+  return (
+    <Segmented
+      className="history-filter"
+      legend={t("workspace.filter")}
+      options={[
+        { key: "everyone", value: false, label: t("workspace.everyone") },
+        { key: "mine", value: true, label: t("workspace.mine") },
+      ]}
+      value={mine}
+      onChange={setMine}
+    />
+  );
+}
+
+/** The sessions of the history, the one shown marked; nothing when there is none. */
+function SessionItems({ current, className }: { current: string | null; className?: string }) {
+  const { t, i18n } = useTranslation();
+  const { sessions, shared } = useSessions();
+  const date = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "short" });
+  if (sessions.length === 0) return null;
+  return (
+    <ul className={className}>
+      {sessions.map((item) => (
+        <li key={item.id}>
+          <a href={`#/s/${item.id}`} aria-current={item.id === current ? "page" : undefined}>
+            <span className="session-title">
+              {item.private ? (
+                <span className="session-private" title={t("workspace.private")}>
+                  <LockIcon />
+                  <span className="visually-hidden">{t("workspace.private")}</span>
+                </span>
+              ) : null}
+              {item.idea}
+            </span>
+            <span className="session-meta">
+              <span className={`phase-dot phase-${item.phase}`} />
+              {t(`phase.${item.phase}`)} · {date.format(new Date(item.updatedAt))}
+            </span>
+            {shared && item.mine === false ? <span className="session-meta session-author">{authorName(item.author, t)}</span> : null}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ThemeButton() {
+  const { t } = useTranslation();
+  const [theme, setTheme] = useTheme();
+  const themeLabel = { system: t("nav.themeSystem"), light: t("nav.themeLight"), dark: t("nav.themeDark") }[theme];
+  return (
+    <button
+      type="button"
+      className="icon-button"
+      onClick={() => setTheme(NEXT_THEME[theme])}
+      aria-label={`${t("nav.theme")}: ${themeLabel}`}
+      title={`${t("nav.theme")}: ${themeLabel}`}
+    >
+      {theme === "light" ? <SunIcon /> : theme === "dark" ? <MoonIcon /> : <MonitorIcon />}
+    </button>
+  );
+}
+
+/** The app's own pages, after the sessions. */
+function AppLinks({ current, className }: { current: string | null; className?: string }) {
+  const { t } = useTranslation();
+  const page = (path: string, label: string, icon: ReactNode) => (
+    <a className={className} href={`#/${path}`} aria-current={current === path ? "page" : undefined}>
+      {icon}
+      {label}
+    </a>
+  );
+  return (
+    <>
+      {page("decisions", t("nav.decisions"), <RegisterIcon />)}
+      {page("gallery", t("nav.gallery"), <GalleryIcon />)}
+      {page("settings", t("nav.settings"), <SettingsIcon />)}
+    </>
+  );
+}
+
+function Sidebar({ current, host }: { current: string | null; host: HostNavigation | null | undefined }) {
+  const { t } = useTranslation();
+  const { sessions } = useSessions();
+  const brand = (label: string) => (
+    <a className="brand" href="#/" aria-label={`Quorumind, ${label}`}>
+      <Mark busy={sessions.some((item) => item.phase === "debating")} />
+      <span>quorumind</span>
+    </a>
+  );
+
+  if (host === null) {
+    return (
+      <div className="sidebar-inner">
+        {brand(t("nav.newSession"))}
+        <a className="button button-primary new-session" href="#/">
+          <PlusIcon />
+          {t("nav.newSession")}
+        </a>
+        <nav className="session-list" aria-label={t("nav.sessions")}>
+          <h2 className="label muted">{t("nav.sessions")}</h2>
+          <HistoryFilter />
+          {sessions.length === 0 ? <p className="field-hint">{t("nav.noSessions")}</p> : <SessionItems current={current} />}
+        </nav>
+        <nav className="sidebar-links" aria-label={t("nav.more")}>
+          <AppLinks current={current} />
+        </nav>
+        <div className="sidebar-foot">
+          <LanguageSelect id="language" />
+          <ThemeButton />
+        </div>
+      </div>
+    );
+  }
+
+  // Hosted: the menu of the host's own screens, so it stays the same from one side to the other. Until the host's part
+  // comes, the place of its workspace is kept.
+  const allDebates = host?.links.find((link) => link.kind === "debates");
   return (
     <div className="sidebar-inner">
-      <a className="brand" href="#/" aria-label={`Quorumind, ${t("nav.newSession")}`}>
-        <Mark busy={sessions.some((item) => item.phase === "debating")} />
-        <span>quorumind</span>
-      </a>
+      {brand(t("host.newDebate"))}
+      {host === undefined ? (
+        <div className="workspace-switch workspace-pending" aria-hidden="true" />
+      ) : host.workspaces ? (
+        <WorkspaceSwitch workspaces={host.workspaces} />
+      ) : null}
       <a className="button button-primary new-session" href="#/">
         <PlusIcon />
-        {t("nav.newSession")}
+        {t("host.newDebate")}
       </a>
-      <nav className="session-list" aria-label={t("nav.sessions")}>
-        <h2 className="label muted">{t("nav.sessions")}</h2>
-        {shared ? (
-          <Segmented
-            className="history-filter"
-            legend={t("workspace.filter")}
-            options={[
-              { key: "everyone", value: false, label: t("workspace.everyone") },
-              { key: "mine", value: true, label: t("workspace.mine") },
-            ]}
-            value={mine}
-            onChange={setMine}
-          />
-        ) : null}
-        {sessions.length === 0 ? (
-          <p className="field-hint">{t("nav.noSessions")}</p>
-        ) : (
-          <ul>
-            {sessions.map((item) => (
-              <li key={item.id}>
-                <a href={`#/s/${item.id}`} aria-current={item.id === current ? "page" : undefined}>
-                  <span className="session-title">
-                    {item.private ? (
-                      <span className="session-private" title={t("workspace.private")}>
-                        <LockIcon />
-                        <span className="visually-hidden">{t("workspace.private")}</span>
-                      </span>
-                    ) : null}
-                    {item.idea}
-                  </span>
-                  <span className="session-meta">
-                    <span className={`phase-dot phase-${item.phase}`} />
-                    {t(`phase.${item.phase}`)} · {date.format(new Date(item.updatedAt))}
-                  </span>
-                  {shared && item.mine === false ? <span className="session-meta session-author">{authorName(item.author, t)}</span> : null}
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
+      <nav className="sidebar-nav" aria-label={t("host.main")}>
+        <div className="nav-group">
+          <h2 className="nav-group-label">{t("host.debates")}</h2>
+          <HistoryFilter />
+          <SessionItems current={current} className="nav-sessions" />
+          {allDebates ? (
+            <a className="nav-link" href={allDebates.url}>
+              <DebatesIcon />
+              {t("host.allDebates")}
+            </a>
+          ) : null}
+          <AppLinks current={current} className="nav-link" />
+        </div>
+        {host ? <HostLinks links={host.links} /> : null}
       </nav>
-      <nav className="sidebar-links" aria-label={t("nav.more")}>
-        <a href="#/decisions" aria-current={current === "decisions" ? "page" : undefined}>
-          <RegisterIcon />
-          {t("nav.decisions")}
-        </a>
-        <a href="#/gallery" aria-current={current === "gallery" ? "page" : undefined}>
-          <GalleryIcon />
-          {t("nav.gallery")}
-        </a>
-        <a href="#/settings" aria-current={current === "settings" ? "page" : undefined}>
-          <SettingsIcon />
-          {t("nav.settings")}
-        </a>
-      </nav>
-      <div className="sidebar-foot">
+      {host ? <HostUser user={host.user} /> : null}
+      <div className="sidebar-foot sidebar-foot-host">
+        {host?.siteUrl ? <SiteLink url={host.siteUrl} /> : null}
         <LanguageSelect id="language" />
-        <button
-          type="button"
-          className="icon-button"
-          onClick={() => setTheme(NEXT_THEME[theme])}
-          aria-label={`${t("nav.theme")}: ${themeLabel}`}
-          title={`${t("nav.theme")}: ${themeLabel}`}
-        >
-          {theme === "light" ? <SunIcon /> : theme === "dark" ? <MoonIcon /> : <MonitorIcon />}
-        </button>
+        <ThemeButton />
       </div>
     </div>
   );
@@ -246,6 +359,7 @@ export function App() {
 function Shell({ route }: { route: string }) {
   const { t } = useTranslation();
   const sessionsState = useSessionList();
+  const host = useHostNavigation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const sidebar = useRef<HTMLElement>(null);
@@ -310,7 +424,7 @@ function Shell({ route }: { route: string }) {
           </button>
         </header>
         <aside className="sidebar" id="sidebar" ref={sidebar}>
-          <Sidebar current={sessionId ?? route} />
+          <Sidebar current={sessionId ?? route} host={host} />
         </aside>
         {/* Behind the open menu, the page is out of reach of the keyboard and of screen readers. */}
         <main className="main" id="main-content" tabIndex={-1} inert={menuOpen}>

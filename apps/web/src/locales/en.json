@@ -22,6 +22,27 @@
     "more": "More",
     "decisions": "Decisions"
   },
+  "host": {
+    "main": "Main menu",
+    "newDebate": "New debate",
+    "debates": "Debates",
+    "allDebates": "See all debates",
+    "group": "Workspace and account",
+    "home": "Home",
+    "billing": "Billing",
+    "members": "Members",
+    "profile": "Organisation profile",
+    "account": "Account",
+    "staff": "Back-office",
+    "workspace": "Workspace",
+    "createWorkspace": "Create a workspace",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member"
+    },
+    "backToSite": "Back to the website, {{host}}"
+  },
   "home": {
     "ideaLabel": "Your project idea",
     "ideaPlaceholder": "e.g. A booking app for our 12 yoga studios, with passes and reminders",

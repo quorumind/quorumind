@@ -22,6 +22,27 @@
     "more": "Más",
     "decisions": "Decisiones"
   },
+  "host": {
+    "main": "Menú principal",
+    "newDebate": "Nuevo debate",
+    "debates": "Debates",
+    "allDebates": "Ver todos los debates",
+    "group": "Espacio y cuenta",
+    "home": "Inicio",
+    "billing": "Facturación",
+    "members": "Miembros",
+    "profile": "Perfil de la organización",
+    "account": "Cuenta",
+    "staff": "Back-office",
+    "workspace": "Espacio de trabajo",
+    "createWorkspace": "Crear un espacio",
+    "roles": {
+      "owner": "Propietario",
+      "admin": "Administrador",
+      "member": "Miembro"
+    },
+    "backToSite": "Volver al sitio web, {{host}}"
+  },
   "home": {
     "ideaLabel": "Su idea de proyecto",
     "ideaPlaceholder": "p. ej. Una app de reservas para nuestros 12 estudios de yoga, con bonos y recordatorios",

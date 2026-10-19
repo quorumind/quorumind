@@ -22,6 +22,27 @@
     "more": "Plus",
     "decisions": "Décisions"
   },
+  "host": {
+    "main": "Menu principal",
+    "newDebate": "Nouveau débat",
+    "debates": "Débats",
+    "allDebates": "Voir tous les débats",
+    "group": "Espace et compte",
+    "home": "Accueil",
+    "billing": "Facturation",
+    "members": "Membres",
+    "profile": "Profil de l'organisation",
+    "account": "Compte",
+    "staff": "Back-office",
+    "workspace": "Espace de travail",
+    "createWorkspace": "Créer un espace",
+    "roles": {
+      "owner": "Propriétaire",
+      "admin": "Administrateur",
+      "member": "Membre"
+    },
+    "backToSite": "Retour au site, {{host}}"
+  },
   "home": {
     "ideaLabel": "Votre idée de projet",
     "ideaPlaceholder": "ex. Une application de réservation pour nos 12 studios de yoga, avec cartes et rappels",

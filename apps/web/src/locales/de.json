@@ -22,6 +22,27 @@
     "more": "Mehr",
     "decisions": "Entscheidungen"
   },
+  "host": {
+    "main": "Hauptmenü",
+    "newDebate": "Neue Debatte",
+    "debates": "Debatten",
+    "allDebates": "Alle Debatten ansehen",
+    "group": "Arbeitsbereich und Konto",
+    "home": "Start",
+    "billing": "Abrechnung",
+    "members": "Mitglieder",
+    "profile": "Organisationsprofil",
+    "account": "Konto",
+    "staff": "Backoffice",
+    "workspace": "Arbeitsbereich",
+    "createWorkspace": "Arbeitsbereich anlegen",
+    "roles": {
+      "owner": "Eigentümer",
+      "admin": "Admin",
+      "member": "Mitglied"
+    },
+    "backToSite": "Zurück zur Website, {{host}}"
+  },
   "home": {
     "ideaLabel": "Ihre Projektidee",
     "ideaPlaceholder": "z. B. Eine Buchungs-App für unsere 12 Yogastudios mit Mehrfachkarten und Erinnerungen",
