@@ -175,7 +175,10 @@ export class PostgresSessionStore implements SessionStore {
       `INSERT INTO decisions (session_id, owner_id, workspace_id, private, status, decided_at, updated_at, review_on, reminded_for, entry)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (session_id) DO UPDATE SET status = excluded.status, decided_at = excluded.decided_at, updated_at = excluded.updated_at,
-         review_on = excluded.review_on, reminded_for = excluded.reminded_for, entry = excluded.entry`,
+         review_on = excluded.review_on, entry = excluded.entry,
+         -- A reminder taken for this date stays taken: a save of an object read before it does not give it back.
+         reminded_for = CASE WHEN excluded.review_on IS NOT DISTINCT FROM decisions.review_on
+           THEN coalesce(excluded.reminded_for, decisions.reminded_for) ELSE excluded.reminded_for END`,
       [
         id,
         placement.owner,
@@ -223,6 +226,22 @@ export class PostgresSessionStore implements SessionStore {
       [today],
     );
     return rows.map((row) => row.session_id);
+  }
+
+  async claimReminder(sessionId: string, reviewOn: string): Promise<boolean> {
+    const { rowCount } = await this.db.query(
+      `UPDATE decisions SET reminded_for = review_on
+       WHERE session_id = $1 AND review_on = $2::date AND (reminded_for IS NULL OR reminded_for <> review_on)`,
+      [sessionId, reviewOn],
+    );
+    return rowCount === 1;
+  }
+
+  async releaseReminder(sessionId: string, reviewOn: string): Promise<void> {
+    await this.db.query("UPDATE decisions SET reminded_for = NULL WHERE session_id = $1 AND reminded_for = $2::date", [
+      sessionId,
+      reviewOn,
+    ]);
   }
 
   async indexDecisions(): Promise<number> {

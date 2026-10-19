@@ -5,6 +5,7 @@ import { EventBus } from "./bus.ts";
 import type { ChatNotifier } from "./chat.ts";
 import type { DecisionView } from "./decisions.ts";
 import type { Notifier, NotifyReason } from "./notifier.ts";
+import type { SessionStore } from "./store.ts";
 import { BACKENDS, type Backend, type TestStorage } from "./testing.ts";
 import { as, detail, hostedHooks, ruled, send, waitFor } from "./testing-app.ts";
 
@@ -22,22 +23,26 @@ interface Sent {
 }
 
 /** An app on the demo model with a notifier and a chat channel that record what they send. */
-async function makeApp(backend: Backend, hooks: AppHooks) {
+async function makeApp(backend: Backend, hooks: AppHooks, store?: (storage: TestStorage) => SessionStore) {
   storage = await backend.open();
   const mails: Sent[] = [];
   const posts: Sent[] = [];
+  /** The recipients whose e-mail fails ("chat" for the channel). */
+  const failing = new Set<string>();
   const notifier: Notifier = {
     notify: async (session, reason, to) => {
+      if (failing.has(to ?? "")) throw new Error("The mail server refused it.");
       mails.push({ sessionId: session.id, reason, to });
     },
   };
   const chat: ChatNotifier = {
     notify: async (session, reason) => {
+      if (failing.has("chat")) throw new Error("The webhook is down.");
       posts.push({ sessionId: session.id, reason, to: null });
     },
   };
   const app = createApp({
-    store: storage.store,
+    store: store ? store(storage) : storage.store,
     brandingStore: storage.brandingStore,
     bus: new EventBus(),
     env: {},
@@ -47,7 +52,7 @@ async function makeApp(backend: Backend, hooks: AppHooks) {
     chat,
     publicUrl: "https://decide.example",
   });
-  return { app, mails, posts };
+  return { app, mails, posts, failing, notifier, chat };
 }
 
 type App = Awaited<ReturnType<typeof makeApp>>["app"];
@@ -328,6 +333,75 @@ describe.each(BACKENDS)("on $name", (backend) => {
       await act(app, session.id, "reopen", "bob");
       expect(await app.sendReminders(new Date("2026-12-02T06:00:00Z"))).toBe(1);
       expect(await await storage!.reopen().dueReviews("2026-12-31")).toEqual([]);
+    });
+
+    /** A session approved by Bob, whose review comes on 2 November. */
+    const due = async (app: App) => {
+      const session = await ruled(app);
+      await act(app, session.id, "approve", "bob");
+      await app.request(`/api/sessions/${session.id}/decision`, send({ review: { on: "2026-11-02", when: null } }, "ada", "PUT"));
+      return session;
+    };
+    const day = new Date("2026-11-02T06:00:00Z");
+
+    it("are not sent again when one of their messages failed, and tried again when all did", async () => {
+      const { app, mails, posts, failing } = await makeApp(backend, teamHooks());
+      await due(app);
+      mails.length = 0;
+      posts.length = 0;
+      failing.add("bob@example.com");
+      expect(await app.sendReminders(day)).toBe(1);
+      expect(mails.map((mail) => mail.to)).toEqual(["ada@example.com"]);
+      failing.clear();
+      expect(await app.sendReminders(day)).toBe(0);
+      expect(mails).toHaveLength(1);
+      expect(posts).toHaveLength(1);
+
+      const other = await makeApp(backend, teamHooks());
+      await due(other.app);
+      other.mails.length = 0;
+      for (const name of ["chat", "ada@example.com", "bob@example.com"]) other.failing.add(name);
+      expect(await other.app.sendReminders(day)).toBe(0);
+      other.failing.clear();
+      expect(await other.app.sendReminders(day)).toBe(1);
+      expect(other.mails.map((mail) => mail.to)).toEqual(["ada@example.com", "bob@example.com"]);
+    });
+
+    it("are sent once by runs at the same moment, in one process or two", async () => {
+      const { app, mails, posts, notifier, chat } = await makeApp(backend, teamHooks());
+      await due(app);
+      mails.length = 0;
+      posts.length = 0;
+      // A second process on the same database, with nothing in memory.
+      const second = createApp({
+        store: storage?.reopen() as SessionStore,
+        bus: new EventBus(),
+        env: {},
+        mockDelayMs: 0,
+        hooks: teamHooks(),
+        notifier,
+        chat,
+      });
+      const counts = await Promise.all([app.sendReminders(day), app.sendReminders(day), second.sendReminders(day)]);
+      expect(counts.reduce((sum, count) => sum + count, 0)).toBe(1);
+      expect(mails).toHaveLength(2);
+      expect(posts).toHaveLength(1);
+    });
+
+    it("go on with the others when one cannot be saved", async () => {
+      let broken = "";
+      const { app, mails } = await makeApp(backend, teamHooks(), (opened) => {
+        const store = Object.create(opened.store) as SessionStore;
+        store.save = (session, ...rest) =>
+          session.id === broken ? Promise.reject(new Error("Disk full.")) : opened.store.save(session, ...rest);
+        return store;
+      });
+      const first = await due(app);
+      const second = await due(app);
+      mails.length = 0;
+      broken = first.id;
+      expect(await app.sendReminders(day)).toBe(1);
+      expect(new Set(mails.map((mail) => mail.sessionId))).toEqual(new Set([first.id, second.id]));
     });
   });
 });

@@ -160,6 +160,13 @@ export interface SessionStore {
   decisions(query: DecisionQuery): Promise<StoredDecision[]>;
   /** The sessions whose decision comes up for review on or before `today` (YYYY-MM-DD) and was not reminded of yet. */
   dueReviews(today: string): Promise<string[]>;
+  /**
+   * Takes the reminder of a decision's review date (YYYY-MM-DD) before it is sent, atomically, for every process on
+   * the database: true for the one call that took it, false when it was taken or sent before (or the date changed).
+   */
+  claimReminder(sessionId: string, reviewOn: string): Promise<boolean>;
+  /** Gives back a reminder taken by claimReminder that could not be sent at all: the next run tries again. */
+  releaseReminder(sessionId: string, reviewOn: string): Promise<void>;
   /** Adds the register's rows of the sessions that reached their verdict before the register existed. Returns how many. */
   indexDecisions(): Promise<number>;
   close(): Promise<void>;
@@ -540,7 +547,10 @@ export class SqliteSessionStore implements SessionStore {
         `INSERT INTO decisions (session_id, owner_id, workspace_id, private, status, decided_at, updated_at, review_on, reminded_for, entry)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(session_id) DO UPDATE SET status = excluded.status, decided_at = excluded.decided_at, updated_at = excluded.updated_at,
-           review_on = excluded.review_on, reminded_for = excluded.reminded_for, entry = excluded.entry`,
+           review_on = excluded.review_on, entry = excluded.entry,
+           -- A reminder taken for this date stays taken: a save of an object read before it does not give it back.
+           reminded_for = CASE WHEN excluded.review_on IS decisions.review_on THEN coalesce(excluded.reminded_for, decisions.reminded_for)
+             ELSE excluded.reminded_for END`,
       )
       .run(
         session.id,
@@ -596,6 +606,19 @@ export class SqliteSessionStore implements SessionStore {
       )
       .all(today) as { session_id: string }[];
     return rows.map((row) => row.session_id);
+  }
+
+  async claimReminder(sessionId: string, reviewOn: string): Promise<boolean> {
+    const result = this.db
+      .prepare(
+        "UPDATE decisions SET reminded_for = review_on WHERE session_id = ? AND review_on = ? AND (reminded_for IS NULL OR reminded_for <> review_on)",
+      )
+      .run(sessionId, reviewOn);
+    return Number(result.changes) === 1;
+  }
+
+  async releaseReminder(sessionId: string, reviewOn: string): Promise<void> {
+    this.db.prepare("UPDATE decisions SET reminded_for = NULL WHERE session_id = ? AND reminded_for = ?").run(sessionId, reviewOn);
   }
 
   async indexDecisions(): Promise<number> {

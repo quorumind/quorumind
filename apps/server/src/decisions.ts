@@ -348,6 +348,11 @@ export function decisionRoutes(deps: DecisionDeps) {
  * Sends the reminders of the decisions whose review date has come (`now` gives the day, in UTC), once per date: an
  * e-mail to the author of the session and to whoever approved it (the server's default address when self-hosted),
  * and a message in the chat channel when there is one. Returns how many decisions were reminded of.
+ *
+ * Each reminder is taken in the database before it is sent, so two runs at once (two processes during a rolling
+ * update, or the hosted hourly job on several instances) send it once. A reminder whose every message failed is given
+ * back and tried again on the next run; one that reached somebody is not sent again, and the messages that failed are
+ * logged. One reminder that fails never holds the others.
  */
 export async function sendReviewReminders(
   deps: Pick<DecisionDeps, "store" | "hooks" | "notifier" | "chat">,
@@ -356,29 +361,54 @@ export async function sendReviewReminders(
   const today = now.toISOString().slice(0, 10);
   let count = 0;
   for (const id of await deps.store.dueReviews(today)) {
-    const found = await deps.store.find(id);
-    const decision = found?.session.decision;
-    if (!found || !decision?.review.on || !reviewDue(found.session, today)) continue;
     try {
-      await deps.chat?.notify(found.session, "review_due", found);
-      if (deps.notifier) {
-        const people = [...new Set([found.owner, decision.approval?.by.id ?? null].filter((person): person is string => person !== null))];
-        if (people.length === 0 || !deps.hooks.notifyRecipient) await deps.notifier.notify(found.session, "review_due", null);
-        else {
-          for (const person of people) {
-            const recipient = await deps.hooks.notifyRecipient({ userId: person });
-            if (recipient) await deps.notifier.notify(found.session, "review_due", recipient);
-          }
-        }
+      const found = await deps.store.find(id);
+      const decision = found?.session.decision;
+      if (!found || !decision?.review.on || !reviewDue(found.session, today)) continue;
+      const on = decision.review.on;
+      if (!(await deps.store.claimReminder(id, on))) continue;
+      const { delivered, failed } = await remind(deps, found);
+      if (delivered === 0 && failed > 0) {
+        await deps.store.releaseReminder(id, on);
+        continue;
       }
+      decision.review.remindedFor = on;
+      await deps.store.save(found.session);
+      count++;
     } catch (error) {
-      // A mail server that is down must not hold the others' reminders; this one is tried again on the next run.
       console.error(`The review reminder of session ${id} failed:`, error);
-      continue;
     }
-    decision.review.remindedFor = decision.review.on;
-    await deps.store.save(found.session);
-    count++;
   }
   return count;
+}
+
+/** Sends one reminder through every channel, each on its own: how many messages went, and how many failed. */
+async function remind(deps: Pick<DecisionDeps, "hooks" | "notifier" | "chat">, found: StoredSession) {
+  let delivered = 0;
+  let failed = 0;
+  const attempt = async (send: () => Promise<void>) => {
+    try {
+      await send();
+      delivered++;
+    } catch (error) {
+      failed++;
+      console.error(`A review reminder of session ${found.session.id} was not sent:`, error);
+    }
+  };
+  const { chat, notifier, hooks } = deps;
+  if (chat) await attempt(() => chat.notify(found.session, "review_due", found));
+  if (notifier) {
+    const approver = found.session.decision?.approval?.by.id ?? null;
+    const people = [...new Set([found.owner, approver].filter((person): person is string => person !== null))];
+    if (people.length === 0 || !hooks.notifyRecipient) await attempt(() => notifier.notify(found.session, "review_due", null));
+    else {
+      for (const person of people) {
+        await attempt(async () => {
+          const recipient = await hooks.notifyRecipient?.({ userId: person });
+          if (recipient) await notifier.notify(found.session, "review_due", recipient);
+        });
+      }
+    }
+  }
+  return { delivered, failed };
 }
