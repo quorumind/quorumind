@@ -1,4 +1,3 @@
-import { isLocale } from "@quorumind/core/locales";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authorName } from "./access.tsx";
@@ -16,13 +15,14 @@ import {
   SettingsIcon,
   SunIcon,
 } from "./components/Icons.tsx";
+import { LanguageSelect } from "./components/LanguageSelect.tsx";
 import { Mark } from "./components/Logo.tsx";
 import { Register } from "./Decisions.tsx";
 import { Gallery } from "./Gallery.tsx";
-import { LOCALES } from "./i18n.ts";
 import { NewSession } from "./NewSession.tsx";
-import { SessionView, SharedView } from "./SessionView.tsx";
+import { SessionView } from "./SessionView.tsx";
 import { Settings } from "./Settings.tsx";
+import { SharedView } from "./SharedView.tsx";
 import { type ThemeChoice, useTheme } from "./theme.ts";
 
 const readRoute = () => window.location.hash.replace(/^#\/?/, "");
@@ -179,23 +179,7 @@ function Sidebar({ current }: { current: string | null }) {
         </a>
       </nav>
       <div className="sidebar-foot">
-        <label className="visually-hidden" htmlFor="language">
-          {t("nav.language")}
-        </label>
-        <select
-          id="language"
-          className="select"
-          value={i18n.language}
-          onChange={(event) => {
-            if (isLocale(event.target.value)) i18n.changeLanguage(event.target.value);
-          }}
-        >
-          {LOCALES.map((locale) => (
-            <option key={locale.code} value={locale.code} lang={locale.code}>
-              {locale.nativeName}
-            </option>
-          ))}
-        </select>
+        <LanguageSelect id="language" />
         <button
           type="button"
           className="icon-button"
@@ -212,8 +196,10 @@ function Sidebar({ current }: { current: string | null }) {
 
 export function App() {
   const route = useRoute();
-  // A questionnaire link is the client's page alone: none of the app around it.
+  // A questionnaire link is the client's page alone, and a share link the shared session alone: none of the app
+  // around them, whose history lists the sessions of the server.
   if (route.startsWith("q/")) return <ClientQuestionnaire key={route} token={route.slice(2)} />;
+  if (route.startsWith("shared/")) return <SharedView key={route} token={route.slice(7)} />;
   return <Shell route={route} />;
 }
 
@@ -222,11 +208,8 @@ function Shell({ route }: { route: string }) {
   const sessionsState = useSessionList();
   const [menuOpen, setMenuOpen] = useState(false);
   const sessionId = route.startsWith("s/") ? route.slice(2) : null;
-  const sharedToken = route.startsWith("shared/") ? route.slice(7) : null;
   const page = sessionId ? (
     <SessionView key={sessionId} id={sessionId} />
-  ) : sharedToken ? (
-    <SharedView key={sharedToken} token={sharedToken} />
   ) : route === "gallery" ? (
     <Gallery />
   ) : route === "settings" ? (

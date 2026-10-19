@@ -49,6 +49,7 @@
     "proposer": "提案方 {{seat}}",
     "arbiter": "仲裁者",
     "you": "您",
+    "author": "创建者",
     "devil": "魔鬼代言人",
     "yourSolution": "您的方案"
   },
@@ -170,6 +171,7 @@
     "questionsLead": "您的回答将决定方案之间的取舍。回答后辩论将立即继续。",
     "questionsSend": "提交并继续",
     "yourAnswers": "您的回答",
+    "answers": "回答",
     "buildCost": "开发成本",
     "estimates": "成本和周期均为估算。",
     "probe": "仲裁者介入",

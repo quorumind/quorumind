@@ -9,9 +9,11 @@ import "./i18n.ts";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
+import { applyStoredTheme } from "./theme.ts";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
+applyStoredTheme();
 createRoot(root).render(
   <StrictMode>
     <App />

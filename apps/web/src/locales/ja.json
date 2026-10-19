@@ -49,6 +49,7 @@
     "proposer": "提案者 {{seat}}",
     "arbiter": "審判",
     "you": "あなた",
+    "author": "作成者",
     "devil": "悪魔の代弁者",
     "yourSolution": "あなたの案"
   },
@@ -170,6 +171,7 @@
     "questionsLead": "あなたの回答が選択肢の決め手になります。回答すると議論が再開します。",
     "questionsSend": "送信して再開",
     "yourAnswers": "あなたの回答",
+    "answers": "回答",
     "buildCost": "開発費用",
     "estimates": "費用と期間は推定です。",
     "probe": "審判が介入します",

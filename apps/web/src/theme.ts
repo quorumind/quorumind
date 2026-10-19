@@ -13,11 +13,20 @@ function read(): ThemeChoice {
   return "system";
 }
 
+function apply(theme: ThemeChoice) {
+  if (theme === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+}
+
+/** The theme the person chose, from the first screen on: the pages outside the app's shell follow it too. */
+export function applyStoredTheme() {
+  apply(read());
+}
+
 export function useTheme() {
   const [theme, setTheme] = useState<ThemeChoice>(read);
   useEffect(() => {
-    if (theme === "system") document.documentElement.removeAttribute("data-theme");
-    else document.documentElement.setAttribute("data-theme", theme);
+    apply(theme);
     try {
       if (theme === "system") localStorage.removeItem(STORAGE_KEY);
       else localStorage.setItem(STORAGE_KEY, theme);

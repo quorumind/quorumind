@@ -92,11 +92,12 @@ function QuestionsForm({ session, turn }: { session: Session; turn: InterviewTur
   );
 }
 
-export function Interview({ session, live }: { session: Session; live: LiveSpeech }) {
+export function Interview({ session, live, readOnly = false }: { session: Session; live: LiveSpeech; readOnly?: boolean }) {
   const { t } = useTranslation();
   const access = useContext(AccessContext);
-  // Someone else's session in a shared workspace: its author's name instead of "You".
-  const person = access.mine ? t("role.you") : authorName(access.author, t);
+  // Someone else's session in a shared workspace: its author's name instead of "You"; on a share link, its author.
+  const person = readOnly ? t("role.author") : access.mine ? t("role.you") : authorName(access.author, t);
+  const canAnswer = access.canEdit && !readOnly;
   const streaming = live[speechKey("interview", null)];
   const last = session.interview.at(-1);
   const waitingForPerson = session.phase === "interview" && last?.kind === "interviewer" && last.data.status === "ask" && !streaming;
@@ -116,7 +117,7 @@ export function Interview({ session, live }: { session: Session; live: LiveSpeec
         entry.kind === "interviewer" ? (
           <div className="stack" key={`i-${entry.data.status}-${entry.data.questions.map((question) => question.id).join(",")}`}>
             <InterviewerMessage text={entry.data.speech} />
-            {entry === last && waitingForPerson && access.canEdit ? <QuestionsForm session={session} turn={entry.data} /> : null}
+            {entry === last && waitingForPerson && canAnswer ? <QuestionsForm session={session} turn={entry.data} /> : null}
           </div>
         ) : (
           <div className="message voice-you" key={`u-${entry.answers.map((answer) => answer.question).join("|")}`}>

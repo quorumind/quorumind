@@ -8,8 +8,14 @@ import { LockIcon } from "./components/Icons.tsx";
 /** A self-hosted server sends no access, or a full one: the single local user does everything. */
 export const FULL_ACCESS: SessionAccess = { mine: true, canEdit: true, shared: false, private: false };
 
-/** What the person may do with the session on screen. */
-export const AccessContext = createContext<SessionAccess>(FULL_ACCESS);
+/** What a visitor of a share link, or anyone the server has not answered for yet, may do: read. */
+export const READ_ONLY: SessionAccess = { mine: false, canEdit: false, shared: false, private: false };
+
+/**
+ * What the person may do with the session on screen. Without a provider, nothing but reading: a page that forgets
+ * to say who is looking fails safe.
+ */
+export const AccessContext = createContext<SessionAccess>(READ_ONLY);
 
 /** Whether the person may change the session on screen (answer, confirm, resume, share, delete), or only read it. */
 export const useCanEdit = () => useContext(AccessContext).canEdit;

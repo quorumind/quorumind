@@ -3304,6 +3304,26 @@ button.chip:active {
   color: var(--ink);
 }
 
+/* A share link's page: the shared session alone, under a bar of its own. */
+.shared-page {
+  min-block-size: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.shared-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-2);
+  padding-inline: max(var(--space-4), env(safe-area-inset-left, 0px)) max(var(--space-4), env(safe-area-inset-right, 0px));
+  background: var(--surface-raised);
+  border-block-end: 1px solid var(--line);
+}
+
 .client-page-main {
   padding-block: var(--space-8) var(--space-12);
   padding-inline: max(var(--space-4), env(safe-area-inset-left, 0px)) max(var(--space-4), env(safe-area-inset-right, 0px));

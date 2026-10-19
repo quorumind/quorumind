@@ -2,10 +2,10 @@ import type { CritiqueRound, DebateEntry, Probe, Proposal, Revision, Session } f
 import { proposalCosting } from "@quorumind/core/costing";
 import { PERSONA_IDS } from "@quorumind/core/templates";
 import type { TFunction } from "i18next";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type ReactNode, useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DocumentRead } from "./Audit.tsx";
-import { useCanEdit } from "./access.tsx";
+import { AccessContext, useCanEdit } from "./access.tsx";
 import { api } from "./api.ts";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram.tsx";
 import { ArrowIcon, DevilIcon, ProbeIcon } from "./components/Icons.tsx";
@@ -310,9 +310,10 @@ function dividerFor(entry: DebateEntry, t: TFunction): string | null {
   }
 }
 
-export function Debate({ session, live }: { session: Session; live: LiveSpeech }) {
+export function Debate({ session, live, readOnly = false }: { session: Session; live: LiveSpeech; readOnly?: boolean }) {
   const { t } = useTranslation();
-  const canEdit = useCanEdit();
+  const canEdit = useCanEdit() && !readOnly;
+  const access = useContext(AccessContext);
   const items: ReactNode[] = [];
   let lastDivider: string | null = null;
   const pushDivider = (label: string | null) => {
@@ -390,7 +391,7 @@ export function Debate({ session, live }: { session: Session; live: LiveSpeech }
         items.push(
           <div className="message voice-you" key={key}>
             <div className="message-head">
-              <span className="label">{t("debate.yourAnswers")}</span>
+              <span className="label">{access.mine && !readOnly ? t("debate.yourAnswers") : t("debate.answers")}</span>
             </div>
             <div className="bubble">
               {entry.answers.map((answer) => (

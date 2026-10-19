@@ -49,6 +49,7 @@
     "proposer": "Proposer {{seat}}",
     "arbiter": "Arbiter",
     "you": "You",
+    "author": "Author",
     "devil": "Devil's advocate",
     "yourSolution": "Your solution"
   },
@@ -170,6 +171,7 @@
     "questionsLead": "Your answers decide between the options. The debate resumes as soon as you reply.",
     "questionsSend": "Send and resume",
     "yourAnswers": "Your answers",
+    "answers": "Answers",
     "buildCost": "Build cost",
     "estimates": "Costs and durations are estimates.",
     "probe": "The arbiter steps in",

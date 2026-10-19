@@ -49,6 +49,7 @@
     "proposer": "Vorschlag {{seat}}",
     "arbiter": "Schiedsrichter",
     "you": "Sie",
+    "author": "Autor",
     "devil": "Advocatus Diaboli",
     "yourSolution": "Ihre Lösung"
   },
@@ -170,6 +171,7 @@
     "questionsLead": "Ihre Antworten entscheiden zwischen den Optionen. Die Debatte geht weiter, sobald Sie antworten.",
     "questionsSend": "Senden und fortfahren",
     "yourAnswers": "Ihre Antworten",
+    "answers": "Antworten",
     "buildCost": "Entwicklungskosten",
     "estimates": "Kosten und Zeitangaben sind Schätzungen.",
     "probe": "Der Schiedsrichter greift ein",

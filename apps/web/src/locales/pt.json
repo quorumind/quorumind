@@ -49,6 +49,7 @@
     "proposer": "Proponente {{seat}}",
     "arbiter": "Árbitro",
     "you": "Você",
+    "author": "Autor",
     "devil": "Advogado do diabo",
     "yourSolution": "Sua solução"
   },
@@ -170,6 +171,7 @@
     "questionsLead": "Suas respostas decidem entre as opções. O debate continua assim que você responder.",
     "questionsSend": "Enviar e continuar",
     "yourAnswers": "Suas respostas",
+    "answers": "Respostas",
     "buildCost": "Custo de desenvolvimento",
     "estimates": "Custos e prazos são estimativas.",
     "probe": "O árbitro intervém",
