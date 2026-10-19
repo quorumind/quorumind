@@ -65,6 +65,8 @@ reverse proxy, never directly on the internet.
 | `QUORUMIND_LOCAL_ONLY=1` | 100 % local: only Ollama models are used, no data leaves the machine. |
 | `QUORUMIND_EUROPEAN_ONLY` | `1` ticks "European models only" for new sessions, `required` imposes it: Mistral AI models on Mistral's EU endpoint, or local models. See [docs/compliance.md](docs/compliance.md). |
 | `OPENROUTER_EU_BASE_URL` | Where European-only sessions reach OpenRouter, e.g. `https://eu.openrouter.ai/api/v1` (OpenRouter's EU region, Business plan). Without it, they use the usual address, whose servers may be outside the EU. |
+| `QUORUMIND_SEARCH` | Web research before the proposals: `openrouter` (OpenRouter's web plugin, with `OPENROUTER_API_KEY`; `QUORUMIND_SEARCH_ENGINE` `exa` or `parallel`, `QUORUMIND_SEARCH_MODEL` the model that reads the results) or `brave` (the Brave Search API, with `BRAVE_SEARCH_API_KEY`; `BRAVE_SEARCH_PRICE_USD` per request, 0.005 by default). Off when not set. See [docs/web-research.md](docs/web-research.md). |
+| `QUORUMIND_RESEARCH_MAX_QUERIES`, `QUORUMIND_RESEARCH_BUDGET_USD` | The searches of one session (6 by default, 12 at most) and what its research may cost (0.30 USD by default, and never more than 15 % of the session's cost cap). |
 | `QUORUMIND_INTERVIEWER`, `QUORUMIND_ARBITER`, `QUORUMIND_SEAT_A` to `QUORUMIND_SEAT_D`, `QUORUMIND_DEVIL` | Assign any model to any role, as `anthropic:<model>`, `openai:<model>`, `gemini:<model>`, `openrouter:<model>`, `ollama:<model>` or `mock`. Seats C, D and the devil's advocate are off unless set (`QUORUMIND_DEVIL=none`). |
 | `PORT`, `HOST`, `QUORUMIND_DATA_DIR` | Server address and where sessions are stored (a SQLite file, created on first start). |
 | `DATABASE_URL` or `DATABASE_URL_FILE` | Stores the sessions in PostgreSQL instead of SQLite, as `postgres://user:password@host:5432/database` (`DATABASE_URL_FILE`: the path of a file holding it, such as a Docker secret). The server waits for the database to answer at start-up and creates or updates its tables itself. Existing SQLite data is not copied over. |
@@ -104,6 +106,15 @@ A session can use European models only, and combine its project type with compli
 data, public sector, finance, consumer law) whose requirements the arbiter checks for each option; the report then has a
 Compliance section. The proposers also get reference cloud prices of OVHcloud, Scaleway, AWS, Azure and Google Cloud in
 Europe, dated in the report. What each one guarantees, and what it does not: [docs/compliance.md](docs/compliance.md).
+
+### Web research
+
+Prices, versions, end-of-life dates, regulations and vendor limits change faster than models are trained. With a search
+engine configured, a researcher checks the facts the debate depends on before the proposals: short, generic queries
+built from the requirements sheet (never the documents or personal data) go to the search engine, and the pages found
+become numbered sources. The participants read the facts with their source ids, a claim is "verified" only when it
+cites one, and the report lists the sources with the day they were read. European-only debates never search. Details:
+[docs/web-research.md](docs/web-research.md).
 
 ### Integrations
 

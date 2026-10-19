@@ -237,7 +237,11 @@ describe.each(BACKENDS)("on $name", (each) => {
         "/api/estimate",
         json({ lineup: config.live.lineup, rounds: 1, mode: "standard", depth: "deep", locale: "fr" }, "POST", as("ada")),
       );
-      expect(await estimate.json()).toEqual({ estimateUsd: null, price: { amount: 15, currency: "EUR", label: "Debate (fr)" } });
+      expect(await estimate.json()).toEqual({
+        estimateUsd: null,
+        price: { amount: 15, currency: "EUR", label: "Debate (fr)" },
+        research: { kind: null, default: false },
+      });
       expect(quoted[0]).toEqual({ settings: { mode: "standard", depth: "deep", locale: "fr" }, sessionId: null });
 
       const express = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", mode: "express" }, "POST", as("ada")));

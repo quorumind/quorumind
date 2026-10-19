@@ -1,6 +1,6 @@
 import type { Locale } from "./locales.ts";
 import { citedSources, type ResearchRecord, type Source } from "./research.ts";
-import { type ResearchLabels, researchLabels } from "./research-labels.ts";
+import { researchLabels } from "./research-labels.ts";
 import type { Session } from "./session.ts";
 
 // What the documents show of the web research: the facts it found with their numbered sources, the inline references of
@@ -17,8 +17,8 @@ export function formatResearchDate(iso: string, locale: Locale): string {
 }
 
 /** The search engine as the documents name it. */
-export function engineName(engine: string | null, t: ResearchLabels): string {
-  if (!engine || engine === "demo") return t.engineDemo;
+export function engineName(engine: string | null, demo: string): string {
+  if (!engine || engine === "demo") return demo;
   if (engine === "brave") return "Brave Search";
   const [gateway, search] = engine.split(":");
   if (gateway === "openrouter") return search ? `OpenRouter (${search.charAt(0).toUpperCase()}${search.slice(1)})` : "OpenRouter";
@@ -62,7 +62,7 @@ export function researchSection(session: Pick<Session, "research" | "sources" | 
   const t = researchLabels(session.locale);
   return {
     date: formatResearchDate(research.finishedAt ?? research.startedAt, session.locale),
-    engine: engineName(research.engine, t),
+    engine: engineName(research.engine, t.engineDemo),
     facts: research.facts.map((fact) => ({ fact: fact.fact, question: fact.question, refs: refsOf(fact.sources, sources) })),
     sources,
   };
@@ -72,10 +72,10 @@ export function researchSection(session: Pick<Session, "research" | "sources" | 
 export function researchNote(session: Pick<Session, "research" | "webResearch" | "european" | "locale">): string {
   const t = researchLabels(session.locale);
   const research: ResearchRecord | null = session.research;
-  if (!research) return session.european && session.webResearch ? t.methodEuropean : t.methodOff;
+  if (!research) return session.european ? t.methodEuropean : t.methodOff;
   const values = {
     date: formatResearchDate(research.finishedAt ?? research.startedAt, session.locale),
-    engine: engineName(research.engine, t),
+    engine: engineName(research.engine, t.engineDemo),
   };
   switch (research.status) {
     case "done":

@@ -13,6 +13,7 @@ import {
   deliveryChecks,
   type EuropeanPolicy,
   estimateDebateCost,
+  estimateResearchCost,
   estimateRevisionCost,
   europeanPolicyFromEnv,
   hasProfile,
@@ -37,10 +38,14 @@ import {
   providersFor,
   type Questionnaire,
   RequirementsSheet,
+  type ResearchSettings,
   type RevisionRequest,
   renderClientReport,
   renderReport,
+  researchSettingsFromEnv,
   type Session,
+  searchFromEnv,
+  searchKindFromEnv,
   sessionAtRevision,
   sessionCostings,
   TEMPLATE_IDS,
@@ -231,6 +236,12 @@ export interface AppHooks {
    * imposes it, e.g. a workspace setting. Without it, QUORUMIND_EUROPEAN_ONLY decides.
    */
   europeanPolicy?(user: User): Promise<EuropeanPolicy>;
+  /**
+   * Web research for a new session of these settings: whether it is ticked by default, and its limits (e.g. on for the
+   * tiers whose price includes it). The person can still change it, when a search engine is configured. Without it,
+   * research is ticked once QUORUMIND_SEARCH is configured, with the limits of QUORUMIND_RESEARCH_*.
+   */
+  research?(settings: Pick<Session, "mode" | "depth">): { default: boolean; limits: ResearchSettings };
 }
 
 export interface AppDeps {
@@ -297,6 +308,8 @@ const NewSession = z.object({
   complianceTemplates: z.array(z.enum(COMPLIANCE_TEMPLATE_IDS)).max(COMPLIANCE_TEMPLATE_IDS.length).default([]),
   /** Every role played by a European model; left out, the server's or the workspace's default applies. */
   europeanOnly: z.boolean().optional(),
+  /** Web research before the proposals; left out, the default of the server or of the session's tier applies. */
+  webResearch: z.boolean().optional(),
   depth: z.enum(DEPTHS).default("standard"),
   rounds: z.number().int().min(1).max(MAX_ROUNDS).default(1),
   budgetUsd: z.number().positive().max(1_000).nullable().default(null),
@@ -441,26 +454,49 @@ export function createApp(deps: AppDeps) {
     );
   };
 
-  const estimateFor = (session: {
-    seats: Record<string, { model: string }>;
-    devil: { model: string } | null;
-    arbiter: { model: string };
-    rounds: number;
-    mode: Session["mode"];
-    audit?: { alternative: boolean } | null;
-  }) => {
+  /**
+   * Web research for a new session of these settings: the engine this user's searches would use (null: none is
+   * configured), whether it is ticked by default, and its limits.
+   */
+  const researchOf = (user: User | null, settings: Pick<Session, "mode" | "depth">) => {
+    const providerEnv = envFor(user);
+    const kind = searchKindFromEnv(providerEnv);
+    const hosted = user && hooks.research ? hooks.research(settings) : null;
+    return { kind, default: kind !== null && (hosted?.default ?? true), limits: hosted?.limits ?? researchSettingsFromEnv(providerEnv) };
+  };
+
+  /** The most a session's web research should cost: its searches and the researcher's calls, within its budget. */
+  const researchEstimate = (user: User | null, researcherModel: string, limits: ResearchSettings | null): number => {
+    if (!limits) return 0;
+    const searchUsd = searchFromEnv(envFor(user))?.estimateUsd ?? 0;
+    const cost = estimateResearchCost({ researcherModel, maxQueries: limits.maxQueries, searchUsd }) ?? 0;
+    return Math.min(cost, limits.budgetUsd ?? cost);
+  };
+
+  const estimateFor = (
+    session: {
+      seats: Record<string, { model: string }>;
+      devil: { model: string } | null;
+      arbiter: { model: string };
+      rounds: number;
+      mode: Session["mode"];
+      audit?: { alternative: boolean } | null;
+    },
+    researchUsd = 0,
+  ) => {
     const seatModels = Object.values(session.seats).map((seat) => seat.model);
     const devil = session.devil ? [session.devil.model] : [];
     // Challenge and audit: every seat criticises the one option. An audit's alternative is one more proposal, not revised.
     const criticsOnly = session.mode === "challenge" || session.mode === "audit";
     const alternative = session.mode === "audit" && session.audit?.alternative ? seatModels.slice(0, 1) : [];
-    return estimateDebateCost({
+    const debate = estimateDebateCost({
       proposerModels: criticsOnly ? [] : seatModels,
       ...(alternative.length > 0 ? { draftModels: alternative } : {}),
       criticModels: criticsOnly ? [...seatModels, ...devil] : devil,
       arbiterModel: session.arbiter.model,
       rounds: session.rounds,
     });
+    return debate && { low: debate.low + researchUsd / 2, high: debate.high + researchUsd };
   };
 
   const authorize = async (session: Session, purchase: Purchase = { kind: "debate" }) => {
@@ -472,7 +508,7 @@ export function createApp(deps: AppDeps) {
         ? (estimateRevisionCost({ arbiterModel: session.arbiter.model, criticModel: critic })?.high ?? 0.5)
         : session.verdict
           ? 0.05
-          : (estimateFor(session)?.high ?? 1);
+          : (estimateFor(session, researchEstimate(user, session.interviewer.model, session.webResearch))?.high ?? 1);
     const answer = await hooks.authorizeSpend(user, session, estimate, purchase);
     if (!answer.ok) throw new PaymentRequired(answer.code, answer.reason);
   };
@@ -579,6 +615,8 @@ export function createApp(deps: AppDeps) {
       profileSettings: !hooks.profile,
       // True when nobody names the people who approve decisions (self-hosted): the register asks for a name.
       typedNames: !hooks.authors,
+      // The search engine of the web research (null: off), and whether a standard debate has it ticked.
+      research: (({ kind, default: on }) => ({ kind, default: on }))(researchOf(user, { mode: "standard", depth: "standard" })),
     });
   });
 
@@ -591,13 +629,22 @@ export function createApp(deps: AppDeps) {
         audit: NewSession.shape.audit,
         depth: NewSession.shape.depth,
         locale: NewSession.shape.locale.default("en"),
+        webResearch: NewSession.shape.webResearch,
       })
       .parse(await c.req.json());
+    const user = c.get("user");
+    const research = researchOf(user, input);
+    const researchUsd =
+      (input.webResearch ?? research.default) && research.kind
+        ? researchEstimate(user, input.lineup.interviewer.model, research.limits)
+        : 0;
     return c.json({
       estimateUsd: hooks.hideProviderCosts
         ? null
-        : estimateFor({ ...input.lineup, rounds: input.rounds, mode: input.mode, audit: input.audit }),
-      price: await priceOf(c.get("user"), { mode: input.mode, depth: input.depth, locale: input.locale as Session["locale"] }, null),
+        : estimateFor({ ...input.lineup, rounds: input.rounds, mode: input.mode, audit: input.audit }, researchUsd),
+      price: await priceOf(user, { mode: input.mode, depth: input.depth, locale: input.locale as Session["locale"] }, null),
+      // Whether these settings have web research ticked by default (e.g. by price tier).
+      research: { kind: research.kind, default: research.default },
     });
   });
 
@@ -651,6 +698,12 @@ export function createApp(deps: AppDeps) {
       }
     }
     const mode = input.demo ? "standard" : input.mode;
+    // The demo replays its recorded research. A European-only debate searches nothing: off unless asked, and the
+    // report then says why.
+    const research = input.demo
+      ? { kind: "demo", default: true, limits: researchSettingsFromEnv({}) }
+      : researchOf(user, { mode, depth: input.depth });
+    const webResearch = (input.webResearch ?? (research.default && !european)) ? research.limits : null;
     const session = createSession({
       locale: input.locale as Session["locale"],
       idea: input.demo ? input.idea || DEMO_IDEA : input.idea,
@@ -659,6 +712,7 @@ export function createApp(deps: AppDeps) {
       template: input.template,
       complianceTemplates: input.demo ? [] : input.complianceTemplates,
       european,
+      webResearch,
       depth: input.depth,
       rounds: input.rounds,
       budgetUsd: lowestCap(input.budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.({ mode, depth: input.depth })),
@@ -905,6 +959,8 @@ export function createApp(deps: AppDeps) {
       mode: source.mode,
       template: source.template,
       complianceTemplates: source.complianceTemplates,
+      // The new debate checks the facts on the web again, with the same limits: its own sources, of its own day.
+      webResearch: source.webResearch,
       depth: source.depth,
       rounds: Math.min(source.rounds, MAX_ROUNDS),
       budgetUsd: source.budgetUsd,
