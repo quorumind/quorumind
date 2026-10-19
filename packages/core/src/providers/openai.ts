@@ -93,7 +93,9 @@ export class OpenAiProvider implements LlmProvider {
           ...billed,
         });
       }
-      return { text: response.output_text, model: response.model, usage: usage ?? { inputTokens: 0, outputTokens: 0 } };
+      if (!usage)
+        return { text: response.output_text, model: response.model, usage: { inputTokens: 0, outputTokens: 0 }, usageMissing: true };
+      return { text: response.output_text, model: response.model, usage };
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       const expired = call.expired();

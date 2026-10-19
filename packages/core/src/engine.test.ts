@@ -515,3 +515,62 @@ describe("retries", () => {
     expect(other.error?.code).toBe("stopped");
   });
 });
+
+describe("cost cap with models of unknown price", () => {
+  /** A model the price table does not know, reading a million tokens per call. */
+  const unpriced = (): LlmProvider => {
+    const inner = new MockProvider({ chunkDelayMs: 0 });
+    return {
+      kind: "openai",
+      model: "unpriced-test-model",
+      generate: async (request, onDelta) => ({
+        ...(await inner.generate(request, onDelta)),
+        model: "unpriced-test-model",
+        usage: { inputTokens: 1_000_000, outputTokens: 0 },
+      }),
+    };
+  };
+
+  it("counts their calls at the fallback price, so the cap still stops the session", async () => {
+    const provider = unpriced();
+    const { engine, session } = setup({ interviewer: provider, arbiter: provider, proposers: { A: provider, B: provider } }, 5);
+    await engine.startInterview(session);
+    await engine.answerInterview(session, [{ question: "Budget?", answer: "€15,000" }]);
+    expect(session.phase).toBe("failed");
+    expect(session.usage.map((record) => record.costUsd)).toEqual([null]);
+    // $10 per million input tokens: the first call passes a cap of $5, and no other call is made.
+    expect(session.error).toMatchObject({ code: "budget_exceeded", params: { spentUsd: 10, budgetUsd: 5 } });
+    expect(totalCost(session).complete).toBe(false);
+  });
+
+  it("says in the method box how the cap counted them", async () => {
+    const provider = unpriced();
+    const { engine, session } = setup({ interviewer: provider, arbiter: provider, proposers: { A: provider, B: provider } }, 100);
+    await engine.startInterview(session);
+    expect(renderReport(session)).toContain("their calls were counted at $10 per million input tokens and $50 per million output tokens");
+    session.budgetUsd = null;
+    expect(renderReport(session)).not.toContain("no known price");
+  });
+
+  it("estimates the tokens of a call whose stream ended without its usage", async () => {
+    const inner = new MockProvider({ chunkDelayMs: 0 });
+    const silent: LlmProvider = {
+      kind: "openrouter",
+      model: "priced-test-model",
+      generate: async (request, onDelta) => ({
+        ...(await inner.generate(request, onDelta)),
+        model: "priced-test-model",
+        usage: { inputTokens: 0, outputTokens: 0 },
+        usageMissing: true,
+      }),
+    };
+    setModelPrice("priced-test-model", { input: 1, output: 0 });
+    const { engine, session } = setup({ interviewer: silent, arbiter: silent, proposers: { A: silent, B: silent } });
+    await engine.startInterview(session);
+    const [record] = session.usage;
+    expect(record).toMatchObject({ estimated: true });
+    expect(record?.inputTokens).toBeGreaterThan(100);
+    expect(record?.outputTokens).toBeGreaterThan(10);
+    expect(record?.costUsd).toBeGreaterThan(0);
+  });
+});

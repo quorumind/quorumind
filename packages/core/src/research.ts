@@ -13,7 +13,7 @@ import {
   type SearchKind,
   type SearchProvider,
 } from "./search.ts";
-import type { Session, SessionError } from "./session.ts";
+import { cappedCost, type Session, type SessionError } from "./session.ts";
 
 // Web research: after the requirements are confirmed and before the proposals, a researcher (the interviewer's model)
 // lists the facts the debate depends on that may have changed since the models were trained (prices, current versions
@@ -289,11 +289,11 @@ export function researchBudget(session: Pick<Session, "webResearch" | "budgetUsd
   return Math.min(own, share);
 }
 
-/** What the research spent: its searches and the researcher's calls. */
+/** What the research spent: its searches and the researcher's calls, those of unknown cost as a cost cap counts them. */
 export function researchSpent(session: Pick<Session, "usage">): number {
   return session.usage.reduce(
     (sum, record) =>
-      sum + ((record.task === "research" || record.task === "search") && record.revision === undefined ? (record.costUsd ?? 0) : 0),
+      sum + ((record.task === "research" || record.task === "search") && record.revision === undefined ? cappedCost(record) : 0),
     0,
   );
 }

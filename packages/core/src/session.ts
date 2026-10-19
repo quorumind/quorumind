@@ -2,6 +2,7 @@ import type { AuditSettings } from "./audit.ts";
 import type { ComplianceTemplateId } from "./compliance.ts";
 import type { Decision } from "./decisions.ts";
 import type { Locale } from "./locales.ts";
+import { cappedCostOf } from "./pricing.ts";
 import type { OrgProfile } from "./profile.ts";
 import type { ProviderKind, Task } from "./providers/types.ts";
 import type { ResearchRecord, ResearchSettings, Source } from "./research.ts";
@@ -554,6 +555,19 @@ export function alternativeSeat(session: Session): string | null {
 /** Every participant that criticises in a round, the devil's advocate last. */
 export function criticSeats(session: Session): string[] {
   return [...Object.keys(session.seats), ...(session.devil ? [DEVIL_SEAT] : [])];
+}
+
+/**
+ * What a call counts for under a cost cap: its cost, or for a call whose cost is unknown (its model has no known
+ * price) its tokens at CAP_FALLBACK_PRICE, so that a lineup without prices cannot run past its cap unseen.
+ */
+export function cappedCost(record: UsageRecord): number {
+  return record.costUsd ?? cappedCostOf(record.model, record);
+}
+
+/** True when a call of the session has no known cost: a cost cap counted it at CAP_FALLBACK_PRICE. */
+export function hasUnpricedCalls(session: Pick<Session, "usage">): boolean {
+  return session.usage.some((record) => record.costUsd === null);
 }
 
 export function totalCost(session: Session): { usd: number; complete: boolean } {

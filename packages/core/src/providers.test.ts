@@ -449,6 +449,14 @@ describe("OpenRouterProvider", () => {
     expect(error.message).toMatch(/incomplete/);
   });
 
+  it("says when the stream ended without its usage, rather than reporting a free call", async () => {
+    const fetchMock = fakeFetch(() => streamed([sse({ choices: [{ delta: { content: '{"speech":"hi"}' }, finish_reason: "stop" }] })]));
+    const result = await new OpenRouterProvider({ model: "m", fetch: fetchMock }).generate(request);
+    expect(result).toMatchObject({ text: '{"speech":"hi"}', usageMissing: true });
+    const full = await new OpenRouterProvider({ model: "m", fetch: fakeFetch(() => streamed(answer)) }).generate(request);
+    expect(full).not.toHaveProperty("usageMissing");
+  });
+
   it("carries what a cut-off answer cost, as billed", async () => {
     const fetchMock = fakeFetch(() =>
       streamed([

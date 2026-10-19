@@ -103,6 +103,7 @@ export const LABEL_KEYS = [
   "method",
   "methodText",
   "shortened",
+  "unpricedCap",
   "interviewer",
   "proposer",
   "arbiter",
@@ -278,6 +279,8 @@ export const LABELS: Record<Locale, Labels> = {
       "Several AI models designed solutions separately, critiqued each other and revised them over {rounds} round(s). An independent arbiter then checked every option against your requirements. Costs and durations are estimates to confirm with quotes, and each key claim is marked verified, estimated or assumed: read this report as a well-argued second opinion, not a guarantee.",
     shortened:
       "The debate was shortened to stay within its budget: {done} of the {planned} planned round(s) took place before the verdict.",
+    unpricedCap:
+      "Some models of this debate have no known price: to keep to the cost cap, their calls were counted at {input} per million input tokens and {output} per million output tokens, as much as the dearest model Quorumind knows.",
     interviewer: "Interviewer",
     proposer: "Proposer {seat}",
     arbiter: "Arbiter",
@@ -448,6 +451,8 @@ export const LABELS: Record<Locale, Labels> = {
     methodText:
       "Plusieurs modèles d'IA ont conçu des solutions séparément, se sont critiqués les uns les autres et les ont révisées en {rounds} tour(s). Un arbitre indépendant a ensuite confronté chaque option à votre besoin. Les coûts et les délais sont des estimations à confirmer par des devis, et chaque affirmation clé porte la mention vérifié, estimé ou supposé : lisez ce rapport comme un second avis solidement argumenté, et non comme une garantie.",
     shortened: "Le débat a été écourté pour rester dans son budget : {done} des {planned} tour(s) prévu(s) ont eu lieu avant le verdict.",
+    unpricedCap:
+      "Certains modèles de ce débat n'ont pas de prix connu : pour respecter le plafond de coût, leurs appels ont été comptés à {input} par million de jetons en entrée et {output} par million de jetons en sortie, autant que le modèle le plus cher que connaît Quorumind.",
     interviewer: "Intervieweur",
     proposer: "Proposant {seat}",
     arbiter: "Arbitre",
@@ -619,6 +624,8 @@ export const LABELS: Record<Locale, Labels> = {
       "Varios modelos de IA diseñaron soluciones por separado, se criticaron entre sí y las revisaron a lo largo de {rounds} ronda(s). Después, un árbitro independiente contrastó cada opción con sus requisitos. Los costes y los plazos son estimaciones que deben confirmarse con presupuestos, y cada afirmación clave lleva la indicación verificado, estimado o supuesto: lea este informe como una segunda opinión bien argumentada, no como una garantía.",
     shortened:
       "El debate se acortó para no salirse de su presupuesto: se celebraron {done} de las {planned} ronda(s) previstas antes del veredicto.",
+    unpricedCap:
+      "Algunos modelos de este debate no tienen un precio conocido: para respetar el tope de coste, sus llamadas se contaron a {input} por millón de tokens de entrada y {output} por millón de tokens de salida, tanto como el modelo más caro que conoce Quorumind.",
     interviewer: "Entrevistador",
     proposer: "Proponente {seat}",
     arbiter: "Árbitro",
@@ -790,6 +797,8 @@ export const LABELS: Record<Locale, Labels> = {
       "Vários modelos de IA conceberam soluções separadamente, criticaram-se mutuamente e as revisaram ao longo de {rounds} rodada(s). Em seguida, um árbitro independente confrontou cada opção com seus requisitos. Custos e prazos são estimativas a confirmar com orçamentos, e cada afirmação principal recebe a indicação verificado, estimado ou suposto: leia este relatório como uma segunda opinião bem fundamentada, não como uma garantia.",
     shortened:
       "O debate foi encurtado para caber no seu orçamento: {done} das {planned} rodada(s) previstas aconteceram antes do veredito.",
+    unpricedCap:
+      "Alguns modelos deste debate não têm preço conhecido: para respeitar o limite de custo, suas chamadas foram contadas a {input} por milhão de tokens de entrada e {output} por milhão de tokens de saída, tanto quanto o modelo mais caro que o Quorumind conhece.",
     interviewer: "Entrevistador",
     proposer: "Proponente {seat}",
     arbiter: "Árbitro",
@@ -961,6 +970,8 @@ export const LABELS: Record<Locale, Labels> = {
       "Diversi modelli di IA hanno progettato soluzioni separatamente, si sono criticati a vicenda e le hanno riviste nel corso di {rounds} round. Un arbitro indipendente ha poi confrontato ogni opzione con i suoi requisiti. Costi e tempi sono stime da confermare con dei preventivi, e ogni affermazione chiave è contrassegnata come verificato, stimato o ipotizzato: legga questo rapporto come un secondo parere ben argomentato, non come una garanzia.",
     shortened:
       "Il dibattito è stato accorciato per restare nel suo budget: si sono svolti {done} dei {planned} round previsti prima del verdetto.",
+    unpricedCap:
+      "Alcuni modelli di questo dibattito non hanno un prezzo noto: per rispettare il tetto di spesa, le loro chiamate sono state conteggiate a {input} per milione di token in ingresso e {output} per milione di token in uscita, quanto il modello più costoso che Quorumind conosce.",
     interviewer: "Intervistatore",
     proposer: "Proponente {seat}",
     arbiter: "Arbitro",
@@ -1131,6 +1142,8 @@ export const LABELS: Record<Locale, Labels> = {
     methodText:
       "Mehrere KI-Modelle haben getrennt voneinander Lösungen entworfen, sich gegenseitig kritisiert und ihre Lösungen in {rounds} Runde(n) überarbeitet. Anschließend hat ein unabhängiger Schiedsrichter jede Option an Ihren Anforderungen gemessen. Kosten und Zeitangaben sind Schätzungen, die durch Angebote zu bestätigen sind, und jede zentrale Aussage ist als geprüft, geschätzt oder angenommen gekennzeichnet: Lesen Sie diesen Bericht als gut begründete Zweitmeinung, nicht als Garantie.",
     shortened: "Die Debatte wurde gekürzt, um im Budget zu bleiben: {done} von {planned} geplanten Runde(n) fanden vor dem Urteil statt.",
+    unpricedCap:
+      "Für einige Modelle dieser Debatte ist kein Preis bekannt: Damit die Kostengrenze eingehalten wird, wurden ihre Aufrufe mit {input} pro Million Eingabe-Tokens und {output} pro Million Ausgabe-Tokens angesetzt, so viel wie das teuerste Modell, das Quorumind kennt.",
     interviewer: "Interviewer",
     proposer: "Vorschlag {seat}",
     arbiter: "Schiedsrichter",
@@ -1301,6 +1314,8 @@ export const LABELS: Record<Locale, Labels> = {
     methodText:
       "कई AI मॉडलों ने अलग-अलग समाधान तैयार किए, एक-दूसरे की आलोचना की और {rounds} दौर में उन्हें संशोधित किया। इसके बाद एक स्वतंत्र निर्णायक ने हर विकल्प को आपकी आवश्यकताओं की कसौटी पर परखा। लागत और अवधि अनुमान हैं जिनकी पुष्टि कोटेशन से करनी होगी, और हर मुख्य दावे को ‘सत्यापित’, ‘अनुमानित’ या ‘मान लिया गया’ के रूप में चिह्नित किया गया है: इस रिपोर्ट को गारंटी नहीं, बल्कि ठोस तर्कों पर आधारित दूसरी राय के रूप में पढ़ें।",
     shortened: "बहस को उसके बजट में रखने के लिए छोटा किया गया: फ़ैसले से पहले {planned} तय दौरों में से {done} हुए।",
+    unpricedCap:
+      "इस बहस के कुछ मॉडलों की कीमत ज्ञात नहीं है: लागत सीमा का पालन करने के लिए उनकी कॉल को प्रति दस लाख इनपुट टोकन {input} और प्रति दस लाख आउटपुट टोकन {output} पर गिना गया, जितना Quorumind को ज्ञात सबसे महँगा मॉडल लेता है।",
     interviewer: "इंटरव्यूअर",
     proposer: "प्रस्तावक {seat}",
     arbiter: "निर्णायक",
@@ -1471,6 +1486,8 @@ export const LABELS: Record<Locale, Labels> = {
     methodText:
       "複数の AI モデルがそれぞれ個別に解決策を設計し、互いに批評し合い、{rounds} ラウンドにわたって修正しました。その後、独立した審判が各選択肢をご提示いただいた要件と照らし合わせました。費用と期間は見積書で確認すべき推定値であり、主な主張にはそれぞれ「確認済み」「推定」「仮定」のいずれかを付けています。このレポートは保証ではなく、十分な根拠に基づくセカンドオピニオンとしてお読みください。",
     shortened: "予算内に収めるため、議論は短縮されました。判定までに、予定の{planned}ラウンドのうち{done}ラウンドが行われました。",
+    unpricedCap:
+      "この議論の一部のモデルは価格が不明です。コスト上限を守るため、それらの呼び出しは、Quorumind が知る最も高価なモデルと同じく、入力100万トークンあたり{input}、出力100万トークンあたり{output}として計算しました。",
     interviewer: "インタビュアー",
     proposer: "提案者 {seat}",
     arbiter: "審判",
@@ -1639,6 +1656,8 @@ export const LABELS: Record<Locale, Labels> = {
     methodText:
       "多个 AI 模型分别设计方案，相互评审，并经过 {rounds} 轮修订。随后，一位独立的仲裁者对照您的需求逐一检验了每个方案。成本和周期均为估算，需通过报价加以确认；每条关键论断都标注了“已核实”“估计”或“假设”。请将本报告视为论证充分的第二意见，而非保证。",
     shortened: "为控制在预算之内，辩论被缩短：在裁决之前，计划的 {planned} 轮中进行了 {done} 轮。",
+    unpricedCap:
+      "本次辩论中有些模型的价格未知：为遵守成本上限，它们的调用按 Quorumind 所知最贵模型的价格计算，即每百万输入 token {input}、每百万输出 token {output}。",
     interviewer: "访谈者",
     proposer: "提案方 {seat}",
     arbiter: "仲裁者",
@@ -1809,6 +1828,8 @@ export const LABELS: Record<Locale, Labels> = {
     methodText:
       "صمّمت عدة نماذج ذكاء اصطناعي حلولًا بشكل منفصل، وانتقد بعضها بعضًا، ثم راجعت حلولها على مدى جولات بلغ عددها {rounds}. بعد ذلك، قيّم حَكَم مستقل كل خيار في ضوء متطلباتك. التكاليف والمدد تقديرات ينبغي تأكيدها بعروض أسعار، وكل ادعاء رئيسي موسوم بأنه «مُتحقق منه» أو «تقديري» أو «مفترض»: اقرأ هذا التقرير بوصفه رأيًا ثانيًا محكم الحجة، لا ضمانًا.",
     shortened: "اختُصر النقاش ليبقى ضمن ميزانيته: جرت {done} من أصل {planned} جولة مقررة قبل الحكم.",
+    unpricedCap:
+      "بعض نماذج هذا النقاش ليس لها سعر معروف: للالتزام بسقف التكلفة، احتُسبت استدعاءاتها بسعر {input} لكل مليون رمز إدخال و{output} لكل مليون رمز إخراج، وهو سعر أغلى نموذج يعرفه Quorumind.",
     interviewer: "المحاور",
     proposer: "المقترِح {seat}",
     arbiter: "الحَكَم",

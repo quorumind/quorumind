@@ -29,7 +29,21 @@ export function priceOf(model: string): ModelPrice | null {
 export function costOf(model: string, usage: Usage): number | null {
   const price = priceOf(model);
   if (!price) return null;
-  return (usage.inputTokens * price.input + usage.outputTokens * price.output) / 1_000_000;
+  return priced(price, usage);
+}
+
+const priced = (price: ModelPrice, usage: Usage) => (usage.inputTokens * price.input + usage.outputTokens * price.output) / 1_000_000;
+
+/**
+ * The price a cost cap counts the calls of a model without a known price at (a model the table does not list, an
+ * OpenAI or Gemini model without its price variables, an OpenRouter model when its list could not be read): that of
+ * the dearest model the table lists, so a lineup without prices cannot run past its cap unseen.
+ */
+export const CAP_FALLBACK_PRICE: ModelPrice = { input: 10, output: 50 };
+
+/** What a call counts for under a cost cap: its known price, or CAP_FALLBACK_PRICE when the model's is unknown. */
+export function cappedCostOf(model: string, usage: Usage): number {
+  return costOf(model, usage) ?? priced(CAP_FALLBACK_PRICE, usage);
 }
 
 // Rough token profile of one call per task, measured on demo sessions. Used to show an estimate before a debate
@@ -50,6 +64,12 @@ export const TASK_PROFILE = {
 export function typicalCallCost(model: string, task: keyof typeof TASK_PROFILE): number | null {
   const profile = TASK_PROFILE[task];
   return costOf(model, { inputTokens: profile.input, outputTokens: profile.output });
+}
+
+/** The typical cost of one call as a cost cap counts it: at CAP_FALLBACK_PRICE when the model's price is unknown. */
+export function typicalCappedCost(model: string, task: keyof typeof TASK_PROFILE): number {
+  const profile = TASK_PROFILE[task];
+  return cappedCostOf(model, { inputTokens: profile.input, outputTokens: profile.output });
 }
 
 export interface DebatePlan {

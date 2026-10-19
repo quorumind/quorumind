@@ -79,6 +79,7 @@ export class OllamaProvider implements LlmProvider {
 
     let text = "";
     let doneReason: string | undefined;
+    let done = false;
     const usage = { inputTokens: 0, outputTokens: 0 };
     try {
       for await (const line of readLines(response.body as ReadableStream<Uint8Array>, call.touch)) {
@@ -91,6 +92,7 @@ export class OllamaProvider implements LlmProvider {
           onDelta?.(delta);
         }
         if (data.done) {
+          done = true;
           doneReason = data.done_reason;
           usage.inputTokens = data.prompt_eval_count ?? 0;
           usage.outputTokens = data.eval_count ?? 0;
@@ -103,7 +105,7 @@ export class OllamaProvider implements LlmProvider {
 
     if (doneReason === "length") throw new ProviderError("The answer is incomplete (num_predict).", true, { usage, model: this.model });
     // The requested name is reported as is, so the cost lookup (always free) matches it.
-    return { text, model: this.model, usage };
+    return { text, model: this.model, usage, ...(done ? {} : { usageMissing: true as const }) };
   }
 
   private async fail(response: Response): Promise<never> {

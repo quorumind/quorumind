@@ -148,7 +148,7 @@ export class GeminiProvider implements LlmProvider {
       // SAFETY, RECITATION, BLOCKLIST, PROHIBITED_CONTENT…: the model would not write this answer.
       throw new ProviderError(`Gemini stopped the answer (${finishReason}).`, false, { code: "provider_refused", ...billed() });
     }
-    return { text, model, usage };
+    return { text, model, usage, ...(usageSeen ? {} : { usageMissing: true as const }) };
   }
 
   private async fail(response: Response): Promise<never> {

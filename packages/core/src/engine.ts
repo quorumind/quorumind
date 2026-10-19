@@ -23,7 +23,7 @@ import { activeRequirements, complianceInterviewRule, complianceRule, withTempla
 import { COMPLIANCE_UPDATE, COMPLIANCE_VERDICT, settleCompliance, type VerdictWithCompliance } from "./compliance-verdict.ts";
 import { checkFacts, debateCurrency, sessionCostings, sessionProfile } from "./costing.ts";
 import { partialStringField } from "./partial-json.ts";
-import { costOf, TASK_PROFILE, typicalCallCost } from "./pricing.ts";
+import { cappedCostOf, costOf, TASK_PROFILE, typicalCappedCost } from "./pricing.ts";
 import { fence, redact } from "./privacy.ts";
 import { currencyCode } from "./profile.ts";
 import {
@@ -92,6 +92,7 @@ import {
   type Answer,
   allAnswers,
   alternativeSeat,
+  cappedCost,
   criticSeats,
   currentProposals,
   currentRevision,
@@ -107,7 +108,6 @@ import {
   type Session,
   type SessionError,
   sessionAtRevision,
-  totalCost,
   USER_SEAT,
   type UsageRecord,
   type VerdictRevision,
@@ -676,7 +676,7 @@ export class DebateEngine {
     if (session.budgetUsd === null) return false;
     const step = providers.reduce((sum, provider) => sum + callEstimate(session, task, provider.model), 0);
     const reserve = VERDICT_MARGIN * this.verdictEstimate(session);
-    if (totalCost(session).usd + step + reserve <= session.budgetUsd) return false;
+    if (this.spent(session) + step + reserve <= session.budgetUsd) return false;
     session.shortened = { rounds: completedRounds(session) };
     await this.persist(session);
     return true;
@@ -687,24 +687,25 @@ export class DebateEngine {
     return this.promptEstimate(this.verdictPrompt(session), "verdict");
   }
 
-  /** What an arbiter's call should cost: its prompt as it stands, and the typical length of its answer. */
+  /**
+   * What an arbiter's call should cost under a cap: its prompt as it stands, and the typical length of its answer (at
+   * CAP_FALLBACK_PRICE when the arbiter's price is unknown).
+   */
   private promptEstimate(prompt: { system: string; messages: ChatMessage[] }, task: "verdict" | "reassess"): number {
     const chars = prompt.system.length + prompt.messages.reduce((sum, message) => sum + message.content.length, 0);
-    const cost = costOf(this.providers.arbiter.model, {
+    return cappedCostOf(this.providers.arbiter.model, {
       inputTokens: Math.ceil(chars / CHARS_PER_TOKEN),
       outputTokens: TASK_PROFILE[task].output,
     });
-    return cost ?? 0;
   }
 
   /**
    * What was spent under the cap that applies: the calls of this attempt during a revision (never those of an attempt
-   * that failed before it), the whole session otherwise.
+   * that failed before it), the whole session otherwise. A call of unknown cost counts at CAP_FALLBACK_PRICE.
    */
   private spent(session: Session): number {
-    if (!this.scope) return totalCost(session).usd;
-    const attempt = this.scope.attempt;
-    return session.usage.reduce((sum, record) => sum + (record.attempt === attempt ? (record.costUsd ?? 0) : 0), 0);
+    const attempt = this.scope?.attempt;
+    return session.usage.reduce((sum, record) => sum + (attempt === undefined || record.attempt === attempt ? cappedCost(record) : 0), 0);
   }
 
   /**
@@ -763,7 +764,14 @@ export class DebateEngine {
             maxResults: MAX_RESULTS_PER_QUERY,
             ...(this.signal ? { signal: this.signal } : {}),
           });
-          this.record(session, "search", null, { model: result.model, usage: result.usage, costUsd: result.costUsd });
+          // A search whose cost the engine does not report counts at its estimate, so that the research keeps to its budget.
+          this.record(
+            session,
+            "search",
+            null,
+            { model: result.model, usage: result.usage, costUsd: result.costUsd ?? search.estimateUsd },
+            result.costUsd === null ? { estimated: true } : {},
+          );
           query.searchedAt = new Date().toISOString();
           query.sources = addSources(session, result.hits, query.question, query.searchedAt);
           this.hooks.emit(session.id, { type: "spoke", task: "search", seat: null });
@@ -999,7 +1007,7 @@ export class DebateEngine {
   private async judge(session: Session) {
     // The cap is checked against the verdict's estimate: a verdict that cannot fit is not started.
     if (session.budgetUsd !== null) {
-      const spent = totalCost(session).usd;
+      const spent = this.spent(session);
       if (spent + this.verdictEstimate(session) > session.budgetUsd) throw new BudgetExceededError(spent, session.budgetUsd);
     }
     const requirements = activeRequirements(session);
@@ -1118,11 +1126,21 @@ export class DebateEngine {
             }
           },
         );
-        recorded = this.record(session, task, seat, {
-          model: result.model,
-          usage: result.usage,
-          costUsd: result.costUsd ?? costOf(result.model, result.usage) ?? costOf(provider.model, result.usage),
-        });
+        // A stream that ended without its usage is not a free call: its tokens are estimated from what was sent and read.
+        const usage = result.usageMissing
+          ? { inputTokens: Math.ceil(promptChars / CHARS_PER_TOKEN), outputTokens: Math.ceil(result.text.length / CHARS_PER_TOKEN) }
+          : result.usage;
+        recorded = this.record(
+          session,
+          task,
+          seat,
+          {
+            model: result.model,
+            usage,
+            costUsd: result.costUsd ?? costOf(result.model, usage) ?? costOf(provider.model, usage),
+          },
+          result.usageMissing ? { estimated: true } : {},
+        );
         const parsed = spec.zod.safeParse(JSON.parse(result.text));
         if (!parsed.success) throw new ProviderError(`The ${task} answer does not match its schema.`, true);
         this.hooks.emit(session.id, { type: "spoke", task, seat });
@@ -1278,11 +1296,14 @@ const VERDICT_MARGIN = 1.25;
 // A rough count, enough for an estimate: about four characters of English or JSON per token.
 const CHARS_PER_TOKEN = 4;
 
-/** What one more call of a task by this model should cost: its last such call, or the typical one. */
+/**
+ * What one more call of a task by this model should cost under a cap: its last such call, or the typical one (at
+ * CAP_FALLBACK_PRICE when the model's price is unknown).
+ */
 function callEstimate(session: Session, task: Task, model: string): number {
-  const last = session.usage.findLast((record) => record.task === task && record.model === model && record.costUsd !== null);
-  if (last?.costUsd != null) return last.costUsd;
-  return (task in TASK_PROFILE ? typicalCallCost(model, task as keyof typeof TASK_PROFILE) : null) ?? 0;
+  const last = session.usage.findLast((record) => record.task === task && record.model === model && !record.failed);
+  if (last) return cappedCost(last);
+  return task in TASK_PROFILE ? typicalCappedCost(model, task as keyof typeof TASK_PROFILE) : 0;
 }
 
 /** The rounds every critic and every proposer finished. */

@@ -42,6 +42,11 @@ export interface GenerateResult {
   model: string;
   /** What the provider charged for this call in US dollars, when it says so. Wins over the price table. */
   costUsd?: number;
+  /**
+   * The stream ended without reporting usage (the connection closed after the answer, before its usage): `usage` is
+   * then zero, and the engine estimates the tokens rather than recording a free call.
+   */
+  usageMissing?: true;
 }
 
 export interface LlmProvider {

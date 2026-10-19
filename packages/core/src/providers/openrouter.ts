@@ -239,7 +239,7 @@ export class OpenRouterProvider implements LlmProvider {
       throw new ProviderError("The model declined this request (content filter).", false, { code: "provider_refused", ...billed() });
     }
     // OpenRouter credits are US dollars.
-    return { text, model, usage, ...(costUsd === undefined ? {} : { costUsd }) };
+    return { text, model, usage, ...(costUsd === undefined ? {} : { costUsd }), ...(usageSeen ? {} : { usageMissing: true as const }) };
   }
 
   private async fail(response: Response): Promise<never> {

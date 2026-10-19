@@ -14,6 +14,7 @@ import {
 import { decisionFacts, decisionMarkdown, decisionStatusText } from "./decision-report.ts";
 import type { DiagramComponent, DiagramFlow } from "./diagram.ts";
 import type { Locale } from "./locales.ts";
+import { CAP_FALLBACK_PRICE } from "./pricing.ts";
 import { isGenericRole, type OrgProfile } from "./profile.ts";
 import { rankOptions } from "./ranking.ts";
 import { LABELS, type Labels } from "./report-labels.ts";
@@ -21,7 +22,7 @@ import { researchLabels } from "./research-labels.ts";
 import { numberedSources, refsOf, refsText, researchMarkdown, researchNote } from "./research-report.ts";
 import { revisionMarkdown, revisionNote } from "./revision-report.ts";
 import type { ComponentKind, Probe, Proposal, RequirementsSheet } from "./schemas.ts";
-import { COMPLIANCE_KEYS, currentProposals, DEVIL_SEAT, type Session, USER_SEAT } from "./session.ts";
+import { COMPLIANCE_KEYS, currentProposals, DEVIL_SEAT, hasUnpricedCalls, type Session, USER_SEAT } from "./session.ts";
 
 export { threeYearCost };
 
@@ -332,10 +333,17 @@ export function participants(session: Session, t: Labels): { role: string; model
   ];
 }
 
-/** The paragraphs of the method box: how the report was produced, and whether the debate was cut short for its budget. */
+/**
+ * The paragraphs of the method box: how the report was produced, whether the debate was cut short for its budget, and
+ * how its cost cap counted the calls of models without a known price.
+ */
 export function methodNotes(session: Session, t: Labels): string[] {
   const notes = [fill(t.methodText, { rounds: session.rounds })];
   if (session.shortened) notes.push(fill(t.shortened, { done: session.shortened.rounds, planned: session.rounds }));
+  if (session.budgetUsd !== null && hasUnpricedCalls(session)) {
+    const usd = (amount: number) => formatMoney(amount, "USD", session.locale);
+    notes.push(fill(t.unpricedCap, { input: usd(CAP_FALLBACK_PRICE.input), output: usd(CAP_FALLBACK_PRICE.output) }));
+  }
   notes.push(...sovereigntyNotes(session));
   notes.push(researchNote(session));
   return notes;
