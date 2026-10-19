@@ -114,7 +114,7 @@ In `.cursor/mcp.json` at the project root (or `~/.cursor/mcp.json` for every pro
 
 | Tool | What it does |
 | --- | --- |
-| `quorumind_start` | Starts a session from an idea (mode, template, language, depth, rounds, cost cap, the user's own solution, up to 5 local text files as context, 100 000 characters each) and returns the interviewer's first questions with why they matter and example answers. |
+| `quorumind_start` | Starts a session from an idea (mode, template, language, depth, rounds, cost cap, the user's own solution, up to 5 local text files as context, 100 000 characters each) and returns the interviewer's first questions with why they matter and example answers. With `mode: "audit"`, the first of `context_files` is the document to audit (a text or Markdown copy of a quote or proposal) and `alternative: true` adds an independent alternative for comparison; the verdict then gives the opinion, the findings with their quoted passages, the recomputed figures and the questions to ask the provider. |
 | `quorumind_answer` | Sends the user's answers, to the interview or to the questions the debate paused on, and waits for the next stopping point. |
 | `quorumind_review` | Shows the requirements sheet the interview produced. |
 | `quorumind_confirm` | Confirms the sheet, with optional edits, and runs the debate until it needs the user or reaches the verdict. |

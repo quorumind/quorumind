@@ -1,4 +1,4 @@
-import type { InterviewQuestion, RequirementsSheet, Session } from "@quorumind/core";
+import { auditOf, type InterviewQuestion, quoteCheck, type RequirementsSheet, type Session } from "@quorumind/core";
 import type { PriceQuote, SessionCosts, SessionState } from "./client.ts";
 
 // Everything here is read by a coding agent: plain Markdown, short, and always ending on what to do next.
@@ -208,6 +208,7 @@ const amount = (value: number, currency: string) => `${value.toLocaleString("en"
 export function formatVerdictSummary(session: Session, costs: SessionCosts = {}): string {
   const verdict = session.verdict;
   if (!verdict) return "No verdict yet.";
+  if (session.mode === "audit") return formatAuditSummary(session);
   const title = (seat: string | null) => verdict.options.find((option) => option.seat === seat)?.title;
   const lines = [`## Verdict: ${session.sheet?.projectName ?? session.idea}`, ""];
   const seat = verdict.recommendation.seat;
@@ -249,6 +250,42 @@ export function formatVerdictSummary(session: Session, costs: SessionCosts = {})
     for (const step of verdict.roadmap) lines.push(`- ${step.phase}: ${step.content} Done when: ${step.exitCriterion}`);
   }
   if (verdict.openQuestions.length > 0) lines.push("", "### Open questions", ...verdict.openQuestions.map((q) => `- ${q}`));
+  return lines.join("\n");
+}
+
+const OPINIONS = { sound: "sound", sound_with_reservations: "sound, with reservations", not_sound: "not sound as it stands" } as const;
+
+/** An audit's verdict: the opinion, every finding with its passage, the figures recomputed, what to ask and negotiate. */
+export function formatAuditSummary(session: Session): string {
+  const audit = auditOf(session.verdict);
+  const extraction = session.audit?.extraction;
+  if (!audit || !session.verdict) return "No audit yet.";
+  const lines = [`## Audit: ${extraction?.title ?? session.sheet?.projectName ?? session.idea}`, ""];
+  lines.push(`**Opinion: ${OPINIONS[audit.opinion]}.**`, session.verdict.recommendation.rationale, "", "### Findings");
+  for (const finding of audit.findings) {
+    lines.push(`- [${finding.severity}, ${finding.category}] ${finding.title} ${finding.detail}`);
+    if (finding.quote) lines.push(`  Quoted: "${finding.quote}"`);
+    if (finding.fix) lines.push(`  Should change: ${finding.fix}`);
+  }
+  const missing = audit.coverage.filter((entry) => entry.status === "missing" || entry.status === "partial");
+  if (missing.length > 0)
+    lines.push("", "### Not or partly covered", ...missing.map((entry) => `- ${entry.item} (${entry.status}): ${entry.note}`));
+  const check = quoteCheck(session);
+  const currency = check?.currency ?? "";
+  lines.push("", `### Price: ${audit.price.assessment}`, audit.price.comment);
+  if (check?.linesTotal != null)
+    lines.push(
+      `- Lines add up to ${amount(check.linesTotal, currency)}${check.statedTotal != null ? `, stated total ${amount(check.statedTotal, currency)}` : ""}`,
+    );
+  if (check && check.mismatches > 0) lines.push(`- ${check.mismatches} line(s) do not match their days and day rate`);
+  if (audit.price.market) {
+    lines.push(
+      `- Market range (estimate): ${amount(audit.price.market.low, session.currency ?? currency)} to ${amount(audit.price.market.high, session.currency ?? currency)}`,
+    );
+  }
+  lines.push("", `### Timeline: ${audit.timeline.assessment}`, audit.timeline.comment);
+  if (audit.questions.length > 0) lines.push("", "### Questions to ask the provider", ...audit.questions.map((q, i) => `${i + 1}. ${q}`));
+  if (audit.negotiation.length > 0) lines.push("", "### Points to negotiate", ...audit.negotiation.map((point) => `- ${point}`));
   return lines.join("\n");
 }
 

@@ -246,10 +246,11 @@ export function createMcpServer(options: McpOptions): McpServer {
           .max(4_000)
           .describe("The project or the change to decide, in a few sentences: what it does, for whom, and what is already decided."),
         mode: z
-          .enum(["standard", "express", "challenge"])
+          .enum(["standard", "express", "challenge", "audit"])
           .optional()
           .describe(
-            "standard: the models design competing options. express: five questions and one short round, cheaper. challenge: the models only look for flaws in own_solution.",
+            "standard: the models design competing options. express: five questions and one short round, cheaper. challenge: the models only look for flaws in own_solution. " +
+              "audit: the models examine a document a provider sent the user (a quote, a statement of work, an architecture or a technical proposal), given as the first of context_files, against the need that idea states: findings with quoted passages, the price checked, questions to ask the provider.",
           ),
         template: z
           .enum(["saas", "mobile", "data_ai", "migration", "ecommerce"])
@@ -279,6 +280,12 @@ export function createMcpServer(options: McpOptions): McpServer {
             `Paths of up to ${MAX_FILES} local text files the models should read: README, architecture notes, schema, package.json... Absolute, or relative to the directory this MCP server runs in. Files longer than ${MAX_FILE_CHARS} characters are cut.`,
           ),
         redact: z.boolean().optional().describe("Mask e-mails, phone numbers, card numbers and secrets before anything reaches a model."),
+        alternative: z
+          .boolean()
+          .optional()
+          .describe(
+            "Audit mode: also sketch one alternative approach from the need alone, without the document, for comparison. One more model call.",
+          ),
       }),
     },
     (input, ctx) =>
@@ -286,6 +293,11 @@ export function createMcpServer(options: McpOptions): McpServer {
         const mode = input.mode ?? (input.own_solution ? "challenge" : undefined);
         if (mode === "challenge" && !input.own_solution) {
           return failure("Challenge mode needs own_solution: the solution the models should challenge.");
+        }
+        if (mode === "audit" && !input.context_files?.length) {
+          return failure(
+            "Audit mode needs context_files: the document to audit first (a text or Markdown copy of the quote or proposal), then any background such as the user's own specification.",
+          );
         }
         const { documents, notes } = input.context_files?.length
           ? await readContextFiles(input.context_files, cwd)
@@ -301,6 +313,10 @@ export function createMcpServer(options: McpOptions): McpServer {
           ...(input.rounds ? { rounds: input.rounds } : {}),
           ...(input.budget_usd ? { budgetUsd: input.budget_usd } : {}),
           ...(mode === "challenge" ? { challenge: input.own_solution ?? null } : {}),
+          // The first file is the document under audit; the others are background.
+          ...(mode === "audit"
+            ? { audit: { documentIds: documents.slice(0, 1).map((doc) => doc.id), alternative: input.alternative ?? false } }
+            : {}),
           ...(documents.length > 0 ? { context: documents } : {}),
           ...(input.redact === undefined ? {} : { redact: input.redact }),
         });
@@ -315,6 +331,7 @@ export function createMcpServer(options: McpOptions): McpServer {
           );
         }
         if (documents.length > 0) preface.push(`Attached: ${documents.map((doc) => doc.name).join(", ")}.`);
+        if (mode === "audit" && documents[0]) preface.push(`Under audit: ${documents[0].name}.`);
         preface.push(...notes);
         const result = await settle(session.id, null, ctx, preface);
         if (!options.demo && config?.live?.estimateUsd) {

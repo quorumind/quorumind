@@ -587,3 +587,65 @@ describe("long waits", () => {
     await patient.close();
   });
 });
+
+describe("audits", () => {
+  let quorumind: Running;
+  let workdir: string;
+
+  beforeAll(async () => {
+    // A signed-in caller whose catalog is the demo model: a live session (not the replayed demo) that spends nothing.
+    quorumind = await startQuorumind(0, {
+      identify: async () => ({ userId: "ada" }),
+      catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
+    });
+    workdir = await mkdtemp(join(tmpdir(), "quorumind-audit-"));
+  });
+
+  afterAll(async () => {
+    await quorumind?.close();
+    await rm(workdir, { recursive: true, force: true });
+  });
+
+  it("needs the document to audit", async () => {
+    const mcp = await connect({ client: new QuorumindClient({ baseUrl: quorumind.url }), demo: false });
+    const refused = await call(mcp, "quorumind_start", { idea: "Is this quote sound?", mode: "audit" });
+    expect(refused.isError).toBe(true);
+    expect(textOf(refused)).toContain("context_files");
+    await mcp.close();
+  });
+
+  it("audits the first file against the need, and reports the opinion, the findings and the questions", async () => {
+    const quote = await readFile(join(import.meta.dirname, "../../../bench/fixtures/web-agency-quote.md"), "utf8");
+    await writeFile(join(workdir, "quote.md"), quote);
+    await writeFile(join(workdir, "needs.md"), "Members must get SMS reminders.\n");
+    const mcp = await connect({ client: new QuorumindClient({ baseUrl: quorumind.url }), demo: false, cwd: workdir, pollMs: 20 });
+    const started = await call(mcp, "quorumind_start", {
+      idea: "A booking website for our 12 yoga studios: is this quote sound?",
+      mode: "audit",
+      context_files: ["quote.md", "needs.md"],
+      alternative: true,
+    });
+    expect(started.isError).toBeFalsy();
+    expect(textOf(started)).toContain("Under audit: quote.md.");
+    const id = snapOf(started).sessionId;
+    const stored = await quorumind.store.get(id, "ada");
+    expect(stored?.mode).toBe("audit");
+    expect(stored?.audit).toMatchObject({ documentIds: [stored?.context[0]?.id], alternative: true });
+
+    const questions = snapOf(started).questions ?? [];
+    await call(mcp, "quorumind_answer", { session_id: id, answers: questions.map((q) => ({ question: q.id, answer: "€15,000" })) });
+    const confirmed = await call(mcp, "quorumind_confirm", { session_id: id });
+    const asked = snapOf(confirmed).debateQuestions ?? [];
+    const done =
+      asked.length > 0
+        ? await call(mcp, "quorumind_answer", { session_id: id, answers: asked.map((q) => ({ question: q, answer: "The agency." })) })
+        : confirmed;
+    expect(snapOf(done).status).toBe("complete");
+    const summary = textOf(await call(mcp, "quorumind_verdict", { session_id: id, format: "summary" }));
+    expect(summary).toContain("**Opinion: not sound as it stands.**");
+    expect(summary).toContain('Quoted: "Total: 38,000 € excl. VAT"');
+    expect(summary).toContain("### Questions to ask the provider");
+    expect(summary).toContain("- Lines add up to 36,600 EUR, stated total 38,000 EUR");
+    await mcp.close();
+  });
+});

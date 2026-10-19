@@ -69,6 +69,8 @@ export interface NewSession {
   rounds?: number;
   budgetUsd?: number | null;
   challenge?: string | null;
+  /** Audit mode: the attached documents under audit, by id, and whether to sketch an alternative. */
+  audit?: { documentIds: string[]; alternative: boolean } | null;
   context?: ContextDocument[];
   redact?: boolean;
 }
