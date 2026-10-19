@@ -186,45 +186,50 @@ describe("GitHub issues", () => {
     });
   });
 
-  it.skipIf(!bash)("creates steps, then tracking issues that list them, without expanding anything", () => {
-    const session = finished([
-      ...TRICKY,
-      { phase: "It's $(touch pwned) time", content: "Run `rm -rf /`\nQUORUMIND_ISSUE_BODY\n$HOME", exitCriterion: "Done" },
-    ]);
-    const dir = mkdtempSync(join(tmpdir(), "quorumind-gh-"));
-    try {
-      // A fake gh that records each call and answers with an issue URL.
-      const log = join(dir, "calls.log");
-      writeFileSync(
-        join(dir, "gh"),
-        [
-          "#!/usr/bin/env bash",
-          `printf '%s\\n' "$*" >> '${log.replaceAll("\\", "/")}'`,
-          'if [ "$1" = issue ]; then echo x >> "$0.count"; n=$(( $(wc -l < "$0.count") )); echo "https://github.com/o/r/issues/$n"; fi',
-        ].join("\n"),
-      );
-      chmodSync(join(dir, "gh"), 0o755);
-      const script = join(dir, "create-issues.sh");
-      writeFileSync(script, githubIssueScript(githubIssuePlan(session)));
-      const out = execFileSync("bash", [script, "o/r"], {
-        cwd: dir,
-        encoding: "utf8",
-        env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH}` },
-      });
-      const urls = out.trim().split("\n");
-      // Each phase: its steps, then its tracking issue.
-      expect(urls).toHaveLength(2 + 1 + (3 + 1) + (3 + 1));
-      const calls = readFileSync(log, "utf8");
-      expect(calls).toMatch(/^label create quorumind --repo o\/r/);
-      expect(calls).toContain("--title Phase 3: It's $(touch pwned) time");
-      expect(calls).toContain("QUORUMIND_ISSUE_BODY\n$HOME");
-      expect(calls).toContain("Run `rm -rf /`");
-      expect(calls).toContain("- [ ] https://github.com/o/r/issues/1\n- [ ] https://github.com/o/r/issues/2");
-      expect(existsSync(join(dir, "pwned"))).toBe(false);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
+  // Runs the script with a real bash, one process per issue: slow on a loaded machine, hence its own timeout.
+  it.skipIf(!bash)(
+    "creates steps, then tracking issues that list them, without expanding anything",
+    () => {
+      const session = finished([
+        ...TRICKY,
+        { phase: "It's $(touch pwned) time", content: "Run `rm -rf /`\nQUORUMIND_ISSUE_BODY\n$HOME", exitCriterion: "Done" },
+      ]);
+      const dir = mkdtempSync(join(tmpdir(), "quorumind-gh-"));
+      try {
+        // A fake gh that records each call and answers with an issue URL.
+        const log = join(dir, "calls.log");
+        writeFileSync(
+          join(dir, "gh"),
+          [
+            "#!/usr/bin/env bash",
+            `printf '%s\\n' "$*" >> '${log.replaceAll("\\", "/")}'`,
+            'if [ "$1" = issue ]; then echo x >> "$0.count"; n=$(( $(wc -l < "$0.count") )); echo "https://github.com/o/r/issues/$n"; fi',
+          ].join("\n"),
+        );
+        chmodSync(join(dir, "gh"), 0o755);
+        const script = join(dir, "create-issues.sh");
+        writeFileSync(script, githubIssueScript(githubIssuePlan(session)));
+        const out = execFileSync("bash", [script, "o/r"], {
+          cwd: dir,
+          encoding: "utf8",
+          env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH}` },
+        });
+        const urls = out.trim().split("\n");
+        // Each phase: its steps, then its tracking issue.
+        expect(urls).toHaveLength(2 + 1 + (3 + 1) + (3 + 1));
+        const calls = readFileSync(log, "utf8");
+        expect(calls).toMatch(/^label create quorumind --repo o\/r/);
+        expect(calls).toContain("--title Phase 3: It's $(touch pwned) time");
+        expect(calls).toContain("QUORUMIND_ISSUE_BODY\n$HOME");
+        expect(calls).toContain("Run `rm -rf /`");
+        expect(calls).toContain("- [ ] https://github.com/o/r/issues/1\n- [ ] https://github.com/o/r/issues/2");
+        expect(existsSync(join(dir, "pwned"))).toBe(false);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    30_000,
+  );
 });
 
 describe("numbered ADR", () => {
