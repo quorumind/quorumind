@@ -1,7 +1,7 @@
 import { createContext, lazy, type ReactNode, Suspense, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type HostNavigation, type SessionSummary } from "./api.ts";
-import { HostLinks, HostUser, SiteLink, WorkspaceSwitch } from "./components/HostMenu.tsx";
+import { AccountMenu, SiteLink, WorkspaceSwitch } from "./components/HostMenu.tsx";
 import {
   CrossIcon,
   DebatesIcon,
@@ -201,9 +201,9 @@ function ThemeButton() {
 const RECENT_COUNT = 15;
 
 /**
- * The latest sessions, between the app's pages and the account's: one line each, the one shown marked, then the way
- * to all of them. They take the height the rest of the menu leaves and scroll in it, so the menu's foot stays in
- * sight. A history that could not be read leaves no empty section behind.
+ * The latest sessions, between the app's pages and the bottom of the menu: one line each, the one shown marked, then
+ * the way to all of them. They take the height the rest of the menu leaves and scroll in it, so the menu's foot stays
+ * in sight. A history that could not be read leaves no empty section behind.
  */
 function RecentSessions({ current, hosted }: { current: string | null; hosted: boolean }) {
   const { t, i18n } = useTranslation();
@@ -255,9 +255,10 @@ function RecentSessions({ current, hosted }: { current: string | null; hosted: b
 
 /**
  * The menu, in three parts: on top, a new session and the app's pages (the sessions, the decisions, the gallery, the
- * settings); in the middle, the latest sessions, in the height left; at the bottom, the host's pages, the person and
- * the menu's foot. Hosted, it is the menu of the host's screens, so it stays the same from one side to the other: the
- * workspace on top, the app's pages under the debates, then the latest debates, then the host's pages and the person.
+ * settings); in the middle, the latest sessions, in the height left; at the bottom, the menu's foot. Hosted, it is the
+ * menu of the host's screens, so it stays the same from one side to the other: the workspace on top, the app's pages
+ * under the debates, then the latest debates, then the person, whose card opens the host's pages and the way to sign
+ * out, above the menu's foot.
  */
 function Sidebar({ current, host }: { current: string | null; host: HostNavigation | null | undefined }) {
   const { t } = useTranslation();
@@ -307,12 +308,12 @@ function Sidebar({ current, host }: { current: string | null; host: HostNavigati
       </nav>
       <RecentSessions current={current} hosted={hosted} />
       <div className="sidebar-bottom">
-        {host && host.links.length > 0 ? (
-          <nav className="sidebar-nav" aria-label={t("host.group")}>
-            <HostLinks links={host.links} />
-          </nav>
+        {/* Until the host's part of the menu comes, the place of the person is kept too. */}
+        {host === undefined ? (
+          <div className="account-switch account-pending" aria-hidden="true" />
+        ) : host ? (
+          <AccountMenu navigation={host} />
         ) : null}
-        {host ? <HostUser user={host.user} signOut={host.signOut ?? null} /> : null}
         <div className="sidebar-foot sidebar-foot-host">
           {host?.siteUrl ? <SiteLink url={host.siteUrl} /> : null}
           <LanguageSelect id="language" />

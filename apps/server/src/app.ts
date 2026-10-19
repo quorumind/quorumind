@@ -179,7 +179,7 @@ export interface HostWorkspace {
 export interface HostNavigation {
   /** Null when the host has no workspaces; with none in the list, the menu offers to create one at `createUrl`. */
   workspaces: { list: HostWorkspace[]; createUrl: string } | null;
-  /** In the order the menu shows them, in a group of their own under the app's pages. */
+  /** In the order the person's menu, at the bottom of the menu, shows them, above the way to sign out. */
   links: { kind: HostLinkKind; url: string }[];
   user: { name: string | null; email: string };
   /** The host's website, for a way back to it; null for none. */

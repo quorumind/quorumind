@@ -348,6 +348,13 @@ export const ChevronsIcon = () => (
   </Icon>
 );
 
+/** Up: a menu that opens above its button. */
+export const ChevronUpIcon = () => (
+  <Icon>
+    <path d="M7 14.5l5-5 5 5" />
+  </Icon>
+);
+
 /** The debates: two voices in conversation. */
 export const DebatesIcon = () => (
   <Icon>

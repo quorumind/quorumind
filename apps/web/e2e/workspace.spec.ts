@@ -34,3 +34,37 @@ test("the author keeps every control of the session", async ({ browser, request 
   await expect(page.getByRole("heading", { name: "Your client" })).toBeVisible();
   await ada.close();
 });
+
+test("the person's card opens the host's pages above it, and signs out from its menu", async ({ browser }) => {
+  const ada = await browser.newContext({ extraHTTPHeaders: { "x-user": "ada" }, locale: "en-US", viewport: { width: 1366, height: 768 } });
+  const page = await ada.newPage();
+  await page.goto("/#/decisions");
+  const card = page.getByRole("button", { name: "Workspace and account: Ada Lovelace ada@example.com" });
+  await expect(card).toHaveAttribute("aria-haspopup", "menu");
+  await expect(card).toHaveAttribute("aria-expanded", "false");
+  // The host's pages are no longer lines of the menu, whose bottom stays in sight on a laptop.
+  await expect(page.getByRole("link", { name: "Billing" })).toHaveCount(0);
+  const foot = await page.getByRole("combobox", { name: "Language" }).boundingBox();
+  expect((foot?.y ?? 0) + (foot?.height ?? 0)).toBeLessThanOrEqual(768);
+
+  await card.focus();
+  await page.keyboard.press("Enter");
+  const menu = page.getByRole("menu", { name: "Workspace and account" });
+  await expect(menu.getByRole("menuitem")).toHaveText(["Home", "Billing", "Members", "Organisation profile", "Account", "Sign out"]);
+  await expect(menu.getByRole("menuitem", { name: "Home" })).toBeFocused();
+  // Above the card.
+  const [menuBox, cardBox] = [await menu.boundingBox(), await card.boundingBox()];
+  expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(cardBox?.y ?? 0);
+  await page.keyboard.press("End");
+  await expect(menu.getByRole("menuitem", { name: "Sign out" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(card).toBeFocused();
+
+  await card.click();
+  const signOut = page.waitForRequest((request) => request.method() === "POST" && request.url().endsWith("/auth/signout"));
+  await menu.getByRole("menuitem", { name: "Sign out" }).click();
+  await signOut;
+  await expect(page).toHaveURL(/#\/gallery$/);
+  await ada.close();
+});

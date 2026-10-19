@@ -4213,7 +4213,7 @@ button.chip:active {
   padding: var(--space-1) var(--space-2);
 }
 
-/* The debates first, then the workspace and the account, in one column: a few lines that keep their height. */
+/* The debate app's pages, in one column: a few lines that keep their height. */
 .nav-group {
   display: contents;
 }
@@ -4413,8 +4413,7 @@ button.chip:active {
   color: var(--ink-muted);
 }
 
-/* The workspace's and the account's pages, the person and the menu's foot: always at the bottom, whatever the
-   debates above. */
+/* The person and the menu's foot: always at the bottom, whatever the debates above. */
 .sidebar-bottom {
   flex: none;
   display: flex;
@@ -4434,43 +4433,160 @@ button.chip:active {
   }
 }
 
-.sidebar-user-row {
-  margin-block-start: auto;
+/* The person signed in, at the bottom of the menu: a card a step off the menu's background, that opens above it the
+   workspace's and the account's pages, then the way to sign out. */
+.account-switch {
+  position: relative;
+  flex: none;
+}
+
+/* The place of the person while the host's part of the menu loads. */
+.account-pending {
+  min-block-size: 54px;
+}
+
+.account-button {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  min-inline-size: 0;
+  gap: var(--space-3);
+  inline-size: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
 }
 
-.sidebar-user-row .sidebar-user {
-  flex: 1;
-  margin-block-start: 0;
+.account-button:not(:disabled):hover,
+.account-button[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--thesis) 45%, var(--line));
+  background: color-mix(in srgb, var(--thesis-soft) 55%, var(--surface));
 }
 
-.sidebar-user-row .sign-out {
+.account-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.account-chevron {
+  display: inline-flex;
   flex: none;
-  color: var(--infeasible);
-  border-color: color-mix(in srgb, var(--infeasible) 40%, transparent);
+  color: var(--ink-muted);
+  transition: transform 200ms var(--ease-out);
 }
 
-.sidebar-user-row .sign-out:not(:disabled):hover {
-  background: var(--infeasible-soft);
-  color: var(--infeasible);
+.account-button[aria-expanded="true"] .account-chevron {
+  transform: rotate(180deg);
 }
 
-.sidebar-user {
-  margin-block-start: auto;
+.account-avatar {
   display: grid;
-  gap: 2px;
+  place-items: center;
+  flex: none;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: 14px;
-  line-height: 20px;
-  min-inline-size: 0;
 }
 
-.sidebar-user span {
+.account-text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.account-name,
+.account-email {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-name {
+  font-weight: 600;
+}
+
+.account-email {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+/* Above the card, as wide as it; on a screen too short for it, it scrolls. */
+.account-menu {
+  position: absolute;
+  z-index: 30;
+  inset-inline: 0;
+  inset-block-end: calc(100% + var(--space-1));
+  display: grid;
+  gap: 2px;
+  max-block-size: calc(100dvh - 136px);
+  overflow-y: auto;
+  padding: var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  /* The shadow of the workspace's menu, cast upwards: away from the card. */
+  box-shadow: 0 -10px 30px -12px color-mix(in srgb, var(--ink) 35%, transparent);
+  animation: rise 160ms var(--ease-out);
+}
+
+.account-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  inline-size: 100%;
+  padding: 6px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink);
+  text-align: start;
+  text-decoration: none;
+  font: inherit;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.account-item:hover,
+.account-item:focus-visible,
+.account-item[aria-current="page"] {
+  background: var(--thesis-soft);
+}
+
+.account-item[aria-current="page"] {
+  font-weight: 600;
+}
+
+.account-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.account-separator {
+  margin: var(--space-1) 0;
+  border: 0;
+  border-block-start: 1px solid var(--line);
+}
+
+.account-item.account-sign-out {
+  color: var(--infeasible);
+}
+
+.account-item.account-sign-out:hover,
+.account-item.account-sign-out:focus-visible {
+  background: var(--infeasible-soft);
 }
 
 /* The way back to the host's website: discreet, next to the controls of the page. */
@@ -4501,10 +4617,6 @@ button.chip:active {
   margin-block-start: auto;
 }
 
-.sidebar-user + .sidebar-foot-host {
-  margin-block-start: 0;
-}
-
 .sidebar-foot-host .site-link {
   flex-basis: 100%;
 }
@@ -4512,6 +4624,23 @@ button.chip:active {
 .sidebar-foot-host .select {
   flex: 1;
   min-inline-size: 0;
+}
+
+/* Under the person's card, the menu's foot steps back: smaller type, lower controls without a fill. */
+:where(.account-switch) + .sidebar-foot .site-link {
+  font-size: 13px;
+}
+
+:where(.account-switch) + .sidebar-foot .select,
+:where(.account-switch) + .sidebar-foot .icon-button {
+  block-size: 32px;
+  min-block-size: 32px;
+  font-size: 13px;
+  background: transparent;
+}
+
+:where(.account-switch) + .sidebar-foot .icon-button {
+  inline-size: 32px;
 }
 
 /* The sessions page: a search and the history's filter, then one line per session, the latest first; a card each

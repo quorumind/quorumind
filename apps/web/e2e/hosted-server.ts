@@ -33,10 +33,20 @@ const api = createApp({
     catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
     scope: async () => ({ workspace: "studio", workspaces: ["studio"] }),
     authors: async (owners) => Object.fromEntries(owners.map((owner) => [owner, { name: names[owner] ?? owner, email: null }])),
+    // The host's part of the menu: its pages and the way to sign out, under the person's name.
+    navigation: async (user) => ({
+      workspaces: null,
+      links: (["home", "billing", "members", "profile", "account"] as const).map((kind) => ({ kind, url: `/account/#/${kind}` })),
+      user: { name: names[user.userId] ?? null, email: `${user.userId}@example.com` },
+      siteUrl: null,
+      signOut: { url: "/auth/signout", next: "/#/gallery" },
+    }),
   },
 });
 
 const root = new Hono();
+// Signing out, as the host does it: the browser tests only check that the menu asks for it.
+root.post("/auth/signout", (c) => c.json({ ok: true }));
 root.route("/", api);
 const index = readFileSync(join(webDist, "index.html"), "utf8");
 root.use("/*", serveStatic({ root: webDist }));

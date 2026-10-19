@@ -7,6 +7,7 @@ import {
   CardIcon,
   CheckIcon,
   ChevronsIcon,
+  ChevronUpIcon,
   HomeIcon,
   PlusIcon,
   ShieldIcon,
@@ -22,16 +23,13 @@ const initial = (name: string) => Array.from(name.trim())[0]?.toLocaleUpperCase(
 type Workspaces = NonNullable<HostNavigation["workspaces"]>;
 
 /**
- * The current workspace, and a menu to switch to another one or to create one. A menu button (ARIA menu pattern): the
- * arrow keys move through the items, Enter picks one, Escape closes the menu and gives the focus back to the button.
- * Another workspace has other sessions, decisions and settings: the page loads again in it.
+ * A menu button (ARIA menu pattern): the button opens its menu on the first item (on the last with the up arrow),
+ * the arrow keys, Home and End move through the items, Enter picks one, Escape closes the menu and gives the focus
+ * back to the button, Tab leaves it. A click anywhere else closes it, leaving the focus where it went.
  */
-export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
-  const { t } = useTranslation();
-  const menuId = useId();
+function useMenuButton() {
+  const id = useId();
   const [open, setOpen] = useState<false | "first" | "last">(false);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
 
@@ -40,7 +38,6 @@ export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
     const list = menuItems(menu.current);
     const checked = list.find((item) => item.getAttribute("aria-checked") === "true");
     (open === "last" ? list.at(-1) : (checked ?? list[0]))?.focus();
-    // A click anywhere else closes the menu, leaving the focus where it went.
     const outside = (event: PointerEvent) => {
       const target = event.target as Node;
       if (!menu.current?.contains(target) && !button.current?.contains(target)) setOpen(false);
@@ -49,15 +46,6 @@ export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
     return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
 
-  if (workspaces.list.length === 0) {
-    return (
-      <a className="button button-secondary" href={workspaces.createUrl}>
-        <PlusIcon />
-        {t("host.createWorkspace")}
-      </a>
-    );
-  }
-  const current = workspaces.list.find((workspace) => workspace.current) ?? null;
   const close = (focusButton: boolean) => {
     setOpen(false);
     if (focusButton) button.current?.focus();
@@ -82,6 +70,46 @@ export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
     } else if (event.key === "Tab") close(false);
   };
 
+  return {
+    open: Boolean(open),
+    close,
+    button: {
+      ref: button,
+      "aria-haspopup": "menu" as const,
+      "aria-expanded": Boolean(open),
+      "aria-controls": open ? id : undefined,
+      onClick: () => (open ? close(false) : setOpen("first")),
+      onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          setOpen(event.key === "ArrowUp" ? "last" : "first");
+        }
+      },
+    },
+    menu: { ref: menu, id, tabIndex: -1, onKeyDown: onMenuKey },
+  };
+}
+
+/**
+ * The current workspace, and a menu to switch to another one or to create one, as a menu button. Another workspace
+ * has other sessions, decisions and settings: the page loads again in it.
+ */
+export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
+  const { t } = useTranslation();
+  const { open, close, button, menu } = useMenuButton();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  if (workspaces.list.length === 0) {
+    return (
+      <a className="button button-secondary" href={workspaces.createUrl}>
+        <PlusIcon />
+        {t("host.createWorkspace")}
+      </a>
+    );
+  }
+  const current = workspaces.list.find((workspace) => workspace.current) ?? null;
+
   const pick = (workspace: Workspaces["list"][number]) => {
     close(true);
     if (workspace.current) return;
@@ -102,22 +130,7 @@ export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
 
   return (
     <div className="workspace-switch">
-      <button
-        ref={button}
-        type="button"
-        className="workspace-button"
-        aria-haspopup="menu"
-        aria-expanded={Boolean(open)}
-        aria-controls={open ? menuId : undefined}
-        disabled={busy}
-        onClick={() => (open ? close(false) : setOpen("first"))}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            setOpen(event.key === "ArrowUp" ? "last" : "first");
-          }
-        }}
-      >
+      <button {...button} type="button" className="workspace-button" disabled={busy}>
         <span className="workspace-avatar" aria-hidden="true">
           {initial(current?.name ?? "")}
         </span>
@@ -129,15 +142,7 @@ export function WorkspaceSwitch({ workspaces }: { workspaces: Workspaces }) {
         <ChevronsIcon />
       </button>
       {open ? (
-        <div
-          ref={menu}
-          id={menuId}
-          className="workspace-menu"
-          role="menu"
-          aria-label={t("host.workspace")}
-          tabIndex={-1}
-          onKeyDown={onMenuKey}
-        >
+        <div {...menu} role="menu" className="workspace-menu" aria-label={t("host.workspace")}>
           {workspaces.list.map((workspace) => (
             <button
               key={workspace.switchUrl}
@@ -187,54 +192,60 @@ const ICONS: Record<HostLinkKind, () => ReactNode> = {
   staff: ShieldIcon,
 };
 
-/** The host's pages, the workspace's and the account's, in a group of their own. */
-export function HostLinks({ links }: { links: HostNavigation["links"] }) {
+/**
+ * The person signed in, at the bottom of the menu: a card that opens, above it, the host's pages (the workspace's
+ * and the account's) and the way to sign out when the host gives one, as a menu button.
+ */
+export function AccountMenu({ navigation }: { navigation: HostNavigation }) {
   const { t } = useTranslation();
-  if (links.length === 0) return null;
-  return (
-    <div className="nav-group">
-      <h2 className="nav-group-label">{t("host.group")}</h2>
-      {links.map((link) => {
-        const Icon = ICONS[link.kind];
-        return (
-          <a key={link.kind} className="nav-link" href={link.url}>
-            <Icon />
-            {t(`host.${link.kind}`)}
-          </a>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Who is signed in, and the way to sign out when the host gives one. */
-export function HostUser({ user, signOut }: { user: HostNavigation["user"]; signOut?: HostNavigation["signOut"] }) {
-  const { t } = useTranslation();
+  const { open, close, button, menu } = useMenuButton();
   const [busy, setBusy] = useState(false);
+  const { links, user, signOut } = navigation;
   const leave = async () => {
     if (!signOut) return;
+    close(false);
     setBusy(true);
     // Whatever the answer, the host's page decides what comes next: signed out, or asked to sign in again.
     await fetch(signOut.url, { method: "POST", credentials: "same-origin" }).catch(() => undefined);
     window.location.assign(signOut.next);
   };
+  const name = user.name || user.email;
   return (
-    <div className="sidebar-user-row">
-      <div className="sidebar-user">
-        <span>{user.name || user.email}</span>
-        {user.name ? <span className="muted">{user.email}</span> : null}
-      </div>
-      {signOut ? (
-        <button
-          type="button"
-          className="icon-button sign-out"
-          aria-label={t("host.signOut")}
-          title={t("host.signOut")}
-          disabled={busy}
-          onClick={() => void leave()}
-        >
-          <SignOutIcon />
-        </button>
+    <div className="account-switch">
+      <button {...button} type="button" className="account-button" disabled={busy}>
+        <span className="account-avatar" aria-hidden="true">
+          {initial(name)}
+        </span>
+        <span className="account-text">
+          <span className="visually-hidden">{t("host.group")}: </span>
+          <span className="account-name">{name}</span>
+          {user.name ? <span className="account-email">{user.email}</span> : null}
+        </span>
+        <span className="account-chevron" aria-hidden="true">
+          <ChevronUpIcon />
+        </span>
+      </button>
+      {open ? (
+        <div {...menu} role="menu" className="account-menu" aria-label={t("host.group")}>
+          {links.map((link) => {
+            const Icon = ICONS[link.kind];
+            return (
+              <a key={link.kind} role="menuitem" tabIndex={-1} className="account-item" href={link.url} onClick={() => close(false)}>
+                <Icon />
+                {t(`host.${link.kind}`)}
+              </a>
+            );
+          })}
+          {signOut ? (
+            <>
+              {links.length > 0 ? <hr className="account-separator" /> : null}
+              <button type="button" role="menuitem" tabIndex={-1} className="account-item account-sign-out" onClick={() => void leave()}>
+                <SignOutIcon />
+                {t("host.signOut")}
+              </button>
+            </>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
