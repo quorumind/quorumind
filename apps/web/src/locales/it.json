@@ -340,7 +340,7 @@
     },
     "modeHint": {
       "standard": "I modelli progettano opzioni concorrenti, si criticano a vicenda e l'arbitro decide.",
-      "express": "Cinque domande, un solo turno breve: un primo parere rapido su un'idea.",
+      "express": "Un'unica serie di domande, un solo turno breve: un primo parere rapido su un'idea.",
       "challenge": "Porta la tua soluzione: i modelli ne cercano solo i difetti, prima che tu ti impegni.",
       "audit": "Un preventivo o una proposta di un fornitore: i modelli lo confrontano con la tua esigenza e ti dicono cosa chiedere."
     },

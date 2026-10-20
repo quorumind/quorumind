@@ -25,7 +25,7 @@ import type { TemplateId } from "./templates.ts";
 export type Phase = "interview" | "review" | "debating" | "awaiting_answers" | "complete" | "failed";
 
 /**
- * standard: the models design competing options. express: five questions and one short round.
+ * standard: the models design competing options. express: one set of interview questions and one short round.
  * challenge: the person brings their own solution and the models only look for its flaws. audit: the person attaches a
  * document a provider sent them (a quote, a statement of work, an architecture) and the models examine it.
  */

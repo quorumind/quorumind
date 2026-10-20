@@ -253,7 +253,7 @@ export function createMcpServer(options: McpOptions): McpServer {
           .enum(["standard", "express", "challenge", "audit"])
           .optional()
           .describe(
-            "standard: the models design competing options. express: five questions and one short round, cheaper. challenge: the models only look for flaws in own_solution. " +
+            "standard: the models design competing options. express: one set of interview questions (at most eight, in a single turn) and one short round, cheaper. challenge: the models only look for flaws in own_solution. " +
               "audit: the models examine a document a provider sent the user (a quote, a statement of work, an architecture or a technical proposal), given as the first of context_files, against the need that idea states: findings with quoted passages, the price checked, questions to ask the provider.",
           ),
         template: z

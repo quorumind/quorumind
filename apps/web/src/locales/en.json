@@ -340,7 +340,7 @@
     },
     "modeHint": {
       "standard": "The models design competing options, criticise each other and the arbiter rules.",
-      "express": "Five questions, one short round: a fast first opinion on an idea.",
+      "express": "One set of questions, one short round: a fast first opinion on an idea.",
       "challenge": "Bring your own solution: the models only hunt for its flaws before you commit.",
       "audit": "A quote or a proposal from a provider: the models check it against your need and tell you what to ask."
     },

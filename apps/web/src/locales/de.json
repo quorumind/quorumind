@@ -340,7 +340,7 @@
     },
     "modeHint": {
       "standard": "Die Modelle entwerfen konkurrierende Optionen, kritisieren sich gegenseitig, und der Schiedsrichter entscheidet.",
-      "express": "Fünf Fragen, eine kurze Runde: eine schnelle erste Einschätzung zu einer Idee.",
+      "express": "Fragen in einem einzigen Durchgang, eine kurze Runde: eine schnelle erste Einschätzung zu einer Idee.",
       "challenge": "Bringen Sie Ihre eigene Lösung mit: Die Modelle suchen nur nach ihren Schwächen, bevor Sie sich festlegen.",
       "audit": "Ein Angebot oder Konzept eines Anbieters: Die Modelle prüfen es an Ihrem Bedarf und sagen Ihnen, was Sie fragen sollten."
     },

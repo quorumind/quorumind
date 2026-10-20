@@ -340,7 +340,7 @@
     },
     "modeHint": {
       "standard": "Les modèles conçoivent des options concurrentes, se critiquent mutuellement et l'arbitre tranche.",
-      "express": "Cinq questions, un tour court : un premier avis rapide sur une idée.",
+      "express": "Une seule série de questions, un tour court : un premier avis rapide sur une idée.",
       "challenge": "Apportez votre propre solution : les modèles ne font qu'en traquer les failles avant que vous vous engagiez.",
       "audit": "Un devis ou une proposition d'un prestataire : les modèles le confrontent à votre besoin et vous disent quoi demander."
     },

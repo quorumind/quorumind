@@ -340,7 +340,7 @@
     },
     "modeHint": {
       "standard": "Los modelos diseñan opciones que compiten entre sí, se critican mutuamente y el árbitro decide.",
-      "express": "Cinco preguntas y una ronda corta: una primera opinión rápida sobre una idea.",
+      "express": "Una sola tanda de preguntas y una ronda corta: una primera opinión rápida sobre una idea.",
       "challenge": "Traiga su propia solución: los modelos solo buscan sus fallos antes de que usted se comprometa.",
       "audit": "Un presupuesto o una propuesta de un proveedor: los modelos lo contrastan con su necesidad y le dicen qué preguntar."
     },
