@@ -9,16 +9,20 @@
 
 Quorumind first interviews you to pin down what you actually need: goals, scope, budget,
 existing infrastructure, team skills and hard constraints. Then several AI models (Claude,
-OpenAI / Codex, Gemini, local models via Ollama) each propose a solution, criticise each
-other's proposals and revise their own. An arbiter weighs every option against your
-requirements and tells you what is feasible, what is not, and why.
+OpenAI, Gemini, Mistral and others through OpenRouter, or local models through Ollama) each
+propose a solution, criticise each other's proposals and revise their own. An arbiter weighs
+every option against your requirements and tells you what is feasible, what is not, and why.
 
-You get a decision report: targeted goals, compared options with their verdict, recommended
-infrastructure, risks and a roadmap.
+You get a decision report: the recommendation and its conditions, the options compared in a
+weighted decision matrix, the recommended architecture, estimated costs, risks and a roadmap.
+
+Four modes: **Compare solutions** (the full debate), **Quick opinion** (one set of questions
+and a single short round), **Challenge my idea** (the models hunt for the flaws of the solution
+you bring) and **Audit a document** (a provider's quote or proposal checked against your need).
 
 > **Status:** pre-release. The full flow works end to end: interview, requirements sheet,
-> blind proposals, critiques, revisions, verdict and report, with Claude, OpenAI, Gemini and
-> Ollama, in ten languages. A recorded demo runs without any API key. Expect breaking changes
+> blind proposals, critiques, revisions, verdict and report, with Claude, OpenAI, Gemini,
+> OpenRouter and Ollama, in ten languages. A recorded demo runs without any API key. Expect breaking changes
 > until 1.0.
 
 ![The verdict of a debate: the recommended option and the decision matrix](docs/media/verdict.png)
@@ -33,12 +37,13 @@ Requirements: Node.js 22.18 or later.
 
 ```bash
 npm install
-cp .env.example .env     # add ANTHROPIC_API_KEY and/or OPENAI_API_KEY + OPENAI_MODEL
+cp .env.example .env     # add at least one provider (see Configuration below)
 npm run build
 npm start                # http://127.0.0.1:8787
 ```
 
-Without any key, Quorumind starts in demo mode: click "Try the demo" to replay a recorded debate.
+Without any key, Quorumind starts in demo mode: click "Replay the recorded demo" to watch a
+recorded debate.
 
 With Docker:
 
@@ -148,7 +153,7 @@ Setup for Codex and Cursor, the tools and their options: [apps/mcp/README.md](ap
 flowchart LR
     A[1. Scoping interview] --> B[2. Requirements sheet<br/>validated by the user]
     B --> C[3. Blind proposals]
-    C --> D[4. Debate<br/>3 rounds]
+    C --> D[4. Debate<br/>1 to 3 rounds]
     D -- missing information --> B
     D --> E[5. Verdict and report]
 ```
@@ -162,22 +167,25 @@ flowchart LR
    nobody copies the first answer.
 4. **Debate.** Cross-critiques (blocking, major, minor), a devil's advocate, then revisions.
    If a choice depends on information you did not give, the debate pauses and asks you.
-5. **Verdict.** The arbiter marks each option feasible or not, scores it on your weighted
-   priorities, and shows where the models still disagree.
-6. **Revisions.** Send the open questions to your client as a questionnaire (a link that needs
-   no account, or a Word file), then update the recommendation with the answers: only the
-   arbiter rules again, and every report says which revision it shows and what changed.
-7. **What if.** Try a variant of the facts (two more developers, a budget 30% lower, a deadline
-   two months earlier, a new hard constraint, or a question in your own words): the arbiter
-   rules on the same options, and the budget and deadline checks are computed with the new
-   numbers. Scenarios are kept beside the verdict, can branch from any revision, and one can be
-   adopted as the decision. Any two versions can be compared side by side, in the app or as a
-   Markdown, web or PDF document.
-8. **Decision register.** Every session that reached a verdict has a row: its recommendation,
-   its status (proposed, approved, rejected, superseded), who approved which version and when,
-   a short note and a review date. Approving takes the right to change the session; others can
-   ask for an approval. The report and the ADR state the approval, the register exports as CSV,
-   and on the review date a reminder goes out by e-mail and to the chat channel (checked daily).
+5. **Verdict.** The arbiter marks each option feasible, feasible with conditions or not
+   feasible, scores it on your weighted priorities, and shows where the models still disagree.
+
+After the verdict:
+
+- **Revisions.** Send the open questions to your client as a questionnaire (a link that needs
+  no account, or a Word file), then update the recommendation with the answers: only the
+  arbiter rules again, and every report says which revision it shows and what changed.
+- **What if.** Try a variant of the facts (two more developers, a budget 30% lower, a deadline
+  two months earlier, a new hard constraint, or a question in your own words): the arbiter
+  rules on the same options, and the budget and deadline checks are computed with the new
+  numbers. Scenarios are kept beside the verdict, can branch from any revision, and one can be
+  adopted as the decision. Any two versions can be compared side by side, in the app or as a
+  Markdown, web or PDF document.
+- **Decision register.** Every session that reached a verdict has a row: its recommendation,
+  its status (proposed, approved, rejected, superseded), who approved which version and when,
+  a short note and a review date. Approving takes the right to change the session; others can
+  ask for an approval. The report and the ADR state the approval, the register exports as CSV,
+  and on the review date a reminder goes out by e-mail and to the chat channel (checked daily).
 
 ## Roles
 
@@ -202,7 +210,7 @@ flowchart TB
         O[Orchestrator<br/>state machine] ~~~ P[Roles and prompts] ~~~ V[Validation and cost tracking]
     end
     subgraph Providers["Providers (one common interface)"]
-        C1[Claude] ~~~ C2[OpenAI / Codex] ~~~ C3[Gemini] ~~~ C4[Ollama]
+        C1[Claude] ~~~ C2[OpenAI] ~~~ C3[Gemini] ~~~ C5[OpenRouter] ~~~ C4[Ollama]
     end
     Browser <-->|REST + SSE| Server
     Server --> Providers
@@ -242,7 +250,7 @@ npm run media       # screenshots and demo video in docs/media, filmed on the re
 
 | Path | Content |
 | --- | --- |
-| `packages/core` | Debate engine, role prompts, schemas, provider adapters (Claude, OpenAI, Gemini, Ollama, demo), pricing, report and exports |
+| `packages/core` | Debate engine, role prompts, schemas, provider adapters (Claude, OpenAI, Gemini, OpenRouter, Ollama, demo), pricing, report and exports |
 | `apps/server` | HTTP API, live event stream (SSE), SQLite or PostgreSQL storage, serves the interface |
 | `apps/mcp` | MCP server for coding agents: runs a debate through the HTTP API and writes the hand-off files |
 | `apps/web` | React interface, ten languages, light and dark themes |
@@ -254,23 +262,23 @@ change makes debates better or worse.
 
 ## Roadmap
 
-Available today: the full debate with up to four proposers and a devil's advocate, any model
-in any role (Claude, OpenAI, Gemini, Ollama), a cost cap, an interactive decision matrix, a
-debate map, reports rewritten for a CTO, an executive or a client, exports (Markdown, PDF,
-Word, ADR, coding-agent hand-off, Jira, Linear and GitHub issues), resumable and shareable sessions, context import (PDF or
-Word specifications, web pages, GitHub repositories), client questionnaires, revisions of the
-verdict, what-if scenarios and the comparison of two versions, a decision register with
-approvals and review reminders, an editable client proposal (Word, PDF) and the MCP server.
+Available today: the full debate with up to four proposers and a devil's advocate, the four
+modes, any model in any role (Claude, OpenAI, Gemini, OpenRouter, Ollama), a cost cap, an
+interactive decision matrix, a debate map, reports rewritten for a CTO, an executive or a
+client, exports (Markdown, PDF, Word, ADR, coding-agent hand-off, Jira, Linear and GitHub
+issues), resumable and shareable sessions, context import (PDF or Word specifications, web
+pages, GitHub repositories), optional web research with cited sources, European models only
+and compliance checks, client questionnaires, revisions of the verdict, what-if scenarios and
+the comparison of two versions, a decision register with approvals and review reminders, an
+editable client proposal (Word, PDF) and the MCP server.
 
-Next:
-
-1. **Fact reliability:** optional web search for prices and versions, with cited sources.
-2. **Collaboration:** multi-user sessions and shared history.
+Next: **collaboration**, with multi-user sessions and a shared history on a self-hosted server.
 
 ## Hosted version
 
-A hosted version (no API keys needed, pay as you go or team plans) is planned at
-[quorumind.com](https://quorumind.com). This repository is and will stay the open source core.
+A hosted version, with the AI models included and no API key to set up, is coming at
+[quorumind.com](https://quorumind.com): a fixed price per debate, or monthly plans for one
+person or a team. This repository is and will stay its open source core.
 
 ## License
 
