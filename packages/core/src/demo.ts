@@ -24,21 +24,27 @@ export const DEMO_QUESTIONS: InterviewTurn = {
   questions: [
     {
       id: "budget",
+      topic: "Budget",
       text: "What can you spend to build it, and each month to run it?",
       why: "The monthly budget rules out some hosted platforms straight away.",
-      examples: ["€15,000 to build, €400 a month", "As little as possible", "I don't know yet"],
+      examples: ["€15,000 to build, €400 a month", "€5,000 to build, €100 a month", "As little as possible"],
+      multiple: false,
     },
     {
       id: "team",
+      topic: "Team",
       text: "Who will build and maintain it?",
       why: "A solution your team cannot maintain becomes a risk after launch.",
       examples: ["Two JavaScript developers, part time", "An agency", "Nobody technical in-house"],
+      multiple: false,
     },
     {
       id: "constraints",
+      topic: "Constraints",
       text: "Are there constraints you cannot negotiate?",
       why: "A violated hard constraint makes an option infeasible.",
       examples: ["Member data must stay in the EU", "Must launch before September", "None"],
+      multiple: true,
     },
   ],
   sheet: null,

@@ -1,6 +1,6 @@
 import type { ContextDocument, Session } from "@quorumind/core";
 import { describe, expect, it } from "vitest";
-import { costRecorded, misquotes, type RawCall, rawAuditQuotes, rawMarketRanges, validRange } from "./checks.ts";
+import { costRecorded, interviewChecks, misquotes, type RawCall, rawAuditQuotes, rawMarketRanges, validRange, words } from "./checks.ts";
 
 // The bench's own checks must be able to fail: they read what the models answered, before the engine cleaned it.
 
@@ -35,6 +35,39 @@ describe("bench checks", () => {
     expect(validRange({ low: 20_000, high: 40_000, basis: "Similar projects" })).toBe(true);
     expect(validRange({ low: 20_000, high: 40_000, basis: " " })).toBe(false);
     expect(validRange(null)).toBe(true);
+  });
+
+  it("fail the interviewer's questions that are long, without a topic or without short examples", () => {
+    const good = {
+      text: "Where does the Swarm run today?",
+      topic: "Existing setup",
+      examples: ["On-premises", "OVHcloud"],
+      multiple: false,
+    };
+    const asking = (questions: unknown[]) => ({ ...call("interview_turn", { status: "ask", questions }), task: "interview" as const });
+    expect(interviewChecks([asking([good])]).every((item) => item.passed)).toBe(true);
+    expect(interviewChecks([call("proposal", { questions: [{}] })])).toEqual([]);
+
+    const failed = (questions: unknown[]) =>
+      interviewChecks([asking(questions)])
+        .filter((item) => !item.passed)
+        .map((item) => item.name);
+    const compound =
+      "Where does the Swarm run today, how many manager and worker nodes are there, which Engine version runs on them and how old is the whole platform?";
+    expect(failed([{ ...good, text: "Where does it run? How many nodes?" }])).toEqual(["asks one short question at a time"]);
+    expect(failed([{ ...good, text: compound }])).toEqual(["asks one short question at a time"]);
+    expect(failed([{ ...good, topic: " " }])).toEqual(["names the topic of every question"]);
+    expect(failed([{ ...good, examples: ["On-premises"] }])).toEqual(["offers two to four short example answers"]);
+    expect(failed([{ ...good, examples: ["On-premises in our own data centre in Lyon, since 2017", "OVHcloud"] }])).toEqual([
+      "offers two to four short example answers",
+    ]);
+    expect(failed([{ ...good, multiple: undefined }])).toEqual(["says whether the example answers combine"]);
+  });
+
+  it("count the words of the languages written without spaces", () => {
+    expect(words("« Where does the Swarm run — today? »")).toBe(6);
+    expect(words("现在的集群运行在哪里")).toBe(5);
+    expect(words("Swarm はどこで動いていますか")).toBe(1 + 6);
   });
 
   it("fail when a call has no known cost", () => {

@@ -119,6 +119,60 @@ export function rawMarketRanges(calls: RawCall[]): ({ low: number; high: number;
 export const validRange = (range: { low: number; high: number; basis: string } | null) =>
   range === null || (Number.isFinite(range.low) && range.low >= 0 && range.low <= range.high && range.basis.trim().length > 0);
 
+/** Chinese, Japanese and Korean characters, written without spaces between words. */
+const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
+
+/**
+ * The words of a text: what has a letter or a digit, so that "«" or "—" do not count. Chinese, Japanese and Korean
+ * have no spaces: there, two characters count as about a word.
+ */
+export function words(text: string) {
+  const cjk = text.match(CJK)?.length ?? 0;
+  const spaced = text
+    .replace(CJK, " ")
+    .split(/\s+/)
+    .filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+  return spaced + Math.ceil(cjk / 2);
+}
+
+interface RawQuestion {
+  text?: unknown;
+  topic?: unknown;
+  examples?: unknown;
+  multiple?: unknown;
+}
+
+/**
+ * The interviewer's questions as it asked them, which the person answers on a phone as much as at a desk: one short
+ * question each, under a topic, with two to four short example answers and whether they combine (prompts.ts).
+ */
+export function interviewChecks(calls: RawCall[]): Check[] {
+  const questions = calls.flatMap((call) => {
+    if (call.schemaName !== "interview_turn") return [];
+    const asked = parsed(call)?.questions;
+    return Array.isArray(asked) ? (asked as RawQuestion[]) : [];
+  });
+  if (questions.length === 0) return [];
+  const checks: Check[] = [];
+  const add = adder(checks);
+  const text = (question: RawQuestion) => (typeof question.text === "string" ? question.text : "");
+  const long = questions.filter((question) => words(text(question)) > 25 || (text(question).match(/[?？؟]/g) ?? []).length > 1);
+  add("asks one short question at a time", long.length === 0, long.map(text).join(" | "));
+  const untitled = questions.filter((question) => typeof question.topic !== "string" || !question.topic.trim());
+  add("names the topic of every question", untitled.length === 0, untitled.map(text).join(" | "));
+  const badExamples = questions.filter(
+    (question) =>
+      !Array.isArray(question.examples) ||
+      question.examples.length < 2 ||
+      question.examples.length > 4 ||
+      question.examples.some((example) => typeof example !== "string" || words(example) > 8),
+  );
+  add("offers two to four short example answers", badExamples.length === 0, badExamples.map(text).join(" | "));
+  const unsaid = questions.filter((question) => typeof question.multiple !== "boolean");
+  add("says whether the example answers combine", unsaid.length === 0, unsaid.map(text).join(" | "));
+  return checks;
+}
+
 /** Every call has a known cost: none is free by mistake, none unpriced. */
 export function costRecorded(session: Pick<Session, "usage">): Check {
   const unknown = session.usage.filter((record) => record.costUsd === null);
@@ -173,6 +227,7 @@ export function check(session: Session, fixture: Fixture, context: { live: boole
   const checks: Check[] = [];
   const add = adder(checks);
   add("reaches a verdict", session.phase === "complete", session.error?.message);
+  checks.push(...interviewChecks(context.calls));
   const verdict = session.verdict;
   if (!verdict || !session.sheet) return checks;
   if (fixture.mode === "audit")

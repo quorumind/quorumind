@@ -1026,9 +1026,117 @@ button.chip:hover {
   padding-block-start: 0;
 }
 
+/* A topic opens a group of questions: a wider gap above it, and its name as a small heading. */
+.question-topic-start:not(:first-of-type) {
+  margin-block-start: var(--space-3);
+}
+
+.question-topic {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--thesis);
+}
+
+.question-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.question-number {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 22px;
+  block-size: 22px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.question-number.is-answered {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+}
+
 .question-text {
   font-weight: 600;
-  font-size: 17px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.question-why {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+/* A picked example answer, and "I don't know", set apart from the examples. */
+button.chip[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+}
+
+button.chip.chip-unknown:not([aria-pressed="true"]) {
+  border-style: dashed;
+  color: var(--ink-muted);
+}
+
+.questions-footer {
+  margin-block-start: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.questions-progress {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.chips-hint {
+  align-self: center;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+/* The shortcut means nothing without a keyboard. */
+.questions-shortcut {
+  margin: 0 0 0 auto;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+@media (pointer: coarse) {
+  .questions-shortcut {
+    display: none;
+  }
+}
+
+/* The answers sent, one under the other, a topic opening each group. */
+.sent-answer {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.sent-answer + .sent-answer {
+  margin-block-start: var(--space-3);
+}
+
+.sent-answer:has(.question-topic):not(:first-child) {
+  margin-block-start: var(--space-4);
 }
 
 /* Review */

@@ -94,7 +94,11 @@
     "answerPlaceholder": "La tua risposta, oppure «non lo so»",
     "unknown": "Non lo so",
     "send": "Invia le risposte",
-    "sending": "Invio…"
+    "sending": "Invio…",
+    "progress": "{{answered}} su {{total}} con risposta",
+    "blankHint": "una domanda lasciata vuota viene inviata come «Non lo so»",
+    "several": "Più risposte possibili",
+    "shortcut": "Ctrl+Invio per inviare"
   },
   "review": {
     "title": "Controlla i tuoi requisiti",

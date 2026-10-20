@@ -94,7 +94,11 @@
     "answerPlaceholder": "Your answer, or “I don't know”",
     "unknown": "I don't know",
     "send": "Send answers",
-    "sending": "Sending…"
+    "sending": "Sending…",
+    "progress": "{{answered}} of {{total}} answered",
+    "blankHint": "a question left blank is sent as “I don't know”",
+    "several": "Several answers possible",
+    "shortcut": "Ctrl+Enter to send"
   },
   "review": {
     "title": "Check your requirements",

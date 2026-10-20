@@ -94,7 +94,11 @@
     "answerPlaceholder": "回答、または「わからない」",
     "unknown": "わからない",
     "send": "回答を送信",
-    "sending": "送信中…"
+    "sending": "送信中…",
+    "progress": "{{total}} 問中 {{answered}} 問に回答済み",
+    "blankHint": "空欄の質問は「わからない」として送信されます",
+    "several": "複数選択できます",
+    "shortcut": "Ctrl+Enter で送信"
   },
   "review": {
     "title": "要件を確認してください",

@@ -94,7 +94,11 @@
     "answerPlaceholder": "Su respuesta, o «no lo sé»",
     "unknown": "No lo sé",
     "send": "Enviar respuestas",
-    "sending": "Enviando…"
+    "sending": "Enviando…",
+    "progress": "{{answered}} de {{total}} respondidas",
+    "blankHint": "una pregunta en blanco se envía como «No lo sé»",
+    "several": "Varias respuestas posibles",
+    "shortcut": "Ctrl+Intro para enviar"
   },
   "review": {
     "title": "Revise sus requisitos",

@@ -94,7 +94,11 @@
     "answerPlaceholder": "إجابتك، أو «لا أعرف»",
     "unknown": "لا أعرف",
     "send": "أرسل الإجابات",
-    "sending": "جارٍ الإرسال…"
+    "sending": "جارٍ الإرسال…",
+    "progress": "تمت الإجابة عن {{answered}} من {{total}}",
+    "blankHint": "السؤال المتروك فارغًا يُرسَل بعبارة «لا أعرف»",
+    "several": "يمكن اختيار أكثر من إجابة",
+    "shortcut": "Ctrl+Enter للإرسال"
   },
   "review": {
     "title": "راجِع متطلباتك",

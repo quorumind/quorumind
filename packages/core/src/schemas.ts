@@ -75,9 +75,21 @@ export type RequirementsSheet = z.infer<typeof RequirementsSheet>;
 
 export const InterviewQuestion = z.object({
   id: z.string(),
-  text: z.string(),
+  // topic and multiple are absent from the sessions stored before they existed, and a lenient model may send null: both
+  // read as unknown. The strict JSON schema still requires them from the model, without null.
+  topic: z
+    .string()
+    .optional()
+    .catch(undefined)
+    .describe("One to three words naming the area the question belongs to, shared by the questions on the same area."),
+  text: z.string().describe("One question asking one thing, in one sentence, without sub-questions, list or numbering."),
   why: z.string().describe("One short sentence on why this answer matters."),
-  examples: z.array(z.string()).describe("Two to four example answers the user can pick from."),
+  examples: z.array(z.string()).describe("Two to four short answers, specific to this project, that the user can send as they are."),
+  multiple: z
+    .boolean()
+    .optional()
+    .catch(undefined)
+    .describe("True when several examples can apply together, false when they exclude each other."),
 });
 export type InterviewQuestion = z.infer<typeof InterviewQuestion>;
 

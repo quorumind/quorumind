@@ -160,9 +160,13 @@ export function renderSnapshot(snap: Snapshot, session: Session, costs: SessionC
 export function formatInterviewQuestions(questions: InterviewQuestion[]): string {
   return questions
     .map((question, i) => {
-      const lines = [`${i + 1}. ${question.text} (id: ${question.id})`];
+      const topic = question.topic?.trim() ? `[${question.topic.trim()}] ` : "";
+      const lines = [`${i + 1}. ${topic}${question.text} (id: ${question.id})`];
       if (question.why) lines.push(`   Why it matters: ${question.why}`);
-      if (question.examples.length > 0) lines.push(`   Example answers: ${question.examples.join(" | ")}`);
+      if (question.examples.length > 0) {
+        const combine = question.multiple === true ? " (several can combine)" : question.multiple === false ? " (pick one)" : "";
+        lines.push(`   Example answers${combine}: ${question.examples.join(" | ")}`);
+      }
       return lines.join("\n");
     })
     .join("\n");

@@ -94,7 +94,11 @@
     "answerPlaceholder": "Ihre Antwort oder „Weiß ich nicht“",
     "unknown": "Weiß ich nicht",
     "send": "Antworten senden",
-    "sending": "Wird gesendet…"
+    "sending": "Wird gesendet…",
+    "progress": "{{answered}} von {{total}} beantwortet",
+    "blankHint": "eine leere Frage wird als „Weiß ich nicht“ gesendet",
+    "several": "Mehrere Antworten möglich",
+    "shortcut": "Strg+Eingabe zum Senden"
   },
   "review": {
     "title": "Prüfen Sie Ihre Anforderungen",

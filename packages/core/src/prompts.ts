@@ -53,6 +53,15 @@ export const STYLE_RULE = `Be concrete: name technologies, quantities, prices an
 Never invent facts about the person's situation: when something is unknown, state the assumption you make.
 Answer with JSON only, following the schema. Start with "speech": two to four plain sentences that a person can read while the rest is written.`;
 
+/** The person answers on a phone as much as at a desk: short questions, and answers they can pick instead of typing. */
+const QUESTION_RULE = `Each question asks one thing, in one sentence of at most 25 words: no sub-questions, no list, no numbering.
+To cover a broad area, split it into several questions that share the same topic, a label of one to three words (such as Budget,
+Existing setup or Users); questions on the same topic follow each other. Give every question two to four example answers
+the person can send as they are: at most eight words each, specific to this project, distinct from each other and covering
+the realistic range. Never offer "I don't know" as an example: the interface always offers it. Set multiple to true
+when several examples can apply together (pain points, constraints), false when only one can be true (a hosting choice, a range).
+The speech introduces the turn without repeating the questions.`;
+
 export interface InterviewOptions {
   forceDone: boolean;
   express: boolean;
@@ -70,10 +79,11 @@ export function interviewerSystem(locale: Locale, options: InterviewOptions) {
     ? `\nThis is a ${template.replace("_", " and ")} project: also make sure you cover ${TEMPLATES[template].focus.join("; ")}.`
     : "";
   const pace = express
-    ? `This is an express session: ask your five most decisive questions in a single turn, then produce the sheet from the answers.`
+    ? `This is an express session: ask your most decisive questions in a single turn, at most eight on at most five topics,
+then produce the sheet from the answers.`
     : audit
-      ? `Ask at most three questions per turn, the most decisive first: the document answers much of the rest. Give two to four example answers for each.`
-      : `Ask at most four questions per turn, starting with what matters most for the decision. Give two to four example answers for each.`;
+      ? `Ask at most three questions per turn, the most decisive first: the document answers much of the rest.`
+      : `Ask at most four questions per turn, starting with what matters most for the decision.`;
   const challengeRule = challenge
     ? `\nThe person already has a solution, given in <solution>. Do not design one: ask what you need to judge it fairly against their real situation.`
     : "";
@@ -93,6 +103,7 @@ existing infrastructure and tools, the team and its skills, deadline, hard const
 and how the person ranks cost, time to market, maintainability, performance and scalability.
 
 ${pace}${focus}${challengeRule}${auditRule}
+${QUESTION_RULE}
 If documents are attached in <context>, use them: do not ask what they already answer, and pre-fill the sheet from them.
 If <profile> is given, it describes the organisation that will build the project (an agency, an IT services firm or a freelancer
 answering a client's brief): do not ask what it already answers, such as its rates, technologies or hosting policy.

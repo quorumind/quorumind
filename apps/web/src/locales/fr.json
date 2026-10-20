@@ -94,7 +94,11 @@
     "answerPlaceholder": "Votre réponse, ou « je ne sais pas »",
     "unknown": "Je ne sais pas",
     "send": "Envoyer les réponses",
-    "sending": "Envoi…"
+    "sending": "Envoi…",
+    "progress": "{{answered}} sur {{total}} répondues",
+    "blankHint": "une question laissée vide est envoyée comme « je ne sais pas »",
+    "several": "Plusieurs réponses possibles",
+    "shortcut": "Ctrl+Entrée pour envoyer"
   },
   "review": {
     "title": "Vérifiez votre besoin",

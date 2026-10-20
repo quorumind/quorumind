@@ -94,7 +94,11 @@
     "answerPlaceholder": "Sua resposta, ou “não sei”",
     "unknown": "Não sei",
     "send": "Enviar respostas",
-    "sending": "Enviando…"
+    "sending": "Enviando…",
+    "progress": "{{answered}} de {{total}} respondidas",
+    "blankHint": "uma pergunta em branco é enviada como «Não sei»",
+    "several": "Várias respostas possíveis",
+    "shortcut": "Ctrl+Enter para enviar"
   },
   "review": {
     "title": "Confira seus requisitos",
