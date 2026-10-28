@@ -70,7 +70,7 @@ describe("the revision shown", () => {
   it("follows the session once a scenario is adopted, to any later revision", async () => {
     stubApi({ ...routes, "PUT /api/sessions/s1/adopted": () => json({ adopted: 2, decision: null }) });
     const view = renderVerdict(withRevisions(complete, null));
-    fireEvent.change(screen.getByLabelText("Revision shown"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Version shown"), { target: { value: "2" } });
     fireEvent.click(await screen.findByRole("button", { name: "Adopt this scenario as the decision" }));
     // The adoption reaches the page, then new facts make revision 3, the new current one.
     view.rerender(
@@ -84,7 +84,7 @@ describe("the revision shown", () => {
         <Verdict session={withRevisions(complete, null, [third])} />
       </AccessContext.Provider>,
     );
-    await waitFor(() => expect((screen.getByLabelText("Revision shown") as HTMLSelectElement).value).toBe("3"));
+    await waitFor(() => expect((screen.getByLabelText("Version shown") as HTMLSelectElement).value).toBe("3"));
     expect(screen.queryByText(/You are reading revision/)).toBeNull();
   });
 });

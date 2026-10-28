@@ -71,7 +71,7 @@ describe("the client loop", () => {
     // Once the list says it was applied, the card says so and offers nothing more.
     list = [submitted({ appliedRevision: 2 })];
     act(() => window.dispatchEvent(new Event("focus")));
-    await screen.findByText("Revision 2 was made from these answers.");
+    await screen.findByText("Version 2 was made from these answers.");
     expect(updateButton()).toBeNull();
   });
 

@@ -1,7 +1,7 @@
 {
   "app": {
     "tagline": "Várias IAs debatem seu projeto antes que você o construa.",
-    "footer": "Código aberto sob licença AGPL v3. As respostas dos modelos podem estar erradas: verifique as afirmações marcadas como estimadas ou supostas."
+    "footer": "Código aberto sob licença AGPL v3. As respostas dos modelos podem estar erradas: verifique as afirmações marcadas como estimadas ou presumidas."
   },
   "nav": {
     "home": "Início",
@@ -264,7 +264,7 @@
   "confidence": {
     "verified": "Verificado",
     "estimated": "Estimado",
-    "assumed": "Suposto"
+    "assumed": "Presumido"
   },
   "level": {
     "low": "Baixa",
@@ -331,10 +331,11 @@
     "search": "Pesquisa web"
   },
   "setup": {
+    "premiumModel": "{{model}} (Premium)",
     "modeLabel": "Do que você precisa?",
     "mode": {
       "standard": "Comparar soluções",
-      "express": "Opinião rápida",
+      "express": "Expresso",
       "challenge": "Desafiar minha ideia",
       "audit": "Auditar um documento"
     },
@@ -354,7 +355,7 @@
     "depthOption": {
       "quick": "Rápida",
       "standard": "Padrão",
-      "deep": "Profunda"
+      "deep": "Aprofundada"
     },
     "model": "Modelo",
     "viaGateway": "{{maker}} via {{gateway}}",
@@ -703,6 +704,7 @@
     "readOnly": "Você pode ler esta sessão e recomeçar a partir dela. Só o autor ou um administrador do espaço de trabalho pode alterá-la."
   },
   "errors": {
+    "lineup_cost": "Esses modelos custariam mais do que o preço deste debate cobre, e o debate terminaria sem veredito. Escolha menos participantes ou modelos mais leves.",
     "budget_exceeded": "O limite de custo foi atingido.",
     "price_limit": "O debate usou toda a capacidade dos modelos incluída no seu preço.",
     "provider_error": "Um modelo não conseguiu responder.",
@@ -727,7 +729,7 @@
     "provider_refused": "O modelo se recusou a responder a esta solicitação. Reformule a parte sensível ou escolha outro modelo.",
     "insufficient_credits": "Você não tem mais créditos. Compre créditos ou assine um plano para continuar.",
     "plan_limit": "Seu plano não permite isso. Escolha outras configurações ou outro plano.",
-    "seat_limit": "O plano deste espaço não tem mais lugares livres. Escolha um plano com mais lugares.",
+    "seat_limit": "Este espaço atingiu o número máximo de pessoas. Para convidar mais pessoas, escolha o plano Equipe ou Agência.",
     "read_only": "Só o autor desta sessão ou um administrador do seu espaço de trabalho pode alterá-la.",
     "stopped": "Você parou esta sessão. Retome quando quiser.",
     "not_running": "Esta sessão não está mais em andamento.",
@@ -754,7 +756,7 @@
     "closed": "Esta decisão está encerrada. Reabra-a primeiro.",
     "not_closed": "Esta decisão já está aberta.",
     "self_superseding": "Uma decisão não pode substituir a si mesma.",
-    "already_applied": "Já foi feita uma revisão com estas respostas, ou ela está em andamento. Recarregue a página para vê-la.",
+    "already_applied": "Já foi feita uma atualização da recomendação com estas respostas, ou ela está em andamento. Recarregue a página para vê-la.",
     "verdict_changed": "O veredito mudou nesse meio-tempo, por exemplo porque um cenário foi adotado. Tente de novo para partir do veredito atual.",
     "cross_site": "Esta solicitação veio de outro site, por isso o servidor a recusou. Abra o Quorumind no endereço dele e tente de novo.",
     "forbidden_host": "Este servidor não responde neste endereço. Abra-o no endereço de costume, ou adicione este a QUORUMIND_ALLOWED_HOSTS no servidor.",
@@ -842,22 +844,22 @@
     "managedReadOnly": "Só os proprietários e administradores do espaço de trabalho podem alterá-lo: se algo precisar ser atualizado, peça a um deles."
   },
   "revision": {
-    "label": "Revisão {{number}} · {{date}}",
+    "label": "Versão {{number}} · {{date}}",
     "reason": {
       "debate": "Veredito do debate",
       "client_answers": "Atualizado com as respostas do cliente",
       "edit": "Atualizado com novos fatos",
       "scenario": "Cenário"
     },
-    "show": "Revisão exibida",
+    "show": "Versão exibida",
     "latest": "atual",
-    "viewingOld": "Você está lendo a revisão {{number}}. O veredito atual é a revisão {{latest}}.",
+    "viewingOld": "Você está lendo a versão {{number}}. O veredito atual é a versão {{latest}}.",
     "backToLatest": "Voltar ao veredito atual",
     "working": "Atualizando a recomendação com os novos fatos…",
     "failed": "A atualização parou e o veredito não mudou. {{reason}}",
     "retry": "Tentar novamente",
     "update": "Atualizar a recomendação",
-    "whatChanged": "O que mudou desde a revisão {{number}}",
+    "whatChanged": "O que mudou desde a versão {{number}}",
     "noChange": "Os novos fatos não mudaram a recomendação, as notas, os riscos nem os custos.",
     "fromTo": "{{from}} → {{to}}",
     "noRecommendation": "nenhuma opção",
@@ -914,7 +916,7 @@
     "questions": "Perguntas ({{number}})",
     "noAnswer": "Sem resposta",
     "comment": "Comentário: {{comment}}",
-    "applied": "A revisão {{number}} foi feita a partir destas respostas.",
+    "applied": "A versão {{number}} foi criada a partir destas respostas.",
     "edit": "Editar as perguntas",
     "reopen": "Reabrir para respostas",
     "delete": "Excluir"
@@ -998,8 +1000,8 @@
     "title": "Comparar duas versões",
     "left": "Primeira versão",
     "right": "Segunda versão",
-    "version": "Revisão {{number}}",
-    "scenarioVersion": "Cenário “{{title}}” · revisão {{number}}",
+    "version": "Versão {{number}}",
+    "scenarioVersion": "Cenário “{{title}}” · versão {{number}}",
     "summary": "{{count}} diferença(s)",
     "none": "As duas versões coincidem em todos os pontos comparados.",
     "legend": "Os valores que diferem estão destacados.",
@@ -1037,7 +1039,7 @@
     },
     "approvedBy": "Aprovado por {{name}} em {{date}}",
     "approvedOn": "Aprovado em {{date}}",
-    "outdated": "A revisão {{number}} foi aprovada em {{date}}; esta versão ainda não foi aprovada.",
+    "outdated": "A versão {{number}} foi aprovada em {{date}}; a versão exibida ainda não foi aprovada.",
     "requested": "Aprovação solicitada por {{name}} em {{date}}",
     "requestedOn": "Aprovação solicitada em {{date}}",
     "revisit": "Revisar em {{date}}",
@@ -1084,8 +1086,8 @@
     "recommendation": "Recomendação",
     "approval": "Aprovação",
     "review": "Revisão",
-    "version": "Revisão {{number}}",
-    "scenario": "Cenário “{{title}}” · revisão {{number}}",
+    "version": "Versão {{number}}",
+    "scenario": "Cenário “{{title}}” · versão {{number}}",
     "noRecommendation": "Nenhuma opção é viável",
     "superseding": "Substituído por",
     "revisits": "Reconsidera uma decisão anterior",
