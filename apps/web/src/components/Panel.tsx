@@ -53,7 +53,7 @@ function ModelSelect({
               .filter((option) => groupOf(option) === group)
               .map((option) => (
                 <option key={keyOf(option)} value={keyOf(option)}>
-                  {modelName(option)}
+                  {option.premium ? t("setup.premiumModel", { model: modelName(option) }) : modelName(option)}
                 </option>
               ))}
           </optgroup>

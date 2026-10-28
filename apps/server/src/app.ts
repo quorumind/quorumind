@@ -127,12 +127,27 @@ export interface SessionAccess {
 }
 /**
  * Why the host refuses to spend: no credits left, a limit of the plan, the cost cap included in the debate's price,
- * no seat left in the workspace. The web app translates each of them.
+ * no seat left in the workspace, a lineup whose usual cost is over the cap its price includes. The web app translates
+ * each of them.
  */
-export type SpendRefusal = "insufficient_credits" | "plan_limit" | "price_limit" | "seat_limit";
+export type SpendRefusal = "insufficient_credits" | "plan_limit" | "price_limit" | "seat_limit" | "lineup_cost";
 
-/** The settings of a session its price can depend on. */
-export type PricedSettings = Pick<Session, "mode" | "depth" | "locale">;
+/** The model of one role, as a price can depend on it. */
+export interface PricedModel {
+  provider: string;
+  model: string;
+}
+
+/** The models of a lineup: a host may price a debate by them (e.g. dearer models at a higher price). */
+export interface LineupModels {
+  interviewer: PricedModel;
+  arbiter: PricedModel;
+  seats: Record<string, PricedModel>;
+  devil: PricedModel | null;
+}
+
+/** The settings of a session its price can depend on: its mode and depth, and its lineup once it is known. */
+export type PricedSettings = Pick<Session, "mode" | "depth" | "locale"> & Partial<LineupModels>;
 
 /** What is priced: a session's debate, or a revision of its verdict (the next one). */
 export type PricedItem = "debate" | "revision";
@@ -236,7 +251,7 @@ export interface AppHooks {
    * The provider cost cap of a new session from its settings, in US dollars (e.g. one cap per price
    * tier). The lowest of this, maxBudgetUsd and the person's own cap applies.
    */
-  sessionBudgetUsd?(settings: Pick<Session, "mode" | "depth">): number | null;
+  sessionBudgetUsd?(settings: Pick<Session, "mode" | "depth"> & Partial<LineupModels>): number | null;
   /**
    * The price of a debate for this user, shown before launch instead of the provider cost estimate
    * and in the session header. `sessionId` is set once the session exists. Null shows no price. With `item`
@@ -691,20 +706,37 @@ export function createApp(deps: AppDeps) {
       arbiterModel: session.arbiter.model,
       rounds: session.rounds,
     });
-    return debate && { low: debate.low + researchUsd / 2, high: debate.high + researchUsd };
+    return debate && { low: debate.low + researchUsd / 2, typical: debate.typical + researchUsd, high: debate.high + researchUsd };
+  };
+
+  /**
+   * A host that sells each debate at a fixed price refuses a lineup whose usual cost is already over the cap its price
+   * includes: the debate would be cut short, or end without a verdict. Checked until the debate starts.
+   */
+  const overCap = (session: Parameters<typeof estimateFor>[0] & { budgetUsd: number | null }, researchUsd: number): boolean => {
+    if (!hooks.hideProviderCosts || session.budgetUsd === null) return false;
+    const typical = estimateFor(session, researchUsd)?.typical;
+    return typical !== undefined && typical > session.budgetUsd;
   };
 
   const authorize = async (session: Session, purchase: Purchase = { kind: "debate" }) => {
+    if (session.demo) return;
     const user = users.get(session.id) ?? null;
-    if (!user || !hooks.authorizeSpend || session.demo) return;
+    const researchUsd = session.european ? 0 : researchEstimate(user, session.interviewer.model, session.webResearch);
+    if (purchase.kind === "debate" && !session.verdict && !session.sheetConfirmedAt && overCap(session, researchUsd)) {
+      throw new PaymentRequired(
+        "lineup_cost",
+        "These models would cost more than this debate's price covers. Choose fewer participants or lighter models.",
+      );
+    }
+    if (!user || !hooks.authorizeSpend) return;
     const critic = session.devil?.model ?? Object.values(session.seats)[0]?.model ?? null;
     const estimate =
       purchase.kind === "revision"
         ? (estimateRevisionCost({ arbiterModel: session.arbiter.model, criticModel: critic })?.high ?? 0.5)
         : session.verdict
           ? 0.05
-          : (estimateFor(session, session.european ? 0 : researchEstimate(user, session.interviewer.model, session.webResearch))?.high ??
-            1);
+          : (estimateFor(session, researchUsd)?.high ?? 1);
     const answer = await hooks.authorizeSpend(user, session, estimate, purchase);
     if (!answer.ok) throw new PaymentRequired(answer.code, answer.reason);
   };
@@ -887,11 +919,17 @@ export function createApp(deps: AppDeps) {
       !european && (input.webResearch ?? research.default) && research.kind
         ? researchEstimate(user, input.lineup.interviewer.model, research.limits)
         : 0;
+    const planned = { ...input.lineup, rounds: input.rounds, mode: input.mode, audit: input.audit };
+    const cap = lowestCap(hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.({ mode: input.mode, depth: input.depth, ...input.lineup }));
     return c.json({
-      estimateUsd: hooks.hideProviderCosts
-        ? null
-        : estimateFor({ ...input.lineup, rounds: input.rounds, mode: input.mode, audit: input.audit }, researchUsd),
-      price: await priceOf(user, { mode: input.mode, depth: input.depth, locale: input.locale as Session["locale"] }, null),
+      estimateUsd: hooks.hideProviderCosts ? null : estimateFor(planned, researchUsd),
+      price: await priceOf(
+        user,
+        { mode: input.mode, depth: input.depth, locale: input.locale as Session["locale"], ...input.lineup },
+        null,
+      ),
+      // True when the host would refuse this lineup: its usual cost is over the cap the debate's price includes.
+      overCap: overCap({ ...planned, budgetUsd: cap }, researchUsd),
       // Whether these settings have web research ticked by default (e.g. by price tier).
       research: { kind: research.kind, default: research.default && !european },
     });
@@ -964,7 +1002,7 @@ export function createApp(deps: AppDeps) {
       webResearch,
       depth: input.depth,
       rounds: input.rounds,
-      budgetUsd: lowestCap(input.budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.({ mode, depth: input.depth })),
+      budgetUsd: lowestCap(input.budgetUsd, hooks.maxBudgetUsd, hooks.sessionBudgetUsd?.({ mode, depth: input.depth, ...lineup })),
       ...lineup,
       challenge: input.challenge,
       audit: input.audit,

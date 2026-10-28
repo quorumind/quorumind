@@ -240,9 +240,14 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(await estimate.json()).toEqual({
         estimateUsd: null,
         price: { amount: 15, currency: "EUR", label: "Debate (fr)" },
+        overCap: false,
         research: { kind: null, default: false },
       });
-      expect(quoted[0]).toEqual({ settings: { mode: "standard", depth: "deep", locale: "fr" }, sessionId: null });
+      // The lineup is priced with the settings: a host may sell dearer models at a higher price.
+      expect(quoted[0]).toEqual({
+        settings: { mode: "standard", depth: "deep", locale: "fr", ...(config.live.lineup as object) },
+        sessionId: null,
+      });
 
       const express = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", mode: "express" }, "POST", as("ada")));
       const created = (await express.json()) as { session: Session };
@@ -263,6 +268,40 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(quoted.at(-1)?.sessionId).toBe(created.session.id);
       expect(detail.session.usage.length).toBeGreaterThan(0);
       expect(detail.session.usage.every((record) => record.costUsd === null)).toBe(true);
+    });
+
+    it("refuses, at a fixed price, a lineup whose usual cost is over the debate's cap, and says so before", async () => {
+      setModelPrice("dear-model", { input: 100, output: 500 });
+      const capped: unknown[] = [];
+      const app = await makeApp(
+        {},
+        {
+          identify,
+          sessionBudgetUsd: (settings) => {
+            capped.push(settings);
+            return 1;
+          },
+          hideProviderCosts: true,
+          catalog: async () => [
+            { provider: "mock", model: "mock", label: "Demo", local: false },
+            { provider: "anthropic", model: "dear-model", label: "Dear", local: false, premium: true },
+          ],
+        },
+      );
+      const dear = { provider: "anthropic", model: "dear-model" };
+      const lineup = { interviewer: dear, arbiter: dear, seats: { A: dear, B: dear }, devil: null };
+      const estimate = await app.request(
+        "/api/estimate",
+        json({ lineup, rounds: 1, mode: "standard", depth: "standard", locale: "en" }, "POST", as("ada")),
+      );
+      expect(await estimate.json()).toMatchObject({ estimateUsd: null, overCap: true });
+      // The cap is asked with the lineup's models.
+      expect(capped[0]).toMatchObject({ mode: "standard", depth: "standard", arbiter: dear });
+
+      const refused = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM", lineup }, "POST", as("ada")));
+      expect(refused.status).toBe(402);
+      expect(((await refused.json()) as { error: string }).error).toBe("lineup_cost");
+      expect(await store.list(10, "ada")).toHaveLength(0);
     });
 
     it("keeps the provider costs and the user's cap without the pricing hooks", async () => {

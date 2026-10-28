@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { catalogFromEnv, liveLineupFromEnv, providersFor } from "./config.ts";
+import { catalogFromEnv, DEFAULT_OPENROUTER_MODELS, liveLineupFromEnv, providersFor } from "./config.ts";
 import { costOf, priceOf } from "./pricing.ts";
 import { GeminiProvider } from "./providers/gemini.ts";
 import { type FetchLike, retryAfterMs } from "./providers/http.ts";
@@ -532,7 +532,7 @@ describe("catalogFromEnv with OpenRouter", () => {
         { OPENROUTER_API_KEY: "or" },
         fakeFetch(() => new Response("busy", { status: 503 })),
       ),
-    ).toHaveLength(9);
+    ).toHaveLength(DEFAULT_OPENROUTER_MODELS.length);
   });
 
   it("is off without a key and in local-only mode", async () => {

@@ -82,8 +82,11 @@ export interface DebatePlan {
   rounds: number;
 }
 
-/** Estimated cost range of a debate in US dollars, or null if a model's price is unknown. */
-export function estimateDebateCost(plan: DebatePlan): { low: number; high: number } | null {
+/**
+ * Estimated cost of a debate in US dollars, or null if a model's price is unknown: its typical cost, at the token
+ * profile of each task, and a range around it.
+ */
+export function estimateDebateCost(plan: DebatePlan): { low: number; typical: number; high: number } | null {
   let total = 0;
   for (const model of plan.proposerModels) {
     const proposal = costOf(model, { inputTokens: TASK_PROFILE.proposal.input, outputTokens: TASK_PROFILE.proposal.output });
@@ -105,7 +108,7 @@ export function estimateDebateCost(plan: DebatePlan): { low: number; high: numbe
   const verdict = costOf(plan.arbiterModel, { inputTokens: TASK_PROFILE.verdict.input, outputTokens: TASK_PROFILE.verdict.output });
   if (verdict === null) return null;
   total += verdict;
-  return { low: total * 0.6, high: total * 1.8 };
+  return { low: total * 0.6, typical: total, high: total * 1.8 };
 }
 
 /**

@@ -262,7 +262,7 @@ export const api = {
   switchWorkspace: (url: string) => request<unknown>(url, post()),
   /** `alternative`: an audit that sketches an alternative, which costs one more proposal. `webResearch`: left out, the default. */
   estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale, alternative = false, webResearch?: boolean) =>
-    request<{ estimateUsd: Estimate; price: PriceQuote | null; research?: { default: boolean } }>(
+    request<{ estimateUsd: Estimate; price: PriceQuote | null; overCap?: boolean; research?: { default: boolean } }>(
       "/api/estimate",
       post({
         lineup,

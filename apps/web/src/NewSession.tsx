@@ -180,6 +180,8 @@ export function NewSession() {
   const [notify, setNotify] = useState(draft.notify === true);
   const [estimate, setEstimate] = useState<{ low: number; high: number } | null>(null);
   const [price, setPrice] = useState<PriceQuote | null>(null);
+  // The host would refuse this lineup: its usual cost is over the cap included in the debate's price.
+  const [overCap, setOverCap] = useState(false);
   const [pending, setPending] = useState<"live" | "demo" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -275,12 +277,14 @@ export function NewSession() {
           if (!live) return;
           setEstimate(body.estimateUsd);
           setPrice(body.price);
+          setOverCap(body.overCap === true);
           if (body.research) setResearchDefault(body.research.default);
         },
         () => {
           if (!live) return;
           setEstimate(null);
           setPrice(null);
+          setOverCap(false);
         },
       );
     }, 250);
@@ -729,6 +733,12 @@ export function NewSession() {
           {error ? (
             <p className="notice notice-error" role="alert">
               {error}
+            </p>
+          ) : null}
+
+          {live && overCap ? (
+            <p className="notice notice-error" role="alert">
+              {t("errors.lineup_cost")}
             </p>
           ) : null}
 
