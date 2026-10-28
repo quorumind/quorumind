@@ -49,6 +49,8 @@ export interface ModelOption {
   maker?: string;
   /** True when the model runs on this machine: nothing leaves it. */
   local: boolean;
+  /** True when the host sells debates with this model at a higher price (its premium models). */
+  premium?: boolean;
 }
 
 /** The engine's providers, plus the devil's advocate. */
@@ -68,9 +70,10 @@ export const DEMO_LINEUP: Lineup = {
 
 const DEFAULT_ANTHROPIC_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
 // The flagship and mid-tier models of each maker, Mistral as the European option, and a cheap,
-// fast one. Within a maker, the model a seat defaults to comes first.
-const DEFAULT_OPENROUTER_MODELS = [
+// fast one. Within a maker, the model a seat defaults to comes first; the dearest ones (Fable, Astra) never do.
+export const DEFAULT_OPENROUTER_MODELS = [
   "anthropic/claude-opus-5.5",
+  "anthropic/claude-fable-5.1",
   "anthropic/claude-sonnet-5.5",
   "anthropic/claude-haiku-5.5",
   "openai/gpt-6.1-sol",

@@ -225,8 +225,8 @@
   },
   "severity": {
     "blocking": "Blockierend",
-    "major": "Schwer",
-    "minor": "Gering"
+    "major": "Schwerwiegend",
+    "minor": "Geringfügig"
   },
   "stance": {
     "accepted": "Angenommen",
@@ -325,17 +325,18 @@
     "revision": "Überarbeitung",
     "probe": "Ungeprüfter Aspekt",
     "verdict": "Urteil",
-    "reassess": "Aktualisiertes Urteil",
+    "reassess": "Aktualisierung der Empfehlung",
     "brief": "Fassung für einen Leser",
     "research": "Websuche",
     "search": "Suchanfrage"
   },
   "setup": {
+    "premiumModel": "{{model}} (Premium)",
     "modeLabel": "Was brauchen Sie?",
     "mode": {
       "standard": "Lösungen vergleichen",
-      "express": "Schnelle Einschätzung",
-      "challenge": "Meine Idee prüfen",
+      "express": "Express",
+      "challenge": "Meine Idee hinterfragen",
       "audit": "Dokument prüfen"
     },
     "modeHint": {
@@ -703,6 +704,7 @@
     "readOnly": "Sie können diese Sitzung lesen und von hier neu starten. Nur ihr Autor oder ein Admin des Arbeitsbereichs kann sie ändern."
   },
   "errors": {
+    "lineup_cost": "Diese Modelle würden mehr kosten, als der Preis dieser Debatte abdeckt, und die Debatte würde ohne Urteil enden. Wählen Sie weniger Teilnehmende oder leichtere Modelle.",
     "budget_exceeded": "Die Kostengrenze ist erreicht.",
     "price_limit": "Die Debatte hat die gesamte im Preis enthaltene Modellkapazität verbraucht.",
     "provider_error": "Ein Modell konnte nicht antworten.",
@@ -727,7 +729,7 @@
     "provider_refused": "Das Modell hat die Antwort auf diese Anfrage verweigert. Formulieren Sie den heiklen Teil um oder wählen Sie ein anderes Modell.",
     "insufficient_credits": "Sie haben kein Guthaben mehr. Kaufen Sie Guthaben oder schließen Sie einen Tarif ab, um fortzufahren.",
     "plan_limit": "Ihr Tarif erlaubt das nicht. Wählen Sie andere Einstellungen oder einen anderen Tarif.",
-    "seat_limit": "Der Tarif dieses Arbeitsbereichs hat keinen freien Platz mehr. Wählen Sie einen Tarif mit mehr Plätzen.",
+    "seat_limit": "Der Tarif dieses Arbeitsbereichs erlaubt keine weitere Person. Wählen Sie einen Tarif für mehr Personen.",
     "read_only": "Nur der Autor dieser Sitzung oder ein Admin ihres Arbeitsbereichs kann sie ändern.",
     "stopped": "Sie haben diese Sitzung angehalten. Setzen Sie sie fort, wann Sie möchten.",
     "not_running": "Diese Sitzung läuft nicht mehr.",
@@ -754,7 +756,7 @@
     "closed": "Diese Entscheidung ist abgeschlossen. Öffnen Sie sie zuerst wieder.",
     "not_closed": "Diese Entscheidung ist bereits offen.",
     "self_superseding": "Eine Entscheidung kann sich nicht selbst ersetzen.",
-    "already_applied": "Aus diesen Antworten wurde bereits eine Revision erstellt, oder sie wird gerade erstellt. Laden Sie die Seite neu, um sie zu sehen.",
+    "already_applied": "Aus diesen Antworten wurde bereits eine neue Version erstellt, oder sie wird gerade erstellt. Laden Sie die Seite neu, um sie zu sehen.",
     "verdict_changed": "Das Urteil hat sich inzwischen geändert, zum Beispiel weil ein Szenario übernommen wurde. Versuchen Sie es erneut, um vom aktuellen Urteil auszugehen.",
     "cross_site": "Diese Anfrage kam von einer anderen Website, deshalb hat der Server sie abgelehnt. Öffnen Sie Quorumind unter seiner eigenen Adresse und versuchen Sie es erneut.",
     "forbidden_host": "Dieser Server antwortet nicht unter dieser Adresse. Öffnen Sie ihn unter seiner üblichen Adresse, oder fügen Sie diese zu QUORUMIND_ALLOWED_HOSTS auf dem Server hinzu.",
@@ -836,28 +838,28 @@
     "cleared": "Profil entfernt.",
     "currencyInvalid": "Wählen Sie die Währung aus der Liste.",
     "rateInvalid": "Geben Sie jeder Rolle einen Tagessatz über null.",
-    "managed": "Das Profil Ihres Arbeitsbereichs verwalten dessen Inhaber und Administratoren, in den Arbeitsbereichseinstellungen Ihres Kontos.",
+    "managed": "Das Profil Ihres Arbeitsbereichs verwalten dessen Eigentümer und Admins, in den Arbeitsbereichseinstellungen Ihres Kontos.",
     "managedLead": "Debatten folgen dem Organisationsprofil Ihres Arbeitsbereichs: seinen Technologien, Hosting-Regeln und Tagessätzen.",
     "open": "Organisationsprofil öffnen",
-    "managedReadOnly": "Nur die Inhaber und Administratoren des Arbeitsbereichs können es ändern: Wenden Sie sich an einen von ihnen, wenn etwas aktualisiert werden muss."
+    "managedReadOnly": "Nur die Eigentümer und Admins des Arbeitsbereichs können es ändern: Wenden Sie sich an einen von ihnen, wenn etwas aktualisiert werden muss."
   },
   "revision": {
-    "label": "Revision {{number}} · {{date}}",
+    "label": "Version {{number}} · {{date}}",
     "reason": {
       "debate": "Urteil der Debatte",
       "client_answers": "Aktualisiert mit den Antworten des Kunden",
       "edit": "Aktualisiert mit neuen Angaben",
       "scenario": "Szenario"
     },
-    "show": "Angezeigte Revision",
+    "show": "Angezeigte Version",
     "latest": "aktuell",
-    "viewingOld": "Sie lesen Revision {{number}}. Das aktuelle Urteil ist Revision {{latest}}.",
+    "viewingOld": "Sie lesen Version {{number}}. Das aktuelle Urteil ist Version {{latest}}.",
     "backToLatest": "Zurück zum aktuellen Urteil",
     "working": "Die Empfehlung wird mit den neuen Angaben aktualisiert…",
     "failed": "Die Aktualisierung wurde abgebrochen, das Urteil ist unverändert. {{reason}}",
     "retry": "Erneut versuchen",
     "update": "Empfehlung aktualisieren",
-    "whatChanged": "Was sich seit Revision {{number}} geändert hat",
+    "whatChanged": "Was sich seit Version {{number}} geändert hat",
     "noChange": "Die neuen Angaben haben weder die Empfehlung noch die Bewertungen, Risiken oder Kosten verändert.",
     "fromTo": "{{from}} → {{to}}",
     "noRecommendation": "keine Option",
@@ -914,7 +916,7 @@
     "questions": "Fragen ({{number}})",
     "noAnswer": "Keine Antwort",
     "comment": "Kommentar: {{comment}}",
-    "applied": "Revision {{number}} wurde aus diesen Antworten erstellt.",
+    "applied": "Version {{number}} wurde aus diesen Antworten erstellt.",
     "edit": "Fragen bearbeiten",
     "reopen": "Für Antworten wieder öffnen",
     "delete": "Löschen"
@@ -998,8 +1000,8 @@
     "title": "Zwei Versionen vergleichen",
     "left": "Erste Version",
     "right": "Zweite Version",
-    "version": "Revision {{number}}",
-    "scenarioVersion": "Szenario „{{title}}“ · Revision {{number}}",
+    "version": "Version {{number}}",
+    "scenarioVersion": "Szenario „{{title}}“ · Version {{number}}",
     "summary": "{{count}} Unterschied(e)",
     "none": "Die beiden Versionen stimmen in allen verglichenen Punkten überein.",
     "legend": "Abweichende Werte sind hervorgehoben.",
@@ -1037,7 +1039,7 @@
     },
     "approvedBy": "Genehmigt von {{name}} am {{date}}",
     "approvedOn": "Genehmigt am {{date}}",
-    "outdated": "Revision {{number}} wurde am {{date}} genehmigt; diese Version ist noch nicht genehmigt.",
+    "outdated": "Version {{number}} wurde am {{date}} genehmigt; die angezeigte Version ist noch nicht genehmigt.",
     "requested": "Genehmigung angefragt von {{name}} am {{date}}",
     "requestedOn": "Genehmigung angefragt am {{date}}",
     "revisit": "Überprüfen am {{date}}",
@@ -1084,8 +1086,8 @@
     "recommendation": "Empfehlung",
     "approval": "Genehmigung",
     "review": "Überprüfung",
-    "version": "Revision {{number}}",
-    "scenario": "Szenario „{{title}}“ · Revision {{number}}",
+    "version": "Version {{number}}",
+    "scenario": "Szenario „{{title}}“ · Version {{number}}",
     "noRecommendation": "Keine Option ist umsetzbar",
     "superseding": "Ersetzt durch",
     "revisits": "Greift eine frühere Entscheidung wieder auf",
