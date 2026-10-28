@@ -76,5 +76,10 @@ describe("the web research option of a new session", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start now" }));
     await waitFor(() => expect(calls.some((call) => call.method === "POST" && call.path === "/api/sessions")).toBe(true));
     expect(calls.find((call) => call.method === "POST" && call.path === "/api/sessions")?.body).not.toHaveProperty("webResearch");
+    // The estimate is asked for the debate the form would create: a European-only one searches nothing.
+    const european = (path: string) =>
+      (calls.find((call) => call.method === "POST" && call.path === path)?.body as { europeanOnly?: boolean })?.europeanOnly;
+    expect(european("/api/estimate")).toBe(false);
+    expect(european("/api/estimate")).toBe(european("/api/sessions"));
   });
 });

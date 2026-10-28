@@ -318,6 +318,22 @@ describe("liveLineupFromEnv with the V1 catalog", () => {
     expect(lineup?.arbiter).toEqual({ provider: "ollama", model: "llama-x" });
   });
 
+  it("never seats the dearest models or a host's premium ones by default, whatever the catalog's order", () => {
+    const option = (model: string, premium = false) => ({ provider: "openrouter" as const, model, label: model, local: false, premium });
+    const lineup = liveLineupFromEnv({}, [
+      option("anthropic/claude-fable-5.1"),
+      option("openai/gpt-6-astra"),
+      option("google/gemini-4-argon", true),
+      option("anthropic/claude-sonnet-5.5"),
+      option("openai/gpt-6.1-sol"),
+    ]);
+    expect(lineup?.seats.A?.model).toBe("anthropic/claude-sonnet-5.5");
+    expect(lineup?.seats.B?.model).toBe("openai/gpt-6.1-sol");
+    expect(lineup?.arbiter.model).toBe("anthropic/claude-sonnet-5.5");
+    // A catalog of nothing else still gives a lineup.
+    expect(liveLineupFromEnv({}, [option("anthropic/claude-fable-5.1")])?.seats.A?.model).toBe("anthropic/claude-fable-5.1");
+  });
+
   it("adds seats C and D and a devil's advocate from the environment", () => {
     const lineup = liveLineupFromEnv({
       ANTHROPIC_API_KEY: "a",

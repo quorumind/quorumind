@@ -1,4 +1,4 @@
-import { createSession, DEMO_IDEA, DEMO_LINEUP, type Session, setModelPrice, type UsageRecord } from "@quorumind/core";
+import { createSession, DEMO_IDEA, DEMO_LINEUP, DEMO_SHEET, type Session, setModelPrice, type UsageRecord } from "@quorumind/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type AppHooks, createApp } from "./app.ts";
 import { EventBus } from "./bus.ts";
@@ -302,6 +302,68 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect(refused.status).toBe(402);
       expect(((await refused.json()) as { error: string }).error).toBe("lineup_cost");
       expect(await store.list(10, "ada")).toHaveLength(0);
+    });
+
+    it("weighs against the cap a model of unknown price, and the interviewer that states the option alone", async () => {
+      setModelPrice("dear-model", { input: 100, output: 500 });
+      const app = await makeApp(
+        {},
+        {
+          identify,
+          sessionBudgetUsd: () => 1,
+          hideProviderCosts: true,
+          catalog: async () => [
+            { provider: "mock", model: "mock", label: "Demo", local: false },
+            { provider: "anthropic", model: "dear-model", label: "Dear", local: false },
+            { provider: "anthropic", model: "unpriced-model", label: "Unpriced", local: false },
+          ],
+        },
+      );
+      const mock = { provider: "mock", model: "mock" };
+      const overCap = async (lineup: object, mode: string) => {
+        const body = { lineup, rounds: 1, mode, depth: "standard", locale: "en" };
+        return ((await (await app.request("/api/estimate", json(body, "POST", as("ada")))).json()) as { overCap: boolean }).overCap;
+      };
+      // Unpriced models count at the cap's fallback price ($1.47 here), rather than making the estimate unknown and passing.
+      const unpriced = { provider: "anthropic", model: "unpriced-model" };
+      expect(await overCap({ interviewer: mock, arbiter: unpriced, seats: { A: unpriced, B: unpriced }, devil: null }, "standard")).toBe(
+        true,
+      );
+      // In challenge mode the interviewer restates the solution: a dear interviewer alone is over the cap.
+      const dear = { provider: "anthropic", model: "dear-model" };
+      const dearInterviewer = { interviewer: dear, arbiter: mock, seats: { A: mock, B: mock }, devil: null };
+      expect(await overCap(dearInterviewer, "challenge")).toBe(true);
+      expect(await overCap({ ...dearInterviewer, interviewer: mock }, "challenge")).toBe(false);
+    });
+
+    it("weighs the debate against what the interview has left of the cap when the requirements are confirmed", async () => {
+      // A lineup whose debate usually costs $0.64: under the $1 cap at first, over it once the interview has spent $0.50.
+      setModelPrice("mock", { input: 5, output: 20 });
+      try {
+        const app = await makeApp(
+          {},
+          {
+            identify,
+            sessionBudgetUsd: () => 1,
+            hideProviderCosts: true,
+            catalog: async () => [{ provider: "mock", model: "mock", label: "Demo", local: false }],
+          },
+        );
+        const created = await app.request("/api/sessions", json({ locale: "en", idea: "A CRM" }, "POST", as("ada")));
+        expect(created.status).toBe(201);
+        const { session } = (await created.json()) as { session: Session };
+        await waitFor(app, session.id, (s, busy) => s.interview.length === 1 && !busy, as("ada"));
+
+        const stored = (await store.get(session.id, "ada")) as Session;
+        const [first] = stored.usage;
+        if (!first) throw new Error("The interview recorded no call.");
+        await store.save({ ...stored, sheet: DEMO_SHEET, phase: "review", usage: [...stored.usage, { ...first, costUsd: 0.5 }] }, "ada");
+        const refused = await app.request(`/api/sessions/${session.id}/sheet`, json({ sheet: DEMO_SHEET }, "PUT", as("ada")));
+        expect(refused.status).toBe(402);
+        expect(((await refused.json()) as { error: string }).error).toBe("lineup_cost");
+      } finally {
+        setModelPrice("mock", { input: 0, output: 0 });
+      }
     });
 
     it("keeps the provider costs and the user's cap without the pricing hooks", async () => {
