@@ -31,9 +31,9 @@
     "./report": "./src/report.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.131.0",
-    "docx": "9.8.1",
-    "openai": "7.25.0",
+    "@anthropic-ai/sdk": "0.134.0",
+    "docx": "9.11.0",
+    "openai": "7.34.0",
     "zod": "4.6.7"
   }
 }
