@@ -260,8 +260,20 @@ export const api = {
   config: () => request<AppConfig>("/api/config").then(learnProviderCosts),
   /** Works in another of the host's workspaces from now on, at the address its menu gives (HostNavigation). */
   switchWorkspace: (url: string) => request<unknown>(url, post()),
-  /** `alternative`: an audit that sketches an alternative, which costs one more proposal. `webResearch`: left out, the default. */
-  estimate: (lineup: Lineup, rounds: number, mode: Mode, depth: Depth, locale: Locale, alternative = false, webResearch?: boolean) =>
+  /**
+   * `alternative`: an audit that sketches an alternative, which costs one more proposal. `webResearch`: left out, the
+   * default. `europeanOnly`: as the session would be created, since a European-only debate searches nothing.
+   */
+  estimate: (
+    lineup: Lineup,
+    rounds: number,
+    mode: Mode,
+    depth: Depth,
+    locale: Locale,
+    alternative = false,
+    webResearch?: boolean,
+    europeanOnly?: boolean,
+  ) =>
     request<{ estimateUsd: Estimate; price: PriceQuote | null; overCap?: boolean; research?: { default: boolean } }>(
       "/api/estimate",
       post({
@@ -272,6 +284,7 @@ export const api = {
         locale,
         ...(alternative ? { audit: { alternative } } : {}),
         ...(webResearch === undefined ? {} : { webResearch }),
+        ...(europeanOnly === undefined ? {} : { europeanOnly }),
       }),
     ),
   sessions: (mine = false) => request<{ sessions: SessionSummary[]; shared?: boolean }>(`/api/sessions${mine ? "?mine=1" : ""}`),

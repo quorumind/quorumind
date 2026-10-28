@@ -83,6 +83,17 @@ export const DEFAULT_OPENROUTER_MODELS = [
   "mistralai/mistral-large-4-0",
   "mistralai/mistral-medium-3-5",
 ];
+// The dearest models of the catalog: chosen by hand, never a default, whatever the order the catalog arrives in.
+const NEVER_DEFAULT_MODELS = new Set(["anthropic/claude-fable-5.1", "openai/gpt-6-astra"]);
+
+/**
+ * The models a default lineup may seat: neither a host's premium models nor the dearest ones, unless the catalog
+ * holds nothing else (a missing or filtered model must not make one of them everybody's default).
+ */
+export function defaultCandidates(options: ModelOption[]): ModelOption[] {
+  const ordinary = options.filter((entry) => !entry.premium && !NEVER_DEFAULT_MODELS.has(entry.model));
+  return ordinary.length > 0 ? ordinary : options;
+}
 const PROVIDERS: readonly ProviderKind[] = ["anthropic", "openai", "gemini", "openrouter", "ollama", "mock"];
 const VENDOR_NAMES: Record<ProviderKind, string> = {
   anthropic: "Anthropic",
@@ -289,7 +300,9 @@ function parseParticipant(spec: string): Participant {
  */
 export function liveLineupFromEnv(env: Env, catalog?: ModelOption[]): Lineup | null {
   const localOnly = isLocalOnly(env);
-  const options = (catalog ?? staticCatalog(env)).filter((entry) => entry.provider !== "mock" && (!localOnly || entry.local));
+  const options = defaultCandidates(
+    (catalog ?? staticCatalog(env)).filter((entry) => entry.provider !== "mock" && (!localOnly || entry.local)),
+  );
   const primaryOption = options[0];
   if (!primaryOption) return null;
 

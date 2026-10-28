@@ -1,6 +1,8 @@
 import {
   Audience,
   COMPLIANCE_TEMPLATE_IDS,
+  cappedCost,
+  cappedDebateCost,
   catalogFromEnv,
   clientDeliverable,
   createSession,
@@ -10,6 +12,7 @@ import {
   DEPTHS,
   DebateEngine,
   type DecisionActor,
+  defaultCandidates,
   deliveryChecks,
   type EuropeanPolicy,
   estimateDebateCost,
@@ -683,47 +686,55 @@ export function createApp(deps: AppDeps) {
     return Math.min(cost, limits.budgetUsd ?? cost);
   };
 
-  const estimateFor = (
-    session: {
-      seats: Record<string, { model: string }>;
-      devil: { model: string } | null;
-      arbiter: { model: string };
-      rounds: number;
-      mode: Session["mode"];
-      audit?: { alternative: boolean } | null;
-    },
-    researchUsd = 0,
-  ) => {
+  type PlannedDebate = {
+    interviewer: { model: string };
+    seats: Record<string, { model: string }>;
+    devil: { model: string } | null;
+    arbiter: { model: string };
+    rounds: number;
+    mode: Session["mode"];
+    audit?: { alternative: boolean } | null;
+  };
+
+  /** The calls a debate of these settings makes, as the pricing functions take them. */
+  const debatePlan = (session: PlannedDebate) => {
     const seatModels = Object.values(session.seats).map((seat) => seat.model);
     const devil = session.devil ? [session.devil.model] : [];
-    // Challenge and audit: every seat criticises the one option. An audit's alternative is one more proposal, not revised.
+    // Challenge and audit: every seat criticises the one option, which the interviewer restates (challenge) or reads
+    // from the document (audit). An audit's alternative is one more proposal, not revised.
     const criticsOnly = session.mode === "challenge" || session.mode === "audit";
     const alternative = session.mode === "audit" && session.audit?.alternative ? seatModels.slice(0, 1) : [];
-    const debate = estimateDebateCost({
+    return {
       proposerModels: criticsOnly ? [] : seatModels,
-      ...(alternative.length > 0 ? { draftModels: alternative } : {}),
+      draftModels: criticsOnly ? [session.interviewer.model, ...alternative] : [],
       criticModels: criticsOnly ? [...seatModels, ...devil] : devil,
       arbiterModel: session.arbiter.model,
       rounds: session.rounds,
-    });
+    };
+  };
+
+  const estimateFor = (session: PlannedDebate, researchUsd = 0) => {
+    const debate = estimateDebateCost(debatePlan(session));
     return debate && { low: debate.low + researchUsd / 2, typical: debate.typical + researchUsd, high: debate.high + researchUsd };
   };
 
   /**
-   * A host that sells each debate at a fixed price refuses a lineup whose usual cost is already over the cap its price
-   * includes: the debate would be cut short, or end without a verdict. Checked until the debate starts.
+   * A host that sells each debate at a fixed price refuses a lineup whose usual cost is already over what its cap has
+   * left (the cap its price includes, less what the interview has spent): the debate would be cut short, or end
+   * without a verdict. Checked until the debate starts, with the cap's own count: a model of unknown price at
+   * CAP_FALLBACK_PRICE, never waved through.
    */
-  const overCap = (session: Parameters<typeof estimateFor>[0] & { budgetUsd: number | null }, researchUsd: number): boolean => {
+  const overCap = (session: PlannedDebate & { budgetUsd: number | null }, researchUsd: number, spentUsd = 0): boolean => {
     if (!hooks.hideProviderCosts || session.budgetUsd === null) return false;
-    const typical = estimateFor(session, researchUsd)?.typical;
-    return typical !== undefined && typical > session.budgetUsd;
+    return cappedDebateCost(debatePlan(session)) + researchUsd > session.budgetUsd - spentUsd;
   };
 
   const authorize = async (session: Session, purchase: Purchase = { kind: "debate" }) => {
     if (session.demo) return;
     const user = users.get(session.id) ?? null;
     const researchUsd = session.european ? 0 : researchEstimate(user, session.interviewer.model, session.webResearch);
-    if (purchase.kind === "debate" && !session.verdict && !session.sheetConfirmedAt && overCap(session, researchUsd)) {
+    const spentUsd = session.usage.reduce((sum, record) => sum + cappedCost(record), 0);
+    if (purchase.kind === "debate" && !session.verdict && !session.sheetConfirmedAt && overCap(session, researchUsd, spentUsd)) {
       throw new PaymentRequired(
         "lineup_cost",
         "These models would cost more than this debate's price covers. Choose fewer participants or lighter models.",
@@ -1596,9 +1607,10 @@ function validateLineup(input: z.infer<typeof LineupInput>, catalog: ModelOption
 
 /** The hosted catalog's default: the first two makers face each other, the first model rules. */
 function defaultLineup(catalog: ModelOption[]): Lineup | null {
-  const first = catalog[0];
+  const options = defaultCandidates(catalog);
+  const first = options[0];
   if (!first) return null;
-  const second = catalog.find((entry) => makerOf(entry) !== makerOf(first)) ?? first;
+  const second = options.find((entry) => makerOf(entry) !== makerOf(first)) ?? first;
   const pick = (option: ModelOption): Participant => ({ provider: option.provider, model: option.model });
   return {
     interviewer: pick(first),

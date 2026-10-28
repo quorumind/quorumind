@@ -271,7 +271,7 @@ export function NewSession() {
     if (!lineup) return;
     let live = true;
     const timer = setTimeout(() => {
-      api.estimate(lineup, effectiveRounds, mode, depth, language, mode === "audit" && alternative, researchChoice).then(
+      api.estimate(lineup, effectiveRounds, mode, depth, language, mode === "audit" && alternative, researchChoice, europeanOnly).then(
         (body) => {
           // An answer to settings changed since is dropped: the estimate on screen is the latest one's.
           if (!live) return;
@@ -292,7 +292,7 @@ export function NewSession() {
       live = false;
       clearTimeout(timer);
     };
-  }, [lineup, effectiveRounds, mode, depth, language, alternative, researchChoice]);
+  }, [lineup, effectiveRounds, mode, depth, language, alternative, researchChoice, europeanOnly]);
 
   const allLocal = useMemo(() => {
     if (!config || !lineup) return false;

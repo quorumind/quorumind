@@ -76,7 +76,10 @@ export interface DebatePlan {
   proposerModels: string[];
   /** Participants that only criticise: the devil's advocate, or every seat in challenge mode. */
   criticModels?: string[];
-  /** Participants that propose once and are never revised: the alternative of an audit. */
+  /**
+   * Participants that propose once and are never revised: the alternative of an audit, and the interviewer that
+   * restates the solution (challenge) or reads the document (audit).
+   */
   draftModels?: string[];
   arbiterModel: string;
   rounds: number;
@@ -87,28 +90,43 @@ export interface DebatePlan {
  * profile of each task, and a range around it.
  */
 export function estimateDebateCost(plan: DebatePlan): { low: number; typical: number; high: number } | null {
+  const total = debateTotal(plan, costOf);
+  return total === null ? null : { low: total * 0.6, typical: total, high: total * 1.8 };
+}
+
+/**
+ * The typical cost of a debate as a cost cap counts it: a model without a known price at CAP_FALLBACK_PRICE, so a
+ * lineup with one unpriced model is still weighed against the cap.
+ */
+export function cappedDebateCost(plan: DebatePlan): number {
+  return debateTotal(plan, cappedCostOf) ?? 0;
+}
+
+/** The typical cost of a debate's calls, each priced by `cost`; null as soon as one of them has no price. */
+function debateTotal(plan: DebatePlan, cost: (model: string, usage: Usage) => number | null): number | null {
+  const call = (model: string, task: "proposal" | "critique" | "revision" | "verdict") =>
+    cost(model, { inputTokens: TASK_PROFILE[task].input, outputTokens: TASK_PROFILE[task].output });
   let total = 0;
   for (const model of plan.proposerModels) {
-    const proposal = costOf(model, { inputTokens: TASK_PROFILE.proposal.input, outputTokens: TASK_PROFILE.proposal.output });
-    const critique = costOf(model, { inputTokens: TASK_PROFILE.critique.input, outputTokens: TASK_PROFILE.critique.output });
-    const revision = costOf(model, { inputTokens: TASK_PROFILE.revision.input, outputTokens: TASK_PROFILE.revision.output });
+    const proposal = call(model, "proposal");
+    const critique = call(model, "critique");
+    const revision = call(model, "revision");
     if (proposal === null || critique === null || revision === null) return null;
     total += proposal + plan.rounds * (critique + revision);
   }
   for (const model of plan.draftModels ?? []) {
-    const proposal = costOf(model, { inputTokens: TASK_PROFILE.proposal.input, outputTokens: TASK_PROFILE.proposal.output });
+    const proposal = call(model, "proposal");
     if (proposal === null) return null;
     total += proposal;
   }
   for (const model of plan.criticModels ?? []) {
-    const critique = costOf(model, { inputTokens: TASK_PROFILE.critique.input, outputTokens: TASK_PROFILE.critique.output });
+    const critique = call(model, "critique");
     if (critique === null) return null;
     total += plan.rounds * critique;
   }
-  const verdict = costOf(plan.arbiterModel, { inputTokens: TASK_PROFILE.verdict.input, outputTokens: TASK_PROFILE.verdict.output });
+  const verdict = call(plan.arbiterModel, "verdict");
   if (verdict === null) return null;
-  total += verdict;
-  return { low: total * 0.6, typical: total, high: total * 1.8 };
+  return total + verdict;
 }
 
 /**
