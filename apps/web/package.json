@@ -19,8 +19,8 @@
     "@fontsource/noto-sans-sc": "5.3.1",
     "@quorumind/core": "*",
     "i18next": "26.4.5",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "react-i18next": "17.0.16"
   },
   "devDependencies": {
