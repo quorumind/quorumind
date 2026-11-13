@@ -7,6 +7,7 @@ export interface ModelPrice {
 }
 
 const KNOWN_PRICES: Record<string, ModelPrice> = {
+  "claude-fable-5-2": { input: 8, output: 40 },
   "claude-fable-5-1": { input: 10, output: 50 },
   "claude-opus-5-5": { input: 4, output: 20 },
   "claude-sonnet-5-5": { input: 2, output: 10 },

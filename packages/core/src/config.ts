@@ -73,7 +73,7 @@ const DEFAULT_ANTHROPIC_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claud
 // fast one. Within a maker, the model a seat defaults to comes first; the dearest ones (Fable, Astra) never do.
 export const DEFAULT_OPENROUTER_MODELS = [
   "anthropic/claude-opus-5.5",
-  "anthropic/claude-fable-5.1",
+  "anthropic/claude-fable-5.2",
   "anthropic/claude-sonnet-5.5",
   "anthropic/claude-haiku-5.5",
   "openai/gpt-6.1-sol",
@@ -84,7 +84,7 @@ export const DEFAULT_OPENROUTER_MODELS = [
   "mistralai/mistral-medium-3-5",
 ];
 // The dearest models of the catalog: chosen by hand, never a default, whatever the order the catalog arrives in.
-const NEVER_DEFAULT_MODELS = new Set(["anthropic/claude-fable-5.1", "openai/gpt-6-astra"]);
+const NEVER_DEFAULT_MODELS = new Set(["anthropic/claude-fable-5.2", "anthropic/claude-fable-5.1", "openai/gpt-6-astra"]);
 
 /**
  * The models a default lineup may seat: neither a host's premium models nor the dearest ones, unless the catalog
