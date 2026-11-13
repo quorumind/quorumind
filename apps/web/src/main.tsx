@@ -9,11 +9,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
 import { ready } from "./i18n.ts";
+import { guardNumberFields } from "./numberFields.ts";
 import { applyStoredTheme } from "./theme.ts";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
 applyStoredTheme();
+guardNumberFields();
 // The first screen is shown in the person's language, not in English for a moment.
 void ready.then(() =>
   createRoot(root).render(

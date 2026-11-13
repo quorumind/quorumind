@@ -12,7 +12,7 @@ test("a member who may only read sees no control that changes the session", asyn
   const bob = await browser.newContext({ extraHTTPHeaders: { "x-user": "bob" }, locale: "en-US" });
   const page = await bob.newPage();
   await page.goto(`/#/s/${id}`);
-  await expect(page.getByText("You can read this session and start again from it.", { exact: false })).toBeVisible();
+  await expect(page.getByText("You can read this debate and start again from it.", { exact: false })).toBeVisible();
   await expect(page.getByText("Started by Ada Lovelace")).toBeVisible();
   for (const name of ["Share", "Delete", "Stop"]) await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Your client" })).toHaveCount(0);
@@ -48,7 +48,15 @@ test("the workspace's menu opens over its button, with the workspaces and the wo
   await expect(menu.getByRole("menuitemradio")).toHaveCount(1);
   await expect(menu.getByRole("menuitemradio", { name: /Studio/ })).toHaveAttribute("aria-checked", "true");
   await expect(menu.getByRole("menuitemradio", { name: /Studio/ })).toBeFocused();
-  await expect(menu.getByRole("menuitem")).toHaveText(["Dashboard", "Billing", "Members", "Organisation profile", "Create a workspace"]);
+  // The workspace's settings among its pages; a kind of page this version cannot name (the test host sends one) is left out.
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "Home",
+    "Billing",
+    "Members",
+    "Organisation profile",
+    "Workspace settings",
+    "Create a workspace",
+  ]);
   await expect(menu.getByRole("separator")).toHaveCount(2);
   // Over its button once it rose, the workspace on top where the button was, and whole on a laptop.
   const buttonBox = await button.boundingBox();
@@ -56,7 +64,7 @@ test("the workspace's menu opens over its button, with the workspaces and the wo
   const menuBox = await menu.boundingBox();
   expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(768);
   await page.keyboard.press("ArrowDown");
-  await expect(menu.getByRole("menuitem", { name: "Dashboard" })).toBeFocused();
+  await expect(menu.getByRole("menuitem", { name: "Home" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
   await expect(button).toBeFocused();
@@ -82,7 +90,7 @@ test("the person's card opens the person's pages above it, and signs out from it
   await card.focus();
   await page.keyboard.press("Enter");
   const menu = page.getByRole("menu", { name: "Account" });
-  await expect(menu.getByRole("menuitem")).toHaveText(["Account", "Sign out"]);
+  await expect(menu.getByRole("menuitem")).toHaveText(["Account", "API tokens", "Sign out"]);
   await expect(menu.getByRole("separator")).toHaveCount(1);
   await expect(menu.getByRole("menuitem", { name: "Account" })).toBeFocused();
   // Above the card, once it rose.

@@ -56,8 +56,11 @@ const browser: StreamEnvironment = {
   },
 };
 
+/** Stops following a session; `reconnect` tries again at once while the connection is down, instead of waiting. */
+export type StreamControl = (() => void) & { reconnect(): void };
+
 /** Follows the events of a session until the returned function is called. */
-export function followSession(id: string, handlers: StreamHandlers, environment: StreamEnvironment = browser): () => void {
+export function followSession(id: string, handlers: StreamHandlers, environment: StreamEnvironment = browser): StreamControl {
   const eventsUrl = `/api/sessions/${id}/events`;
   let source: EventSource | null = null;
   let timer: unknown = null;
@@ -107,21 +110,24 @@ export function followSession(id: string, handlers: StreamHandlers, environment:
     timer = environment.setTimeout(connect, delay);
   };
 
-  // Back online, or back to the tab: no need to wait for the next attempt.
-  const stopWaking = environment.onWake(() => {
+  // Back online, back to the tab, or the person asked: no need to wait for the next attempt.
+  const wake = () => {
     if (stopped || open) return;
     if (timer !== null) environment.clearTimeout(timer);
+    timer = null;
     source?.close();
     source = null;
     connect();
-  });
+  };
+  const stopWaking = environment.onWake(wake);
 
   connect();
-  return () => {
+  const stop = () => {
     stopped = true;
     stopWaking();
     if (timer !== null) environment.clearTimeout(timer);
     source?.close();
     source = null;
   };
+  return Object.assign(stop, { reconnect: wake });
 }

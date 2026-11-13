@@ -3,9 +3,13 @@ import { QUESTIONNAIRE_LIMITS } from "@quorumind/core/questionnaire";
 import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type PriceQuote, type Questionnaire, type QuestionnaireSettings } from "./api.ts";
+import { BusyButton } from "./components/BusyButton.tsx";
 import { CopyField } from "./components/CopyField.tsx";
+import { CharCounter, FieldError, fieldProps, useFieldErrors } from "./components/Field.tsx";
 import { DownloadIcon, PlusIcon, TrashIcon } from "./components/Icons.tsx";
+import { ShortcutHint } from "./components/ShortcutHint.tsx";
 import { failureText } from "./errors.ts";
+import { sendOnShortcut } from "./formKeys.ts";
 import { NewFacts, UpdateLabel } from "./Revisions.tsx";
 
 // The agency's side of the loop with its client: the questionnaire made from the verdict's open questions, its link,
@@ -45,11 +49,19 @@ function QuestionnaireEditor({
   const [removePassword, setRemovePassword] = useState(false);
   const filled = questions.filter((question) => question.text.trim());
   const tooShort = password.length > 0 && password.length < PASSWORD_MIN;
-  const update = (index: number, change: Partial<Draft>) =>
+  const fields = useFieldErrors();
+  const update = (index: number, change: Partial<Draft>) => {
+    fields.clear();
     setQuestions((current) => current.map((question, at) => (at === index ? { ...question, ...change } : question)));
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    const problems: Record<string, string> = {};
+    if (filled.length === 0) problems[`${id}-q0`] = t("validation.required");
+    if (tooShort && !removePassword) problems[`${id}-password`] = t("validation.passwordShort", { min: PASSWORD_MIN });
+    fields.report(problems);
+    if (Object.keys(problems).length > 0) return;
     onSave({
       questions: filled.map((question) => ({
         ...(question.id ? { id: question.id } : {}),
@@ -65,7 +77,13 @@ function QuestionnaireEditor({
   };
 
   return (
-    <form className="stack questionnaire-editor" onSubmit={submit}>
+    <form
+      ref={fields.form}
+      className="stack questionnaire-editor"
+      onSubmit={submit}
+      onKeyDown={(event) => sendOnShortcut(event, pending)}
+      noValidate
+    >
       <ol className="question-list">
         {questions.map((question, index) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: drafts have no identity until they are saved.
@@ -75,19 +93,24 @@ function QuestionnaireEditor({
                 {t("client.questionLabel", { number: index + 1 })}
               </label>
               <textarea
+                dir="auto"
                 id={`${id}-q${index}`}
                 className="textarea"
                 rows={2}
                 maxLength={QUESTIONNAIRE_LIMITS.question}
                 value={question.text}
+                {...fieldProps(`${id}-q${index}`, fields.errors[`${id}-q${index}`], `${id}-q${index}-counter`)}
                 onChange={(event) => update(index, { text: event.target.value })}
               />
+              <FieldError id={`${id}-q${index}`} error={fields.errors[`${id}-q${index}`]} />
+              <CharCounter id={`${id}-q${index}`} value={question.text} max={QUESTIONNAIRE_LIMITS.question} />
             </div>
             <div className="field">
               <label className="field-hint" htmlFor={`${id}-w${index}`}>
                 {t("client.whyLabel")}
               </label>
               <input
+                dir="auto"
                 id={`${id}-w${index}`}
                 className="input"
                 maxLength={QUESTIONNAIRE_LIMITS.why}
@@ -127,6 +150,7 @@ function QuestionnaireEditor({
           {t("client.clientLabel")}
         </label>
         <input
+          dir="auto"
           id={`${id}-client`}
           className="input"
           maxLength={QUESTIONNAIRE_LIMITS.client}
@@ -139,14 +163,16 @@ function QuestionnaireEditor({
           {t("client.messageLabel")}
         </label>
         <textarea
+          dir="auto"
           id={`${id}-message`}
           className="textarea"
           rows={3}
           maxLength={QUESTIONNAIRE_LIMITS.message}
           value={message}
-          aria-describedby={`${id}-message-hint`}
+          aria-describedby={`${id}-message-hint ${id}-message-counter`}
           onChange={(event) => setMessage(event.target.value)}
         />
+        <CharCounter id={`${id}-message`} value={message} max={QUESTIONNAIRE_LIMITS.message} />
         <span id={`${id}-message-hint`} className="field-hint">
           {t("client.messageHint")}
         </span>
@@ -177,6 +203,11 @@ function QuestionnaireEditor({
           <label className="field-label" htmlFor={`${id}-password`}>
             {t("client.passwordLabel")}
           </label>
+          {questionnaire?.hasPassword ? null : (
+            <span id={`${id}-password-state`} className="field-hint">
+              {t("share.passwordNone")}
+            </span>
+          )}
           <input
             id={`${id}-password`}
             className="input"
@@ -185,14 +216,22 @@ function QuestionnaireEditor({
             maxLength={200}
             value={password}
             disabled={removePassword}
-            aria-invalid={tooShort}
-            aria-describedby={`${id}-password-hint`}
-            placeholder={questionnaire?.hasPassword ? t("share.passwordChange") : t("share.passwordNone")}
+            {...fieldProps(
+              `${id}-password`,
+              tooShort ? t("validation.passwordShort", { min: PASSWORD_MIN }) : fields.errors[`${id}-password`],
+              questionnaire?.hasPassword ? null : `${id}-password-state`,
+              `${id}-password-hint`,
+            )}
+            placeholder={questionnaire?.hasPassword ? t("share.passwordChange") : undefined}
             onChange={(event) => setPassword(event.target.value)}
           />
           <span id={`${id}-password-hint`} className="field-hint">
             {t("share.passwordHint", { min: PASSWORD_MIN })}
           </span>
+          <FieldError
+            id={`${id}-password`}
+            error={tooShort ? t("validation.passwordShort", { min: PASSWORD_MIN }) : fields.errors[`${id}-password`]}
+          />
           {questionnaire?.hasPassword ? (
             <label className="check">
               <input
@@ -209,9 +248,10 @@ function QuestionnaireEditor({
         </div>
       </div>
       <div className="row">
-        <button type="submit" className="button button-primary" disabled={pending || filled.length === 0 || (tooShort && !removePassword)}>
+        <BusyButton type="submit" busy={pending} busyLabel={t("common.saving")}>
           {questionnaire ? t("client.saveChanges") : t("client.save")}
-        </button>
+        </BusyButton>
+        <ShortcutHint />
         <button type="button" className="button button-quiet" onClick={onCancel}>
           {t("common.cancel")}
         </button>

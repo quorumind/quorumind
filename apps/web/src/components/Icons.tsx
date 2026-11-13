@@ -78,6 +78,12 @@ export const ArrowIcon = () => (
   </Icon>
 );
 
+export const ArrowDownIcon = () => (
+  <Icon>
+    <path d="M12 5v14M6.5 13.5L12 19l5.5-5.5" />
+  </Icon>
+);
+
 export const MenuIcon = () => (
   <Icon>
     <path d="M4 7h16M4 12h16M4 17h16" />
@@ -318,6 +324,14 @@ export const UserIcon = () => (
   <Icon>
     <circle cx="12" cy="8.5" r="3.5" />
     <path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" />
+  </Icon>
+);
+
+/** A key, for the host's page of API tokens. */
+export const KeyIcon = () => (
+  <Icon>
+    <circle cx="8" cy="15" r="4" />
+    <path d="M11 12l8.5-8.5M16 7l2.5 2.5M13.5 9.5L16 12" />
   </Icon>
 );
 

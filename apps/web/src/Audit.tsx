@@ -1,13 +1,14 @@
 import type { Session, Severity } from "@quorumind/core";
 import { questionsText, quoteCheck } from "@quorumind/core/audit-check";
 import { auditLabels, OPINION_HINTS, OPINION_LABELS } from "@quorumind/core/audit-labels";
-import { type AuditDeliverable, auditWords } from "@quorumind/core/audit-report";
+import { type AuditDeliverable, auditWords, saysNothing } from "@quorumind/core/audit-report";
 import { debateCurrency } from "@quorumind/core/costing";
 import { formatMoney } from "@quorumind/core/report";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Segmented } from "./components/Controls.tsx";
 import { CheckIcon, WarningIcon } from "./components/Icons.tsx";
+import { ScrollRegion } from "./components/ScrollRegion.tsx";
 import { contentLanguage } from "./format.ts";
 
 // The audit of a document on screen: its findings (filtered by severity, with the passages they are about), what the
@@ -64,12 +65,16 @@ function Findings({ audit }: { audit: AuditDeliverable }) {
                 <figcaption className="field-hint">{w.a.inDocument}</figcaption>
                 <blockquote dir="auto">{finding.quote}</blockquote>
               </figure>
-            ) : (
+            ) : saysNothing(finding) ? (
               <p className="field-hint" style={{ margin: 0 }}>
                 {w.a.notInDocument}
               </p>
-            )}
-            {finding.detail ? <p style={{ margin: 0 }}>{finding.detail}</p> : null}
+            ) : null}
+            {finding.detail ? (
+              <p className="model-text" style={{ margin: 0 }}>
+                {finding.detail}
+              </p>
+            ) : null}
             {finding.fix ? (
               <p style={{ margin: 0 }}>
                 <strong>{w.a.fix}</strong> {finding.fix}
@@ -118,7 +123,7 @@ function Price({ audit }: { audit: AuditDeliverable }) {
         <span className="chip">{w.priceAssessment}</span> {audit.price.comment}
       </p>
       {check && check.lines.length > 0 ? (
-        <div className="table-wrap">
+        <ScrollRegion label={a.recomputed}>
           <table>
             <caption className="visually-hidden">{a.recomputed}</caption>
             <thead>
@@ -164,7 +169,7 @@ function Price({ audit }: { audit: AuditDeliverable }) {
               ) : null}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
       ) : null}
       {notes.length > 0 ? (
         <ul style={{ margin: 0 }}>
@@ -214,8 +219,11 @@ function Questions({ audit }: { audit: AuditDeliverable }) {
         {w.a.questionsIntro}
       </p>
       <ol style={{ margin: 0 }}>
+        {/* Written in the document's language, which the provider reads: its direction may not be the interface's. */}
         {audit.questions.map((question) => (
-          <li key={question}>{question}</li>
+          <li key={question} dir="auto">
+            {question}
+          </li>
         ))}
       </ol>
       <p className="field-hint" role="status" style={{ margin: 0 }}>
@@ -285,7 +293,7 @@ function Alternative({ audit }: { audit: AuditDeliverable }) {
       <p style={{ margin: 0 }}>
         <strong>{alternative.title}</strong> {alternative.summary}
       </p>
-      <div className="table-wrap">
+      <ScrollRegion label={a.alternative}>
         <table>
           <thead>
             <tr>
@@ -314,7 +322,7 @@ function Alternative({ audit }: { audit: AuditDeliverable }) {
             </tr>
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
       {alternative.feasibility && alternative.reason ? (
         <p style={{ margin: 0 }}>
           <strong>{t[alternative.feasibility]}</strong> {alternative.reason}

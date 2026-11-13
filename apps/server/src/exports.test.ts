@@ -62,7 +62,7 @@ describe.each(BACKENDS)("on $name", (each) => {
       const session = await demoSession(app);
       const word = await app.request(`/api/sessions/${session.id}/proposal.docx?client=Studio%20Collective`);
       expect(word.status).toBe(200);
-      expect(word.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-proposal.docx"');
+      expect(word.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-v1-proposal.docx"');
       expect(
         Buffer.from(await word.arrayBuffer())
           .subarray(0, 2)
@@ -74,7 +74,7 @@ describe.each(BACKENDS)("on $name", (each) => {
       const html = await page.text();
       expect(html).toContain("<dd>Studio Collective</dd>");
       expect(html).toContain("<dd>Atelier Nord</dd>");
-      expect(html).toContain("Revision 1 · ");
+      expect(html).toContain("Version 1 · ");
       expect(html).toContain(PRINT_SCRIPT);
       for (const internal of ["Debate map", "Devil", "mock", "How this report was produced"]) expect(html).not.toContain(internal);
       expect((await app.request(`/api/sessions/${session.id}/proposal.html?revision=7`)).status).toBe(404);
@@ -113,7 +113,7 @@ describe.each(BACKENDS)("on $name", (each) => {
 
       const docx = await app.request(`/api/sessions/${session.id}/report.docx`);
       expect(docx.headers.get("content-type")).toBe("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-      expect(docx.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-report.docx"');
+      expect(docx.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-v1-report.docx"');
       const bytes = new Uint8Array(await docx.arrayBuffer());
       expect(String.fromCharCode(bytes[0]!, bytes[1]!)).toBe("PK");
 
@@ -124,7 +124,7 @@ describe.each(BACKENDS)("on $name", (each) => {
 
       const zip = await app.request(`/api/sessions/${session.id}/handoff.zip`);
       expect(zip.headers.get("content-type")).toBe("application/zip");
-      expect(zip.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-handoff.zip"');
+      expect(zip.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-v1-handoff.zip"');
       const archive = new TextDecoder().decode(await zip.arrayBuffer());
       for (const name of ["CLAUDE.md", "AGENTS.md", "PLAN.md"]) expect(archive).toContain(name);
     });
@@ -148,18 +148,18 @@ describe.each(BACKENDS)("on $name", (each) => {
 
       const jira = await app.request(`/api/sessions/${session.id}/jira.csv`);
       expect(jira.headers.get("content-type")).toBe("text/csv; charset=utf-8");
-      expect(jira.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-jira.csv"');
+      expect(jira.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-v1-jira.csv"');
       const csv = await jira.text();
       expect(csv.startsWith('"Issue ID","Parent","Issue Type","Summary"')).toBe(true);
       expect(csv).toContain('"Epic","Phase 1: First release"');
 
       const linear = await app.request(`/api/sessions/${session.id}/linear.csv`);
-      expect(linear.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-linear.csv"');
+      expect(linear.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-v1-linear.csv"');
       expect((await linear.text()).startsWith('"Title","Description","Status","Priority","Labels","Project"\r\n')).toBe(true);
 
       const github = await app.request(`/api/sessions/${session.id}/github-issues.zip`);
       expect(github.headers.get("content-type")).toBe("application/zip");
-      expect(github.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-github-issues.zip"');
+      expect(github.headers.get("content-disposition")).toBe('attachment; filename="studio-booking-app-v1-github-issues.zip"');
       const archive = new TextDecoder().decode(await github.arrayBuffer());
       for (const name of ["README.md", "create-issues.sh", "issues.json", "issues/phase-1.md", "issues/phase-1-step-1.md"]) {
         expect(archive).toContain(name);
@@ -189,7 +189,6 @@ describe.each(BACKENDS)("on $name", (each) => {
       const stored = await storage?.store.get(session.id);
       if (!stored) throw new Error("The session is not stored.");
       stored.briefs.executive = {
-        speech: "",
         headline: "Build the custom app",
         summary: "It fits the budget.",
         sections: [],

@@ -8,11 +8,17 @@ import type { TFunction } from "i18next";
 import { type FormEvent, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type PriceQuote } from "./api.ts";
+import { BusyButton } from "./components/BusyButton.tsx";
+import { CharCounter, FieldError, fieldProps, useFieldErrors } from "./components/Field.tsx";
 import { CrossIcon, DownloadIcon, PlusIcon } from "./components/Icons.tsx";
+import { RevisionStatus, useClearAfterRevision } from "./components/RevisionStatus.tsx";
+import { ScrollRegion } from "./components/ScrollRegion.tsx";
+import { ShortcutHint } from "./components/ShortcutHint.tsx";
 import { checkTexts, moneyRange } from "./costing.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText } from "./errors.ts";
 import { formatMoney } from "./format.ts";
+import { sendOnlyOnShortcut } from "./formKeys.ts";
 import { UpdateLabel } from "./Revisions.tsx";
 
 // "What if" scenarios in the interface: the form that tries one, the names the versions go by, and two versions side
@@ -34,7 +40,7 @@ export function changeLabel(change: ScenarioChange, t: TFunction, language: stri
   return t("scenario.changeConstraint", { text: change.text });
 }
 
-/** How the interface names a version: "Revision 3", or "Scenario “Budget cut” · revision 4". */
+/** How the interface names a version: "Version 3", or "Scenario “Budget cut” · version 4". */
 export function versionLabel(revision: Pick<VerdictRevision, "number" | "scenario">, t: TFunction): string {
   return revision.scenario
     ? t("compare.scenarioVersion", { title: revision.scenario.title, number: revision.number })
@@ -75,8 +81,23 @@ export function ScenarioForm({ session, price }: { session: Session; price: Pric
   const [error, setError] = useState<string | null>(null);
   const busy = Boolean(session.revising && !session.revising.error);
   const changes = drafts.map(changeOf);
+  const reset = () => {
+    setTitle("");
+    setQuestion("");
+    setDrafts([]);
+    setBasedOn(null);
+  };
+  // What was written stays readable until the scenario is ruled on: the form never looks emptied with nothing happening.
+  const after = useClearAfterRevision({
+    running: busy,
+    failed: Boolean(session.revising?.error),
+    count: session.revisions.length,
+    draft: JSON.stringify([title, question, drafts, picked]),
+    reset,
+  });
+  const working = pending || after.locked;
   const complete = changes.every((change) => change !== null);
-  const ready = title.trim() !== "" && complete && (changes.length > 0 || question.trim() !== "");
+  const fields = useFieldErrors();
 
   const add = () => {
     setDrafts((items) => [...items, { key: next, kind: "team", value: "" }]);
@@ -93,7 +114,21 @@ export function ScenarioForm({ session, price }: { session: Session; price: Pric
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!ready) return;
+    if (working) return;
+    const problems: Record<string, string> = {};
+    if (title.trim() === "") problems[`${id}-title`] = t("validation.required");
+    drafts.forEach((draft, index) => {
+      if (changes[index] !== null) return;
+      const percent = draft.kind === "build" || draft.kind === "run";
+      problems[`${id}-value-${draft.key}`] = percent
+        ? t("scenario.invalidPercent", { min: SCENARIO_LIMITS.minPercent, max: SCENARIO_LIMITS.maxPercent })
+        : draft.kind === "constraint"
+          ? t("validation.required")
+          : t("scenario.invalidWhole");
+    });
+    if (changes.length === 0 && question.trim() === "") problems[`${id}-question`] = t("scenario.needQuestion");
+    fields.report(problems);
+    if (Object.keys(problems).length > 0 || !complete) return;
     setPending(true);
     setError(null);
     try {
@@ -103,10 +138,7 @@ export function ScenarioForm({ session, price }: { session: Session; price: Pric
         changes: changes as ScenarioChange[],
         basedOn,
       });
-      setTitle("");
-      setQuestion("");
-      setDrafts([]);
-      setBasedOn(null);
+      after.submitted();
     } catch (caught) {
       setError(failureText(t, caught));
     } finally {
@@ -115,153 +147,196 @@ export function ScenarioForm({ session, price }: { session: Session; price: Pric
   };
 
   return (
-    <form className="stack scenario-form" onSubmit={submit} aria-describedby={`${id}-lead`}>
+    <form
+      ref={fields.form}
+      className="stack scenario-form"
+      noValidate
+      onSubmit={submit}
+      onKeyDown={(event) => sendOnlyOnShortcut(event, working)}
+      aria-describedby={`${id}-lead`}
+    >
       <p id={`${id}-lead`} className="field-hint" style={{ margin: 0 }}>
         {t("scenario.lead")}
       </p>
-      <div className="field">
-        <label className="field-label" htmlFor={`${id}-title`}>
-          {t("scenario.name")}
-        </label>
-        <input
-          id={`${id}-title`}
-          className="input"
-          maxLength={SCENARIO_LIMITS.title}
-          value={title}
-          placeholder={t("scenario.namePlaceholder")}
-          onChange={(event) => setTitle(event.target.value)}
-          required
-        />
-      </div>
-      <div className="field">
-        <label className="field-label" htmlFor={`${id}-question`}>
-          {t("scenario.question")}
-        </label>
-        <textarea
-          id={`${id}-question`}
-          className="textarea"
-          rows={2}
-          maxLength={SCENARIO_LIMITS.question}
-          value={question}
-          aria-describedby={`${id}-question-hint`}
-          onChange={(event) => setQuestion(event.target.value)}
-        />
-        <span id={`${id}-question-hint`} className="field-hint">
-          {t("scenario.questionHint")}
-        </span>
-      </div>
-      <fieldset className="scenario-changes stack">
-        <legend className="field-label">{t("scenario.changes")}</legend>
-        {drafts.map((draft, index) => (
-          <div key={draft.key} className="scenario-change">
-            <label className="visually-hidden" htmlFor={`${id}-kind-${draft.key}`}>
-              {t("scenario.kind", { number: index + 1 })}
+      <fieldset className="form-locked stack" disabled={working}>
+        <div className="field">
+          <label className="field-label" htmlFor={`${id}-title`}>
+            {t("scenario.name")}
+          </label>
+          <input
+            dir="auto"
+            id={`${id}-title`}
+            className="input"
+            maxLength={SCENARIO_LIMITS.title}
+            value={title}
+            placeholder={t("scenario.namePlaceholder")}
+            {...fieldProps(`${id}-title`, fields.errors[`${id}-title`])}
+            onChange={(event) => {
+              fields.clear(`${id}-title`);
+              setTitle(event.target.value);
+            }}
+          />
+          <FieldError id={`${id}-title`} error={fields.errors[`${id}-title`]} />
+          <CharCounter id={`${id}-title`} value={title} max={SCENARIO_LIMITS.title} />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor={`${id}-question`}>
+            {t("scenario.question")}
+          </label>
+          <textarea
+            dir="auto"
+            id={`${id}-question`}
+            className="textarea"
+            rows={2}
+            maxLength={SCENARIO_LIMITS.question}
+            value={question}
+            {...fieldProps(`${id}-question`, fields.errors[`${id}-question`], `${id}-question-hint`, `${id}-question-counter`)}
+            onChange={(event) => {
+              fields.clear(`${id}-question`);
+              setQuestion(event.target.value);
+            }}
+          />
+          <span id={`${id}-question-hint`} className="field-hint">
+            {t("scenario.questionHint")}
+          </span>
+          <FieldError id={`${id}-question`} error={fields.errors[`${id}-question`]} />
+          <CharCounter id={`${id}-question`} value={question} max={SCENARIO_LIMITS.question} />
+        </div>
+        <fieldset className="scenario-changes stack">
+          <legend className="field-label">{t("scenario.changes")}</legend>
+          {drafts.map((draft, index) => (
+            <div key={draft.key} className="scenario-change">
+              <label className="visually-hidden" htmlFor={`${id}-kind-${draft.key}`}>
+                {t("scenario.kind", { number: index + 1 })}
+              </label>
+              <select
+                id={`${id}-kind-${draft.key}`}
+                className="select"
+                value={draft.kind}
+                onChange={(event) => update(draft.key, { kind: event.target.value as Draft["kind"], value: "" })}
+              >
+                {KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {t(`scenario.kinds.${kind}`)}
+                  </option>
+                ))}
+              </select>
+              <label className="visually-hidden" htmlFor={`${id}-value-${draft.key}`}>
+                {t(`scenario.values.${draft.kind}`)}
+              </label>
+              {draft.kind === "constraint" ? (
+                <input
+                  dir="auto"
+                  id={`${id}-value-${draft.key}`}
+                  className="input"
+                  maxLength={SCENARIO_LIMITS.constraint}
+                  value={draft.value}
+                  placeholder={t("scenario.constraintPlaceholder")}
+                  {...fieldProps(`${id}-value-${draft.key}`, fields.errors[`${id}-value-${draft.key}`])}
+                  onChange={(event) => update(draft.key, { value: event.target.value })}
+                />
+              ) : (
+                <input
+                  id={`${id}-value-${draft.key}`}
+                  className="input scenario-number"
+                  type="number"
+                  step={1}
+                  min={draft.kind === "build" || draft.kind === "run" ? SCENARIO_LIMITS.minPercent : undefined}
+                  max={draft.kind === "build" || draft.kind === "run" ? SCENARIO_LIMITS.maxPercent : undefined}
+                  value={draft.value}
+                  placeholder={t(`scenario.placeholders.${draft.kind}`)}
+                  {...fieldProps(
+                    `${id}-value-${draft.key}`,
+                    fields.errors[`${id}-value-${draft.key}`] ??
+                      (draft.value.trim() !== "" && changeOf(draft) === null
+                        ? draft.kind === "build" || draft.kind === "run"
+                          ? t("scenario.invalidPercent", { min: SCENARIO_LIMITS.minPercent, max: SCENARIO_LIMITS.maxPercent })
+                          : t("scenario.invalidWhole")
+                        : null),
+                  )}
+                  onChange={(event) => update(draft.key, { value: event.target.value })}
+                />
+              )}
+              {draft.kind === "build" || draft.kind === "run" ? (
+                <span className="field-hint" aria-hidden="true">
+                  %
+                </span>
+              ) : null}
+              {draft.kind === "deadline" ? (
+                <>
+                  <label className="visually-hidden" htmlFor={`${id}-unit-${draft.key}`}>
+                    {t("scenario.unit")}
+                  </label>
+                  <select
+                    id={`${id}-unit-${draft.key}`}
+                    className="select"
+                    value={draft.unit}
+                    onChange={(event) => update(draft.key, { unit: event.target.value as "week" | "month" })}
+                  >
+                    <option value="week">{t("scenario.unitWeek")}</option>
+                    <option value="month">{t("scenario.unitMonth")}</option>
+                  </select>
+                </>
+              ) : null}
+              <FieldError
+                id={`${id}-value-${draft.key}`}
+                error={
+                  fields.errors[`${id}-value-${draft.key}`] ??
+                  (draft.kind !== "constraint" && draft.value.trim() !== "" && changeOf(draft) === null
+                    ? draft.kind === "build" || draft.kind === "run"
+                      ? t("scenario.invalidPercent", { min: SCENARIO_LIMITS.minPercent, max: SCENARIO_LIMITS.maxPercent })
+                      : t("scenario.invalidWhole")
+                    : null)
+                }
+              />
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={t("scenario.remove", { number: index + 1 })}
+                title={t("scenario.remove", { number: index + 1 })}
+                onClick={() => setDrafts((items) => items.filter((item) => item.key !== draft.key))}
+              >
+                <CrossIcon />
+              </button>
+            </div>
+          ))}
+          {drafts.length < SCENARIO_LIMITS.changes ? (
+            <div>
+              <button type="button" className="button button-quiet" onClick={add}>
+                <PlusIcon />
+                {t("scenario.addChange")}
+              </button>
+            </div>
+          ) : null}
+        </fieldset>
+        {session.revisions.length > 1 ? (
+          <div className="field">
+            <label className="field-label" htmlFor={`${id}-base`}>
+              {t("scenario.basedOn")}
             </label>
-            <select
-              id={`${id}-kind-${draft.key}`}
-              className="select"
-              value={draft.kind}
-              onChange={(event) => update(draft.key, { kind: event.target.value as Draft["kind"], value: "" })}
-            >
-              {KINDS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {t(`scenario.kinds.${kind}`)}
+            <select id={`${id}-base`} className="select" value={basedOn} onChange={(event) => setBasedOn(Number(event.target.value))}>
+              {[...session.revisions].reverse().map((revision) => (
+                <option key={revision.number} value={revision.number}>
+                  {versionLabel(revision, t)}
+                  {revision.number === current?.number ? ` (${t("revision.latest")})` : ""}
                 </option>
               ))}
             </select>
-            <label className="visually-hidden" htmlFor={`${id}-value-${draft.key}`}>
-              {t(`scenario.values.${draft.kind}`)}
-            </label>
-            {draft.kind === "constraint" ? (
-              <input
-                id={`${id}-value-${draft.key}`}
-                className="input"
-                maxLength={SCENARIO_LIMITS.constraint}
-                value={draft.value}
-                placeholder={t("scenario.constraintPlaceholder")}
-                onChange={(event) => update(draft.key, { value: event.target.value })}
-              />
-            ) : (
-              <input
-                id={`${id}-value-${draft.key}`}
-                className="input scenario-number"
-                type="number"
-                inputMode="decimal"
-                step={1}
-                min={draft.kind === "build" || draft.kind === "run" ? SCENARIO_LIMITS.minPercent : undefined}
-                max={draft.kind === "build" || draft.kind === "run" ? SCENARIO_LIMITS.maxPercent : undefined}
-                value={draft.value}
-                placeholder={t(`scenario.placeholders.${draft.kind}`)}
-                aria-invalid={draft.value.trim() !== "" && changeOf(draft) === null}
-                onChange={(event) => update(draft.key, { value: event.target.value })}
-              />
-            )}
-            {draft.kind === "build" || draft.kind === "run" ? (
-              <span className="field-hint" aria-hidden="true">
-                %
-              </span>
-            ) : null}
-            {draft.kind === "deadline" ? (
-              <>
-                <label className="visually-hidden" htmlFor={`${id}-unit-${draft.key}`}>
-                  {t("scenario.unit")}
-                </label>
-                <select
-                  id={`${id}-unit-${draft.key}`}
-                  className="select"
-                  value={draft.unit}
-                  onChange={(event) => update(draft.key, { unit: event.target.value as "week" | "month" })}
-                >
-                  <option value="week">{t("scenario.unitWeek")}</option>
-                  <option value="month">{t("scenario.unitMonth")}</option>
-                </select>
-              </>
-            ) : null}
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={t("scenario.remove", { number: index + 1 })}
-              title={t("scenario.remove", { number: index + 1 })}
-              onClick={() => setDrafts((items) => items.filter((item) => item.key !== draft.key))}
-            >
-              <CrossIcon />
-            </button>
-          </div>
-        ))}
-        {drafts.length < SCENARIO_LIMITS.changes ? (
-          <div>
-            <button type="button" className="button button-quiet" onClick={add}>
-              <PlusIcon />
-              {t("scenario.addChange")}
-            </button>
           </div>
         ) : null}
       </fieldset>
-      {session.revisions.length > 1 ? (
-        <div className="field">
-          <label className="field-label" htmlFor={`${id}-base`}>
-            {t("scenario.basedOn")}
-          </label>
-          <select id={`${id}-base`} className="select" value={basedOn} onChange={(event) => setBasedOn(Number(event.target.value))}>
-            {[...session.revisions].reverse().map((revision) => (
-              <option key={revision.number} value={revision.number}>
-                {versionLabel(revision, t)}
-                {revision.number === current?.number ? ` (${t("revision.latest")})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
       {error ? (
         <p className="notice notice-error" role="alert" style={{ margin: 0 }}>
           {error}
         </p>
       ) : null}
       <div>
-        <button type="submit" className="button button-secondary" disabled={pending || busy || !ready}>
+        <BusyButton type="submit" className="button button-secondary" busy={working} announce={false} busyLabel={t("scenario.trying")}>
           <UpdateLabel price={price} label={t("scenario.submit")} />
-        </button>
+        </BusyButton>
+        <ShortcutHint style={{ marginInlineStart: "var(--space-3)" }} />
       </div>
+      <RevisionStatus working={working} stalled={after.stalled} scenario following={busy} />
     </form>
   );
 }
@@ -390,7 +465,7 @@ function optionRows(comparison: RevisionComparison, seat: string, t: TFunction, 
 
 function CompareTable({ caption, columns, rows }: { caption: string; columns: [string, string]; rows: Row[] }) {
   return (
-    <div className="table-wrap">
+    <ScrollRegion label={caption}>
       <table className="compare-table">
         <caption>{caption}</caption>
         <thead>
@@ -410,7 +485,7 @@ function CompareTable({ caption, columns, rows }: { caption: string; columns: [s
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollRegion>
   );
 }
 

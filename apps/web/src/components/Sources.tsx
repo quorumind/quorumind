@@ -18,7 +18,8 @@ const formatDate = (iso: string, locale: string) => {
 function showSource(event: MouseEvent<HTMLAnchorElement>, ref: number) {
   event.preventDefault();
   const target = document.getElementById(`source-${ref}`);
-  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  target?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
   target?.querySelector("a")?.focus({ preventScroll: true });
 }
 
@@ -154,7 +155,7 @@ export function ResearchCard({ session, searching }: { session: Session; searchi
         <span className="voice-icon">
           <SearchIcon />
         </span>
-        <span className="label">{t("research.title")}</span>
+        <span className="label visually-hidden">{t("research.title")}</span>
       </div>
       <div className="bubble stack">
         {research.status === "running" ? <p className="speech">{t("research.running")}</p> : null}

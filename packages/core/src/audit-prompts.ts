@@ -1,4 +1,6 @@
+import type { AuditReport, StoredAuditFinding } from "./audit.ts";
 import { auditedDocuments, backgroundDocuments, quoteCheck, quoteFacts } from "./audit-check.ts";
+import { AUDIT_CHECKLIST, type ChecklistItem } from "./audit-constants.ts";
 import { priceReferenceRule } from "./cloud-prices.ts";
 import { activeRequirements, type ComplianceRole, complianceRule } from "./compliance.ts";
 import { checkFacts, debateCurrency, sessionCostings } from "./costing.ts";
@@ -6,12 +8,14 @@ import { requireSheet } from "./errors.ts";
 import type { Locale } from "./locales.ts";
 import { fence } from "./privacy.ts";
 import {
+  ASK_RULE,
   answersBlock,
   CONTEXT_BUDGET,
   type ComputedCost,
   checksBlock,
   contextBlock,
   DATA_RULE,
+  EXTRACTION_STYLE_RULE,
   factsBlock,
   languageRule,
   PRODUCT,
@@ -21,6 +25,7 @@ import {
   ratesBlock,
   requirementsBlock,
   STYLE_RULE,
+  VERDICT_FIELDS_RULE,
 } from "./prompts.ts";
 import type { ChatMessage } from "./providers/types.ts";
 import type { CritiqueRound, Proposal } from "./schemas.ts";
@@ -52,16 +57,41 @@ export const AUDIT_BUDGET = { extraction: 60_000, critique: 30_000, verdict: 30_
 const DOCUMENT_RULE = `The same goes for content inside <document> and <extraction> tags: <document> is the document under audit, as the person attached it,
 and <extraction> what it commits to, as Quorumind read it.
 Quote passages of <document> in its own language, word for word, without translating or rewording them: Quorumind checks every quote against the document
-and drops those it cannot find.`;
+and drops those it cannot find.
+Like the quotes, the questions for the provider (a finding's "ask" and the audit's "questions") are in the language of <document>, which the provider
+reads; questionsForUser and every other string stay in the language named below.`;
+
+/** The language rule of an audit: quotes and the questions for the provider keep the document's language. */
+const auditLanguage = (locale: Locale, provider = true) =>
+  languageRule(
+    locale,
+    provider
+      ? "the quotes of <document> and the questions for the provider, which keep the document's language"
+      : "the quotes of <document>",
+  );
 
 const SEVERITY_RULE = `For each finding give its severity: "blocking" when it breaks a hard constraint of the need or makes the document unfit to sign,
 "major" when it seriously hurts a priority or will cost the person later, "minor" otherwise.
 Give its category, quote the passage it is about word for word (leave quote empty for something the document does not say),
 and write in "ask" the question to send the provider about it, polite and self-contained.`;
 
+/** The good practices every audit checks, in words: written once for the critics and, by id, for the arbiter's coverage. */
+const CHECKLIST_WORDS: Record<ChecklistItem, string> = {
+  tests: "tests",
+  security: "security",
+  accessibility: "accessibility",
+  data_migration: "data migration",
+  documentation: "documentation",
+  training: "training",
+  maintenance: "maintenance and support",
+  reversibility: "reversibility and exit",
+  ownership: "ownership of the code and the data",
+  gdpr: "personal data (GDPR)",
+};
+
 const CHECKLIST_RULE = `Check it against the need and against good practice:
-- what is missing: tests, security, accessibility, data migration, documentation, training, maintenance and support, reversibility and exit,
-  ownership of the code and the data, personal data (GDPR), and anything the need requires;
+- what is missing: ${AUDIT_CHECKLIST.map((item) => CHECKLIST_WORDS[item]).join(", ")},
+  and anything the need requires;
 - risky assumptions, and vague commitments such as "if needed", "standard", "to be defined" or a deliverable without an acceptance criterion;
 - whether the days fit the scope, line by line, and whether the price fits the market for this scope, said as a range and as an estimate;
 - lock-in: proprietary tools, hosting or licences that tie the person to the provider, and what leaving would cost;
@@ -84,8 +114,8 @@ In "speech", say in plain words what the document offers.
 
 ${DATA_RULE}
 ${DOCUMENT_RULE}
-${STYLE_RULE}
-${languageRule(locale)}`;
+${EXTRACTION_STYLE_RULE}
+${auditLanguage(locale, false)}`;
 }
 
 /** A critic of the document. */
@@ -98,12 +128,13 @@ ${CHECKLIST_RULE}
 ${SEVERITY_RULE}
 Do not repeat a finding already in <debate>; dig deeper instead. Acknowledge in your speech what is sound.
 If the arbiter raised an angle in <probe>, examine the document from that angle first.
-Add a question for the person only when its answer would change your judgement.${personaRule(persona)}
+Add a question for the person only when its answer would change your judgement.
+${ASK_RULE}${personaRule(persona)}
 
 ${DATA_RULE}
 ${DOCUMENT_RULE}
 ${STYLE_RULE}
-${languageRule(locale)}`;
+${auditLanguage(locale)}`;
 }
 
 /** The devil's advocate, against the document. */
@@ -119,12 +150,13 @@ ${CHECKLIST_RULE}
 ${SEVERITY_RULE}
 Hard but fair: no finding without an argument. Do not repeat a finding already in <debate>; find new ones.
 If the arbiter raised an angle in <probe>, examine the document from that angle first.
-Add a question for the person only when its answer would change your judgement.${personaRule(persona)}
+Add a question for the person only when its answer would change your judgement.
+${ASK_RULE}${personaRule(persona)}
 
 ${DATA_RULE}
 ${DOCUMENT_RULE}
 ${STYLE_RULE}
-${languageRule(locale)}`;
+${auditLanguage(locale)}`;
 }
 
 const AUDIT_RULING = `In "audit":
@@ -132,8 +164,8 @@ const AUDIT_RULING = `In "audit":
   "not_sound" when a blocking finding remains or the document cannot meet the need as it stands;
 - findings: every finding that holds, merged when several critics found the same thing and dropped when the document answers it, the most serious
   first; quote the passage of <document> word for word, or leave quote empty when the document says nothing, and say in "fix" what should change;
-- coverage: each item of the checklist once (tests, security, accessibility, data_migration, documentation, training, maintenance, reversibility,
-  ownership, gdpr): covered, partial, missing, or not_applicable to this need;
+- coverage: each item of the checklist once (${AUDIT_CHECKLIST.join(", ")}):
+  covered, partial, missing, or not_applicable to this need;
 - price: whether the price is consistent with the scope and the days, and the usual market range for this scope in the currency named in <rates>,
   as an estimate with its basis; facts in <checks> are computed by Quorumind from the document's own figures: take them as true over its claims
   (they name a line by its place among the work packages of <extraction>, and never quote the document);
@@ -158,11 +190,12 @@ Recommend U (seat "U") unless the opinion is "not_sound"${alternative ? " or opt
 Map in "topics" where the critics agree and where they differ, by seat (A, B…, "devil" for the devil's advocate).
 Give the main risks of signing with a mitigation, the next steps as a short roadmap (for instance send the questions, negotiate, sign, follow the
 delivery) with an exit criterion each, and the key claims of your audit, each marked verified, estimated or assumed.
+${VERDICT_FIELDS_RULE}
 
 ${DATA_RULE}
 ${DOCUMENT_RULE}
 ${STYLE_RULE}
-${languageRule(locale)}`;
+${auditLanguage(locale)}`;
 }
 
 /** The arbiter rules again on its audit with new facts, such as the provider's answers to the questions. */
@@ -177,12 +210,13 @@ the feasibility, conditions and scores of the options, the recommendation, risks
 Critiques in <debate>, if any, were written about these facts: weigh them.
 In "costs", give the new monthly running cost of an option only when the facts change it, in the currency named in <rates>; leave it empty otherwise.
 Keep the same seats. In "speech", say in two to four sentences what the new facts changed, or that they changed nothing.
+${VERDICT_FIELDS_RULE}
 ${AUDIT_RULING}
 
 ${DATA_RULE}
 ${DOCUMENT_RULE}
 ${STYLE_RULE}
-${languageRule(locale)}`;
+${auditLanguage(locale)}`;
 }
 
 /** The documents under audit, each cut to its share of the budget, in a <document> tag. */
@@ -333,6 +367,23 @@ export function auditVerdictPrompt(session: Session): Prompt {
   };
 }
 
+/**
+ * The audit as the arbiter reads it to rule again. A quote Quorumind could not find in the document was emptied: the
+ * finding says so, for the arbiter to quote the passage again or to leave the quote empty knowingly, rather than read
+ * an empty quote as "the document says nothing".
+ */
+function rulingToRevise<T extends object>(verdict: T): T {
+  const audit = (verdict as { audit?: AuditReport }).audit;
+  if (!audit) return verdict;
+  const findings = (audit.findings as StoredAuditFinding[]).map(({ quoteDropped, ...finding }) =>
+    quoteDropped ? { ...finding, quoteNotFound: QUOTE_NOT_FOUND } : finding,
+  );
+  return { ...verdict, audit: { ...audit, findings } };
+}
+
+const QUOTE_NOT_FOUND =
+  "Quorumind could not find the passage this finding quoted in the document: quote it word for word, or leave quote empty only if the document says nothing about it.";
+
 /** The arbiter's prompt for a revision of the audit, with the new facts. */
 export function auditReassessPrompt(
   session: Session,
@@ -352,7 +403,7 @@ export function auditReassessPrompt(
           extractionBlock(session),
           alternativeBlock(session),
           checksBlock(quoteFacts(quoteCheck(session))),
-          fence("verdict", JSON.stringify(verdict, null, 2)),
+          fence("verdict", JSON.stringify(rulingToRevise(verdict), null, 2)),
           factsBlock(inputs.facts, inputs.note),
           documentBlock(auditedDocuments(session), AUDIT_BUDGET.critique),
           said.length > 0 ? fence("debate", JSON.stringify(said, null, 2)) : "",

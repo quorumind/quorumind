@@ -12,6 +12,7 @@ import {
   formatDayRange,
   formatMoney,
   formatScore,
+  inItem,
   labelled,
   monthlyRange,
   reportLabels,
@@ -56,8 +57,10 @@ export interface ClientDeliverable {
   complete: boolean;
   /** The revision of the verdict it shows: its number and date. */
   revision: { number: number; date: string } | null;
-  /** The arbiter's summary of the debate. */
-  summary: string | null;
+  /**
+   * The arbiter's ruling. Its rationale is written for the person who ran the debate: a client reads it only until the
+   * version written for them exists. The arbiter's speech, a summary for that person too, stays on their own screen.
+   */
   recommendation: { seat: string | null; title: string | null; rationale: string } | null;
   /** The criteria the options are scored on, with their weight from 1 to 5. */
   criteria: { criterion: string; weight: number }[];
@@ -77,7 +80,7 @@ export interface ClientDeliverable {
   roadmap: Verdict["roadmap"];
   openQuestions: string[];
   /** The verdict rewritten for a client, once it was written. */
-  brief: Omit<Brief, "speech"> | null;
+  brief: Brief | null;
   /** The audit, for an audit session: its findings, checks, questions and points to negotiate. */
   audit: AuditDeliverable | null;
   /** The facts the web research found, with their public sources; null without research. */
@@ -108,7 +111,6 @@ export function clientDeliverable(session: Session): ClientDeliverable {
       ...base,
       complete: false,
       revision: null,
-      summary: null,
       recommendation: null,
       options: [],
       risks: [],
@@ -153,7 +155,6 @@ export function clientDeliverable(session: Session): ClientDeliverable {
     ...base,
     complete: true,
     revision: revision ? { number: revision.number, date: revision.createdAt } : null,
-    summary: verdict.speech.trim() || null,
     recommendation: {
       seat,
       title: seat
@@ -179,7 +180,7 @@ export function clientDeliverable(session: Session): ClientDeliverable {
   };
 }
 
-const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+const list = (items: string[]) => items.map((item) => `- ${inItem(item)}`).join("\n");
 const cell = (text: string) => text.replaceAll("|", "\\|").replaceAll("\n", " ");
 
 /** The client deliverable as Markdown, in the session's language: what a client share link downloads. */
@@ -210,10 +211,8 @@ export function renderClientReport(deliverable: ClientDeliverable): string {
       ? `**${recommendation.title ?? seatName(seat, t)}** (${seatName(seat, t)}${chosen ? `, ${t[chosen.feasibility]}` : ""})`
       : `**${t.noRecommendation}**`,
     "",
-    recommendation.rationale,
-    "",
   );
-  if (deliverable.summary) lines.push(`### ${t.summary}`, "", deliverable.summary, "");
+  if (!deliverable.brief) lines.push(recommendation.rationale, "");
 
   const brief = deliverable.brief;
   if (brief) {
@@ -239,7 +238,7 @@ export function renderClientReport(deliverable: ClientDeliverable): string {
     }
     lines.push("", `_${t.scoreLegend}_`, "");
     for (const option of deliverable.options) {
-      lines.push(`- **${seatName(option.seat, t)}, ${t[option.feasibility]}:** ${option.reason}`);
+      lines.push(`- **${seatName(option.seat, t)}, ${t[option.feasibility]}:** ${inItem(option.reason)}`);
       if (option.conditions.length > 0) lines.push(`  - ${say(t.conditions, option.conditions.join("; "))}`);
     }
     lines.push("");
@@ -288,7 +287,7 @@ export function renderClientReport(deliverable: ClientDeliverable): string {
   if (deliverable.roadmap.length > 0) {
     lines.push(`## ${t.roadmap}`, "");
     deliverable.roadmap.forEach((phase, index) => {
-      lines.push(`${index + 1}. **${phase.phase}:** ${phase.content} (${say(t.exitCriterion, phase.exitCriterion)})`);
+      lines.push(`${index + 1}. **${phase.phase}:** ${inItem(phase.content, 3)} (${say(t.exitCriterion, phase.exitCriterion)})`);
     });
     lines.push("");
   }

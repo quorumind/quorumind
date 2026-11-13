@@ -154,6 +154,13 @@ export const AuditReport = z.object({
 });
 export type AuditReport = z.infer<typeof AuditReport>;
 
+/**
+ * A finding of the arbiter's audit as stored. quoteDropped is true when the arbiter quoted a passage Quorumind could not
+ * find in the document (the document may say something), false when it left the quote empty or the quote was found; it
+ * is absent from the audits stored before it existed.
+ */
+export type StoredAuditFinding = AuditReport["findings"][number] & { quoteDropped?: boolean };
+
 export const AuditVerdict = Verdict.extend({ audit: AuditReport });
 export const AuditVerdictUpdate = VerdictUpdate.extend({ audit: AuditReport });
 

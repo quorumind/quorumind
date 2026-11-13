@@ -30,8 +30,18 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { AppHooks, Author, SessionAccess, User } from "./app.ts";
 import type { ChatNotifier } from "./chat.ts";
+import { InvalidInput } from "./errors.ts";
 import type { Notifier } from "./notifier.ts";
-import type { DecisionQuery, Placement, SessionStore, StoredDecision, StoredSession } from "./store.ts";
+import {
+  type DecisionQuery,
+  decodeCursor,
+  encodeCursor,
+  PAGE_MAX,
+  type Placement,
+  type SessionStore,
+  type StoredDecision,
+  type StoredSession,
+} from "./store.ts";
 
 // "What if" scenarios, the comparison of two versions and the decision register. A scenario is a revision of the
 // verdict (the same machinery, the same price) made beside the others; one of them can be adopted as the decision.
@@ -116,6 +126,9 @@ const ListInput = z.object({
   from: Day.optional(),
   to: Day.optional(),
   lang: z.string().optional(),
+  /** A page: how many, and the cursor an earlier answer gave as `next`. Left out, every decision up to the cap. */
+  limit: z.coerce.number().int().min(1).max(PAGE_MAX).optional(),
+  before: z.string().min(1).max(400).optional(),
 });
 
 /** An approval asked for again within this time sends no new message: anyone who may read a session may ask. */
@@ -300,22 +313,41 @@ export function decisionRoutes(deps: DecisionDeps) {
   });
 
   /** The decisions the caller may read, with the filters asked for, and the authors to filter by. */
-  const listed = async (c: Context<Env>): Promise<{ decisions: DecisionView[]; authors: (Author & { id: string })[]; shared: boolean }> => {
+  const listed = async (
+    c: Context<Env>,
+  ): Promise<{ decisions: DecisionView[]; authors: (Author & { id: string })[]; shared: boolean; next: string | null }> => {
     const user = c.get("user");
     const input = ListInput.parse(c.req.query());
     const owner = deps.ownerOf(user);
     const scope = await deps.scopeOf(user);
     const base: DecisionQuery = scope ? { owner, workspace: scope.workspace } : { owner };
     const author = input.author === "me" ? owner : input.author;
-    const rows = await store.decisions({
+    const before = input.before === undefined ? undefined : decodeCursor(input.before);
+    if (before === null) throw new InvalidInput("This page cursor is not one the server gave.", "invalid_cursor");
+    const asked = await store.decisions({
       ...base,
+      ...(input.limit ? { limit: input.limit + 1 } : {}),
+      ...(before ? { before } : {}),
       ...(input.status ? { status: input.status } : {}),
       ...(author !== undefined ? { author } : {}),
       ...(input.from ? { from: input.from } : {}),
       ...(input.to ? { to: input.to } : {}),
     });
-    const everyone = author === undefined ? rows : await store.decisions(base);
-    const owners = [...new Set(everyone.flatMap((row) => (row.owner ? [row.owner] : [])))];
+    // One more than the page was asked, to know whether it goes on.
+    const rows = input.limit ? asked.slice(0, input.limit) : asked;
+    const last = rows.at(-1);
+    const next = input.limit && asked.length > input.limit && last ? encodeCursor({ updatedAt: last.updatedAt, id: last.sessionId }) : null;
+    // The authors to filter by come with the first page and cover the whole register the caller may read (not the
+    // page, nor the filters), the client keeping them; later pages carry none, so they cost no second query.
+    const everyone = before
+      ? []
+      : !input.limit && author === undefined
+        ? rows.map((row) => row.owner)
+        : store.decisionOwners
+          ? await store.decisionOwners(base)
+          : (await store.decisions(base)).map((row) => row.owner);
+    const listed = [...new Set(everyone.flatMap((owner) => (owner ? [owner] : [])))];
+    const owners = [...new Set([...listed, ...rows.flatMap((row) => (row.owner ? [row.owner] : []))])];
     const names = hooks.authors && owners.length > 0 ? await hooks.authors(owners) : {};
     const decisions = await Promise.all(
       rows.map(async (row): Promise<DecisionView> => {
@@ -329,8 +361,9 @@ export function decisionRoutes(deps: DecisionDeps) {
     );
     return {
       decisions,
-      authors: owners.map((id) => ({ id, name: names[id]?.name ?? null, email: names[id]?.email ?? null })),
+      authors: listed.map((id) => ({ id, name: names[id]?.name ?? null, email: names[id]?.email ?? null })),
       shared: Boolean(scope?.workspace),
+      next,
     };
   };
 

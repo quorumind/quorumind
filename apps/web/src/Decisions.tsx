@@ -1,14 +1,21 @@
 import type { Session } from "@quorumind/core";
 import { DECISION_LIMITS, DECISION_STATUSES, type DecisionStatus, type RegisterEntry, registerEntry } from "@quorumind/core/decisions";
 import type { TFunction } from "i18next";
-import { type FormEvent, useEffect, useId, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authorName, useCanEdit } from "./access.tsx";
 import { api, type DecisionAction, type DecisionFilters, type DecisionRow } from "./api.ts";
+import { BusyButton } from "./components/BusyButton.tsx";
+import { Dialog, useDialog } from "./components/Dialog.tsx";
+import { CharCounter } from "./components/Field.tsx";
+import { useRefocus } from "./components/focus.ts";
 import { CheckIcon, CrossIcon, DownloadIcon, RegisterIcon } from "./components/Icons.tsx";
-import { EmptyState, PageHeading } from "./components/Page.tsx";
+import { EmptyState, PageHead } from "./components/Page.tsx";
+import { ScrollRegion } from "./components/ScrollRegion.tsx";
+import { ShowMore, usePager } from "./components/ShowMore.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText } from "./errors.ts";
+import { isolate } from "./isolate.ts";
 
 // The decision register in the interface: the decision of the session on screen (its status, who approved which
 // version, its note and its review date), and the register of every decision the person may read, with its filters
@@ -38,21 +45,23 @@ function rememberName(name: string) {
 /** The status of a decision as a chip, in words and color. */
 export function StatusChip({ status }: { status: DecisionStatus }) {
   const { t } = useTranslation();
-  return <span className={`chip decision-status decision-${status}`}>{t(`decision.status.${status}`)}</span>;
+  return <span className={`badge decision-status decision-${status}`}>{t(`decision.status.${status}`)}</span>;
 }
 
 /** Who approved which version, or why it is not approved, in one line. */
 function approvalText(entry: RegisterEntry, t: TFunction, language: string): string | null {
   if (entry.approval) {
     const date = dateOf(entry.approval.at, language);
-    return entry.approval.name ? t("decision.approvedBy", { name: entry.approval.name, date }) : t("decision.approvedOn", { date });
+    return entry.approval.name
+      ? t("decision.approvedBy", { name: isolate(entry.approval.name), date })
+      : t("decision.approvedOn", { date });
   }
   if (entry.previousApproval) {
     return t("decision.outdated", { number: entry.previousApproval.revision, date: dateOf(entry.previousApproval.at, language) });
   }
   if (entry.request && entry.status === "proposed") {
     const date = dateOf(entry.request.at, language);
-    return entry.request.name ? t("decision.requested", { name: entry.request.name, date }) : t("decision.requestedOn", { date });
+    return entry.request.name ? t("decision.requested", { name: isolate(entry.request.name), date }) : t("decision.requestedOn", { date });
   }
   return null;
 }
@@ -108,13 +117,24 @@ export function DecisionPanel({ session }: { session: Session }) {
   const [reviewWhen, setReviewWhen] = useState(session.decision?.review.when ?? "");
   const [others, setOthers] = useState<DecisionRow[] | null>(null);
   const [replacement, setReplacement] = useState("");
-  const [pending, setPending] = useState(false);
+  // The note and the review date are folded while the decision waits and none was written: the panel is its question,
+  // a comment and the buttons. A decision already approved, or with details saved, shows them.
+  const [detailsOpen, setDetailsOpen] = useState(
+    Boolean(session.decision?.note || session.decision?.review.on || session.decision?.review.when) ||
+      registerEntry(session)?.status !== "proposed",
+  );
+  // What is running ("approve", "details"…): the button that started it is the one that waits.
+  const [running, setRunning] = useState<string | null>(null);
+  const pending = running !== null;
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const rejectDialog = useDialog();
+  // Approving, rejecting or reopening replaces the button pressed: the keyboard lands on the panel's title, not the page.
+  useRefocus(entry?.status, () => document.getElementById(`${id}-title`));
   if (!entry) return null;
 
-  const run = async (work: () => Promise<unknown>) => {
-    setPending(true);
+  const run = async (kind: string, work: () => Promise<unknown>) => {
+    setRunning(kind);
     setError(null);
     setSaved(false);
     try {
@@ -124,13 +144,13 @@ export function DecisionPanel({ session }: { session: Session }) {
       setError(failureText(t, caught));
       return false;
     } finally {
-      setPending(false);
+      setRunning(null);
     }
   };
 
   const act = async (action: DecisionAction) => {
     if (typed && name.trim()) rememberName(name.trim());
-    const done = await run(() =>
+    const done = await run(action, () =>
       api.decide(session.id, action, {
         comment: comment.trim() || null,
         name: typed ? name.trim() || null : null,
@@ -144,7 +164,7 @@ export function DecisionPanel({ session }: { session: Session }) {
   };
 
   const chooseReplacement = async () => {
-    await run(async () => {
+    await run("replacement", async () => {
       const { decisions } = await api.decisions();
       setOthers(decisions.filter((row) => row.sessionId !== session.id));
     });
@@ -152,11 +172,21 @@ export function DecisionPanel({ session }: { session: Session }) {
 
   const saveDetails = async (event: FormEvent) => {
     event.preventDefault();
-    const done = await run(() =>
+    const done = await run("details", () =>
       api.decisionDetails(session.id, { note: note.trim() || null, review: { on: reviewOn || null, when: reviewWhen.trim() || null } }),
     );
     if (done) setSaved(true);
   };
+
+  // Enter in the comment takes the step the panel puts first, which is never the one that closes the decision.
+  const defaultAction: DecisionAction | null = entry.status !== "proposed" ? null : canEdit ? "approve" : "request";
+  const onActions = (event: FormEvent) => {
+    event.preventDefault();
+    if (defaultAction && !pending) void act(defaultAction);
+  };
+  // A reminder for a day that has passed would never be sent; a date that was already saved is left alone.
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  const reviewPast = reviewOn !== "" && reviewOn < today && reviewOn !== (session.decision?.review.on ?? "");
 
   const approval = approvalText(entry, t, i18n.language);
   const open = entry.status === "proposed" || entry.status === "approved";
@@ -181,7 +211,7 @@ export function DecisionPanel({ session }: { session: Session }) {
       {entry.supersededBy ? (
         <p style={{ margin: 0 }}>
           <a href={`#/s/${entry.supersededBy}`}>
-            {t("decision.supersededBy", { title: session.decision?.closure?.supersededTitle ?? "" })}
+            {t("decision.supersededBy", { title: isolate(session.decision?.closure?.supersededTitle ?? "") })}
           </a>
         </p>
       ) : null}
@@ -191,13 +221,14 @@ export function DecisionPanel({ session }: { session: Session }) {
         </p>
       ) : null}
 
-      <div className="stack decision-actions">
+      <form className="stack decision-actions" onSubmit={onActions}>
         {typed ? (
           <div className="field">
             <label className="field-label" htmlFor={`${id}-name`}>
               {t("decision.yourName")}
             </label>
             <input
+              dir="auto"
               id={`${id}-name`}
               className="input"
               maxLength={DECISION_LIMITS.name}
@@ -212,6 +243,7 @@ export function DecisionPanel({ session }: { session: Session }) {
             {t("decision.comment")}
           </label>
           <input
+            dir="auto"
             id={`${id}-comment`}
             className="input"
             maxLength={DECISION_LIMITS.comment}
@@ -221,18 +253,18 @@ export function DecisionPanel({ session }: { session: Session }) {
         </div>
         <div className="row">
           {canEdit && entry.status === "proposed" ? (
-            <button type="button" className="button button-primary" disabled={pending} onClick={() => act("approve")}>
+            <BusyButton type="submit" busy={running === "approve"} disabled={pending}>
               <CheckIcon />
               {t("decision.approve")}
-            </button>
+            </BusyButton>
           ) : null}
           {!canEdit && entry.status === "proposed" ? (
-            <button type="button" className="button button-secondary" disabled={pending} onClick={() => act("request")}>
+            <BusyButton type="submit" className="button button-secondary" busy={running === "request"} disabled={pending}>
               {t("decision.request")}
-            </button>
+            </BusyButton>
           ) : null}
           {canEdit && open ? (
-            <button type="button" className="button button-secondary" disabled={pending} onClick={() => act("reject")}>
+            <button type="button" className="button button-secondary" disabled={pending} onClick={rejectDialog.open}>
               {t("decision.reject")}
             </button>
           ) : null}
@@ -286,60 +318,112 @@ export function DecisionPanel({ session }: { session: Session }) {
             {t("decision.readOnly")}
           </p>
         ) : null}
-      </div>
+      </form>
+
+      <Dialog dialog={rejectDialog} labelledBy={`${id}-reject-title`}>
+        <div className="stack">
+          <h2 id={`${id}-reject-title`} className="heading">
+            {t("decision.rejectTitle")}
+          </h2>
+          <p style={{ margin: 0 }}>{t("decision.rejectLead")}</p>
+          <div className="dialog-actions">
+            <button type="button" className="button button-secondary" onClick={rejectDialog.close}>
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => {
+                rejectDialog.close();
+                void act("reject");
+              }}
+            >
+              {t("decision.rejectConfirm")}
+            </button>
+          </div>
+        </div>
+      </Dialog>
 
       {canEdit ? (
-        <form className="stack" onSubmit={saveDetails}>
-          <div className="field">
-            <label className="field-label" htmlFor={`${id}-note`}>
-              {t("decision.note")}
-            </label>
-            <textarea
-              id={`${id}-note`}
-              className="textarea"
-              rows={2}
-              maxLength={DECISION_LIMITS.note}
-              value={note}
-              aria-describedby={`${id}-note-hint`}
-              onChange={(event) => setNote(event.target.value)}
-            />
-            <span id={`${id}-note-hint`} className="field-hint">
-              {t("decision.noteHint")}
-            </span>
-          </div>
-          <div className="decision-review">
+        <details className="disclosure" open={detailsOpen} onToggle={(event) => setDetailsOpen(event.currentTarget.open)}>
+          <summary>
+            <span className="disclosure-title">{t("decision.more")}</span>
+          </summary>
+          <form className="stack" onSubmit={saveDetails}>
             <div className="field">
-              <label className="field-label" htmlFor={`${id}-on`}>
-                {t("decision.reviewOn")}
+              <label className="field-label" htmlFor={`${id}-note`}>
+                {t("decision.note")}
               </label>
-              <input id={`${id}-on`} className="input" type="date" value={reviewOn} onChange={(event) => setReviewOn(event.target.value)} />
-            </div>
-            <div className="field">
-              <label className="field-label" htmlFor={`${id}-when`}>
-                {t("decision.reviewWhen")}
-              </label>
-              <input
-                id={`${id}-when`}
-                className="input"
-                maxLength={DECISION_LIMITS.when}
-                value={reviewWhen}
-                placeholder={t("decision.reviewWhenPlaceholder")}
-                onChange={(event) => setReviewWhen(event.target.value)}
+              <textarea
+                dir="auto"
+                id={`${id}-note`}
+                className="textarea"
+                rows={2}
+                maxLength={DECISION_LIMITS.note}
+                value={note}
+                aria-describedby={`${id}-note-hint ${id}-note-counter`}
+                onChange={(event) => setNote(event.target.value)}
               />
-            </div>
-          </div>
-          <span className="field-hint">{t("decision.reviewHint")}</span>
-          <div className="row">
-            <button type="submit" className="button button-secondary" disabled={pending}>
-              {t("decision.save")}
-            </button>
-            {saved ? (
-              <span role="status" className="field-hint">
-                {t("decision.saved")}
+              <span id={`${id}-note-hint`} className="field-hint">
+                {t("decision.noteHint")}
               </span>
-            ) : null}
-          </div>
-        </form>
+              <CharCounter id={`${id}-note`} value={note} max={DECISION_LIMITS.note} />
+            </div>
+            <div className="decision-review">
+              <div className="field">
+                <label className="field-label" htmlFor={`${id}-on`}>
+                  {t("decision.reviewOn")}
+                </label>
+                <input
+                  id={`${id}-on`}
+                  className="input"
+                  type="date"
+                  min={today}
+                  value={reviewOn}
+                  aria-invalid={reviewPast}
+                  aria-describedby={reviewPast ? `${id}-on-error` : undefined}
+                  onChange={(event) => setReviewOn(event.target.value)}
+                />
+                {reviewPast ? (
+                  <span id={`${id}-on-error`} className="field-error">
+                    {t("decision.reviewPast")}
+                  </span>
+                ) : null}
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor={`${id}-when`}>
+                  {t("decision.reviewWhen")}
+                </label>
+                <input
+                  dir="auto"
+                  id={`${id}-when`}
+                  className="input"
+                  maxLength={DECISION_LIMITS.when}
+                  value={reviewWhen}
+                  placeholder={t("decision.reviewWhenPlaceholder")}
+                  onChange={(event) => setReviewWhen(event.target.value)}
+                />
+              </div>
+            </div>
+            <span className="field-hint">{t("decision.reviewHint")}</span>
+            <div className="row">
+              <BusyButton
+                type="submit"
+                className="button button-secondary"
+                busy={running === "details"}
+                busyLabel={t("common.saving")}
+                disabled={pending || reviewPast}
+              >
+                {t("decision.save")}
+              </BusyButton>
+              {saved ? (
+                <span role="status" className="field-hint">
+                  {t("decision.saved")}
+                </span>
+              ) : null}
+            </div>
+          </form>
+        </details>
       ) : null}
       {error ? (
         <p className="notice notice-error" role="alert" style={{ margin: 0 }}>
@@ -350,35 +434,31 @@ export function DecisionPanel({ session }: { session: Session }) {
   );
 }
 
+/** Rows of the register asked for at a time; "Show more" brings the next ones. */
+const REGISTER_PAGE = 50;
+const sessionOf = (row: DecisionRow) => row.sessionId;
+
 /** The register: one row per decision the person may read, with its filters and its CSV export. */
 export function Register() {
   const { t, i18n } = useTranslation();
   const id = useId();
   const [filters, setFilters] = useState<DecisionFilters>({});
-  const [rows, setRows] = useState<DecisionRow[] | null>(null);
-  const [authors, setAuthors] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
-  const [shared, setShared] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Only the answer to the latest filters is shown: a slower one for earlier filters is dropped.
-    let live = true;
-    setError(null);
-    api.decisions(filters).then(
-      (body) => {
-        if (!live) return;
-        setRows(body.decisions);
-        setAuthors(body.authors);
-        setShared(body.shared);
-      },
-      (caught: unknown) => {
-        if (live) setError(failureText(t, caught));
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [filters, t]);
+  const table = useRef<HTMLTableSectionElement>(null);
+  // A page of the register at a time; the authors to filter by and whether the history is shared come with the first.
+  const loadPage = useCallback(
+    (before: string | null) =>
+      api.decisions(filters, { limit: REGISTER_PAGE, before }).then((body) => ({
+        items: body.decisions,
+        next: body.next ?? null,
+        extra: { authors: body.authors, shared: body.shared },
+      })),
+    [filters],
+  );
+  const pager = usePager(loadPage, sessionOf);
+  const rows = pager.items;
+  const authors = pager.extra?.authors ?? [];
+  const shared = pager.extra?.shared ?? false;
+  const error = pager.failed ? failureText(t, pager.error) : null;
 
   const set = (patch: Partial<DecisionFilters>) =>
     setFilters((current) => {
@@ -390,18 +470,16 @@ export function Register() {
 
   return (
     <div className="stack-lg register">
-      <header className="register-head">
-        <div className="stack">
-          <PageHeading title={t("register.title")} />
-          <p className="field-hint" style={{ margin: 0 }}>
-            {t("register.lead")}
-          </p>
-        </div>
-        <a className="button button-secondary" href={api.decisionsCsvUrl(filters, i18n.language)} download>
-          <DownloadIcon />
-          {t("register.csv")}
-        </a>
-      </header>
+      <PageHead
+        title={t("register.title")}
+        lead={t("register.lead")}
+        action={
+          <a className="button button-secondary" href={api.decisionsCsvUrl(filters, i18n.language)} download>
+            <DownloadIcon />
+            {t("register.csv")}
+          </a>
+        }
+      />
       <div className="register-toolbar">
         <fieldset className="register-filters">
           <legend className="visually-hidden">{t("register.filters")}</legend>
@@ -501,7 +579,7 @@ export function Register() {
         </EmptyState>
       ) : null}
       {rows && rows.length > 0 ? (
-        <div className="table-wrap">
+        <ScrollRegion label={t("register.title")}>
           <table className="register-table">
             <caption className="visually-hidden">{t("register.title")}</caption>
             <thead>
@@ -513,7 +591,7 @@ export function Register() {
                 <th scope="col">{t("register.review")}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={table}>
               {rows.map((row) => {
                 const replacement = row.supersededBy ? rows.find((other) => other.sessionId === row.supersededBy) : null;
                 return (
@@ -555,8 +633,9 @@ export function Register() {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
       ) : null}
+      {rows && rows.length > 0 ? <ShowMore pager={pager} list={table} entry="tr" announce={false} /> : null}
     </div>
   );
 }

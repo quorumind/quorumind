@@ -2,10 +2,14 @@ import type { Branding } from "@quorumind/core";
 import { isLocale } from "@quorumind/core/locales";
 import { QUESTIONNAIRE_LIMITS } from "@quorumind/core/questionnaire";
 import i18next from "i18next";
-import { type CSSProperties, type FormEvent, useEffect, useId, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api, type PublicQuestionnaire } from "./api.ts";
+import { BusyButton } from "./components/BusyButton.tsx";
+import { Dialog, useDialog } from "./components/Dialog.tsx";
+import { FieldError, fieldProps, useFieldErrors } from "./components/Field.tsx";
 import { CheckIcon, DownloadIcon } from "./components/Icons.tsx";
+import { LanguageSelect } from "./components/LanguageSelect.tsx";
 import { Loader } from "./components/Logo.tsx";
 import { PageHeading } from "./components/Page.tsx";
 import { blend, isHexColor, readableOn, textOn } from "./contrast.ts";
@@ -19,6 +23,10 @@ type Answers = Record<string, { answer: string; comment: string }>;
 
 const accessKey = (token: string) => `quorumind.questionnaire.${token}`;
 const draftKey = (token: string) => `quorumind.questionnaire.${token}.draft`;
+const languageKey = (token: string) => `quorumind.questionnaire.${token}.language`;
+
+/** A client may come back the next day or the next week, but not for ever: an old draft is dropped. */
+const DRAFT_DAYS = 30;
 
 function read(key: string): string | null {
   try {
@@ -34,6 +42,27 @@ function write(key: string, value: string | null) {
     else sessionStorage.setItem(key, value);
   } catch {
     // Not critical: the password, or the draft, is asked for again after a reload.
+  }
+}
+
+/** The answers typed so far: kept in the browser (not the tab) so that closing it loses nothing, for a limited time. */
+function readDraft(token: string): Answers {
+  try {
+    const saved = JSON.parse(localStorage.getItem(draftKey(token)) ?? "null") as { savedAt?: number; answers?: Answers } | null;
+    if (saved?.answers && typeof saved.savedAt === "number" && Date.now() - saved.savedAt < DRAFT_DAYS * 86_400_000) return saved.answers;
+    if (saved) localStorage.removeItem(draftKey(token));
+  } catch {
+    // An unreadable draft is no draft.
+  }
+  return {};
+}
+
+function writeDraft(token: string, answers: Answers | null) {
+  try {
+    if (answers) localStorage.setItem(draftKey(token), JSON.stringify({ savedAt: Date.now(), answers }));
+    else localStorage.removeItem(draftKey(token));
+  } catch {
+    // Without storage, the answers live as long as the page.
   }
 }
 
@@ -85,10 +114,11 @@ export function ClientQuestionnaire({ token }: { token: string }) {
   useEffect(() => {
     api.questionnaire(token, access).then(
       ({ questionnaire, branding }) => {
-        // The questions are in the session's language: the page follows it.
-        if (isLocale(questionnaire.locale) && i18n.language !== questionnaire.locale) {
-          void switchLanguage(questionnaire.locale, false).catch(() => undefined);
-        }
+        // The questions are in the session's language: the page follows it, unless the client chose another one for
+        // this link (kept for the tab).
+        const chosen = read(languageKey(token));
+        const shown = chosen && isLocale(chosen) ? chosen : questionnaire.locale;
+        if (isLocale(shown) && i18n.language !== shown) void switchLanguage(shown, false).catch(() => undefined);
         setState({ kind: "open", questionnaire, branding });
       },
       (caught) => {
@@ -103,12 +133,18 @@ export function ClientQuestionnaire({ token }: { token: string }) {
   return (
     <div className="client-page" style={style} data-brand={style ? "" : undefined}>
       <main className="client-page-main narrow stack-lg">
-        {branding?.logoDataUrl || branding?.name ? (
-          <header className="client-brand">
-            {branding.logoDataUrl ? <img src={branding.logoDataUrl} alt={branding.name ?? ""} /> : null}
-            {branding.name ? <span>{branding.name}</span> : null}
-          </header>
-        ) : null}
+        {/* The agency's name and logo (white label: never Quorumind's), and the client's own choice of language. */}
+        <header className="client-bar" data-brand={branding?.logoDataUrl || branding?.name ? "" : undefined}>
+          {branding?.logoDataUrl || branding?.name ? (
+            <span className="client-brand">
+              {branding.logoDataUrl ? <img src={branding.logoDataUrl} alt={branding.name ?? ""} /> : null}
+              {branding.name ? <span dir="auto">{branding.name}</span> : null}
+            </span>
+          ) : null}
+          <span className="client-language">
+            <LanguageSelect id="client-language" remember={false} onChange={(locale) => write(languageKey(token), locale)} />
+          </span>
+        </header>
         {state.kind === "loading" ? <Loader label={t("common.loading")} /> : null}
         {state.kind === "locked" ? (
           <Password
@@ -119,13 +155,15 @@ export function ClientQuestionnaire({ token }: { token: string }) {
             }}
           />
         ) : null}
-        {state.kind === "refused" ? (
+        {state.kind === "refused" && (state.code === "not_found" || state.code === "questionnaire_expired") ? (
+          // A link that leads nowhere is a page of its own: what happened, and who can send a new one.
+          <div className="stack not-found">
+            <PageHeading title={t("notFound.linkTitle")} />
+            <p className="lead">{state.code === "not_found" ? t("notFound.linkLead") : errorText(t, state.code)}</p>
+          </div>
+        ) : state.kind === "refused" ? (
           <p className="notice notice-error" role="alert">
-            {state.code === "not_found"
-              ? t("questionnaire.missing")
-              : state.code === "network"
-                ? t("error.request")
-                : errorText(t, state.code)}
+            {state.code === "network" ? t("error.request") : errorText(t, state.code)}
           </p>
         ) : null}
         {state.kind === "open" ? (
@@ -147,21 +185,26 @@ function Password({ token, onAccess }: { token: string; onAccess: (access: strin
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fields = useFieldErrors();
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!password) return fields.report({ password: t("validation.passwordEmpty") });
+    fields.clear();
     setPending(true);
     setError(null);
     try {
       const { access } = await api.questionnaireAccess(token, password);
       onAccess(access ?? "");
     } catch (caught) {
-      setError(failureText(t, caught));
+      // A wrong password belongs under the field; anything else (too many attempts, a lost link) stays general.
+      if (caught instanceof ApiError && caught.code === "wrong_password") fields.report({ password: failureText(t, caught) });
+      else setError(failureText(t, caught));
     } finally {
       setPending(false);
     }
   };
   return (
-    <form className="card stack" onSubmit={submit}>
+    <form ref={fields.form} className="card stack" onSubmit={submit} noValidate>
       <PageHeading className="heading" title={t("questionnaire.lockedTitle")} />
       <p style={{ margin: 0 }}>{t("questionnaire.lockedLead")}</p>
       <div className="field">
@@ -175,8 +218,13 @@ function Password({ token, onAccess }: { token: string; onAccess: (access: strin
           autoComplete="current-password"
           maxLength={200}
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          {...fieldProps("password-field", fields.errors.password)}
+          onChange={(event) => {
+            fields.clear("password");
+            setPassword(event.target.value);
+          }}
         />
+        <FieldError id="password-field" error={fields.errors.password} />
       </div>
       {error ? (
         <p className="notice notice-error" role="alert" style={{ margin: 0 }}>
@@ -184,9 +232,9 @@ function Password({ token, onAccess }: { token: string; onAccess: (access: strin
         </p>
       ) : null}
       <div>
-        <button type="submit" className="button button-primary" disabled={pending || !password}>
+        <BusyButton type="submit" busy={pending}>
           {t("questionnaire.unlock")}
-        </button>
+        </BusyButton>
       </div>
     </form>
   );
@@ -211,29 +259,40 @@ function Questions({
     const given: Answers = Object.fromEntries(
       questionnaire.answers.map((item) => [item.questionId, { answer: item.answer, comment: item.comment ?? "" }]),
     );
-    try {
-      return { ...given, ...(JSON.parse(read(draftKey(token)) ?? "{}") as Answers) };
-    } catch {
-      return given;
-    }
+    return { ...given, ...readDraft(token) };
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const confirmDialog = useDialog();
+  const thanks = useRef<HTMLDivElement>(null);
+  const wasOpen = useRef(questionnaire.status !== "submitted");
   const date = (iso: string) => new Intl.DateTimeFormat(i18n.language, { dateStyle: "long" }).format(new Date(iso));
   const submitted = questionnaire.status === "submitted";
   const total = questionnaire.questions.length;
   const answered = questionnaire.questions.filter((question) => answers[question.id]?.answer.trim()).length;
   const title = questionnaire.project ? t("questionnaire.title", { project: questionnaire.project }) : t("questionnaire.untitled");
 
+  // After sending, the form is gone: the focus goes to the thanks, which is what changed, not to the page's start.
+  useEffect(() => {
+    if (submitted && wasOpen.current) thanks.current?.focus();
+    wasOpen.current = !submitted;
+  }, [submitted]);
+
   const change = (questionId: string, field: "answer" | "comment", value: string) =>
     setAnswers((current) => {
       const next = { ...current, [questionId]: { answer: "", comment: "", ...current[questionId], [field]: value } };
-      write(draftKey(token), JSON.stringify(next));
+      writeDraft(token, next);
       return next;
     });
 
-  const submit = async (event: FormEvent) => {
+  // Sending is final: answers left empty are pointed out first, and sent only if the client still wants to.
+  const review = (event: FormEvent) => {
     event.preventDefault();
+    if (answered < total) confirmDialog.open();
+    else void submit();
+  };
+
+  const submit = async () => {
     setPending(true);
     setError(null);
     try {
@@ -246,7 +305,7 @@ function Questions({
           comment: answers[question.id]?.comment.trim() || null,
         })),
       );
-      write(draftKey(token), null);
+      writeDraft(token, null);
       onSubmitted(sent);
       window.scrollTo({ top: 0 });
     } catch (caught) {
@@ -271,7 +330,7 @@ function Questions({
           </p>
         ) : null}
         {submitted ? (
-          <div className="notice client-thanks stack" role="status">
+          <div className="notice client-thanks stack" role="status" ref={thanks} tabIndex={-1}>
             <strong>
               <CheckIcon /> {t("questionnaire.thanks", { date: date(questionnaire.submittedAt ?? new Date().toISOString()) })}
             </strong>
@@ -310,7 +369,7 @@ function Questions({
           })}
         </dl>
       ) : (
-        <form className="stack-lg" onSubmit={submit} noValidate>
+        <form className="stack-lg" onSubmit={review} noValidate>
           {questionnaire.questions.map((question, index) => (
             <fieldset key={question.id} className="card client-question stack">
               <legend className="visually-hidden">{t("questionnaire.question", { number: index + 1 })}</legend>
@@ -359,7 +418,7 @@ function Questions({
           ))}
           <div className="stack client-submit">
             <p className="field-hint" aria-live="polite" style={{ margin: 0 }}>
-              {t("questionnaire.progress", { answered, total })}
+              {t("questionnaire.progress", { answered, total, count: total })}
             </p>
             <p className="field-hint" style={{ margin: 0 }}>
               {t("questionnaire.once")}
@@ -370,11 +429,34 @@ function Questions({
               </p>
             ) : null}
             <div>
-              <button type="submit" className="button button-primary" disabled={pending}>
-                {pending ? t("questionnaire.sending") : t("questionnaire.submit")}
-              </button>
+              <BusyButton type="submit" busy={pending} busyLabel={t("questionnaire.sending")}>
+                {t("questionnaire.submit")}
+              </BusyButton>
             </div>
           </div>
+          <Dialog dialog={confirmDialog} labelledBy={`${id}-confirm-title`}>
+            <div className="stack">
+              <h2 id={`${id}-confirm-title`} className="heading">
+                {t("questionnaire.unansweredTitle")}
+              </h2>
+              <p style={{ margin: 0 }}>{t("questionnaire.unansweredLead", { missing: total - answered, total })}</p>
+              <div className="dialog-actions">
+                <button type="button" className="button button-secondary" onClick={confirmDialog.close}>
+                  {t("questionnaire.unansweredBack")}
+                </button>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => {
+                    confirmDialog.close();
+                    void submit();
+                  }}
+                >
+                  {t("questionnaire.unansweredSend")}
+                </button>
+              </div>
+            </div>
+          </Dialog>
         </form>
       )}
     </>

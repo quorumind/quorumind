@@ -91,6 +91,157 @@ export type StoredSession = Placement & { session: Session };
 
 export type HistoryEntry = SessionSummary & Placement;
 
+/**
+ * Where a page of a list starts. The lists are ordered latest first, then by id, so that sessions saved at the same
+ * instant keep one order and no page repeats or skips one: a page starts after the entry with this time and id.
+ */
+export interface PageKey {
+  updatedAt: string;
+  id: string;
+}
+
+/**
+ * What a page of a list (history, sessions, gallery) may ask beyond its size. A store that does not read it answers
+ * the first entries, as before: the app then applies the cursor and the search to what it got (see pagedEntries).
+ */
+export interface PageOptions {
+  /** The entry the page follows: the one before it was the last of the previous page. */
+  before?: PageKey;
+  /** Words to find in the title, whatever their case or accents. */
+  search?: string;
+  /**
+   * Filled by a store whose search stopped after examining as many rows as one request may (SEARCH_LIMITS.cap) before
+   * finding a whole page: the last row examined, after which the search goes on.
+   */
+  progress?: { resumeAfter?: PageKey };
+}
+
+/** Letters without their accents and case, so a search finds "Équipe" from "equipe". */
+export function foldedText(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
+}
+
+/** Whether a title holds what is searched, in the same terms as the interface's own filter. */
+export function matchesSearch(title: string, search: string | undefined): boolean {
+  const wanted = foldedText((search ?? "").trim());
+  return wanted === "" || foldedText(title).includes(wanted);
+}
+
+/** The opaque text a client sends back to get the page after an entry. */
+export function encodeCursor(key: PageKey): string {
+  return Buffer.from(JSON.stringify([key.updatedAt, key.id])).toString("base64url");
+}
+
+/** The key a cursor stands for, or null when the text is not one a server made. */
+export function decodeCursor(cursor: string): PageKey | null {
+  try {
+    const value: unknown = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+    if (!Array.isArray(value) || value.length !== 2) return null;
+    const [updatedAt, id] = value;
+    if (typeof updatedAt !== "string" || typeof id !== "string") return null;
+    // The times the stores write are canonical ISO strings; anything else would only fail inside the database.
+    if (Number.isNaN(Date.parse(updatedAt)) || new Date(updatedAt).toISOString() !== updatedAt) return null;
+    return { updatedAt, id };
+  } catch {
+    return null;
+  }
+}
+
+/** Entries per page when a client does not say, and the most it may ask for. */
+export const PAGE_SIZE = 50;
+export const PAGE_MAX = 100;
+
+/**
+ * A page for the client from what a store answered to a request of `limit + 1` entries: the entries (at most `limit`),
+ * and the cursor of the page after them, null when there is none. The store is asked for one entry more than the page
+ * to know whether it goes on. A store that does not say it pages (`SessionStore.pages`: the hosted version's before it
+ * was updated) answers the first entries whatever was asked: the search and the cursor are applied here too, so the
+ * client gets a consistent page, as far as that store lets it (it never reaches past the entries it was asked for).
+ */
+export function pageOf<T extends { id: string; updatedAt: string; idea: string }>(
+  rows: T[],
+  limit: number,
+  page: PageOptions,
+  paging: boolean,
+): { items: T[]; next: string | null } {
+  let kept = rows;
+  if (!paging) {
+    const search = page.search?.trim();
+    if (search) kept = kept.filter((row) => matchesSearch(row.idea, search));
+    const { before } = page;
+    if (before) kept = kept.filter((row) => row.updatedAt < before.updatedAt || (row.updatedAt === before.updatedAt && row.id < before.id));
+  }
+  const items = kept.slice(0, limit);
+  const last = items.at(-1);
+  if (kept.length > limit && last) return { items, next: encodeCursor({ updatedAt: last.updatedAt, id: last.id }) };
+  // A search that stopped at its cap goes on from the last row it examined, though it found less than a page.
+  const resume = page.progress?.resumeAfter;
+  return { items, next: resume ? encodeCursor(resume) : null };
+}
+
+/**
+ * How far one search request reads: rows per read, and rows examined in all. A search reads titles only, so a request
+ * stays short whatever the size of the debates; the cap makes the work of one request bounded, the client asking for
+ * the rest. Tests lower them.
+ */
+export const SEARCH_LIMITS = { chunk: 200, cap: 1000 };
+
+/** A row of a search's scan: the key of a session, and its title (null for none). */
+export interface TitleRow {
+  id: string;
+  updatedAt: string;
+  title: string | null;
+}
+
+/** What a store gives collectPage: reads in the list's order, after a key. */
+export interface PageSource<R> {
+  /** The next `count` rows in full, after a key. */
+  read(after: PageKey | undefined, count: number): Promise<R[]>;
+  /** The next `count` rows as keys and titles only: nothing else of the stored session is read. */
+  titles(after: PageKey | undefined, count: number): Promise<TitleRow[]>;
+  /** The rows of these ids, in full, in any order. */
+  load(ids: string[]): Promise<R[]>;
+  idOf(row: R): string;
+}
+
+/**
+ * The next `limit` entries of an ordered list after a key, holding a search. Without a search it is one read. With
+ * one, the titles are scanned (accents have no SQL equivalent both databases share, so they are matched here), at most
+ * SEARCH_LIMITS.cap rows per request, yielding to the event loop between reads so that a synchronous store does not
+ * hold the server; only the matches are then read in full. When the cap stops the scan before a page is full,
+ * `options.progress` says where it went on from.
+ */
+export async function collectPage<R>(limit: number, options: PageOptions, source: PageSource<R>): Promise<R[]> {
+  if (!options.search?.trim()) return source.read(options.before, limit);
+  const matched: TitleRow[] = [];
+  let after = options.before;
+  let examined = 0;
+  let last: TitleRow | undefined;
+  let exhausted = false;
+  while (matched.length < limit && examined < SEARCH_LIMITS.cap) {
+    const count = Math.min(SEARCH_LIMITS.chunk, SEARCH_LIMITS.cap - examined);
+    const rows = await source.titles(after, count);
+    for (const row of rows) {
+      last = row;
+      examined++;
+      if (matchesSearch(row.title ?? "", options.search)) matched.push(row);
+      if (matched.length === limit) break;
+    }
+    if (rows.length < count) {
+      exhausted = true;
+      break;
+    }
+    if (matched.length === limit) break;
+    after = last ? { updatedAt: last.updatedAt, id: last.id } : after;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  if (!exhausted && matched.length < limit && last)
+    options.progress = { ...options.progress, resumeAfter: { updatedAt: last.updatedAt, id: last.id } };
+  if (matched.length === 0) return [];
+  const byId = new Map((await source.load(matched.map((row) => row.id))).map((row) => [source.idOf(row), row]));
+  return matched.flatMap((row) => byId.get(row.id) ?? []);
+}
+
 /** Where a new session is shared. A session keeps the workspace it was first saved with. */
 export interface NewPlacement {
   workspace: string | null;
@@ -109,16 +260,21 @@ export interface NewPlacement {
  * (find and history: the app decides who may read it).
  */
 export interface SessionStore {
+  /**
+   * True for a store that reads the PageOptions of `list`, `history` and `gallery` (a cursor, a search). One that does
+   * not say so is asked the same way and the app applies the cursor and the search to what it answers (see pageOf).
+   */
+  readonly pages?: boolean;
   get(id: string, owner?: string | null): Promise<Session | null>;
   /** A session with its placement, whoever owns it. */
   find(id: string): Promise<StoredSession | null>;
   save(session: Session, owner?: string | null, placement?: NewPlacement): Promise<void>;
-  list(limit?: number, owner?: string | null): Promise<SessionSummary[]>;
+  list(limit?: number, owner?: string | null, page?: PageOptions): Promise<SessionSummary[]>;
   /**
    * The history a member sees in a workspace, latest first: its sessions but the private ones of others, and the
    * member's own sessions started outside any workspace. `mine` keeps the member's own sessions only.
    */
-  history(limit: number, scope: { owner: string; workspace: string | null; mine?: boolean }): Promise<HistoryEntry[]>;
+  history(limit: number, scope: { owner: string; workspace: string | null; mine?: boolean }, page?: PageOptions): Promise<HistoryEntry[]>;
   /** Hides a session from its workspace, or shares it with it again. */
   setPrivate(id: string, isPrivate: boolean): Promise<void>;
   /** Every session of an owner, in full: the data export the GDPR gives a right to. */
@@ -141,7 +297,7 @@ export interface SessionStore {
   /** A shared session, whoever owns it, with its link: the token is the permission, the caller checks the rest. */
   shared(token: string): Promise<{ session: Session; share: StoredShare } | null>;
   /** Completed sessions their owners chose to make public, not private, behind no password and not expired: the gallery. */
-  gallery(limit?: number): Promise<GalleryEntry[]>;
+  gallery(limit?: number, page?: PageOptions): Promise<GalleryEntry[]>;
   addFeedback(feedback: Feedback): Promise<void>;
   feedbackOf(sessionId: string): Promise<Feedback[]>;
   /** The questionnaires sent about a session, oldest first. */
@@ -158,6 +314,11 @@ export interface SessionStore {
    * A member of a workspace sees what its history shows (DecisionQuery).
    */
   decisions(query: DecisionQuery): Promise<StoredDecision[]>;
+  /**
+   * The distinct owners of the decisions a query's scope reads (owner and workspace only), whatever their number: the
+   * authors the register offers to filter by. A store without it is asked `decisions` instead, which stops at the cap.
+   */
+  decisionOwners?(scope: Pick<DecisionQuery, "owner" | "workspace">): Promise<(string | null)[]>;
   /** The sessions whose decision comes up for review on or before `today` (YYYY-MM-DD) and was not reminded of yet. */
   dueReviews(today: string): Promise<string[]>;
   /**
@@ -192,6 +353,8 @@ export interface DecisionQuery {
   from?: string;
   to?: string;
   limit?: number;
+  /** The page after this decision (its change time and its session's id), the order being latest first. */
+  before?: PageKey;
 }
 
 /** A session's row of the register, and the review its reminder follows; null before the verdict. */
@@ -395,6 +558,7 @@ export const placementOf = (owner: string | null, placement: NewPlacement | unde
 
 /** Sessions are stored as JSON documents in SQLite, in a file of the data directory. */
 export class SqliteSessionStore implements SessionStore {
+  readonly pages = true;
   readonly db: DatabaseSync;
   private readonly live: LiveSessions;
 
@@ -566,6 +730,17 @@ export class SqliteSessionStore implements SessionStore {
       );
   }
 
+  async decisionOwners(scope: Pick<DecisionQuery, "owner" | "workspace">): Promise<(string | null)[]> {
+    const where =
+      scope.workspace === undefined
+        ? "owner_id IS :owner"
+        : "((workspace_id = :workspace AND (private = 0 OR owner_id = :owner)) OR (workspace_id IS NULL AND owner_id = :owner))";
+    const params: Record<string, string | null> = { owner: scope.owner };
+    if (scope.workspace !== undefined) params.workspace = scope.workspace;
+    const rows = this.db.prepare(`SELECT DISTINCT owner_id FROM decisions WHERE ${where}`).all(params) as { owner_id: string | null }[];
+    return rows.map((row) => row.owner_id);
+  }
+
   async decisions(query: DecisionQuery): Promise<StoredDecision[]> {
     const where = [
       query.workspace === undefined
@@ -573,6 +748,11 @@ export class SqliteSessionStore implements SessionStore {
         : "((workspace_id = :workspace AND (private = 0 OR owner_id = :owner)) OR (workspace_id IS NULL AND owner_id = :owner))",
     ];
     const params: Record<string, string | number | null> = { owner: query.owner, limit: query.limit ?? DECISION_LIST_LIMIT };
+    if (query.before) {
+      where.push("(updated_at < :beforeAt OR (updated_at = :beforeAt AND session_id < :beforeId))");
+      params.beforeAt = query.before.updatedAt;
+      params.beforeId = query.before.id;
+    }
     if (query.workspace !== undefined) params.workspace = query.workspace;
     if (query.status) {
       where.push("status = :status");
@@ -592,7 +772,7 @@ export class SqliteSessionStore implements SessionStore {
     }
     const rows = this.db
       .prepare(
-        `SELECT entry, owner_id, workspace_id, private FROM decisions WHERE ${where.join(" AND ")} ORDER BY updated_at DESC LIMIT :limit`,
+        `SELECT entry, owner_id, workspace_id, private FROM decisions WHERE ${where.join(" AND ")} ORDER BY updated_at DESC, session_id DESC LIMIT :limit`,
       )
       .all(params) as { entry: string; owner_id: string | null; workspace_id: string | null; private: number }[];
     return rows.map((row) => ({ ...(JSON.parse(row.entry) as RegisterEntry), ...sqlitePlacement({ ...row, data: "" }) }));
@@ -636,20 +816,70 @@ export class SqliteSessionStore implements SessionStore {
     return count;
   }
 
-  async list(limit = 50, owner: string | null = null): Promise<SessionSummary[]> {
-    const rows = this.db.prepare("SELECT data FROM sessions WHERE owner_id IS ? ORDER BY updated_at DESC LIMIT ?").all(owner, limit) as {
-      data: string;
-    }[];
+  /** `columns` of the sessions that `where` selects, latest first, after a key; a search scans their titles only. */
+  private page<R extends { id: string }>(
+    columns: string,
+    where: string,
+    params: Record<string, string | number | null>,
+    limit: number,
+    options: PageOptions,
+  ): Promise<R[]> {
+    const bound = (after: PageKey | undefined) =>
+      after ? " AND (updated_at < :afterAt OR (updated_at = :afterAt AND id < :afterId))" : "";
+    const values = (after: PageKey | undefined, extra: Record<string, string | number | null>) => ({
+      ...params,
+      ...extra,
+      ...(after ? { afterAt: after.updatedAt, afterId: after.id } : {}),
+    });
+    return collectPage<R>(limit, options, {
+      read: async (after, count) =>
+        this.db
+          .prepare(`SELECT ${columns} FROM sessions WHERE (${where})${bound(after)} ORDER BY updated_at DESC, id DESC LIMIT :count`)
+          .all(values(after, { count })) as R[],
+      titles: async (after, count) =>
+        this.db
+          .prepare(
+            `SELECT id, updated_at AS updatedAt, COALESCE(json_extract(data, '$.sheet.projectName'), json_extract(data, '$.idea')) AS title
+             FROM sessions WHERE (${where})${bound(after)} ORDER BY updated_at DESC, id DESC LIMIT :count`,
+          )
+          .all(values(after, { count })) as unknown as TitleRow[],
+      load: async (ids) => {
+        const names = ids.map((_, index) => `:id${index}`);
+        const wanted = Object.fromEntries(ids.map((id, index) => [`id${index}`, id]));
+        return this.db
+          .prepare(`SELECT ${columns} FROM sessions WHERE (${where}) AND id IN (${names.join(", ")})`)
+          .all({ ...params, ...wanted }) as R[];
+      },
+      idOf: (row) => row.id,
+    });
+  }
+
+  async list(limit = 50, owner: string | null = null, page: PageOptions = {}): Promise<SessionSummary[]> {
+    const rows = await this.page<{ data: string; id: string; updated_at: string }>(
+      "data, id, updated_at",
+      "owner_id IS :owner",
+      { owner },
+      limit,
+      page,
+    );
     return rows.map((row) => summarize(normalizeSession(JSON.parse(row.data) as Session)));
   }
 
-  async history(limit: number, scope: { owner: string; workspace: string | null; mine?: boolean }): Promise<HistoryEntry[]> {
+  async history(
+    limit: number,
+    scope: { owner: string; workspace: string | null; mine?: boolean },
+    page: PageOptions = {},
+  ): Promise<HistoryEntry[]> {
     const where = scope.mine
       ? "owner_id = :owner AND (workspace_id = :workspace OR workspace_id IS NULL)"
       : "(workspace_id = :workspace AND (private = 0 OR owner_id = :owner)) OR (workspace_id IS NULL AND owner_id = :owner)";
-    const rows = this.db
-      .prepare(`SELECT data, owner_id, workspace_id, private FROM sessions WHERE ${where} ORDER BY updated_at DESC LIMIT :limit`)
-      .all({ owner: scope.owner, workspace: scope.workspace, limit }) as SqliteRow[];
+    const rows = await this.page<SqliteRow & { id: string; updated_at: string }>(
+      "data, id, updated_at, owner_id, workspace_id, private",
+      where,
+      { owner: scope.owner, workspace: scope.workspace },
+      limit,
+      page,
+    );
     return rows.map((row) => ({ ...summarize(normalizeSession(JSON.parse(row.data) as Session)), ...sqlitePlacement(row) }));
   }
 
@@ -752,14 +982,22 @@ export class SqliteSessionStore implements SessionStore {
     return { session: this.live.peek(stored.id) ?? stored, share: sqliteShare(row) };
   }
 
-  async gallery(limit = 50): Promise<GalleryEntry[]> {
+  /** The gallery is public: it pages by cursor, and has no search (the interface has none, and a search scans). */
+  async gallery(limit = 50, page: PageOptions = {}): Promise<GalleryEntry[]> {
+    const after = page.before;
+    // Completed sessions only, in the query: a page is full when the database says so, not after the filter.
     const rows = this.db
       .prepare(
         `SELECT shares.token AS token, sessions.data AS data FROM shares JOIN sessions ON sessions.id = shares.session_id
-         WHERE shares.public = 1 AND sessions.private = 0 AND shares.password_hash IS NULL AND (shares.expires_at IS NULL OR shares.expires_at > ?)
-         ORDER BY sessions.updated_at DESC LIMIT ?`,
+         WHERE shares.public = 1 AND sessions.private = 0 AND shares.password_hash IS NULL AND (shares.expires_at IS NULL OR shares.expires_at > :now)
+         AND json_extract(sessions.data, '$.phase') = 'complete'
+         ${after ? "AND (sessions.updated_at < :afterAt OR (sessions.updated_at = :afterAt AND sessions.id < :afterId))" : ""}
+         ORDER BY sessions.updated_at DESC, sessions.id DESC LIMIT :count`,
       )
-      .all(new Date().toISOString(), limit) as { token: string; data: string }[];
+      .all({ now: new Date().toISOString(), count: limit, ...(after ? { afterAt: after.updatedAt, afterId: after.id } : {}) }) as {
+      token: string;
+      data: string;
+    }[];
     return galleryOf(rows.map((row) => ({ token: row.token, session: normalizeSession(JSON.parse(row.data) as Session) })));
   }
 

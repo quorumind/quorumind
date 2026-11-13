@@ -32,6 +32,8 @@ interface Failure {
   key: number;
   label: string;
   code: string;
+  /** Imports the same document again; absent for a document refused before it was sent. */
+  retry?: () => void;
 }
 
 /** Error codes the interface explains; any other one gets the generic message. */
@@ -191,15 +193,17 @@ export function ContextPicker({ value, onChange, disabled = false, onBusyChange,
   const full = remaining <= 0;
   const locked = disabled || full;
 
-  const fail = (label: string, code: string) => {
+  const fail = (label: string, code: string, retry?: () => void) => {
     const key = nextKey.current++;
-    setFailures((current) => [...current, { key, label, code: ERROR_CODES.has(code) ? code : "generic" }]);
+    setFailures((current) => [...current, { key, label, code: ERROR_CODES.has(code) ? code : "generic", ...(retry ? { retry } : {}) }]);
   };
 
+  /** `restore` gives the person's input back to its field when the import fails, so that nothing has to be typed again. */
   const run = async (
     kind: Kind,
     label: string,
     task: (signal: AbortSignal, progress: (share: number) => void) => Promise<ContextDocument>,
+    restore?: { put(): void; drop(): void },
   ) => {
     const key = nextKey.current++;
     const controller = new AbortController();
@@ -216,7 +220,12 @@ export function ContextPicker({ value, onChange, disabled = false, onBusyChange,
       setAnnouncement(t("context.added", { name: document.name }));
     } catch (error) {
       if (controller.signal.aborted) return;
-      fail(label, error instanceof ApiError ? error.code : "network");
+      restore?.put();
+      fail(label, error instanceof ApiError ? error.code : "network", () => {
+        // The retry sends the text again: it must not stay in the field as well.
+        restore?.drop();
+        run(kind, label, task, restore);
+      });
       setAnnouncement(t("context.failed", { name: label }));
     } finally {
       setPending((current) => current.filter((item) => item.key !== key));
@@ -247,7 +256,13 @@ export function ContextPicker({ value, onChange, disabled = false, onBusyChange,
     const address = url.trim();
     if (!address || locked) return;
     setUrl("");
-    run(isGithub(address) ? "github" : "url", address, (signal) => contextApi.addUrl(address, signal));
+    run(
+      isGithub(address) ? "github" : "url",
+      address,
+      (signal) => contextApi.addUrl(address, signal),
+      // Not over what the person has typed since.
+      { put: () => setUrl((current) => current || address), drop: () => setUrl((current) => (current === address ? "" : current)) },
+    );
   };
 
   const closePaste = () => {
@@ -262,7 +277,16 @@ export function ContextPicker({ value, onChange, disabled = false, onBusyChange,
     setPasteText("");
     setPasteName("");
     closePaste();
-    run("text", name, (signal) => contextApi.addText(name, text, signal));
+    run("text", name, (signal) => contextApi.addText(name, text, signal), {
+      put: () => {
+        setPasteText((current) => current || text);
+        setPasteName((current) => current || pasteName.trim());
+      },
+      drop: () => {
+        setPasteText((current) => (current === text ? "" : current));
+        setPasteName((current) => (current === pasteName.trim() ? "" : current));
+      },
+    });
   };
 
   const remove = (document: ContextDocument) => {
@@ -546,11 +570,24 @@ export function ContextPicker({ value, onChange, disabled = false, onBusyChange,
                   {failure.label}
                 </span>
                 <span className="context-actions">
+                  {failure.retry ? (
+                    <button
+                      type="button"
+                      className="context-action"
+                      disabled={locked}
+                      onClick={() => {
+                        setFailures((current) => current.filter((item) => item.key !== failure.key));
+                        failure.retry?.();
+                      }}
+                    >
+                      {t("common.retry")}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="context-action context-icon-action"
-                    aria-label={t("context.dismiss")}
-                    title={t("context.dismiss")}
+                    aria-label={t("context.dismiss", { name: failure.label })}
+                    title={t("context.dismiss", { name: failure.label })}
                     onClick={() => setFailures((current) => current.filter((item) => item.key !== failure.key))}
                   >
                     <CloseGlyph />

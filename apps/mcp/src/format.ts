@@ -198,6 +198,13 @@ export function formatSheet(sheet: RequirementsSheet): string {
 
 const json = (value: unknown) => `\`${JSON.stringify(value)}\``;
 
+/** "priced with 1 day rate in EUR", "priced with 3 day rates in EUR". */
+export const pricedWith = (rates: number, currency: string) => `priced with ${rates} day ${rates === 1 ? "rate" : "rates"} in ${currency}`;
+
+/** The lines of a quote whose days and day rate do not give their amount, said in the right number. */
+export const mismatchedLines = (count: number) =>
+  count === 1 ? "1 line does not match its days and day rate" : `${count} lines do not match their days and day rate`;
+
 /**
  * The organisation profile the proposals will follow, for quorumind_review; null when there is none or the person set
  * it aside.
@@ -210,7 +217,7 @@ export function profileNotice(session: Session): string | null {
     profile.hosting.euOnly ? "EU hosting only" : "",
     profile.hosting.providers.length > 0 ? `hosting with ${profile.hosting.providers.join(", ")}` : "",
     profile.hosting.onPremises ? "on-premises accepted" : "",
-    profile.roles.length > 0 ? `priced with ${profile.roles.length} day rate(s) in ${profile.currency}` : "",
+    profile.roles.length > 0 ? pricedWith(profile.roles.length, profile.currency) : "",
   ].filter(Boolean);
   return `### Organisation profile\nProposals will stay within the profile of ${profile.name.trim() || "the organisation"}${
     rules.length > 0 ? `: ${rules.join("; ")}` : ""
@@ -249,7 +256,7 @@ export function formatVerdictSummary(session: Session, costs: SessionCosts = {})
         ? `running budget ${checks.run.status === "over" ? "exceeded" : "at risk"} by ${amount(checks.run.by, checks.run.currency)} a month`
         : "",
       checks?.time && checks.time.status !== "within"
-        ? `${checks.time.status === "over" ? "late" : "may be late"} by ${checks.time.by} week(s)`
+        ? `${checks.time.status === "over" ? "late" : "may be late"} by ${checks.time.by} ${checks.time.by === 1 ? "week" : "weeks"}`
         : "",
     ].filter(Boolean);
     if (issues.length > 0) lines.push(`  Checks: ${issues.join("; ")}`);
@@ -315,7 +322,7 @@ export function formatAuditSummary(session: Session): string {
     lines.push(
       `- Lines add up to ${amount(check.linesTotal, currency)}${check.statedTotal != null ? `, stated total ${amount(check.statedTotal, currency)}` : ""}`,
     );
-  if (check && check.mismatches > 0) lines.push(`- ${check.mismatches} line(s) do not match their days and day rate`);
+  if (check && check.mismatches > 0) lines.push(`- ${mismatchedLines(check.mismatches)}`);
   if (audit.price.market) {
     lines.push(
       `- Market range (estimate): ${amount(audit.price.market.low, session.currency ?? currency)} to ${amount(audit.price.market.high, session.currency ?? currency)}`,

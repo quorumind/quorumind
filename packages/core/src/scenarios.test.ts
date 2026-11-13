@@ -206,7 +206,7 @@ describe("scenarios", () => {
 
   it("can be adopted as the decision, which a later revision builds on", async () => {
     const session = await completed();
-    session.briefs.cto = { speech: "", headline: "", summary: "", sections: [], nextSteps: [] };
+    session.briefs.cto = { headline: "", summary: "", sections: [], nextSteps: [] };
     const engine = engineWith();
     await engine.beginRevision(session, scenario(leaner));
     await engine.runRevision(session);

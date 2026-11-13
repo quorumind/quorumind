@@ -7,8 +7,9 @@ import {
   type AuditedVerdict,
   auditUpdateOutput,
   auditVerdictOutput,
+  type StoredAuditFinding,
 } from "./audit.ts";
-import { auditedDocuments, auditProposal, settleAudit, settleExtraction, settleFindings } from "./audit-check.ts";
+import { auditedDocuments, auditOf, auditProposal, settleAudit, settleExtraction, settleFindings } from "./audit-check.ts";
 import {
   auditAlternativePrompt,
   auditCriticSystem,
@@ -186,8 +187,11 @@ export class StoppedError extends Error {
 /** Why a signal stopped the work: the server's shutdown aborts with this reason. */
 export const INTERRUPTED = "interrupted";
 
-/** The models that made a call fail, for the interface to name them. */
-const failedCalls = new WeakMap<object, { provider: string; model: string }>();
+/**
+ * The model that made a call fail, and the task and seat it was called for: the interface names the role and the step
+ * where the debate stopped, not only the model.
+ */
+const failedCalls = new WeakMap<object, { provider: string; model: string; task: Task; seat?: string }>();
 
 /** The failure of a session from what was thrown: a stable code, its parameters and the English message. */
 export function sessionError(error: unknown): SessionError {
@@ -449,7 +453,7 @@ export class DebateEngine {
       if (session.verdict !== startedFrom.verdict || session.adopted !== startedFrom.adopted) {
         throw new InvalidStateError("The decision changed while this revision was being made: ask for it again.", "verdict_changed");
       }
-      settleVerdict(session, verdict);
+      settleVerdict(session, verdict, work.subject.verdict);
       if ("compliance" in verdict) settleCompliance(verdict as VerdictWithCompliance, requirements);
       const seats = new Set(verdict.options.map((option) => option.seat));
       session.revisions.push({
@@ -1222,7 +1226,9 @@ export class DebateEngine {
         await this.pause(delay);
       }
     }
-    if (lastError instanceof Object) failedCalls.set(lastError, { provider: provider.kind, model: provider.model });
+    if (lastError instanceof Object) {
+      failedCalls.set(lastError, { provider: provider.kind, model: provider.model, task, ...(seat ? { seat } : {}) });
+    }
     throw lastError;
   }
 
@@ -1491,12 +1497,16 @@ function addSources(session: Session, hits: SearchHit[], question: string, retri
 
 /**
  * Keeps a ruling to the options of the debate: unknown seats dropped, scores within 1 to 5, and a claim "verified" only
- * when it cites a source the research found. An audit's quotes are checked against the document.
+ * when it cites a source the research found. An audit's quotes are checked against the document; `revised` is the ruling
+ * a revision starts from.
  */
-function settleVerdict(session: Session, verdict: Verdict) {
+function settleVerdict(session: Session, verdict: Verdict, revised: Verdict | null = null) {
   settleClaims(verdict, citedSources(session));
   const audited = verdict as Partial<AuditedVerdict>;
-  if (session.mode === "audit" && audited.audit) audited.audit = settleAudit(audited.audit, auditedDocuments(session));
+  if (session.mode === "audit" && audited.audit) {
+    const earlier = (auditOf(revised)?.findings ?? []) as StoredAuditFinding[];
+    audited.audit = settleAudit(audited.audit, auditedDocuments(session), earlier);
+  }
   const seats = new Set(Object.keys(currentProposals(session)));
   verdict.options = verdict.options.filter((option) => seats.has(option.seat));
   for (const option of verdict.options) {
@@ -1525,13 +1535,28 @@ function designRules(session: Session): string {
   return complianceRule(activeRequirements(session), "design") + priceReferenceRule() + researchRule(session, "design");
 }
 
-function collectQuestions(session: Session, round: number): string[] {
+/**
+ * What makes two questions the same: their words, whatever the case, the spacing and the punctuation that ends them.
+ * Several critics often ask the same question with a space before the question mark or another capital: the person
+ * answers once. Symbols stay, since they tell questions apart (C# and C++, € and $, < and >).
+ */
+const questionKey = (question: string) =>
+  question
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/gu, " ")
+    .replace(/\s+(?=[?!.:;,،؛؟。？！：；，])/gu, "")
+    .replace(/[\s?!.。？！؟…]+$/u, "")
+    .trim();
+
+/** The questions a round of critiques asks the person, each once, at most MAX_QUESTIONS_PER_ROUND. */
+export function collectQuestions(session: Pick<Session, "debate">, round: number): string[] {
   const seen = new Set<string>();
   const questions: string[] = [];
   for (const entry of session.debate) {
     if (entry.kind !== "critiques" || entry.round !== round) continue;
     for (const question of entry.data.questionsForUser) {
-      const key = question.trim().toLowerCase();
+      const key = questionKey(question);
       if (key && !seen.has(key)) {
         seen.add(key);
         questions.push(question.trim());

@@ -12,6 +12,14 @@ export function markNavigation() {
   navigated = true;
 }
 
+/**
+ * Called by a page that moves the focus itself within the same page (a step of the new session's form): the
+ * navigation is handled, so the next page heading to appear does not take the focus for it later.
+ */
+export function consumeNavigation() {
+  navigated = false;
+}
+
 /** The title of the tab: the page, then the app. */
 export function usePageTitle(title: string | null | undefined) {
   useEffect(() => {
@@ -33,6 +41,22 @@ export function PageHeading({ title, className = "display", children }: { title:
     <h1 ref={ref} className={className} tabIndex={-1}>
       {children ?? title}
     </h1>
+  );
+}
+
+/**
+ * The head every page of the app opens with: the title, an optional introduction (at most 62ch, so it reads the same
+ * on each page) and, at the end of the line and level with the title, the page's one action.
+ */
+export function PageHead({ title, lead, action }: { title: string; lead?: ReactNode; action?: ReactNode }) {
+  return (
+    <header className="page-head-row">
+      <div className="page-head">
+        <PageHeading title={title} />
+        {lead ? <p className="lead">{lead}</p> : null}
+      </div>
+      {action}
+    </header>
   );
 }
 

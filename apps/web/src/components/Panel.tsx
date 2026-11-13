@@ -100,6 +100,7 @@ function PersonaField({
       </select>
       {custom ? (
         <input
+          dir="auto"
           className="input"
           aria-label={t("setup.personaCustomLabel")}
           placeholder={t("setup.personaCustomPlaceholder")}
@@ -115,7 +116,10 @@ function PersonaField({
 /** The name of a model as the person knows it, and who makes it when a gateway serves it. */
 export function modelInfo(catalog: ModelOption[], participant: Participant, t: TFunction) {
   const option = catalog.find((entry) => keyOf(entry) === keyOf(participant));
-  return { name: option ? modelName(option) : participant.model, maker: option ? vendorLabel(option, t) : null };
+  const name = option ? modelName(option) : participant.model;
+  const maker = option ? vendorLabel(option, t) : null;
+  // The free "Demo" model is its own maker: a line saying "Demo" under "Demo" says nothing more.
+  return { name, maker: maker === name ? null : maker };
 }
 
 /** One role of the panel as a card: its badge, its name, what it does, then its model and its expert role. */

@@ -2,12 +2,17 @@ import type { BudgetPeriod, DurationUnit, RequirementsSheet, Session } from "@qu
 import { debateCurrency, sessionProfile } from "@quorumind/core/costing";
 import { currencyCode } from "@quorumind/core/profile";
 import { COMPLIANCE_KEYS } from "@quorumind/core/session";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "./api.ts";
+import { ApiError, api } from "./api.ts";
+import { BusyButton } from "./components/BusyButton.tsx";
 import { CurrencySelect } from "./components/CurrencySelect.tsx";
+import { FieldError, fieldProps, useFieldErrors } from "./components/Field.tsx";
 import { ArrowIcon, CrossIcon } from "./components/Icons.tsx";
+import { ShortcutHint } from "./components/ShortcutHint.tsx";
 import { failureText } from "./errors.ts";
+import { sendOnlyOnShortcut } from "./formKeys.ts";
+import { isolate } from "./isolate.ts";
 
 type ListField =
   | "goals"
@@ -44,11 +49,62 @@ const fromCommas = (text: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 /** A number field's value: null when empty or not a non-negative number. */
+/** The server's names for the fields of the sheet, by the id of the field that shows them. */
+const SERVER_FIELDS: Record<string, string> = {
+  "sheet.projectName": "projectName",
+  "sheet.summary": "summary",
+  "sheet.users.launch": "usersLaunch",
+  "sheet.users.oneYear": "usersYear",
+  "sheet.team.people": "people",
+  "sheet.budget.build.amount": "buildBudget",
+  "sheet.budget.run.amount": "runBudget",
+  "sheet.budget.build.currency": "budgetCurrency",
+  "sheet.budget.run.currency": "budgetCurrency",
+  "sheet.deadline.duration.amount": "duration",
+};
+
+/** Typed text that is not a number from 0 up: the fields that take an amount or a count refuse the rest. */
+const notAmount = (text: string) => text.trim() !== "" && !(Number(text) >= 0);
+
 const amountOf = (text: string): number | null => {
   const value = Number(text.replace(",", "."));
   return text.trim() === "" || !Number.isFinite(value) || value < 0 ? null : value;
 };
 const textOf = (value: number | null | undefined) => (value === null || value === undefined ? "" : String(value));
+
+const DRAFT_KEY = "quorumind.sheetDraft.";
+
+/** Everything the person can edit on the sheet, as the form holds it (amounts and lists are still text). */
+interface Draft {
+  sheet: RequirementsSheet;
+  priorityIds: number[];
+  lists: Record<ListField, string>;
+  ignoreProfile: boolean;
+  budget: { build: string; run: string; period: BudgetPeriod; currency: string };
+  numbers: { usersLaunch: string; usersYear: string; people: string; duration: string };
+  unit: DurationUnit;
+  skills: string;
+}
+
+/** The edits kept for this session, unless the sheet they were made on has changed since. */
+function readDraft(sessionId: string, base: RequirementsSheet): Draft | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DRAFT_KEY + sessionId) ?? "null") as { base?: unknown; draft?: Draft } | null;
+    if (saved?.draft && saved.base === JSON.stringify(base)) return saved.draft;
+  } catch {
+    // An unreadable draft is no draft.
+  }
+  return null;
+}
+
+function writeDraft(sessionId: string, base: RequirementsSheet, draft: Draft | null) {
+  try {
+    if (draft) localStorage.setItem(DRAFT_KEY + sessionId, JSON.stringify({ base: JSON.stringify(base), draft }));
+    else localStorage.removeItem(DRAFT_KEY + sessionId);
+  } catch {
+    // Without storage, the edits live as long as the page.
+  }
+}
 
 /** What the proposals will stay within, and the switch that sets the profile aside for this debate. */
 function ProfileNotice({ session, ignore, onIgnore }: { session: Session; ignore: boolean; onIgnore: (ignore: boolean) => void }) {
@@ -70,7 +126,7 @@ function ProfileNotice({ session, ignore, onIgnore }: { session: Session; ignore
     <section className={`card stack profile-notice${ignore ? " profile-ignored" : ""}`} aria-labelledby="profile-notice-title">
       <div className="stack" style={{ gap: "var(--space-1)" }}>
         <h3 className="title" id="profile-notice-title" style={{ margin: 0 }}>
-          {profile.name.trim() ? t("review.profile.titleNamed", { name: profile.name.trim() }) : t("review.profile.title")}
+          {profile.name.trim() ? t("review.profile.titleNamed", { name: isolate(profile.name.trim()) }) : t("review.profile.title")}
         </h3>
         <p style={{ margin: 0 }}>{t("review.profile.lead")}</p>
         {rules.length > 0 ? (
@@ -96,29 +152,51 @@ function ProfileNotice({ session, ignore, onIgnore }: { session: Session; ignore
 export function Review({ session }: { session: Session }) {
   const { t } = useTranslation();
   const initial = session.sheet as RequirementsSheet;
-  const [sheet, setSheet] = useState<RequirementsSheet>(initial);
-  const [priorityIds, setPriorityIds] = useState<number[]>(() => initial.priorities.map((_, index) => index));
+  // Edits made before a reload or a stray click on a link come back, as the interview's answers do.
+  const [saved] = useState(() => readDraft(session.id, initial));
+  const [sheet, setSheet] = useState<RequirementsSheet>(saved?.sheet ?? initial);
+  const [priorityIds, setPriorityIds] = useState<number[]>(() => saved?.priorityIds ?? initial.priorities.map((_, index) => index));
   const [lists, setLists] = useState<Record<ListField, string>>(
-    () => Object.fromEntries(LISTS.map(({ field }) => [field, toLines(initial[field])])) as Record<ListField, string>,
+    () => saved?.lists ?? (Object.fromEntries(LISTS.map(({ field }) => [field, toLines(initial[field])])) as Record<ListField, string>),
   );
-  const [ignoreProfile, setIgnoreProfile] = useState(session.ignoreProfile);
+  const [ignoreProfile, setIgnoreProfile] = useState(saved?.ignoreProfile ?? session.ignoreProfile);
   // The budget's amounts are typed as text and share one currency.
-  const [budget, setBudget] = useState(() => ({
-    build: textOf(initial.budget.build?.amount),
-    run: textOf(initial.budget.run?.amount),
-    period: (initial.budget.run?.period ?? "month") as BudgetPeriod,
-    currency: initial.budget.build?.currency ?? initial.budget.run?.currency ?? debateCurrency({ ...session, currency: null }),
-  }));
-  const [numbers, setNumbers] = useState(() => ({
-    usersLaunch: textOf(initial.users.launch),
-    usersYear: textOf(initial.users.oneYear),
-    people: textOf(initial.team.people),
-    duration: textOf(initial.deadline.duration?.amount),
-  }));
-  const [unit, setUnit] = useState<DurationUnit>(initial.deadline.duration?.unit ?? "month");
-  const [skills, setSkills] = useState(initial.team.skills.join(", "));
+  const [budget, setBudget] = useState(
+    () =>
+      saved?.budget ?? {
+        build: textOf(initial.budget.build?.amount),
+        run: textOf(initial.budget.run?.amount),
+        period: (initial.budget.run?.period ?? "month") as BudgetPeriod,
+        currency: initial.budget.build?.currency ?? initial.budget.run?.currency ?? debateCurrency({ ...session, currency: null }),
+      },
+  );
+  const [numbers, setNumbers] = useState(
+    () =>
+      saved?.numbers ?? {
+        usersLaunch: textOf(initial.users.launch),
+        usersYear: textOf(initial.users.oneYear),
+        people: textOf(initial.team.people),
+        duration: textOf(initial.deadline.duration?.amount),
+      },
+  );
+  const [unit, setUnit] = useState<DurationUnit>(saved?.unit ?? initial.deadline.duration?.unit ?? "month");
+  const [skills, setSkills] = useState(saved?.skills ?? initial.team.skills.join(", "));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fields = useFieldErrors();
+
+  const confirmed = useRef(false);
+  // The draft belongs to the sheet the edits were made on: if the sheet changes under a mounted form, the edits still
+  // describe the old one and must not be saved against the new one. Nothing is written until something is edited.
+  const [base] = useState(initial);
+  const untouched = useRef<string | null>(null);
+  useEffect(() => {
+    if (confirmed.current) return;
+    const draft: Draft = { sheet, priorityIds, lists, ignoreProfile, budget, numbers, unit, skills };
+    const state = JSON.stringify(draft);
+    if (untouched.current === null) untouched.current = saved ? "" : state;
+    if (state !== untouched.current) writeDraft(session.id, base, draft);
+  }, [session.id, base, saved, sheet, priorityIds, lists, ignoreProfile, budget, numbers, unit, skills]);
 
   const set = <K extends keyof RequirementsSheet>(key: K, value: RequirementsSheet[K]) =>
     setSheet((current) => ({ ...current, [key]: value }));
@@ -135,7 +213,19 @@ export function Review({ session }: { session: Session }) {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (currencyInvalid) return setError(t("review.currencyInvalid"));
+    const problems: Record<string, string> = {};
+    const checks: [string, string][] = [
+      ["usersLaunch", numbers.usersLaunch],
+      ["usersYear", numbers.usersYear],
+      ["buildBudget", budget.build],
+      ["runBudget", budget.run],
+      ["people", numbers.people],
+      ["duration", sheet.deadline.date ? "" : numbers.duration],
+    ];
+    for (const [name, text] of checks) if (notAmount(text)) problems[name] = t("validation.number");
+    if (currencyInvalid) problems.budgetCurrency = t("review.currencyInvalid");
+    fields.report(problems);
+    if (Object.keys(problems).length > 0) return;
     setSending(true);
     setError(null);
     const build = amountOf(budget.build);
@@ -161,8 +251,12 @@ export function Review({ session }: { session: Session }) {
     };
     try {
       await api.confirmSheet(session.id, final, ignoreProfile);
+      confirmed.current = true;
+      writeDraft(session.id, base, null);
     } catch (caught) {
-      setError(failureText(t, caught));
+      const message = caught instanceof ApiError && caught.code === "invalid_request" ? t("validation.invalid") : failureText(t, caught);
+      if (caught instanceof ApiError && caught.code === "invalid_currency") fields.report({ budgetCurrency: message });
+      else if (!fields.reportServer(caught, SERVER_FIELDS, message)) setError(message);
       setSending(false);
     }
   };
@@ -180,13 +274,18 @@ export function Review({ session }: { session: Session }) {
         inputMode="numeric"
         placeholder={t("review.unknown")}
         value={numbers[id]}
-        onChange={(event) => setNumbers((current) => ({ ...current, [id]: event.target.value }))}
+        {...fieldProps(id, fields.errors[id])}
+        onChange={(event) => {
+          fields.clear(id);
+          setNumbers((current) => ({ ...current, [id]: event.target.value }));
+        }}
       />
+      <FieldError id={id} error={fields.errors[id]} />
     </div>
   );
 
   return (
-    <form className="stack-lg" onSubmit={submit}>
+    <form ref={fields.form} className="stack-lg" onSubmit={submit} onKeyDown={(event) => sendOnlyOnShortcut(event, sending)} noValidate>
       <div className="stack narrow" style={{ marginInline: 0 }}>
         <h2 className="heading">{t("review.title")}</h2>
         <p className="muted" style={{ margin: 0 }}>
@@ -202,6 +301,7 @@ export function Review({ session }: { session: Session }) {
             {t("review.fields.projectName")}
           </label>
           <input
+            dir="auto"
             id="projectName"
             className="input"
             value={sheet.projectName}
@@ -213,6 +313,7 @@ export function Review({ session }: { session: Session }) {
             {t("review.fields.summary")}
           </label>
           <textarea
+            dir="auto"
             id="summary"
             className="textarea"
             rows={3}
@@ -236,8 +337,13 @@ export function Review({ session }: { session: Session }) {
                 inputMode="decimal"
                 placeholder={t("review.unknown")}
                 value={budget.build}
-                onChange={(event) => setBudget((current) => ({ ...current, build: event.target.value }))}
+                {...fieldProps("buildBudget", fields.errors.buildBudget)}
+                onChange={(event) => {
+                  fields.clear("buildBudget");
+                  setBudget((current) => ({ ...current, build: event.target.value }));
+                }}
               />
+              <FieldError id="buildBudget" error={fields.errors.buildBudget} />
             </div>
             <div className="field">
               <label className="field-label" htmlFor="runBudget">
@@ -252,7 +358,11 @@ export function Review({ session }: { session: Session }) {
                   inputMode="decimal"
                   placeholder={t("review.unknown")}
                   value={budget.run}
-                  onChange={(event) => setBudget((current) => ({ ...current, run: event.target.value }))}
+                  {...fieldProps("runBudget", fields.errors.runBudget)}
+                  onChange={(event) => {
+                    fields.clear("runBudget");
+                    setBudget((current) => ({ ...current, run: event.target.value }));
+                  }}
                 />
                 <select
                   className="select"
@@ -264,6 +374,7 @@ export function Review({ session }: { session: Session }) {
                   <option value="year">{t("review.period.year")}</option>
                 </select>
               </div>
+              <FieldError id="runBudget" error={fields.errors.runBudget} />
             </div>
             <div className="field">
               <label className="field-label" htmlFor="budgetCurrency">
@@ -272,18 +383,24 @@ export function Review({ session }: { session: Session }) {
               <CurrencySelect
                 id="budgetCurrency"
                 value={budget.currency}
-                describedBy="budgetCurrency-hint"
-                onChange={(code) => setBudget((current) => ({ ...current, currency: code }))}
+                describedBy={`budgetCurrency-hint${fields.errors.budgetCurrency ? " budgetCurrency-error" : ""}`}
+                invalid={Boolean(fields.errors.budgetCurrency)}
+                onChange={(code) => {
+                  fields.clear("budgetCurrency");
+                  setBudget((current) => ({ ...current, currency: code }));
+                }}
               />
               <span className="field-hint" id="budgetCurrency-hint">
                 {t("review.currencyHint")}
               </span>
+              <FieldError id="budgetCurrency" error={fields.errors.budgetCurrency} />
             </div>
           </div>
           <label className="field-hint" htmlFor="budgetNote">
             {t("review.fields.note")}
           </label>
           <textarea
+            dir="auto"
             id="budgetNote"
             className="textarea"
             rows={2}
@@ -302,6 +419,7 @@ export function Review({ session }: { session: Session }) {
             {t("review.fields.usersNote")}
           </label>
           <textarea
+            dir="auto"
             id="usersNote"
             className="textarea"
             rows={2}
@@ -319,6 +437,7 @@ export function Review({ session }: { session: Session }) {
                 {t("review.fields.skills")}
               </label>
               <input
+                dir="auto"
                 id="skills"
                 className="input"
                 value={skills}
@@ -334,6 +453,7 @@ export function Review({ session }: { session: Session }) {
             {t("review.fields.note")}
           </label>
           <textarea
+            dir="auto"
             id="teamNote"
             className="textarea"
             rows={2}
@@ -371,7 +491,11 @@ export function Review({ session }: { session: Session }) {
                   placeholder={t("review.unknown")}
                   disabled={Boolean(sheet.deadline.date)}
                   value={numbers.duration}
-                  onChange={(event) => setNumbers((current) => ({ ...current, duration: event.target.value }))}
+                  {...fieldProps("duration", fields.errors.duration)}
+                  onChange={(event) => {
+                    fields.clear("duration");
+                    setNumbers((current) => ({ ...current, duration: event.target.value }));
+                  }}
                 />
                 <select
                   className="select"
@@ -384,12 +508,14 @@ export function Review({ session }: { session: Session }) {
                   <option value="month">{t("review.unit.month")}</option>
                 </select>
               </div>
+              <FieldError id="duration" error={fields.errors.duration} />
             </div>
           </div>
           <label className="field-hint" htmlFor="deadlineNote">
             {t("review.fields.note")}
           </label>
           <textarea
+            dir="auto"
             id="deadlineNote"
             className="textarea"
             rows={2}
@@ -416,11 +542,12 @@ export function Review({ session }: { session: Session }) {
         </fieldset>
 
         {LISTS.map(({ field, wide }) => (
-          <div className={`field${wide ? " wide" : ""}${field === "hardConstraints" ? " field-hard" : ""}`} key={field}>
+          <div className={`field${wide ? " wide" : ""}`} key={field}>
             <label className="field-label" htmlFor={field}>
               {t(`review.fields.${field}`)}
             </label>
             <textarea
+              dir="auto"
               id={field}
               className="textarea"
               rows={Math.max(3, lists[field].split("\n").length + 1)}
@@ -442,6 +569,7 @@ export function Review({ session }: { session: Session }) {
             {sheet.priorities.map((priority, index) => (
               <div className="priority" key={priorityIds[index]}>
                 <input
+                  dir="auto"
                   id={`priority-${priorityIds[index]}`}
                   className="input"
                   aria-label={t("review.priorityLabel", { number: index + 1 })}
@@ -512,10 +640,11 @@ export function Review({ session }: { session: Session }) {
           </p>
         ) : null}
         <span className="field-hint">{t("review.currencyNote", { currency: debateIn })}</span>
-        <button type="submit" className="button button-primary" disabled={sending}>
-          {sending ? t("review.starting") : t("review.start")}
+        <ShortcutHint />
+        <BusyButton type="submit" busy={sending} busyLabel={t("review.starting")}>
+          {t("review.start")}
           <ArrowIcon />
-        </button>
+        </BusyButton>
       </div>
     </form>
   );

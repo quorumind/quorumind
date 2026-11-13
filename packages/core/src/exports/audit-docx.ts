@@ -1,6 +1,6 @@
 import { HeadingLevel, Paragraph } from "docx";
 import { auditLabels } from "../audit-labels.ts";
-import { auditDeliverable, auditMethodNotes, auditWords, needFacts } from "../audit-report.ts";
+import { auditDeliverable, auditMethodNotes, auditWords, needFacts, saysNothing } from "../audit-report.ts";
 import type { Branding } from "../branding.ts";
 import { fill, formatRange, participants, reportLabels, labelled as sayLabelled } from "../report.ts";
 import type { Session } from "../session.ts";
@@ -51,11 +51,11 @@ export async function renderAuditDocx(session: Session, branding: Branding): Pro
         children.push(heading(w.severity(group.severity), 2));
         for (const finding of group.items) {
           children.push(para([run(finding.title, { bold: true }), run(`  (${w.category(finding.category)})`, { color: MUTED })]));
-          children.push(
-            finding.quote
-              ? para([run(`${a.inDocument}${colon}`, { bold: true, color: MUTED, size: 18 }), run(finding.quote, { italics: true })])
-              : para(a.notInDocument, { style: { italics: true, color: MUTED } }),
-          );
+          if (finding.quote) {
+            children.push(
+              para([run(`${a.inDocument}${colon}`, { bold: true, color: MUTED, size: 18 }), run(finding.quote, { italics: true })]),
+            );
+          } else if (saysNothing(finding)) children.push(para(a.notInDocument, { style: { italics: true, color: MUTED } }));
           if (finding.detail) children.push(para(finding.detail));
           if (finding.fix) children.push(labelled(a.fix, finding.fix));
         }

@@ -3,9 +3,10 @@ import { type CheckStatus, type Costing, debateCurrency, type OptionChecks, type
 import { isGenericRole } from "@quorumind/core/profile";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import { ScrollRegion } from "./components/ScrollRegion.tsx";
 import { formatMoney } from "./format.ts";
 
-/** "€12,300 – €15,500", or a single amount when both ends are equal. */
+/** "12,300 € – 15,500 €", or a single amount when both ends are equal. */
 export function moneyRange(range: Range, currency: string, locale: string): string {
   return range.low === range.high
     ? formatMoney(range.low, currency, locale)
@@ -72,7 +73,7 @@ export function CheckBadges({ checks }: { checks: OptionChecks | undefined }) {
   return (
     <span className="check-badges">
       {items.map((item) => (
-        <span key={item.text} className={`check-badge check-${item.status}`}>
+        <span key={item.text} className={`badge check-badge check-${item.status}`}>
           {item.text}
         </span>
       ))}
@@ -94,7 +95,7 @@ export function CostingTable({ costing, caption }: { costing: Costing; caption: 
   return (
     <div className="stack" style={{ gap: "var(--space-3)" }}>
       {costing.packages.length > 0 ? (
-        <div className="table-wrap">
+        <ScrollRegion label={caption}>
           <table className="costing">
             <caption className="visually-hidden">{caption}</caption>
             <thead>
@@ -123,9 +124,9 @@ export function CostingTable({ costing, caption }: { costing: Costing; caption: 
                       </th>
                     ) : null}
                     <td>{roleName(line, t)}</td>
-                    <td className="num mono">{dayRange(line.days, i18n.language)}</td>
-                    <td className="num mono">{line.dailyRate === null ? "–" : money(line.dailyRate)}</td>
-                    <td className="num mono">{line.cost ? range(line.cost) : "–"}</td>
+                    <td className="num figure">{dayRange(line.days, i18n.language)}</td>
+                    <td className="num figure">{line.dailyRate === null ? "–" : money(line.dailyRate)}</td>
+                    <td className="num figure">{line.cost ? range(line.cost) : "–"}</td>
                   </tr>
                 )),
               )}
@@ -135,16 +136,16 @@ export function CostingTable({ costing, caption }: { costing: Costing; caption: 
                 <th scope="row" colSpan={2}>
                   {t("costing.total")}
                 </th>
-                <td className="num mono">{dayRange(costing.days, i18n.language)}</td>
+                <td className="num figure">{dayRange(costing.days, i18n.language)}</td>
                 <td />
-                <td className="num mono">{range(costing.total)}</td>
+                <td className="num figure">{range(costing.total)}</td>
               </tr>
             </tfoot>
           </table>
-        </div>
+        </ScrollRegion>
       ) : (
         <p style={{ margin: 0 }}>
-          <span className="field-hint">{t("debate.buildCost")}</span> <span className="mono">{range(costing.total)}</span>
+          <span className="field-hint">{t("debate.buildCost")}</span> <span className="figure">{range(costing.total)}</span>
         </p>
       )}
       <p className="field-hint" style={{ margin: 0 }}>

@@ -245,7 +245,7 @@ npm run lint
 npm run bench       # quality bench on the recorded demo
 npm run prices:check  # warns when the reference cloud prices are older than 90 days
 QUORUMIND_BENCH=live npm run bench   # the same bench on real models (costs money)
-npm run media       # screenshots and demo video in docs/media, filmed on the recorded demo (needs ffmpeg)
+npm run media       # screenshots and demo video in docs/media, filmed on the recorded demo (needs ffmpeg; `-- --stills` skips the video)
 ```
 
 | Path | Content |

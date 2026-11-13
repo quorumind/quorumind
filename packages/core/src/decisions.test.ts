@@ -195,7 +195,7 @@ describe("the decision register", () => {
     expect(header).toBe(
       '"Decision","Recommendation","Status","Version","Approved by","Approval date","Comment","Note","Review date","Review condition","Verdict date","Author","Superseded by","Link"',
     );
-    expect(row).toContain('"Accepted","Revision 1","Ada Lovelace","2026-10-19","Go"');
+    expect(row).toContain('"Accepted","Version 1","Ada Lovelace","2026-10-19","Go"');
     expect(row).toContain(`"https://app.example/#/s/${session.id}"`);
     expect(renderRegisterCsv([], "fr", () => "").split(",")[0]).toBe('"Décision"');
   });
@@ -245,9 +245,9 @@ describe("comparing two versions", () => {
     const session = await withScenario();
     const markdown = renderComparison(session, 1, 2)!;
     expect(markdown).toContain("# Studio booking app: Comparison of two versions");
-    expect(markdown).toContain("_Revision 1 and Scenario “Budget cut” · Revision 2, side by side_");
-    expect(markdown).toContain("| Build budget | **€15,000** | **€10,500** |");
-    expect(markdown).toContain("| Running budget | €400 a month | €400 a month |");
+    expect(markdown).toContain("_Version 1 and Scenario “Budget cut” · Version 2, side by side_");
+    expect(markdown).toContain("| Build budget | **15,000\u00a0€** | **10,500\u00a0€** |");
+    expect(markdown).toContain("| Running budget | 400\u00a0€ a month | 400\u00a0€ a month |");
     expect(markdown).toContain("Team size +2<br>Build budget -30%");
     expect(markdown).toContain("| Time to market | **3** | **4** |");
     expect(renderComparison(session, 1, 1)).toContain("The two versions agree on every point compared.");
@@ -255,7 +255,7 @@ describe("comparing two versions", () => {
 
     const html = renderComparisonHtml(session, 1, 2, { name: null, logoDataUrl: null, accent: null }, { print: true })!;
     expect(html).toContain(
-      '<td class="differs"><span aria-hidden="true">≠ </span>€10,500<span class="visually-hidden"> (differs)</span></td>',
+      '<td class="differs"><span aria-hidden="true">≠ </span>10,500\u00a0€<span class="visually-hidden"> (differs)</span></td>',
     );
     expect(html).toContain("window.print()");
     const arabic = await withScenario("ar");
@@ -265,7 +265,7 @@ describe("comparing two versions", () => {
 
   it("name the changes of a scenario in every language", () => {
     expect(changeText({ kind: "budget", target: "build", percent: -30 }, "fr")).toBe("Budget de réalisation -30\u00a0%");
-    expect(changeText({ kind: "deadline", delta: -2, unit: "month" }, "en")).toBe("Deadline -2 month(s)");
+    expect(changeText({ kind: "deadline", delta: -2, unit: "month" }, "en")).toBe("Deadline -2 months");
     expect(changeText({ kind: "team", delta: 2 }, "ar")).toBe("حجم الفريق \u200e+2");
     expect(changeText({ kind: "constraint", text: "On-premises" }, "de")).toBe("Neue harte Vorgabe: On-premises");
   });
@@ -275,7 +275,7 @@ describe("decision labels", () => {
   it.each(Object.keys(DECISION_LABELS))("%s has every label, with the English placeholders", (locale) => {
     const labels = DECISION_LABELS[locale as keyof typeof DECISION_LABELS];
     expect(Object.keys(labels).sort()).toEqual([...DECISION_LABEL_KEYS].sort());
-    const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+    const placeholders = (text: string) => [...text.matchAll(/\{(\w+)(?:\|[^}]*)?\}/g)].map((match) => match[1]).sort();
     for (const key of DECISION_LABEL_KEYS) {
       expect(labels[key].trim(), `${locale}: ${key}`).not.toBe("");
       expect(placeholders(labels[key]), `${locale}: ${key}`).toEqual(placeholders(DECISION_LABELS.en[key]));

@@ -1,9 +1,12 @@
-import { isLocale } from "@quorumind/core/locales";
+import { isLocale, type Locale } from "@quorumind/core/locales";
 import { useTranslation } from "react-i18next";
 import { LOCALES, switchLanguage } from "../i18n.ts";
 
-/** The language of the interface, each one named in itself. */
-export function LanguageSelect({ id }: { id: string }) {
+/**
+ * The language of the interface, each one named in itself. `remember`: kept as the person's language for their next
+ * visits (false on a page opened from someone else's link); `onChange` hears the choice.
+ */
+export function LanguageSelect({ id, remember = true, onChange }: { id: string; remember?: boolean; onChange?: (locale: Locale) => void }) {
   const { t, i18n } = useTranslation();
   return (
     <>
@@ -15,7 +18,9 @@ export function LanguageSelect({ id }: { id: string }) {
         className="select"
         value={i18n.language}
         onChange={(event) => {
-          if (isLocale(event.target.value)) void switchLanguage(event.target.value, true);
+          if (!isLocale(event.target.value)) return;
+          void switchLanguage(event.target.value, remember);
+          onChange?.(event.target.value);
         }}
       >
         {LOCALES.map((locale) => (

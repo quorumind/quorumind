@@ -14,7 +14,7 @@ const SETS = [
   ["audit", AUDIT_LABELS, AUDIT_LABEL_KEYS],
 ] as const;
 
-const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+const placeholders = (text: string) => [...text.matchAll(/\{(\w+)(?:\|[^}]*)?\}/g)].map((match) => match[1]).sort();
 
 /** Every text of a set of labels, nested ones included, by its path: "requirements.gdpr_processors". */
 function texts(value: unknown, path = ""): Record<string, string> {

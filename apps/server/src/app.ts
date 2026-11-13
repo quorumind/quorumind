@@ -19,6 +19,7 @@ import {
   estimateResearchCost,
   estimateRevisionCost,
   europeanPolicyFromEnv,
+  exportFileName,
   hasProfile,
   INTERRUPTED,
   InvalidStateError,
@@ -86,8 +87,13 @@ import {
   validAccess,
 } from "./share.ts";
 import {
+  decodeCursor,
   MissingSession,
+  PAGE_MAX,
+  PAGE_SIZE,
+  type PageOptions,
   type Placement,
+  pageOf,
   publicQuestionnaire,
   type SessionStore,
   type ShareSettings,
@@ -180,7 +186,7 @@ export interface PriceQuote {
 }
 
 /** A page of the host's own screens, by a stable kind the web app names in its language. */
-export type HostLinkKind = "home" | "billing" | "members" | "profile" | "account" | "staff";
+export type HostLinkKind = "home" | "billing" | "members" | "profile" | "settings" | "account" | "tokens" | "staff";
 
 /** A workspace of the caller, as the menu lists it: picking another one posts to `switchUrl`. */
 export interface HostWorkspace {
@@ -198,9 +204,10 @@ export interface HostNavigation {
   /** Null when the host has no workspaces; with none in the list, the menu offers to create one at `createUrl`. */
   workspaces: { list: HostWorkspace[]; createUrl: string } | null;
   /**
-   * In the order the menus show them. The workspace's pages (home, billing, members, profile) are in the workspace's
-   * menu, under the workspaces, when there is one to show; the others (account, staff) in the person's menu, at the
-   * bottom of the menu, above the way to sign out, which also keeps them all when there is no workspace to show.
+   * In the order the menus show them. The workspace's pages (home, billing, members, profile, settings) are in the
+   * workspace's menu, under the workspaces, when there is one to show; the others (account, tokens, staff) in the
+   * person's menu, at the bottom of the menu, above the way to sign out, which also keeps them all when there is no
+   * workspace to show. A kind the interface does not know (a newer host's) is left out of the menu.
    */
   links: { kind: HostLinkKind; url: string }[];
   user: { name: string | null; email: string };
@@ -501,15 +508,19 @@ function codeOnly(error: SessionError | null): SessionError | null {
 /**
  * A failure as sent to someone who must not see what the providers charge nor what they say. A cost cap reached is
  * named in dollars by its message and parameters: the code alone explains it. A provider's failure carries the
- * provider's own words (an account's dashboard URL, a key's limits): only its code, provider and model are kept. An
- * internal error's message is whatever was thrown (a database's address, a query): its code is enough.
+ * provider's own words (an account's dashboard URL, a key's limits): only its code, provider, model, task and seat are
+ * kept. An internal error's message is whatever was thrown (a database's address, a query): its code is enough.
  */
 function hostedError(error: SessionError | null): SessionError | null {
   if (!error) return null;
   if (error.code === "budget_exceeded" || error.code === "internal_error") return codeOnly(error);
   if (!error.code.startsWith("provider_")) return error;
-  const { provider, model } = error.params ?? {};
-  const params = { ...(provider === undefined ? {} : { provider }), ...(model === undefined ? {} : { model }) };
+  // Which model failed, and the task and seat it was called for (where the debate stopped): none of it is the provider's.
+  const kept = ["provider", "model", "task", "seat"].flatMap((key) => {
+    const value = error.params?.[key];
+    return value === undefined ? [] : [[key, value] as const];
+  });
+  const params = Object.fromEntries(kept);
   return { code: error.code, message: "", ...(Object.keys(params).length > 0 ? { params } : {}) };
 }
 
@@ -546,12 +557,6 @@ function lowestCap(...caps: (number | null | undefined)[]): number | null {
   const set = caps.filter((cap): cap is number => typeof cap === "number");
   return set.length > 0 ? Math.min(...set) : null;
 }
-
-const slug = (session: Session) =>
-  (session.sheet?.projectName ?? "quorumind")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "") || "quorumind";
 
 export function createApp(deps: AppDeps) {
   const { store, bus, env, hooks = {} } = deps;
@@ -949,19 +954,45 @@ export function createApp(deps: AppDeps) {
   const scopeOf = (user: User | null): Promise<Scope | null> => (user && hooks.scope ? hooks.scope(user) : Promise.resolve(null));
   const ownerOf = (user: User | null) => user?.userId ?? null;
 
+  // The lists are paged: `limit` entries (50 by default), the page after `before` (a cursor an earlier answer gave as
+  // `next`), the titles holding `q`. A client that sends none of them gets what it always did, plus `next`.
+  const pageQuery = (c: Context): { limit: number; page: PageOptions } => {
+    const input = z
+      .object({
+        limit: z.coerce.number().int().min(1).max(PAGE_MAX).default(PAGE_SIZE),
+        before: z.string().min(1).max(400).optional(),
+        q: z.string().max(200).optional(),
+      })
+      .parse(c.req.query());
+    const before = input.before === undefined ? undefined : decodeCursor(input.before);
+    if (before === null) throw new InvalidInput("This page cursor is not one the server gave.", "invalid_cursor");
+    const search = input.q?.trim();
+    return { limit: input.limit, page: { ...(before ? { before } : {}), ...(search ? { search } : {}) } };
+  };
+
   // ?mine=1 keeps the caller's own sessions, in a workspace's shared history.
   app.get("/api/sessions", async (c) => {
     const user = c.get("user");
     const scope = await scopeOf(user);
-    if (!user || !scope) return c.json({ sessions: await store.list(50, ownerOf(user)), shared: false });
-    const entries = await store.history(50, { owner: user.userId, workspace: scope.workspace, mine: c.req.query("mine") === "1" });
+    const { limit, page } = pageQuery(c);
+    // One more than the page, to know whether it goes on.
+    if (!user || !scope) {
+      const { items, next } = pageOf(await store.list(limit + 1, ownerOf(user), page), limit, page, store.pages === true);
+      return c.json({ sessions: items, shared: false, next });
+    }
+    const asked = await store.history(
+      limit + 1,
+      { owner: user.userId, workspace: scope.workspace, mine: c.req.query("mine") === "1" },
+      page,
+    );
+    const { items: entries, next } = pageOf(asked, limit, page, store.pages === true);
     const others = [...new Set(entries.flatMap((entry) => (entry.owner && entry.owner !== user.userId ? [entry.owner] : [])))];
     const authors = hooks.authors && others.length > 0 ? await hooks.authors(others) : null;
     const sessions = entries.map(({ owner, workspace: _workspace, private: isPrivate, ...summary }) => {
       const mine = owner === user.userId;
       return { ...summary, private: isPrivate, mine, ...(authors && !mine ? { author: authors[owner ?? ""] ?? null } : {}) };
     });
-    return c.json({ sessions, shared: scope.workspace !== null });
+    return c.json({ sessions, shared: scope.workspace !== null, next });
   });
 
   app.post("/api/sessions", async (c) => {
@@ -1048,7 +1079,10 @@ export function createApp(deps: AppDeps) {
       return { ...found, access: { mine, canEdit: true, shared: false, private: found.private } };
     }
     // A session belongs to its workspace: whoever left it, its author included, no longer sees it.
-    if (!scope.workspaces.includes(found.workspace ?? "") || (found.private && !mine)) throw new NotFound();
+    if (!scope.workspaces.includes(found.workspace ?? "")) throw new NotFound();
+    // A member of its workspace who holds its address learns it is private, not that it is gone: nothing they could
+    // not know already, and they can ask its author. Anyone else is told only that it does not exist.
+    if (found.private && !mine) throw new PrivateSession();
     const { session: _session, ...placement } = found;
     const canEdit = mine || (hooks.canEdit ? await hooks.canEdit(user, { id, ...placement }) : false);
     return { ...found, access: { mine, canEdit, shared: true, private: found.private } };
@@ -1363,7 +1397,7 @@ export function createApp(deps: AppDeps) {
     const { session, share } = await openShare(c);
     if (share.mode === "full") return markdown(c, currentView(publicView(session)));
     c.header("Content-Type", "text/markdown; charset=utf-8");
-    c.header("Content-Disposition", `attachment; filename="${slug(session)}-report.md"`);
+    c.header("Content-Disposition", `attachment; filename="${exportFileName(session, "report", "md")}"`);
     return c.body(renderClientReport(clientDeliverable(currentView(session))));
   });
 
@@ -1384,7 +1418,13 @@ export function createApp(deps: AppDeps) {
     return c.json(accessToken(share.token, share.passwordHash));
   });
 
-  app.get("/api/gallery", async (c) => c.json({ sessions: await store.gallery() }));
+  app.get("/api/gallery", async (c) => {
+    // The gallery is public and has no search: a `q` is left out, so that nobody makes it scan every public debate.
+    const { limit, page } = pageQuery(c);
+    const { search: _search, ...paged } = page;
+    const { items, next } = pageOf(await store.gallery(limit + 1, paged), limit, paged, store.pages === true);
+    return c.json({ sessions: items, next });
+  });
 
   app.post("/api/sessions/:id/feedback", async (c) => {
     const session = await load(c.req.param("id"), c.get("user"));
@@ -1516,6 +1556,9 @@ export function createApp(deps: AppDeps) {
 
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((error, c) => {
+    if (error instanceof PrivateSession) {
+      return c.json({ error: "private_session", message: "This session is private: only its author can open it." }, 404);
+    }
     // MissingSession: deleted while the request was on its way.
     if (error instanceof NotFound || error instanceof MissingSession) {
       return c.json({ error: "not_found", message: "This session does not exist." }, 404);
@@ -1571,7 +1614,7 @@ export function createApp(deps: AppDeps) {
 
 function markdown(c: { header(name: string, value: string): void; body(data: string): Response }, session: Session) {
   c.header("Content-Type", "text/markdown; charset=utf-8");
-  c.header("Content-Disposition", `attachment; filename="${slug(session)}-report.md"`);
+  c.header("Content-Disposition", `attachment; filename="${exportFileName(session, "report", "md")}"`);
   return c.body(renderReport(session));
 }
 
@@ -1621,6 +1664,8 @@ function defaultLineup(catalog: ModelOption[]): Lineup | null {
 }
 
 class NotFound extends Error {}
+/** A private session asked for by another member of its workspace: still a 404, with its own code. */
+class PrivateSession extends NotFound {}
 /** A member of the session's workspace who may read it, not change it. */
 class ReadOnly extends Error {
   constructor(message = "Only the author of this session or an admin of its workspace can change it.") {

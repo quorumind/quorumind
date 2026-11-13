@@ -445,7 +445,7 @@ describe("research labels", () => {
     expect(Object.keys(labels).sort()).toEqual(Object.keys(RESEARCH_LABELS.en).sort());
     for (const [key, value] of Object.entries(labels)) {
       expect(value.trim(), `${locale}: ${key}`).not.toBe("");
-      const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+      const placeholders = (text: string) => [...text.matchAll(/\{(\w+)(?:\|[^}]*)?\}/g)].map((match) => match[1]).sort();
       expect(placeholders(value), `${locale}: ${key}`).toEqual(placeholders(RESEARCH_LABELS.en[key as keyof typeof RESEARCH_LABELS.en]));
     }
   });

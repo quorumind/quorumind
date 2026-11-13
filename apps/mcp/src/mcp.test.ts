@@ -381,7 +381,7 @@ describe("MCP server on the recorded demo", () => {
     });
     expect(tried.isError).toBeFalsy();
     expect(textOf(tried)).toContain('Scenario 2 "Budget cut" is ruled on.');
-    expect(textOf(tried)).toContain("| Build budget | **€20,000** | **€14,000** |");
+    expect(textOf(tried)).toContain("| Build budget | **20,000\u00a0€** | **14,000\u00a0€** |");
     expect(tried.structuredContent).toMatchObject({ revision: 2, basedOn: 1, recommendation: "A" });
 
     const listed = await call(mcp, "quorumind_scenarios", { session_id: sessionId });

@@ -46,7 +46,14 @@ const api = createApp({
         ],
         createUrl: "/account/#/workspaces/new",
       },
-      links: (["home", "billing", "members", "profile", "account"] as const).map((kind) => ({ kind, url: `/account/#/${kind}` })),
+      // Every kind of page this version names, and one it does not know (a newer host's), which the menu leaves out.
+      links: [
+        ...(["home", "billing", "members", "profile", "settings", "account", "tokens"] as const).map((kind) => ({
+          kind,
+          url: `/account/#/${kind}`,
+        })),
+        { kind: "future" as "home", url: "/account/#/future" },
+      ],
       user: { name: names[user.userId] ?? null, email: `${user.userId}@example.com` },
       siteUrl: null,
       signOut: { url: "/auth/signout", next: "/#/gallery" },

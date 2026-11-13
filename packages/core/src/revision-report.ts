@@ -16,7 +16,7 @@ export interface ChangeGroup {
 
 export interface RevisionNote {
   number: number;
-  /** "Revision 2 · 19 October 2026". */
+  /** "Version 2 · 19 October 2026". */
   label: string;
   /** Why the revision was made, e.g. "Updated with the client's answers". */
   reason: string;

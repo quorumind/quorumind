@@ -66,7 +66,7 @@ describe("an agency's accent on its client's page", () => {
 });
 
 describe("the interface's own colors", () => {
-  const css = readFileSync(join(import.meta.dirname, "styles.css"), "utf8");
+  const css = readFileSync(join(import.meta.dirname, "tokens.css"), "utf8");
   /** The custom properties of the first rule with this selector, color values resolved through var(). */
   const tokens = (selector: string): Record<string, string> => {
     const start = css.indexOf(`${selector} {`);
@@ -84,6 +84,14 @@ describe("the interface's own colors", () => {
   it("writes on the main action's fill at 4.5:1 or more, in both themes", () => {
     for (const theme of [light, dark]) {
       expect(contrastRatio(value(theme, "--on-primary"), value(theme, "--primary"))).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    }
+  });
+
+  it("writes the 'your move' colour at 4.5:1 or more on both surfaces it is used on, in both themes", () => {
+    for (const theme of [light, dark]) {
+      for (const surface of ["--surface", "--surface-raised"]) {
+        expect(contrastRatio(value(theme, "--attention"), value(theme, surface)), surface).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+      }
     }
   });
 

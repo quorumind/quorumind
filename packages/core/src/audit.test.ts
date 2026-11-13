@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AuditCritiqueInput, AuditExtraction, AuditReport, AuditVerdict, AuditVerdictUpdate } from "./audit.ts";
+import { AuditCritiqueInput, AuditExtraction, AuditReport, AuditVerdict, AuditVerdictUpdate, type StoredAuditFinding } from "./audit.ts";
 import { auditOf, findQuote, pricePosition, quoteCheck, quoteFacts, settleAudit, settleExtraction } from "./audit-check.ts";
 import { auditCritiquePrompt } from "./audit-prompts.ts";
 import { demoAuditAnswer } from "./demo-audit.ts";
@@ -237,6 +237,48 @@ describe("audit sessions", () => {
     expect(auditOf(session.verdict)?.opinion).toBe("sound_with_reservations");
     expect(auditOf(session.revisions[0]?.verdict)?.opinion).toBe("not_sound");
   });
+
+  it("keeps a quote it could not find in doubt when the arbiter rules again without looking it up", async () => {
+    const { engine, session, recorder } = setup();
+    await run(engine, session);
+    const budget = "The quote is more than twice the build budget.";
+    const payment = "The breakdown does not add up.";
+    // Both quotes were given and not found at the first ruling: the document may well say something about them.
+    for (const verdict of [session.verdict, ...session.revisions.map((revision) => revision.verdict)]) {
+      const first = auditOf(verdict) as AuditReport;
+      first.findings = (first.findings as StoredAuditFinding[]).map((finding) =>
+        finding.title === budget || finding.title === payment ? { ...finding, quote: "", quoteDropped: true } : finding,
+      );
+    }
+    // The arbiter keeps the first quote empty and finds the passage of the second.
+    recorder.overrides.set("audit_verdict_update", (answer) => {
+      const update = answer as { audit: AuditReport };
+      const findings = update.audit.findings.map((finding) =>
+        finding.title === budget
+          ? { ...finding, quote: "" }
+          : finding.title === payment
+            ? { ...finding, quote: "| Payment and passes | 8 | 600 € | 5,800 € |" }
+            : finding,
+      );
+      return { ...update, audit: { ...update.audit, findings } };
+    });
+    await engine.beginRevision(session, {
+      reason: "edit",
+      inputs: { facts: [{ question: null, answer: "The agency answered.", comment: null }], note: null, questionnaireId: null },
+      by: null,
+    });
+    expect(await engine.runRevision(session)).toBe(true);
+    // The arbiter was told which quotes were not found, so that it could look again.
+    const input = recorder.requests.at(-1)?.messages[0]?.content ?? "";
+    expect(input).toContain("Quorumind could not find the passage this finding quoted in the document");
+    expect(input).not.toContain("quoteDropped");
+    const findings = (auditOf(session.verdict)?.findings ?? []) as StoredAuditFinding[];
+    expect(findings.find((finding) => finding.title === budget)).toMatchObject({ quote: "", quoteDropped: true });
+    expect(findings.find((finding) => finding.title === payment)).toMatchObject({
+      quote: "| Payment and passes | 8 | 600 € | 5,800 € |",
+      quoteDropped: false,
+    });
+  });
 });
 
 describe("audit schemas", () => {
@@ -302,6 +344,22 @@ describe("audit checks", () => {
     expect(findQuote([doc], "The “warranty” … one month")).toBe(true);
     expect(findQuote([doc], "one month … The “warranty”")).toBe(false);
     expect(findQuote([doc], "The warranty lasts two months.")).toBe(false);
+  });
+
+  it("finds a quote across list items, with or without their markers", () => {
+    const doc: ContextDocument = {
+      id: "1",
+      kind: "text",
+      name: "doc",
+      text: "Included:\n- Online booking\n- E-mail reminders\n1. Design\n2) Testing\n  * Training",
+    };
+    // The plain-text rule makes a model drop the markers it copies: the quote is the document's all the same.
+    expect(findQuote([doc], "Online booking E-mail reminders")).toBe(true);
+    expect(findQuote([doc], "- Online booking\n- E-mail reminders")).toBe(true);
+    expect(findQuote([doc], "Design Testing Training")).toBe(true);
+    expect(findQuote([doc], "Online booking SMS reminders")).toBe(false);
+    // A dash that is not a list marker stays part of the words.
+    expect(findQuote([doc], "E mail reminders")).toBe(false);
     expect(findQuote([doc], "  ")).toBe(false);
   });
 

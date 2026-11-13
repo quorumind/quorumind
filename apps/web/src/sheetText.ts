@@ -20,7 +20,7 @@ export function budgetText(sheet: RequirementsSheet, t: TFunction, locale: strin
 export function usersText(sheet: RequirementsSheet, t: TFunction, locale: string): string {
   const { launch, oneYear, note } = sheet.users;
   const parts = [
-    launch !== null ? t("review.usersLaunch", { count: count(launch, locale) }) : "",
+    launch !== null ? t("review.usersLaunch", { count: launch }) : "",
     oneYear !== null ? t("review.usersYear", { count: count(oneYear, locale) }) : "",
   ].filter(Boolean);
   return [parts.join(", "), note.trim()].filter(Boolean).join(". ");
@@ -40,7 +40,7 @@ export function deadlineText(sheet: RequirementsSheet, t: TFunction, locale: str
   const head = Number.isFinite(parsed)
     ? new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(parsed)
     : duration
-      ? t(`review.duration.${duration.unit}`, { count: count(duration.amount, locale) })
+      ? t(`review.duration.${duration.unit}`, { count: duration.amount })
       : "";
   return [head, note.trim()].filter(Boolean).join(". ");
 }

@@ -3,8 +3,9 @@
 
 export type TemplateId = "saas" | "mobile" | "data_ai" | "migration" | "ecommerce";
 
-export const TEMPLATES: Record<TemplateId, { focus: string[] }> = {
+export const TEMPLATES: Record<TemplateId, { label: string; focus: string[] }> = {
   saas: {
+    label: "SaaS",
     focus: [
       "tenancy model and data isolation between customers",
       "sign-up, authentication and roles",
@@ -15,6 +16,7 @@ export const TEMPLATES: Record<TemplateId, { focus: string[] }> = {
     ],
   },
   mobile: {
+    label: "mobile app",
     focus: [
       "platforms (iOS, Android) and minimum OS versions",
       "native, cross-platform or progressive web app",
@@ -25,6 +27,7 @@ export const TEMPLATES: Record<TemplateId, { focus: string[] }> = {
     ],
   },
   data_ai: {
+    label: "data and AI",
     focus: [
       "data sources, volumes, freshness and quality",
       "personal or sensitive data and where it may be processed",
@@ -35,6 +38,7 @@ export const TEMPLATES: Record<TemplateId, { focus: string[] }> = {
     ],
   },
   migration: {
+    label: "migration",
     focus: [
       "current system: stack, hosting, size, age and pain points",
       "what must not change for users",
@@ -45,6 +49,7 @@ export const TEMPLATES: Record<TemplateId, { focus: string[] }> = {
     ],
   },
   ecommerce: {
+    label: "e-commerce",
     focus: [
       "catalogue size, variants and stock management",
       "payment methods, countries, currencies and taxes",

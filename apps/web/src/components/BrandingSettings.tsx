@@ -12,7 +12,8 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api.ts";
 import { isHexColor, readableOn } from "../contrast.ts";
 import { failureText } from "../errors.ts";
-import { Dialog, useDialog } from "./Dialog.tsx";
+import { BusyButton } from "./BusyButton.tsx";
+import { ConfirmDialog, useConfirm } from "./ConfirmDialog.tsx";
 import { CheckIcon, UploadIcon } from "./Icons.tsx";
 import { LoadFailed } from "./LoadFailed.tsx";
 
@@ -58,7 +59,7 @@ export function BrandingSettings() {
   const [hex, setHex] = useState(QUORUMIND_ACCENT);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const fileInput = useRef<HTMLInputElement>(null);
-  const resetDialog = useDialog();
+  const resetDialog = useConfirm<null>();
   const maxKb = Math.round(LOGO_MAX_FILE_BYTES / 1000);
   const accent = branding.accent ?? QUORUMIND_ACCENT;
   const hexInvalid = !isHexColor(hex);
@@ -86,6 +87,8 @@ export function BrandingSettings() {
   const update = (patch: Partial<Branding>) => {
     setBranding((current) => ({ ...current, ...patch }));
     setStatus({ kind: "idle" });
+    // The error was about a logo that was refused: it does not describe what the form holds now.
+    setLogoError(null);
   };
 
   const chooseAccent = (color: string) => {
@@ -129,11 +132,11 @@ export function BrandingSettings() {
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
+    setLogoError(null);
     void submit({ ...branding, name: branding.name?.trim() || null }, t("branding.saved"));
   };
 
   const onReset = () => {
-    resetDialog.close();
     setLogoError(null);
     setLogoName(null);
     void submit(DEFAULT_BRANDING, t("branding.resetDone"));
@@ -164,6 +167,7 @@ export function BrandingSettings() {
           <label className="field" htmlFor={`${id}-name`}>
             <span className="field-label">{t("branding.name")}</span>
             <input
+              dir="auto"
               id={`${id}-name`}
               className="input"
               value={branding.name ?? ""}
@@ -341,10 +345,15 @@ export function BrandingSettings() {
       </div>
 
       <div className="row branding-actions">
-        <button type="submit" className="button button-primary" disabled={!loaded || saving || hexInvalid}>
-          {saving ? t("branding.saving") : t("branding.save")}
-        </button>
-        <button type="button" className="button button-quiet" onClick={resetDialog.open} disabled={!loaded || saving}>
+        <BusyButton type="submit" busy={saving} busyLabel={t("branding.saving")} disabled={!loaded || hexInvalid}>
+          {t("branding.save")}
+        </BusyButton>
+        <button
+          type="button"
+          className="button button-quiet"
+          onClick={(event) => resetDialog.ask(null, event.currentTarget)}
+          disabled={!loaded || saving}
+        >
           {t("branding.reset")}
         </button>
         <span role="status" className={status.kind === "error" ? "branding-error" : "field-hint"}>
@@ -352,22 +361,15 @@ export function BrandingSettings() {
         </span>
       </div>
 
-      <Dialog dialog={resetDialog} labelledBy={`${id}-reset-title`}>
-        <div className="stack">
-          <h2 id={`${id}-reset-title`} className="heading">
-            {t("branding.resetTitle")}
-          </h2>
-          <p style={{ margin: 0 }}>{t("branding.resetLead")}</p>
-          <div className="dialog-actions">
-            <button type="button" className="button button-secondary" onClick={resetDialog.close}>
-              {t("common.cancel")}
-            </button>
-            <button type="button" className="button button-primary" onClick={onReset}>
-              {t("branding.resetConfirm")}
-            </button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        confirm={resetDialog}
+        title={t("branding.resetTitle")}
+        confirmLabel={t("branding.resetConfirm")}
+        tone="primary"
+        onConfirm={onReset}
+      >
+        <p style={{ margin: 0 }}>{t("branding.resetLead")}</p>
+      </ConfirmDialog>
     </form>
   );
 }

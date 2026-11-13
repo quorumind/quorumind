@@ -1,5 +1,6 @@
 import type { ModelOption } from "@quorumind/core";
 import { isLocale, localeInfo } from "@quorumind/core/locales";
+import { formatCurrency } from "@quorumind/core/money";
 import type { TFunction } from "i18next";
 
 const GATEWAYS: Record<string, string> = { openrouter: "OpenRouter" };
@@ -17,12 +18,13 @@ export function formatUsd(amount: number, locale: string) {
 export function formatPrice(amount: number, currency: string, locale: string) {
   const digits = Number.isInteger(amount) ? 0 : 2;
   try {
-    return new Intl.NumberFormat(locale, {
+    const formatter = new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       minimumFractionDigits: digits,
       maximumFractionDigits: digits,
-    }).format(amount);
+    });
+    return formatCurrency(formatter, amount, currency);
   } catch {
     return `${new Intl.NumberFormat(locale, { minimumFractionDigits: digits }).format(amount)} ${currency}`;
   }
@@ -30,7 +32,7 @@ export function formatPrice(amount: number, currency: string, locale: string) {
 
 export function formatMoney(amount: number, currency: string, locale: string) {
   try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+    return formatCurrency(new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }), amount, currency);
   } catch {
     return `${new Intl.NumberFormat(locale).format(amount)} ${currency}`;
   }

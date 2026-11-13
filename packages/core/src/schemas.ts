@@ -182,7 +182,11 @@ export type Critique = z.infer<typeof Critique>;
 export const CritiqueRound = z.object({
   speech: z.string(),
   critiques: z.array(Critique),
-  questionsForUser: z.array(z.string()).describe("Only questions whose answer would change the outcome."),
+  questionsForUser: z
+    .array(z.string())
+    .describe(
+      "Only questions whose answer would change the outcome: each asks one thing, in plain words and one sentence of at most 25 words.",
+    ),
 });
 export type CritiqueRound = z.infer<typeof CritiqueRound>;
 
@@ -216,14 +220,14 @@ export const Verdict = z.object({
       seat: z.string(),
       title: z.string(),
       feasibility: Feasibility,
-      reason: z.string(),
+      reason: z.string().describe("Why this feasibility, in one sentence of at most 25 words."),
       conditions: z.array(z.string()),
       scores: z.array(z.object({ criterion: z.string(), score: z.number().describe("1 to 5.") })),
     }),
   ),
   recommendation: z.object({
     seat: z.string().nullable().describe("Seat letter of the recommended option, null when none is feasible."),
-    rationale: z.string(),
+    rationale: z.string().describe("Why this recommendation, in at most three sentences."),
   }),
   topics: z
     .array(
@@ -236,13 +240,19 @@ export const Verdict = z.object({
     .describe("The map of the debate: every topic discussed, whether the participants agree, and where each one stands."),
   risks: z.array(
     z.object({
-      risk: z.string(),
+      risk: z.string().describe("The risk, in one sentence."),
       likelihood: z.enum(["low", "medium", "high"]),
       impact: z.enum(["low", "medium", "high"]),
-      mitigation: z.string(),
+      mitigation: z.string().describe("How to reduce it, in one sentence."),
     }),
   ),
-  roadmap: z.array(z.object({ phase: z.string(), content: z.string(), exitCriterion: z.string() })),
+  roadmap: z.array(
+    z.object({
+      phase: z.string().describe("The name of the phase, in at most three words, e.g. Pilot."),
+      content: z.string(),
+      exitCriterion: z.string(),
+    }),
+  ),
   claims: z.array(
     z.object({
       claim: z.string(),
@@ -250,7 +260,11 @@ export const Verdict = z.object({
       sources: z.array(z.string()).describe("Ids of the sources in <research> the claim rests on, e.g. S1; empty when it rests on none."),
     }),
   ),
-  openQuestions: z.array(z.string()),
+  openQuestions: z
+    .array(z.string())
+    .describe(
+      "Facts only the person or their client can supply that would change the recommendation, at most five: each a question to them, in plain words and one sentence of about 25 words (or the same length in your language), that says what the answer decides.",
+    ),
 });
 export type Verdict = z.infer<typeof Verdict>;
 
@@ -276,9 +290,8 @@ export type Probe = z.infer<typeof Probe>;
 export const Audience = z.enum(["cto", "executive", "client"]);
 export type Audience = z.infer<typeof Audience>;
 
-/** The verdict rewritten for one kind of reader. */
+/** The verdict rewritten for one kind of reader. It has no speech: it is written on request, and nobody follows it live. */
 export const Brief = z.object({
-  speech: z.string(),
   headline: z.string(),
   summary: z.string(),
   sections: z.array(z.object({ title: z.string(), body: z.string() })),

@@ -122,6 +122,9 @@ describe("Jira CSV", () => {
     });
     expect(stories.at(-1)?.Parent).toBe(epics[1]?.["Issue ID"]);
     expect(records.every((record) => record.Labels === "quorumind")).toBe(true);
+    // Each issue says where it comes from, in the interface's words: a debate.
+    expect(records.every((record) => /Planned with Quorumind from debate \S+ \(/.test(record.Description ?? ""))).toBe(true);
+    expect(records.some((record) => record.Description?.includes("decision session"))).toBe(false);
     expect(new Set(records.map((record) => record["Issue ID"])).size).toBe(records.length);
   });
 
@@ -179,6 +182,7 @@ describe("GitHub issues", () => {
     const tracking = files.find((file) => file.path === "issues/phase-1.md")?.content ?? "";
     expect(tracking).toContain("## Exit criterion\n\nAll 12 studios take bookings online");
     expect(tracking).toContain("## Steps\n\n- [ ] Schedules\n- [ ] Booking");
+    expect(tracking).toMatch(/_Planned with Quorumind from debate \S+ \(\d{4}-\d{2}-\d{2}\)/);
     const plan = JSON.parse(files.find((file) => file.path === "issues.json")?.content ?? "{}");
     expect(plan).toMatchObject({
       labels: ["quorumind"],

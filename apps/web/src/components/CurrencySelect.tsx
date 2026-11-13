@@ -40,12 +40,15 @@ export function CurrencySelect({
   onChange,
   describedBy,
   disabled,
+  invalid = false,
 }: {
   id: string;
   value: string;
   onChange: (code: string) => void;
   describedBy?: string;
   disabled?: boolean;
+  /** The form found the choice wrong (a message under it says why). */
+  invalid?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const label = useMemo(() => {
@@ -69,7 +72,7 @@ export function CurrencySelect({
       className="select"
       value={value}
       disabled={disabled}
-      aria-invalid={shown !== null || undefined}
+      aria-invalid={shown !== null || invalid || undefined}
       aria-describedby={describedBy}
       onChange={(event) => onChange(event.target.value)}
     >

@@ -83,7 +83,11 @@ describe("a provider's refusal", () => {
     refuseCalls(402);
     const { app, bus } = await makeApp(hosted({ hideProviderCosts: true }));
     const session = await failedSession(app);
-    expect(session.error).toEqual({ code: "provider_quota", message: "", params: { provider: "openrouter", model: expect.any(String) } });
+    expect(session.error).toEqual({
+      code: "provider_quota",
+      message: "",
+      params: { provider: "openrouter", model: expect.any(String), task: expect.any(String) },
+    });
     // Stored as it was said, for the operator.
     expect((await storage?.store.find(session.id))?.session.error?.message).toContain("openrouter.ai/workspaces");
 

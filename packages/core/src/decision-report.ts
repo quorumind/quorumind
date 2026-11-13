@@ -117,7 +117,11 @@ export function changeText(change: ScenarioChange, locale: Locale): string {
     return fill(change.target === "build" ? d.changeBuildBudget : d.changeRunBudget, { percent });
   }
   if (change.kind === "deadline") {
-    return fill(d.changeDeadline, { delta: fill(change.unit === "week" ? t.weeks : t.months, { count: signed(change.delta, locale) }) });
+    return fill(d.changeDeadline, {
+      delta: fill(change.unit === "week" ? t.weeks : t.months, { count: signed(change.delta, locale) }, locale, {
+        count: Math.abs(change.delta),
+      }),
+    });
   }
   return fill(d.changeConstraint, { text: change.text });
 }
@@ -131,7 +135,7 @@ export function scenarioLines(scenario: RevisionScenario, locale: Locale): strin
   ];
 }
 
-/** How a document names a version: "Revision 3", or "Scenario “Budget cut” · Revision 4". */
+/** How a document names a version: "Version 3", or "Scenario “Budget cut” · Version 4". */
 export function versionName(revision: Pick<VerdictRevision, "number" | "scenario">, locale: Locale): string {
   const a = agencyLabels(locale);
   const d = decisionLabels(locale);
@@ -213,7 +217,7 @@ function requirementRows(
     value.deadline
       ? formatDay(value.deadline, locale)
       : value.duration
-        ? fill(value.duration.unit === "week" ? t.weeks : t.months, { count: value.duration.amount })
+        ? fill(value.duration.unit === "week" ? t.weeks : t.months, { count: value.duration.amount }, locale)
         : "–";
   const team = (value: number | null) => (value === null ? "–" : fill(t.teamSize, { count: value }));
   const { left, right } = comparison;
@@ -312,7 +316,8 @@ export function comparisonDocument(session: Session, a: number, b: number): Comp
   return {
     title: `${session.sheet?.projectName ?? session.idea.slice(0, 120)}: ${d.compareTitle}`,
     lead: fill(d.compareLead, { left: columns[0], right: columns[1] }),
-    summary: count === 0 ? d.noDifference : fill(d.differences, { count: new Intl.NumberFormat(latin(locale)).format(count) }),
+    summary:
+      count === 0 ? d.noDifference : fill(d.differences, { count: new Intl.NumberFormat(latin(locale)).format(count) }, locale, { count }),
     legend: d.legend,
     columns,
     versions: { left: sideNotes(comparison.left, locale), right: sideNotes(comparison.right, locale) },

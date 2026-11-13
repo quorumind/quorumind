@@ -4,6 +4,7 @@ import { isWorking, markInterrupted, normalizeSession, type Session } from "@quo
 import {
   applyShareSettings,
   type CacheLimits,
+  collectPage,
   DECISION_LIST_LIMIT,
   type DecisionQuery,
   decisionRow,
@@ -15,6 +16,8 @@ import {
   LiveSessions,
   MissingSession,
   type NewPlacement,
+  type PageKey,
+  type PageOptions,
   type Placement,
   placementOf,
   publicShare,
@@ -74,6 +77,7 @@ const ownedBy = (owner: string | null) =>
  * applied in the order they were made, even though they run concurrently on several connections.
  */
 export class PostgresSessionStore implements SessionStore {
+  readonly pages = true;
   private readonly db: Database;
   private readonly live: LiveSessions;
   private readonly writes = new Map<string, Promise<void>>();
@@ -194,6 +198,19 @@ export class PostgresSessionStore implements SessionStore {
     );
   }
 
+  async decisionOwners(scope: Pick<DecisionQuery, "owner" | "workspace">): Promise<(string | null)[]> {
+    const params: unknown[] = [];
+    const param = (value: unknown) => `$${params.push(value)}`;
+    let where: string;
+    if (scope.workspace === undefined) where = scope.owner === null ? "owner_id IS NULL" : `owner_id = ${param(scope.owner)}`;
+    else {
+      const owner = param(scope.owner);
+      where = `((workspace_id = ${param(scope.workspace)} AND (NOT private OR owner_id = ${owner})) OR (workspace_id IS NULL AND owner_id = ${owner}))`;
+    }
+    const { rows } = await this.db.query<{ owner_id: string | null }>(`SELECT DISTINCT owner_id FROM decisions WHERE ${where}`, params);
+    return rows.map((row) => row.owner_id);
+  }
+
   async decisions(query: DecisionQuery): Promise<StoredDecision[]> {
     const params: unknown[] = [];
     const param = (value: unknown) => `$${params.push(value)}`;
@@ -211,9 +228,11 @@ export class PostgresSessionStore implements SessionStore {
     // Days as the verdict's own date says them, in UTC.
     if (query.from) where.push(`(decided_at AT TIME ZONE 'UTC')::date >= ${param(query.from)}::date`);
     if (query.to) where.push(`(decided_at AT TIME ZONE 'UTC')::date <= ${param(query.to)}::date`);
+    if (query.before)
+      where.push(`(updated_at, session_id) < (${param(query.before.updatedAt)}::timestamptz, ${param(query.before.id)}::text)`);
     const limit = param(query.limit ?? DECISION_LIST_LIMIT);
     const { rows } = await this.db.query<{ entry: RegisterEntry; owner_id: string | null; workspace_id: string | null; private: boolean }>(
-      `SELECT entry, owner_id, workspace_id, private FROM decisions WHERE ${where.join(" AND ")} ORDER BY updated_at DESC LIMIT ${limit}`,
+      `SELECT entry, owner_id, workspace_id, private FROM decisions WHERE ${where.join(" AND ")} ORDER BY updated_at DESC, session_id DESC LIMIT ${limit}`,
       params,
     );
     return rows.map((row) => ({ ...row.entry, owner: row.owner_id, workspace: row.workspace_id, private: row.private === true }));
@@ -260,22 +279,71 @@ export class PostgresSessionStore implements SessionStore {
     return count;
   }
 
-  async list(limit = 50, owner: string | null = null): Promise<SessionSummary[]> {
+  /** `columns` of the sessions that `where` selects, latest first, after a key; a search scans their titles only. */
+  private async page<R extends { id: string }>(
+    columns: string,
+    where: string,
+    params: unknown[],
+    limit: number,
+    options: PageOptions,
+  ): Promise<R[]> {
+    const select = async <T>(selected: string, after: PageKey | undefined, count: number): Promise<T[]> => {
+      const query = [...params];
+      const bound = after ? ` AND (updated_at, id) < ($${query.push(after.updatedAt)}::timestamptz, $${query.push(after.id)}::text)` : "";
+      const { rows } = await this.db.query<T>(
+        `SELECT ${selected} FROM sessions WHERE (${where})${bound} ORDER BY updated_at DESC, id DESC LIMIT $${query.push(count)}`,
+        query,
+      );
+      return rows;
+    };
+    return collectPage<R>(limit, options, {
+      read: (after, count) => select<R>(columns, after, count),
+      titles: async (after, count) => {
+        const rows = await select<{ id: string; updated_at: Date | string; title: string | null }>(
+          "id, updated_at, COALESCE(data->'sheet'->>'projectName', data->>'idea') AS title",
+          after,
+          count,
+        );
+        return rows.map((row) => ({ id: row.id, updatedAt: new Date(row.updated_at).toISOString(), title: row.title }));
+      },
+      load: async (ids) => {
+        const query = [...params];
+        const { rows } = await this.db.query<R>(
+          `SELECT ${columns} FROM sessions WHERE (${where}) AND id = ANY($${query.push(ids)}::text[])`,
+          query,
+        );
+        return rows;
+      },
+      idOf: (row) => row.id,
+    });
+  }
+
+  async list(limit = 50, owner: string | null = null, page: PageOptions = {}): Promise<SessionSummary[]> {
     const { where, params } = ownedBy(owner);
-    const { rows } = await this.db.query<{ data: Session }>(
-      `SELECT data FROM sessions WHERE ${where} ORDER BY updated_at DESC LIMIT $${params.length + 1}`,
-      [...params, limit],
+    const rows = await this.page<{ data: Session; id: string; updated_at: Date | string }>(
+      "data, id, updated_at",
+      where,
+      params,
+      limit,
+      page,
     );
     return rows.map((row) => summarize(normalizeSession(row.data)));
   }
 
-  async history(limit: number, scope: { owner: string; workspace: string | null; mine?: boolean }): Promise<HistoryEntry[]> {
+  async history(
+    limit: number,
+    scope: { owner: string; workspace: string | null; mine?: boolean },
+    page: PageOptions = {},
+  ): Promise<HistoryEntry[]> {
     const where = scope.mine
       ? "owner_id = $1 AND (workspace_id = $2 OR workspace_id IS NULL)"
       : "(workspace_id = $2 AND (NOT private OR owner_id = $1)) OR (workspace_id IS NULL AND owner_id = $1)";
-    const { rows } = await this.db.query<PlacedRow>(
-      `SELECT data, owner_id, workspace_id, private FROM sessions WHERE ${where} ORDER BY updated_at DESC LIMIT $3`,
-      [scope.owner, scope.workspace, limit],
+    const rows = await this.page<PlacedRow & { id: string; updated_at: Date | string }>(
+      "data, id, updated_at, owner_id, workspace_id, private",
+      where,
+      [scope.owner, scope.workspace],
+      limit,
+      page,
     );
     return rows.map((row) => ({ ...summarize(normalizeSession(row.data)), ...placed(row) }));
   }
@@ -372,12 +440,20 @@ export class PostgresSessionStore implements SessionStore {
     return { session: this.live.peek(stored.id) ?? stored, share: toShare(row) };
   }
 
-  async gallery(limit = 50): Promise<GalleryEntry[]> {
+  /** The gallery is public: it pages by cursor, and has no search (the interface has none, and a search scans). */
+  async gallery(limit = 50, page: PageOptions = {}): Promise<GalleryEntry[]> {
+    const params: unknown[] = [new Date().toISOString()];
+    const after = page.before;
+    const bound = after
+      ? ` AND (sessions.updated_at, sessions.id) < ($${params.push(after.updatedAt)}::timestamptz, $${params.push(after.id)}::text)`
+      : "";
+    // Completed sessions only, in the query: a page is full when the database says so, not after the filter.
     const { rows } = await this.db.query<{ token: string; data: Session }>(
       `SELECT shares.token, sessions.data FROM shares JOIN sessions ON sessions.id = shares.session_id
        WHERE shares.public AND NOT sessions.private AND shares.password_hash IS NULL AND (shares.expires_at IS NULL OR shares.expires_at > $1)
-       ORDER BY sessions.updated_at DESC LIMIT $2`,
-      [new Date().toISOString(), limit],
+       AND sessions.data->>'phase' = 'complete'${bound}
+       ORDER BY sessions.updated_at DESC, sessions.id DESC LIMIT $${params.push(limit)}`,
+      params,
     );
     return galleryOf(rows.map((row) => ({ token: row.token, session: normalizeSession(row.data) })));
   }
