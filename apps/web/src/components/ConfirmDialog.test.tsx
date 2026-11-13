@@ -114,7 +114,13 @@ describe("the confirmation dialog for one of several things", () => {
           <button type="button" onClick={(event) => confirm.ask("Bob", event.currentTarget)}>
             Remove Bob
           </button>
-          <ConfirmDialog confirm={confirm} title="Remove?" confirmLabel="Remove it" errorText={() => "It could not be removed."} onConfirm={onConfirm} />
+          <ConfirmDialog
+            confirm={confirm}
+            title="Remove?"
+            confirmLabel="Remove it"
+            errorText={() => "It could not be removed."}
+            onConfirm={onConfirm}
+          />
         </>
       );
     }
