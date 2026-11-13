@@ -203,8 +203,9 @@ describe.each(BACKENDS)("share links on $name", (each) => {
     await storage?.store.save(live);
     const { share } = (await (await app.request(`/api/sessions/${done.id}/share`, json({ mode: "full" }))).json()) as ShareBody;
     const body = await (await app.request(`/api/shared/${share.token}`)).text();
-    for (const secret of ["720", "Margin 35", "OVH discount", "user-42", "client pays late", "Fine by me"])
-      expect(body).not.toContain(secret);
+    for (const secret of ["Margin 35", "OVH discount", "user-42", "client pays late", "Fine by me"]) expect(body).not.toContain(secret);
+    // The rate as a value: "720" alone also turns up, now and then, in a random id, token or timestamp.
+    expect(body).not.toMatch(/[:,[]\s*720\s*[,}\]]/);
     const { session } = JSON.parse(body) as { session: Session };
     expect(session.decision?.approval?.by).toEqual({ id: null, name: "Ada" });
     // The demo has web research ticked: its cost cap is a provider cost, like the session's.
