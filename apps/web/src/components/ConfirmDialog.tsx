@@ -1,4 +1,5 @@
 import { type ReactNode, useId, useState } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BusyButton } from "./BusyButton.tsx";
 import { Dialog, useDialog } from "./Dialog.tsx";
@@ -16,7 +17,9 @@ export function useConfirm<T>() {
     target,
     /** Asks about `item`; call it from the button's click, passing the button, so that the focus goes back to it. */
     ask: (item: T, from?: HTMLElement | null) => {
-      setTarget(item);
+      // The dialog opens once it names `item`: opened in the same batch, it would still show the previous target (or
+      // nothing) when it takes the focus, and a screen reader would announce that name.
+      flushSync(() => setTarget(item));
       dialog.open(from);
     },
   };
