@@ -7,7 +7,7 @@ test("Arabic lays the app out right to left, and the tab keys follow", async ({ 
   await page.goto(`/#/s/${id}`);
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
-  await expect(page.getByRole("link", { name: "جلسة جديدة" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "نقاش جديد" }).first()).toBeVisible();
 
   const tabs = page.getByRole("tab");
   await tabs.first().focus();
@@ -37,7 +37,7 @@ test("the keyboard reaches the content, the dialogs keep and give back the focus
   const opener = page.getByRole("button", { name: "Delete" });
   await opener.focus();
   await page.keyboard.press("Enter");
-  const dialog = page.getByRole("dialog", { name: "Delete this session?" });
+  const dialog = page.getByRole("dialog", { name: "Delete this debate?" });
   await expect(dialog).toBeVisible();
   // Tab goes round the dialog's buttons.
   for (let step = 0; step < 4; step++) {

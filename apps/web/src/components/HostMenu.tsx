@@ -9,7 +9,9 @@ import {
   ChevronsIcon,
   ChevronUpIcon,
   HomeIcon,
+  KeyIcon,
   PlusIcon,
+  SettingsIcon,
   ShieldIcon,
   SignOutIcon,
   UserIcon,
@@ -91,17 +93,19 @@ function useMenuButton() {
 }
 
 /** The host's pages of the workspace worked in, which its menu opens; the others are the person's, under their card. */
-const WORKSPACE_PAGES: ReadonlySet<HostLinkKind> = new Set(["home", "billing", "members", "profile"]);
+const WORKSPACE_PAGES: ReadonlySet<HostLinkKind> = new Set(["home", "billing", "members", "profile", "settings"]);
 
 /**
  * Where the host's pages go: the workspace's in the workspace's menu, the person's in the person's. Without a
  * workspace to show (a host without any, or a person in none yet), the person's menu keeps them all.
  */
 function placeLinks(navigation: HostNavigation) {
-  if (!navigation.workspaces?.list.length) return { workspace: [], account: navigation.links };
+  // A kind this version does not know (a newer host) is left out: it has no name or icon here.
+  const links = navigation.links.filter((link) => Object.hasOwn(ICONS, link.kind));
+  if (!navigation.workspaces?.list.length) return { workspace: [], account: links };
   return {
-    workspace: navigation.links.filter((link) => WORKSPACE_PAGES.has(link.kind)),
-    account: navigation.links.filter((link) => !WORKSPACE_PAGES.has(link.kind)),
+    workspace: links.filter((link) => WORKSPACE_PAGES.has(link.kind)),
+    account: links.filter((link) => !WORKSPACE_PAGES.has(link.kind)),
   };
 }
 
@@ -110,7 +114,9 @@ const ICONS: Record<HostLinkKind, () => ReactNode> = {
   billing: CardIcon,
   members: UsersIcon,
   profile: BuildingIcon,
+  settings: SettingsIcon,
   account: UserIcon,
+  tokens: KeyIcon,
   staff: ShieldIcon,
 };
 

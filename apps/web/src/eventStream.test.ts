@@ -157,4 +157,20 @@ describe("the live events of a session", () => {
     // A late answer of the status check starts nothing.
     expect(sources).toHaveLength(1);
   });
+
+  it("tries again at once when the person asks, instead of waiting for the next attempt", async () => {
+    const { sources, timers, handlers, stop } = setup();
+    sources[0]?.open();
+    sources[0]?.fail();
+    await flush();
+    expect(handlers.onLost).toHaveBeenCalled();
+    expect(timers.at(-1)?.ms).toBe(RECONNECT_DELAYS[0]);
+    stop.reconnect();
+    expect(timers.at(-1)?.cleared).toBe(true);
+    expect(sources).toHaveLength(2);
+    // Connected again, asking does nothing.
+    sources[1]?.open();
+    stop.reconnect();
+    expect(sources).toHaveLength(2);
+  });
 });

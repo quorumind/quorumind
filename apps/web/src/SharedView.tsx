@@ -1,20 +1,24 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { replaceRoute } from "./App.tsx";
 import { AccessContext, READ_ONLY } from "./access.tsx";
 import { ApiError, api, type SharedView as SharedData } from "./api.ts";
 import { ClientReport } from "./ClientReport.tsx";
+import { BusyButton } from "./components/BusyButton.tsx";
+import { FieldError, fieldProps, useFieldErrors } from "./components/Field.tsx";
 import { LanguageSelect } from "./components/LanguageSelect.tsx";
 import { Mark } from "./components/Logo.tsx";
-import { PageHeading, usePageTitle } from "./components/Page.tsx";
+import { markNavigation, PageHeading, usePageTitle } from "./components/Page.tsx";
 import { failureText } from "./errors.ts";
-import { SessionBody } from "./SessionView.tsx";
+import { SessionBody, type SessionTab } from "./SessionView.tsx";
 
 // The page a share link opens: the shared session or its decision report, read-only, without costs or attached
 // documents. Outside the app's shell: whoever was sent the link sees nothing else of the server.
 
 type State = { kind: "loading" } | { kind: "open"; view: SharedData } | { kind: "locked" } | { kind: "expired" } | { kind: "missing" };
 
-export function SharedView({ token }: { token: string }) {
+/** `tab`: the tab in the address (#/shared/<token>/<tab>), as in the app. */
+export function SharedView({ token, tab }: { token: string; tab?: string | undefined }) {
   const { t } = useTranslation();
   const [grant, setGrant] = useState<string | null>(() => storedAccess(token));
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -31,6 +35,7 @@ export function SharedView({ token }: { token: string }) {
   // A decision report names the tab itself; a full share does through its heading.
   usePageTitle(state.kind === "open" && "deliverable" in state.view ? state.view.deliverable.title || "" : null);
   const reportUrl = api.sharedReportUrl(token, grant);
+  const onTabChange = useCallback((next: SessionTab | null) => replaceRoute(next ? `shared/${token}/${next}` : `shared/${token}`), [token]);
   let body: ReactNode;
   if (state.kind === "locked") {
     body = (
@@ -42,10 +47,13 @@ export function SharedView({ token }: { token: string }) {
         }}
       />
     );
-  } else if (state.kind === "expired") {
+  } else if (state.kind === "expired" || state.kind === "missing") {
+    // Whoever opened the link has nothing else here, and no way into the sender's app: the page says what happened
+    // and who can help, nothing more.
     body = (
-      <div className="narrow stack">
-        <p className="notice notice-error">{t("errors.share_expired")}</p>
+      <div className="narrow stack not-found">
+        <PageHeading title={t("notFound.linkTitle")} />
+        <p className="lead">{state.kind === "expired" ? t("errors.share_expired") : t("notFound.linkLead")}</p>
       </div>
     );
   } else if (state.kind === "open" && state.view.share.mode === "client" && "deliverable" in state.view) {
@@ -60,7 +68,7 @@ export function SharedView({ token }: { token: string }) {
     body = (
       <div className="stack">
         <p className="notice">{t("share.readOnly")}</p>
-        <SessionBody session={session} live={{}} connected missing={state.kind === "missing"} readOnly reportUrl={reportUrl} />
+        <SessionBody session={session} live={{}} connected readOnly reportUrl={reportUrl} routeTab={tab} onTabChange={onTabChange} />
       </div>
     );
   }
@@ -107,21 +115,28 @@ function SharePassword({ token, onAccess }: { token: string; onAccess: (access: 
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fields = useFieldErrors();
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!password) return fields.report({ password: t("validation.passwordEmpty") });
+    fields.clear();
     setPending(true);
     setError(null);
     try {
       const { access } = await api.shareAccess(token, password);
+      // The form goes away and the shared page takes its place: its heading takes the focus, as after a navigation.
+      markNavigation();
       onAccess(access ?? "");
     } catch (caught) {
-      setError(failureText(t, caught));
+      // A wrong password belongs under the field; anything else (too many attempts, a lost link) stays general.
+      if (caught instanceof ApiError && caught.code === "wrong_password") fields.report({ password: failureText(t, caught) });
+      else setError(failureText(t, caught));
     } finally {
       setPending(false);
     }
   };
   return (
-    <form className="narrow card stack" onSubmit={submit}>
+    <form ref={fields.form} className="narrow card stack" onSubmit={submit} noValidate>
       <PageHeading className="heading" title={t("share.lockedTitle")} />
       <p style={{ margin: 0 }}>{t("share.lockedLead")}</p>
       <div className="field">
@@ -135,8 +150,13 @@ function SharePassword({ token, onAccess }: { token: string; onAccess: (access: 
           autoComplete="current-password"
           maxLength={200}
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          {...fieldProps("password-field", fields.errors.password)}
+          onChange={(event) => {
+            fields.clear("password");
+            setPassword(event.target.value);
+          }}
         />
+        <FieldError id="password-field" error={fields.errors.password} />
       </div>
       {error ? (
         <p className="notice notice-error" role="alert">
@@ -144,9 +164,9 @@ function SharePassword({ token, onAccess }: { token: string; onAccess: (access: 
         </p>
       ) : null}
       <div>
-        <button type="submit" className="button button-primary" disabled={pending || !password}>
+        <BusyButton type="submit" busy={pending}>
           {t("share.unlock")}
-        </button>
+        </BusyButton>
       </div>
     </form>
   );

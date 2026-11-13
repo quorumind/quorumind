@@ -7,6 +7,7 @@ import type { EuropeanGateway, EuropeanPolicy } from "@quorumind/core/sovereignt
 import { useTranslation } from "react-i18next";
 import { contentLanguage } from "../format.ts";
 import { Switch } from "./Controls.tsx";
+import { ScrollRegion } from "./ScrollRegion.tsx";
 
 /** The compliance templates to combine with the project type: several can be chosen. */
 export function CompliancePicker({
@@ -89,7 +90,7 @@ export function ComplianceSection({ session }: { session: Session }) {
       <p className="field-hint" style={{ margin: 0 }}>
         {labels.intro}
       </p>
-      <div className="table-wrap">
+      <ScrollRegion label={labels.heading}>
         <table>
           <thead>
             <tr>
@@ -123,7 +124,7 @@ export function ComplianceSection({ session }: { session: Session }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }

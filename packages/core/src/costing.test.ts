@@ -199,8 +199,8 @@ describe("budget and deadline checks", () => {
       verdict: { ...DEMO_SCRIPT.verdict, options: DEMO_SCRIPT.verdict.options.slice(0, 1) },
       phase: "complete",
     });
-    expect(report).toContain("  - Budget and deadline: Over budget by €1,000; On time");
-    expect(report).toContain("| Over budget by €1,000; On time |");
+    expect(report).toContain("  - Budget and deadline: Over budget by 1,000\u00a0€; On time");
+    expect(report).toContain("| Over budget by 1,000\u00a0€; On time |");
   });
 });
 
@@ -288,7 +288,7 @@ describe("the organisation profile in the debate", () => {
     expect(session.currency).toBe("CHF");
     const report = renderReport(session);
     expect(report).toContain("CHF");
-    expect(report).not.toContain("€12,300");
+    expect(report).not.toContain("12,300\u00a0€");
   });
 });
 
@@ -345,8 +345,8 @@ describe("sessions stored before the structured requirements and the work packag
     expect(deliveryChecks(session).A).toEqual({ build: null, run: null, time: null });
     const report = renderReport({ ...session, verdict: DEMO_SCRIPT.verdict, phase: "complete" });
     expect(report).toContain("- Budget: €15,000 to build, at most €400 per month to run.");
-    expect(report).toContain("**Build cost:** €12,000 – €15,000 (estimate)");
-    expect(report).toContain("_Build cost given as a whole by the proposer._");
+    expect(report).toContain("**Build cost:** 12,000\u00a0€ – 15,000\u00a0€ (estimate)");
+    expect(report).toContain("_Build cost given as a whole by the debater._");
   });
 
   it("runs a demo end to end on the provider set the server builds", async () => {

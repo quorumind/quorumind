@@ -1,0 +1,164 @@
+/* Quorumind design tokens, "Contrepoint": the single source of the values shared by the debate app, the hosted account
+   screens and the marketing site. styles.css imports this file; the hosted screens (quorumind-cloud/apps/cloud-web)
+   and the site (site/src/styles/global.css) keep a copy of the values under their own names until they can import it,
+   so a change here is made there too. */
+
+:root {
+  --surface: #f6f7fb;
+  --surface-raised: #ffffff;
+  --line: #d9dce8;
+  /* Borders of controls (fields, chips, secondary buttons) must reach 3:1 against the surfaces (WCAG 1.4.11);
+     --line stays for separators and card edges. */
+  --line-control: #7d849f;
+  --ink: #141a3a;
+  --ink-muted: #535a78;
+  --thesis: #2b44c4;
+  --thesis-soft: #e4e8fa;
+  --on-thesis: #ffffff;
+  --antithesis: #d9502f;
+  --antithesis-text: #b23a1e;
+  --antithesis-soft: #fce6df;
+  --synthesis: var(--ink);
+  --on-synthesis: var(--surface);
+  --feasible: #0f766e;
+  --feasible-soft: #ddf2ef;
+  --conditional: #8a5a00;
+  --conditional-soft: #fbf1dc;
+  --infeasible: #b0174f;
+  --infeasible-soft: #fbe4ec;
+  /* "Your move": what waits for the person. The amber of "feasible with conditions" (and of the devil's advocate), on
+     purpose: both say "look here", and "your move" is told apart by its shape, a hollow ring beside filled dots. */
+  --attention: var(--conditional);
+  --voice-3: #7c45b0;
+  --voice-4: #5e6c00;
+  --focus-ring: var(--thesis);
+
+  --font-display: "Bricolage Grotesque", "Instrument Sans", "IBM Plex Sans Arabic", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-sans: "Instrument Sans", "IBM Plex Sans Arabic", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-full: 999px;
+  --white: #ffffff;
+  /* Every single-line control (field, select, button) is this tall, so a row of them lines up. */
+  --control-h: 44px;
+  --control-h-sm: 36px;
+  /* The fill of the main action: the thesis blue in light; in dark, a deeper blue than the thesis text color, so
+     the button reads as solid rather than pastel, with white text at 4.5:1 or more. */
+  --primary: var(--thesis);
+  --on-primary: var(--on-thesis);
+
+  /* Type scale. Nothing renders below --fs-xs: 12px is the floor for any text. The fluid display sizes of the
+     headings stay in styles.css, they are clamp()s on top of this scale. */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-base: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+
+  /* Motion: three durations and one decelerating curve, the same on the site, in the app and in the hosted screens.
+     --ease-in-out is for loops, --ease-spring for the few elements that settle with a small overshoot. */
+  --dur-fast: 160ms;
+  --dur: 280ms;
+  --dur-slow: 640ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: #0e1121;
+    --surface-raised: #161a2e;
+    --line: #2a2f48;
+    --line-control: #646b8c;
+    --ink: #e8eaf6;
+    --ink-muted: #9ea4c2;
+    --thesis: #8ea0f5;
+    --thesis-soft: #1a2250;
+    --on-thesis: #0e1121;
+    --antithesis: #f48c6e;
+    --antithesis-text: #f48c6e;
+    --antithesis-soft: #3a1a12;
+    --feasible: #5ec8bd;
+    --feasible-soft: #0f2a28;
+    --conditional: #e9b35a;
+    --conditional-soft: #33260b;
+    --infeasible: #f07aa0;
+    --infeasible-soft: #3a1222;
+    --attention: var(--conditional);
+    --voice-3: #c6a0ee;
+    --voice-4: #c3d25a;
+    --primary: #4a5fd8;
+    --on-primary: #ffffff;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --surface: #0e1121;
+  --surface-raised: #161a2e;
+  --line: #2a2f48;
+  --line-control: #646b8c;
+  --ink: #e8eaf6;
+  --ink-muted: #9ea4c2;
+  --thesis: #8ea0f5;
+  --thesis-soft: #1a2250;
+  --on-thesis: #0e1121;
+  --antithesis: #f48c6e;
+  --antithesis-text: #f48c6e;
+  --antithesis-soft: #3a1a12;
+  --feasible: #5ec8bd;
+  --feasible-soft: #0f2a28;
+  --conditional: #e9b35a;
+  --conditional-soft: #33260b;
+  --infeasible: #f07aa0;
+  --infeasible-soft: #3a1222;
+  --attention: var(--conditional);
+  --voice-3: #c6a0ee;
+  --voice-4: #c3d25a;
+  --primary: #4a5fd8;
+  --on-primary: #ffffff;
+  color-scheme: dark;
+}
+
+:root {
+  --devil: #8a5a00;
+  --devil-soft: #fbf1dc;
+  --voice-3-soft: #efe6f8;
+  --voice-4-soft: #eef1d6;
+  --shadow-lift: 0 10px 30px -12px color-mix(in srgb, var(--ink) 35%, transparent);
+  --shadow-pop: 0 12px 32px color-mix(in srgb, var(--ink) 14%, transparent);
+  --shadow-modal: 0 30px 80px -20px color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --devil: #e9b65a;
+    --devil-soft: #33270d;
+    --voice-3-soft: #2a1d3d;
+    --voice-4-soft: #262b0d;
+  }
+}
+
+:root[data-theme="dark"] {
+  --devil: #e9b65a;
+  --devil-soft: #33270d;
+  --voice-3-soft: #2a1d3d;
+  --voice-4-soft: #262b0d;
+}

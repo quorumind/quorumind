@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { AuditedVerdict, StoredAuditFinding } from "../audit.ts";
+import { settleAudit } from "../audit-check.ts";
+import { auditReassessPrompt } from "../audit-prompts.ts";
 import { auditDeliverable } from "../audit-report.ts";
 import { DEFAULT_BRANDING } from "../branding.ts";
 import { DEMO_LINEUP, providersFor } from "../config.ts";
@@ -46,12 +49,11 @@ describe("audit exports", () => {
     expect(report).toContain("## Overall opinion: Not sound as it stands");
     expect(report).toContain("### Blocking");
     expect(report).toContain("   > Total: 38,000 € excl. VAT");
-    expect(report).toContain("_The document says nothing about it._");
-    expect(report).toContain("| Payment and passes | 8 | €600 | €5,800 | €4,800 | **€1,000** |");
-    expect(report).toContain("The stated total differs from the sum of the lines by €1,400.");
-    expect(report).toContain("- Average day rate: €644");
-    expect(report).toContain("**Market range (estimate)**: €22,000 – €40,000 (Within the estimated range).");
-    expect(report).toContain("- Budget: Over your budget of €15,000 by €23,000");
+    expect(report).toContain("| Payment and passes | 8 | 600\u00a0€ | 5,800\u00a0€ | 4,800\u00a0€ | **1,000\u00a0€** |");
+    expect(report).toContain("The stated total differs from the sum of the lines by 1,400\u00a0€.");
+    expect(report).toContain("- Average day rate: 644\u00a0€");
+    expect(report).toContain("**Market range (estimate)**: 22,000\u00a0€ – 40,000\u00a0€ (Within the estimated range).");
+    expect(report).toContain("- Budget: Over your budget of 15,000\u00a0€ by 23,000\u00a0€");
     expect(report).toContain("## Questions to ask the provider");
     expect(report).toContain("| Ownership of the code and data | Missing |");
     expect(report).toContain("- **Ownership of the code and data**: Not stated");
@@ -66,7 +68,7 @@ describe("audit exports", () => {
   it("compares the document with the alternative, when there is one", async () => {
     const report = renderReport(await audited("en", true));
     expect(report).toContain("## An alternative, for comparison");
-    expect(report).toMatch(/\| Build cost \| €38,000 \| €[\d,]+ – €[\d,]+ \(estimate\) \|/);
+    expect(report).toMatch(/\| Build cost \| 38,000\u00a0€ \| [\d,]+\u00a0€ – [\d,]+\u00a0€ \(estimate\) \|/);
   });
 
   it("follow the language of the session", async () => {
@@ -121,5 +123,49 @@ describe("audit exports", () => {
     expect(report).not.toContain("undefined");
     expect(renderHtml(session, DEFAULT_BRANDING, { print: false })).not.toContain("undefined");
     expect(auditDeliverable(session)?.coverage).toHaveLength(10);
+  });
+});
+
+describe("a finding without a quote", () => {
+  const said = (text: string) => text.split("The document says nothing about it.").length - 1;
+  const after = (title: string) =>
+    new RegExp(`${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\*\\* _\\([^)]*\\)_\\n   _The document says nothing about it\\._`);
+
+  it("says the document says nothing when the arbiter quoted nothing, not when its quote could not be found", async () => {
+    const session = await audited();
+    const verdict = session.verdict as AuditedVerdict;
+    // Checked against another document, every quote the arbiter gave is dropped: the document may well say something.
+    verdict.audit = settleAudit(verdict.audit, [{ id: "x", kind: "text", name: "other.md", text: "Another document." }]);
+    const silent = (verdict.audit.findings as StoredAuditFinding[]).filter((finding) => finding.quoteDropped === false && !finding.quote);
+    expect(silent.map((finding) => finding.title)).toEqual(["Nothing says who owns the code, the designs and the data."]);
+    const report = renderReport(session);
+    expect(said(report)).toBe(1);
+    expect(report).toMatch(after("Nothing says who owns the code, the designs and the data."));
+    expect(said(renderHtml(session, DEFAULT_BRANDING, { print: false }))).toBe(1);
+    const xml = readZip(await renderDocx(session, DEFAULT_BRANDING), "word/document.xml");
+    if (xml !== null) expect(said(xml)).toBe(1);
+    // The arbiter that revises the audit reads its ruling, not Quorumind's bookkeeping.
+    expect(auditReassessPrompt(session, { facts: [], note: null }, []).messages[0]?.content).not.toContain("quoteDropped");
+  });
+
+  it("falls back on the category for an audit stored before quotes were told apart", async () => {
+    const session = await audited();
+    const verdict = session.verdict as AuditedVerdict;
+    verdict.audit.findings = (verdict.audit.findings as StoredAuditFinding[]).map(({ quoteDropped: _dropped, ...finding }) => ({
+      ...finding,
+      quote: "",
+    }));
+    const report = renderReport(session);
+    expect(said(report)).toBe(1);
+    expect(report).toMatch(after("SMS reminders, a must-have, are not quoted."));
+  });
+});
+
+describe("a finding's paragraphs in the Markdown report", () => {
+  it("stay inside its numbered item", async () => {
+    const session = await audited();
+    const verdict = session.verdict as AuditedVerdict;
+    verdict.audit.findings[0]!.detail = "The build alone exceeds it.\n\nThe running cost too.";
+    expect(renderReport(session)).toContain("   The build alone exceeds it.\n\n   The running cost too.");
   });
 });

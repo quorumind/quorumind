@@ -46,9 +46,9 @@ describe("access to a session", () => {
     const { calls } = stubApi({ "GET /api/shared/tok": () => json({ share: { mode: "full" }, session }) });
     window.location.hash = "#/shared/tok";
     render(<App />);
-    await screen.findByText("You are reading a shared session. It cannot be changed.", {}, { timeout: PAGE_TIMEOUT });
-    expect(screen.queryByRole("link", { name: "New session" })).toBeNull();
-    expect(screen.queryByRole("navigation", { name: "Sessions" })).toBeNull();
+    await screen.findByText("You are reading a shared debate. It cannot be changed.", {}, { timeout: PAGE_TIMEOUT });
+    expect(screen.queryByRole("link", { name: "New debate" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Debates" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Share/ })).toBeNull();
     await waitFor(() => expect(calls.map((call) => call.path)).toEqual(["/api/shared/tok"]));
   });

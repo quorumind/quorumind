@@ -1,10 +1,14 @@
 import type { InterviewQuestion, InterviewTurn, Session } from "@quorumind/core";
-import { type FormEvent, type KeyboardEvent, useContext, useEffect, useState } from "react";
+import { type FormEvent, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AccessContext, authorName } from "./access.tsx";
 import { api } from "./api.ts";
+import { BusyButton } from "./components/BusyButton.tsx";
+import { CharCounter } from "./components/Field.tsx";
 import { ArrowIcon } from "./components/Icons.tsx";
+import { ShortcutHint } from "./components/ShortcutHint.tsx";
 import { failureText } from "./errors.ts";
+import { sendOnShortcut } from "./formKeys.ts";
 import { type LiveSpeech, speechKey } from "./useSession.ts";
 
 function InterviewerMessage({ text, typing }: { text: string; typing?: boolean }) {
@@ -129,13 +133,6 @@ function QuestionsForm({ session, turn, turnIndex }: { session: Session; turn: I
     }
   };
 
-  // Ctrl+Enter (or Cmd+Enter) sends the answers from anywhere in the form.
-  const sendOnShortcut = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey) || sending) return;
-    event.preventDefault();
-    event.currentTarget.requestSubmit();
-  };
-
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSending(true);
@@ -153,7 +150,7 @@ function QuestionsForm({ session, turn, turnIndex }: { session: Session; turn: I
   };
 
   return (
-    <form className="card" onSubmit={submit} onKeyDown={sendOnShortcut}>
+    <form className="card" onSubmit={submit} onKeyDown={(event) => sendOnShortcut(event, sending)}>
       {turn.questions.map((question, index) => {
         const answer = answers[question.id] ?? "";
         const parts = picked(answer);
@@ -189,15 +186,17 @@ function QuestionsForm({ session, turn, turnIndex }: { session: Session; turn: I
               {question.multiple ? <span className="chips-hint">{t("interview.several")}</span> : null}
             </div>
             <textarea
+              dir="auto"
               id={`q-${question.id}`}
               className="textarea"
               rows={2}
               maxLength={MAX_ANSWER}
               placeholder={t("interview.answerPlaceholder")}
-              aria-describedby={question.why ? `q-${question.id}-why` : undefined}
+              aria-describedby={`${question.why ? `q-${question.id}-why ` : ""}q-${question.id}-counter`}
               value={answer}
               onChange={(event) => setAnswers((current) => ({ ...current, [question.id]: event.target.value }))}
             />
+            <CharCounter id={`q-${question.id}`} value={answer} max={MAX_ANSWER} />
           </div>
         );
       })}
@@ -207,15 +206,15 @@ function QuestionsForm({ session, turn, turnIndex }: { session: Session; turn: I
         </p>
       ) : null}
       <div className="row questions-footer">
-        <button type="submit" className="button button-primary" disabled={sending} aria-keyshortcuts="Control+Enter Meta+Enter">
-          {sending ? t("interview.sending") : t("interview.send")}
+        <BusyButton type="submit" busy={sending} busyLabel={t("interview.sending")} aria-keyshortcuts="Control+Enter Meta+Enter">
+          {t("interview.send")}
           <ArrowIcon />
-        </button>
+        </BusyButton>
         <p className="questions-progress" aria-live="polite">
           {t("interview.progress", { answered, total: turn.questions.length })}
           {answered < turn.questions.length ? ` · ${t("interview.blankHint")}` : null}
         </p>
-        <p className="questions-shortcut">{t("interview.shortcut")}</p>
+        <ShortcutHint className="questions-shortcut" />
       </div>
     </form>
   );

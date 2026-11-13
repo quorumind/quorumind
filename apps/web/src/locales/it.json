@@ -6,18 +6,18 @@
   "nav": {
     "home": "Home",
     "skip": "Vai al contenuto",
-    "newSession": "Nuova sessione",
+    "newSession": "Nuovo dibattito",
     "language": "Lingua",
     "theme": "Tema",
     "themeLight": "Chiaro",
     "themeDark": "Scuro",
     "themeSystem": "Sistema",
-    "sessions": "Sessioni",
-    "noSessions": "Ancora nessuna sessione. Avviane una per ritrovarla qui.",
+    "sessions": "Dibattiti",
+    "noSessions": "Ancora nessun dibattito. Avvia il primo per ritrovarlo qui.",
     "recent": "Recenti",
-    "recentSessions": "Sessioni recenti",
-    "seeAllSessions": "Vedi tutte le sessioni",
-    "noRecent": "Ancora nessuna sessione.",
+    "recentSessions": "Dibattiti recenti",
+    "seeAllSessions": "Vedi tutti i dibattiti",
+    "noRecent": "Ancora nessun dibattito.",
     "menu": "Apri il menu",
     "closeMenu": "Chiudi il menu",
     "site": "Informazioni su Quorumind",
@@ -35,11 +35,13 @@
     "recentDebates": "Dibattiti recenti",
     "seeAllDebates": "Vedi tutti i dibattiti",
     "noDebates": "Ancora nessun dibattito.",
-    "home": "Dashboard",
+    "home": "Home",
     "billing": "Fatturazione",
     "members": "Membri",
     "profile": "Profilo dell'organizzazione",
+    "settings": "Impostazioni dello spazio",
     "account": "Account",
+    "tokens": "Token API",
     "staff": "Back-office",
     "workspace": "Spazio di lavoro",
     "createWorkspace": "Crea uno spazio",
@@ -54,7 +56,13 @@
     "search": "Cerca per titolo",
     "found": "Risultati: {{count}}",
     "noMatch": "Nessun risultato per questa ricerca.",
-    "clear": "Cancella la ricerca"
+    "clear": "Cancella la ricerca",
+    "foundMore": "Risultati finora: {{count}}. La ricerca può continuare."
+  },
+  "paging": {
+    "more": "Mostra altri",
+    "loaded": "Visualizzati: {{count}} (+{{added}}).",
+    "failed": "Impossibile caricare altri elementi."
   },
   "home": {
     "ideaLabel": "La tua idea di progetto",
@@ -62,13 +70,18 @@
     "start": "Inizia l'intervista",
     "demo": "Riproduci la demo registrata",
     "demoHint": "Un dibattito registrato, in inglese. Nessuna chiave API necessaria.",
+    "welcomeTitle": "Guarda un dibattito completo, dall'inizio alla fine",
+    "welcomeLead": "La registrazione di un dibattito intero: intervista, requisiti, dibattito e verdetto. Circa 30 secondi, in inglese, senza chiave API.",
+    "foldTitle": "Avvia il tuo dibattito",
     "noKey": "Su questo server non è configurata alcuna chiave API: è disponibile solo la demo.",
     "rounds": "Turni di dibattito",
     "budget": "Tetto di spesa (USD)",
     "budgetNone": "Nessun tetto",
     "estimate": "Un dibattito costa circa da {{low}} a {{high}}.",
+    "estimateFree": "Gratis: modello dimostrativo.",
+    "estimateLocal": "Nessun costo API: modelli locali.",
     "lineup": "Oggi discutono: {{seats}}. Arbitro: {{arbiter}}.",
-    "newTitle": "Nuova sessione",
+    "newTitle": "Nuovo dibattito",
     "newLead": "Descrivi il progetto da preparare. Quorumind ti intervista, poi i modelli discutono e un arbitro decide."
   },
   "phase": {
@@ -81,7 +94,7 @@
   },
   "role": {
     "interviewer": "Intervistatore",
-    "proposer": "Proponente {{seat}}",
+    "proposer": "Partecipante {{seat}}",
     "arbiter": "Arbitro",
     "you": "Tu",
     "author": "Autore",
@@ -97,8 +110,7 @@
     "sending": "Invio…",
     "progress": "{{answered}} su {{total}} con risposta",
     "blankHint": "una domanda lasciata vuota viene inviata come «Non lo so»",
-    "several": "Più risposte possibili",
-    "shortcut": "Ctrl+Invio per inviare"
+    "several": "Più risposte possibili"
   },
   "review": {
     "title": "Controlla i tuoi requisiti",
@@ -156,10 +168,13 @@
       "year": "{{amount}} all'anno"
     },
     "duration": {
-      "week": "{{count}} settimana/e",
-      "month": "{{count}} mese/i"
+      "week_one": "{{count, number}} settimana",
+      "week_other": "{{count, number}} settimane",
+      "month_one": "{{count, number}} mese",
+      "month_other": "{{count, number}} mesi"
     },
-    "usersLaunch": "{{count}} utenti al lancio",
+    "usersLaunch_one": "{{count, number}} utente al lancio",
+    "usersLaunch_other": "{{count, number}} utenti al lancio",
     "usersYear": "{{count}} dopo un anno",
     "teamSize": "Team di {{count}}",
     "unknown": "Sconosciuto",
@@ -184,10 +199,11 @@
       "providers": "hosting presso {{list}}",
       "onPremises": "hosting on-premise accettato",
       "preferred": "preferibilmente {{list}}",
-      "rates": "pacchetti valorizzati con le tue {{count}} tariffe giornaliere in {{currency}}",
+      "rates_one": "pacchetti valorizzati con la tua tariffa giornaliera in {{currency}}",
+      "rates_other": "pacchetti valorizzati con le tue {{count}} tariffe giornaliere in {{currency}}",
       "saved": "Profilo come salvato il {{date}}. Le modifiche successive non cambieranno questo dibattito.",
       "ignore": "Ignora il profilo per questo dibattito",
-      "ignoreHint": "Le proposte seguono allora solo i requisiti, valorizzate con tariffe giornaliere stimate dai proponenti."
+      "ignoreHint": "Le proposte seguono allora solo i requisiti, valorizzate con tariffe giornaliere stimate dai partecipanti."
     }
   },
   "debate": {
@@ -196,7 +212,7 @@
     "revisions": "Turno {{round}}: revisioni",
     "verdict": "Verdetto",
     "writing": "sta scrivendo…",
-    "writingNow": "Sta scrivendo: {{names}}",
+    "writingNow": "In scrittura: {{names}}",
     "showDetails": "Mostra dettagli",
     "hideDetails": "Nascondi dettagli",
     "architecture": "Architettura",
@@ -221,7 +237,11 @@
     "yourSolution": "La tua soluzione",
     "personDays": "{{days}} giorni-persona",
     "weeks": "{{range}} settimane",
-    "research": "Ricerca sul web"
+    "research": "Ricerca sul web",
+    "showDetailsOf": "Mostra dettagli: {{name}}",
+    "hideDetailsOf": "Nascondi dettagli: {{name}}",
+    "newBelow": "Novità più in basso",
+    "newBelowWriting": "Più in basso, in scrittura: {{names}}"
   },
   "severity": {
     "blocking": "Bloccante",
@@ -254,7 +274,8 @@
     "scoreOutOf": "{{score}} su 5",
     "yourSolution": "La tua soluzione regge",
     "architecture": "Architettura consigliata",
-    "shortened": "Il dibattito è stato accorciato per restare nel suo budget: si sono svolti {{done}} dei {{planned}} round previsti prima del verdetto."
+    "shortened_one": "Il dibattito è stato accorciato per restare nel suo budget: si sono svolti {{done}} dell'unico turno previsto prima del verdetto.",
+    "shortened_other": "Il dibattito è stato accorciato per restare nel suo budget: si sono svolti {{done}} dei {{planned}} turni previsti prima del verdetto."
   },
   "feasibility": {
     "feasible": "Fattibile",
@@ -278,23 +299,30 @@
     "partial": "Il prezzo di alcuni modelli è sconosciuto: il totale è parziale."
   },
   "error": {
-    "title": "La sessione si è interrotta",
+    "title": "Il dibattito si è interrotto",
     "retry": "Riprendi da dove si è fermata",
     "network": "Connessione persa. Riconnessione…",
     "request": "La richiesta non è riuscita. Controlla la connessione e riprova.",
-    "newCap": "Nuovo tetto di spesa (facoltativo)"
+    "newCap": "Nuovo tetto di spesa (facoltativo)",
+    "reconnect": "Riconnetti ora",
+    "place": "{{role}}, {{step}}",
+    "newCapHint": "Alzalo per riprendere il dibattito da dove si è fermato."
   },
   "demo": {
     "badge": "Demo"
   },
   "common": {
     "loading": "Caricamento…",
-    "notFound": "Questa sessione non esiste.",
-    "back": "Torna alla home",
     "cancel": "Annulla",
     "close": "Chiudi",
     "retry": "Riprova",
-    "copyFailed": "Copia non riuscita: il link è selezionato, copialo con la tastiera."
+    "copyFailed": "Copia non riuscita: il link è selezionato, copialo con la tastiera.",
+    "budgetRange": "Inserisci un importo compreso tra {{min}} e {{max}}.",
+    "working": "In corso…",
+    "sending": "Invio…",
+    "saving": "Salvataggio…",
+    "preparing": "Preparazione…",
+    "actionFailed": "Azione non riuscita. Riprova tra un momento."
   },
   "tabs": {
     "verdict": "Verdetto",
@@ -316,7 +344,11 @@
     "estimated": "stimata",
     "failedHint": "Non riuscita: la chiamata si è interrotta dopo che il fornitore l'aveva ricevuta. La sua risposta non è stata usata, ma il fornitore la fattura.",
     "estimatedHint": "Stimata: il fornitore non ha indicato il consumo di questa chiamata, quindi i suoi token sono stimati dal testo inviato e dal testo ricevuto.",
-    "included": "Incluso nel prezzo del dibattito. La tabella elenca ogni chiamata a un modello e i suoi token."
+    "included": "Incluso nel prezzo del dibattito. La tabella elenca ogni chiamata a un modello e i suoi token.",
+    "showStep": "Mostra le chiamate di «{{step}}»",
+    "hideStep": "Nascondi le chiamate di «{{step}}»",
+    "partial": "Parziale",
+    "partialHint": "Alcune chiamate di questa fase hanno un prezzo sconosciuto: si sommano solo quelle note."
   },
   "task": {
     "interview": "Intervista",
@@ -364,8 +396,8 @@
     "personaCustom": "Altro ruolo…",
     "personaCustomLabel": "Descrivi il ruolo esperto",
     "personaCustomPlaceholder": "es. uno specialista dei pagamenti",
-    "addSeat": "Aggiungi un proponente",
-    "removeSeat": "Rimuovi il proponente {{seat}}",
+    "addSeat": "Aggiungi un partecipante",
+    "removeSeat": "Rimuovi il partecipante {{seat}}",
     "addDevil": "Aggiungi un avvocato del diavolo",
     "removeDevil": "Rimuovi l'avvocato del diavolo",
     "devilHint": "L'avvocato del diavolo non propone nulla: attacca ogni opzione per far emergere costi e rischi nascosti.",
@@ -390,7 +422,8 @@
     },
     "research": "Verificare i fatti sul web",
     "researchHint": "Prima delle proposte, query brevi e generiche (mai i tuoi documenti né dati personali) verificano prezzi, versioni, date di fine supporto e norme in vigore. Il rapporto cita le sue fonti.",
-    "researchEuropean": "Disattivata con i soli modelli europei: nessun motore di ricerca mantiene le query in Europa."
+    "researchEuropean": "Disattivata con i soli modelli europei: nessun motore di ricerca mantiene le query in Europa.",
+    "documentsLost": "Ricaricando la pagina i tuoi documenti non sono stati conservati. Aggiungili di nuovo."
   },
   "persona": {
     "cloud_architect": "Architetto cloud",
@@ -460,7 +493,7 @@
     "previewLabel": "Inizio di {{name}}",
     "remove": "Rimuovi {{name}}",
     "stop": "Interrompi l'importazione di {{name}}",
-    "dismiss": "Chiudi questo messaggio",
+    "dismiss": "Chiudi il messaggio su {{name}}",
     "adding": "Importazione di {{name}}…",
     "added": "{{name}} allegato.",
     "removed": "{{name}} rimosso.",
@@ -507,14 +540,16 @@
     },
     "write": "Scrivi questa versione",
     "writing": "Scrittura…",
-    "nextSteps": "Prossimi passi"
+    "nextSteps": "Prossimi passi",
+    "scope": "Cambia solo questa versione; il resto del verdetto resta uguale.",
+    "shown": "Versione «{{audience}}» visualizzata"
   },
   "matrix": {
     "hint": "Sposta un peso e la classifica si aggiorna. Un'opzione non fattibile resta ultima, qualunque siano i suoi punteggi.",
     "reset": "Ripristina i pesi",
     "top": "Al primo posto con questi pesi: {{option}}",
     "score": "Punteggio ponderato",
-    "estimates": "I costi di realizzazione sono valorizzati dai pacchetti di lavoro di ogni opzione; i costi di esercizio sono stime dei proponenti."
+    "estimates": "I costi di realizzazione sono valorizzati dai pacchetti di lavoro di ogni opzione; i costi di esercizio sono stime dei partecipanti."
   },
   "map": {
     "title": "Mappa del dibattito",
@@ -536,22 +571,22 @@
   },
   "share": {
     "button": "Condividi",
-    "shared": "Condivisa",
-    "title": "Condividi questa sessione",
+    "shared": "Link attivo",
+    "title": "Condividi questo dibattito",
     "lead": "Scegli cosa mostra il link e per quanto tempo. I costi e i documenti allegati restano sempre privati.",
     "create": "Crea un link in sola lettura",
     "link": "Link",
     "copy": "Copia",
     "copied": "Copiato",
     "public": "Mostrala nella galleria pubblica",
-    "publicHint": "Altre persone potranno trovarla come esempio. Solo le sessioni concluse possono comparire nella galleria.",
+    "publicHint": "Altre persone potranno trovarlo come esempio. Solo i dibattiti conclusi possono comparire nella galleria.",
     "stop": "Interrompi la condivisione",
     "privacy": "Puoi interrompere la condivisione in qualsiasi momento: il link smette subito di funzionare.",
-    "readOnly": "Stai leggendo una sessione condivisa. Non può essere modificata.",
+    "readOnly": "Stai leggendo un dibattito condiviso. Non può essere modificato.",
     "modeLabel": "Cosa mostra il link",
     "mode": {
       "client": "Solo la decisione",
-      "full": "L'intera sessione"
+      "full": "L'intero dibattito"
     },
     "modeHint": {
       "client": "Il verdetto, le opzioni e i loro punteggi, i rischi, la roadmap e le domande aperte, con una versione scritta per un cliente. Non il dibattito, l'intervista o i requisiti.",
@@ -565,7 +600,7 @@
     },
     "until": "Fino al {{date}}",
     "passwordLabel": "Password",
-    "passwordNone": "Nessuna password",
+    "passwordNone": "Senza password, chiunque abbia il link può aprirlo.",
     "passwordChange": "Nuova password",
     "passwordSet": "Questo link chiede una password.",
     "passwordApply": "Imposta la password",
@@ -579,37 +614,38 @@
   },
   "session": {
     "fork": "Riparti da qui",
-    "forkHint": "Una nuova sessione con gli stessi requisiti, per aggiornare ciò che è cambiato e ripetere il dibattito",
-    "fromEarlier": "Avviata da una sessione precedente",
+    "forkHint": "Un nuovo dibattito con gli stessi requisiti, per aggiornare ciò che è cambiato e ripeterlo",
+    "fromEarlier": "Avviato da un dibattito precedente",
     "delete": "Elimina",
-    "deleteTitle": "Eliminare questa sessione?",
+    "deleteTitle": "Eliminare questo dibattito?",
     "deleteLead": "L'intervista, il dibattito e il rapporto vengono eliminati definitivamente e qualsiasi link condiviso smette di funzionare.",
     "deleteConfirm": "Elimina definitivamente",
     "stop": "Interrompi",
-    "stopTitle": "Interrompere questa sessione?",
+    "stopTitle": "Interrompere questo dibattito?",
     "stopLead": "I modelli si fermano subito e non si spende altro. Il lavoro già fatto resta: potrai riprendere da dove si è fermata.",
     "stopCancel": "Lasciala continuare",
     "stopConfirm": "Interrompi ora",
-    "deleteBusy": "Interrompi la sessione prima di eliminarla.",
-    "detailsFailed": "Non è stato ancora possibile caricare i tuoi permessi su questa sessione: per ora è mostrata in sola lettura."
+    "deleteBusy": "Interrompi il dibattito prima di eliminarlo.",
+    "detailsFailed": "Non è stato ancora possibile caricare i tuoi permessi su questo dibattito: per ora è mostrato in sola lettura."
   },
   "gallery": {
     "title": "Galleria",
     "lead": "Dibattiti reali che i loro autori hanno scelto di pubblicare. Leggi come hanno argomentato i modelli e cosa ha deciso l'arbitro.",
-    "empty": "Ancora nessuna sessione pubblica. Condividi una sessione conclusa e scegli di mostrarla nella galleria."
+    "empty": "Ancora nessun dibattito pubblico. Condividi un dibattito concluso e scegli di mostrarlo nella galleria."
   },
   "settings": {
     "title": "Impostazioni",
     "loadFailed": "Non è stato possibile caricare le impostazioni salvate. Non si possono modificare finché non vengono caricate, per non sovrascrivere nulla.",
     "models": "Modelli",
-    "modelsLead": "I modelli che questo server può usare. Li scegli per ogni ruolo quando avvii una sessione.",
+    "modelsLead": "I modelli che questo server può usare. Li scegli per ogni ruolo quando avvii un dibattito.",
     "localOnly": "Modalità solo locale: sono disponibili solo i modelli in esecuzione su questo computer.",
     "local": "Locale",
     "data": "I tuoi dati",
-    "retention": "Le sessioni non modificate da {{days}} giorni vengono eliminate automaticamente.",
-    "retentionNone": "Le sessioni vengono conservate finché non le elimini.",
+    "retention_one": "I dibattiti non modificati da {{days}} giorno vengono eliminati automaticamente.",
+    "retention_other": "I dibattiti non modificati da {{days}} giorni vengono eliminati automaticamente.",
+    "retentionNone": "I dibattiti vengono conservati finché non li elimini.",
     "export": "Esporta tutti i miei dati (JSON)",
-    "deleteHint": "Per eliminare una sessione, aprila e scegli Elimina."
+    "deleteHint": "Per eliminare un dibattito, aprilo e scegli Elimina."
   },
   "export": {
     "button": "Esporta",
@@ -637,7 +673,8 @@
     "proposalWord": "Proposta per il cliente (Word)",
     "proposalWordHint": "Pronta da modificare e inviare con il tuo marchio",
     "proposalPdf": "Proposta per il cliente (PDF)",
-    "proposalPdfHint": "La stessa proposta, da salvare in PDF"
+    "proposalPdfHint": "La stessa proposta, da salvare in PDF",
+    "failed": "Preparazione non riuscita. Fai clic per riprovare."
   },
   "diagram": {
     "label": "Diagramma dell'architettura: {{title}}",
@@ -691,17 +728,17 @@
     "resetConfirm": "Ripristina"
   },
   "workspace": {
-    "filter": "Sessioni da mostrare",
+    "filter": "Dibattiti da mostrare",
     "everyone": "Tutti",
     "mine": "Le mie",
     "private": "Privata",
     "formerMember": "Ex membro",
     "startedBy": "Avviata da {{name}}",
-    "sharedHint": "I membri del tuo spazio di lavoro possono leggere questa sessione.",
-    "privateHint": "Solo tu puoi vedere questa sessione.",
+    "sharedHint": "I membri del tuo spazio di lavoro possono leggere questo dibattito.",
+    "privateHint": "Solo tu puoi vedere questo dibattito.",
     "makePrivate": "Rendi privata",
     "makeShared": "Condividi con lo spazio di lavoro",
-    "readOnly": "Puoi leggere questa sessione e ripartire da qui. Solo il suo autore o un amministratore dello spazio di lavoro può modificarla."
+    "readOnly": "Puoi leggere questo dibattito e ripartire da qui. Solo il suo autore o un amministratore dello spazio di lavoro può modificarlo."
   },
   "errors": {
     "lineup_cost": "Questi modelli costerebbero più di quanto copre il prezzo di questo dibattito, che finirebbe senza verdetto. Scegli meno partecipanti o modelli più leggeri.",
@@ -713,13 +750,13 @@
     "invalid_request": "Alcune informazioni inviate non sono valide. Controllale e riprova.",
     "too_large": "È troppo grande per essere inviato.",
     "unauthorized": "La sessione è terminata. Accedi di nuovo.",
-    "not_found": "Questa sessione non esiste o è stata eliminata.",
+    "not_found": "Questo dibattito non esiste o è stato eliminato.",
     "live_unavailable": "Su questo server non è configurato alcun modello di IA. Aggiungi una chiave API o prova la demo.",
     "idea_missing": "Descrivi prima l'idea del tuo progetto.",
     "challenge_missing": "Descrivi la soluzione che vuoi mettere alla prova.",
     "invalid_lineup": "Uno dei modelli scelti non è disponibile su questo server. Controlla i modelli nelle impostazioni del dibattito.",
-    "session_busy": "Questa sessione sta già lavorando. Attendi che finisca.",
-    "wrong_phase": "Questa azione non corrisponde più alla fase della sessione. Ricarica la pagina.",
+    "session_busy": "Questo dibattito è già in corso. Attendi che finisca.",
+    "wrong_phase": "Questa azione non corrisponde più alla fase del dibattito. Ricarica la pagina.",
     "brief_missing": "Questa versione per un lettore non è ancora stata scritta.",
     "provider_auth": "Il fornitore del modello ha rifiutato la chiave API. Controlla la chiave configurata sul server.",
     "provider_quota": "L'account del fornitore del modello non ha più credito.",
@@ -730,10 +767,10 @@
     "insufficient_credits": "Non hai più crediti. Acquista crediti o abbonati a un piano per continuare.",
     "plan_limit": "Il tuo piano non lo consente. Scegli altre impostazioni o un altro piano.",
     "seat_limit": "Lo spazio ha raggiunto il numero massimo di persone previsto dal suo piano. Scegli un piano per più persone.",
-    "read_only": "Solo l'autore di questa sessione o un amministratore del suo spazio di lavoro può modificarla.",
-    "stopped": "Hai interrotto questa sessione. Riprendila quando vuoi.",
-    "not_running": "Questa sessione non è più in corso.",
-    "interrupted": "Il server si è riavviato mentre questa sessione lavorava. Nulla di quanto fatto è andato perso: riprendila da dove si è fermata.",
+    "read_only": "Solo l'autore di questo dibattito o un amministratore del suo spazio di lavoro può modificarlo.",
+    "stopped": "Hai interrotto questo dibattito. Riprendilo quando vuoi.",
+    "not_running": "Questo dibattito non è più in corso.",
+    "interrupted": "Il server si è riavviato mentre questo dibattito era in corso. Nulla di quanto fatto è andato perso: riprendilo da dove si è fermato.",
     "budget_fixed": "Il tetto di spesa di questo dibattito è fissato dal servizio e non può essere modificato.",
     "share_expired": "Questo link è scaduto. Chiedine uno nuovo a chi lo ha condiviso.",
     "password_required": "Questo link chiede una password.",
@@ -762,7 +799,9 @@
     "forbidden_host": "Questo server non risponde a questo indirizzo. Aprilo al suo indirizzo abituale, oppure aggiungi questo a QUORUMIND_ALLOWED_HOSTS sul server.",
     "unsupported_media_type": "Il server non è riuscito a leggere questa richiesta a causa del suo formato. Ricarica la pagina e riprova.",
     "audit_document_missing": "Allega il documento da esaminare: un preventivo, una descrizione dei servizi o una proposta.",
-    "invalid_currency": "«{{currency}}» non è un codice valuta. Scegli la valuta dall'elenco, ad esempio EUR."
+    "invalid_currency": "«{{currency}}» non è un codice valuta. Scegli la valuta dall'elenco, ad esempio EUR.",
+    "budget_reached": "Il tetto di spesa di {{budgetUsd}} è stato raggiunto: {{spentUsd}} spesi.",
+    "private_session": "Questo dibattito è privato: può aprirlo solo chi l'ha avviato."
   },
   "costing": {
     "title": "Stima per pacchetto di lavoro",
@@ -774,8 +813,8 @@
     "total": "Totale",
     "exclusions": "Esclusioni",
     "ratesProfile": "Valorizzato con le tariffe giornaliere del profilo della tua organizzazione.",
-    "ratesEstimated": "Tariffe giornaliere stimate dal proponente. Configura il profilo della tua organizzazione nelle Impostazioni per usare le tue.",
-    "ratesLegacy": "Costo di realizzazione indicato in blocco dal proponente.",
+    "ratesEstimated": "Tariffe giornaliere stimate dal partecipante. Configura il profilo della tua organizzazione nelle Impostazioni per usare le tue.",
+    "ratesLegacy": "Costo di realizzazione indicato in blocco dal partecipante.",
     "unpriced": "Nessuna tariffa giornaliera per {{roles}}: i giorni sono contati, il costo no."
   },
   "checks": {
@@ -786,8 +825,10 @@
     "overRunBudget": "Supera il budget di esercizio di {{amount}} al mese",
     "runBudgetAtRisk": "Può superare il budget di esercizio di {{amount}} al mese",
     "withinRunBudget": "Nel budget di esercizio",
-    "late": "In ritardo di {{count}} settimana/e",
-    "lateAtRisk": "Possibile ritardo di {{count}} settimana/e",
+    "late_one": "In ritardo di {{count}} settimana",
+    "late_other": "In ritardo di {{count}} settimane",
+    "lateAtRisk_one": "Possibile ritardo di {{count}} settimana",
+    "lateAtRisk_other": "Possibile ritardo di {{count}} settimane",
     "onTime": "Nei tempi"
   },
   "roles": {
@@ -816,13 +857,15 @@
     "providers": "Fornitori di hosting",
     "providersHint": "Lascia vuoto per accettare qualsiasi fornitore.",
     "hostingNotes": "Altre regole di hosting",
+    "pricing": "Stima dei costi",
     "roles": "Ruoli e tariffe giornaliere",
     "rolesHint": "I pacchetti di lavoro di ogni proposta sono valorizzati con queste tariffe: i totali sono calcolati, mai presi dai modelli.",
     "currency": "Valuta",
+    "currencyHint": "I nuovi dibattiti che seguono questo profilo sono valorizzati in questa valuta; quelli già avviati mantengono la propria. Le tariffe qui sotto sono espresse in essa e non vengono convertite se si cambia valuta.",
     "role": "Ruolo {{number}}",
     "rolePlaceholder": "Sviluppatore senior",
     "dailyRate": "Tariffa giornaliera del ruolo {{number}}, in {{currency}}",
-    "dailyRatePlaceholder": "Tariffa giornaliera ({{currency}})",
+    "dailyRatePlaceholder": "650",
     "removeRole": "Rimuovi {{name}}",
     "addRole": "Aggiungi un ruolo",
     "capacity": "Capacità",
@@ -841,7 +884,9 @@
     "managed": "Il profilo del tuo spazio di lavoro è gestito dai proprietari e dagli amministratori, nelle impostazioni dello spazio del tuo account.",
     "managedLead": "I dibattiti seguono il profilo dell'organizzazione del tuo spazio di lavoro: tecnologie, regole di hosting e tariffe giornaliere.",
     "open": "Apri il profilo dell'organizzazione",
-    "managedReadOnly": "Solo i proprietari e gli amministratori dello spazio di lavoro possono modificarlo: se qualcosa va aggiornato, rivolgiti a uno di loro."
+    "managedReadOnly": "Solo i proprietari e gli amministratori dello spazio di lavoro possono modificarlo: se qualcosa va aggiornato, rivolgiti a uno di loro.",
+    "clearTitle": "Eliminare il profilo?",
+    "clearLead": "I dibattiti già avviati mantengono il profilo con cui sono partiti. I nuovi dibattiti non ne seguiranno più uno."
   },
   "revision": {
     "label": "Versione {{number}} · {{date}}",
@@ -879,7 +924,11 @@
     "facts": "Nuovi elementi considerati",
     "editTitle": "Aggiungi nuovi elementi",
     "editLabel": "Cosa è cambiato?",
-    "editHint": "Una correzione, o qualcosa che hai saputo dopo il dibattito. Solo l'arbitro si pronuncia di nuovo, non l'intero dibattito."
+    "editHint": "Una correzione, o qualcosa che hai saputo dopo il dibattito. Solo l'arbitro si pronuncia di nuovo, non l'intero dibattito.",
+    "seeProgress": "Vedi l'avanzamento",
+    "updating": "Aggiornamento…",
+    "background": "Ancora in corso in background. Il risultato comparirà in questa pagina.",
+    "noteRequired": "Scrivi che cosa è cambiato, così il verdetto può essere aggiornato."
   },
   "client": {
     "title": "Il tuo cliente",
@@ -932,7 +981,8 @@
     "why": "Perché lo chiediamo: {{why}}",
     "answerLabel": "La tua risposta",
     "commentLabel": "Commento (facoltativo)",
-    "progress": "{{answered}} domande su {{total}} con risposta",
+    "progress_one": "{{answered}} domanda su {{total}} con risposta",
+    "progress_other": "{{answered}} domande su {{total}} con risposta",
     "once": "Le risposte si inviano una sola volta: rileggile prima di inviarle.",
     "submit": "Invia le mie risposte",
     "sending": "Invio…",
@@ -942,7 +992,10 @@
     "lockedTitle": "Questo questionario è protetto",
     "lockedLead": "Inserisci la password ricevuta con il link.",
     "unlock": "Apri",
-    "missing": "Questo questionario non esiste o è stato ritirato."
+    "unansweredTitle": "Alcune domande sono senza risposta",
+    "unansweredLead": "Domande senza risposta: {{missing}} su {{total}}. Le risposte si inviano una sola volta e non potranno più essere modificate.",
+    "unansweredBack": "Torna alle domande",
+    "unansweredSend": "Invia comunque"
   },
   "scenario": {
     "title": "E se…",
@@ -993,8 +1046,14 @@
     "changeRun": "Budget di esercizio {{percent}}",
     "changeDeadline": "Scadenza {{delta}}",
     "changeConstraint": "Nuovo vincolo non negoziabile: {{text}}",
-    "weeks": "{{count}} settimana/e",
-    "months": "{{count}} mese/i"
+    "weeks_one": "{{count}} settimana",
+    "weeks_other": "{{count}} settimane",
+    "months_one": "{{count}} mese",
+    "months_other": "{{count}} mesi",
+    "trying": "Prova in corso…",
+    "invalidWhole": "Inserisci un numero intero diverso da 0.",
+    "invalidPercent": "Inserisci una percentuale tra {{min}} e {{max}}, diversa da 0.",
+    "needQuestion": "Scrivi una domanda o aggiungi una modifica."
   },
   "compare": {
     "title": "Confronta due versioni",
@@ -1002,7 +1061,8 @@
     "right": "Seconda versione",
     "version": "Versione {{number}}",
     "scenarioVersion": "Scenario «{{title}}» · versione {{number}}",
-    "summary": "{{count}} differenza/e",
+    "summary_one": "{{count}} differenza",
+    "summary_other": "{{count}} differenze",
     "none": "Le due versioni coincidono su tutti i punti confrontati.",
     "legend": "I valori diversi sono evidenziati.",
     "differs": "differisce",
@@ -1012,7 +1072,8 @@
     "runBudget": "Budget di esercizio",
     "deadline": "Scadenza",
     "team": "Team",
-    "teamOf": "{{count}} persone",
+    "teamOf_one": "{{count}} persona",
+    "teamOf_other": "{{count}} persone",
     "constraints": "Vincoli non negoziabili",
     "perMonth": "{{amount}} al mese",
     "perYear": "{{amount}} all'anno",
@@ -1056,7 +1117,7 @@
     "noOther": "Non c'è nessun'altra decisione tra cui scegliere.",
     "reopen": "Riapri",
     "withdraw": "Ritira l'approvazione",
-    "readOnly": "Solo l'autore di questa sessione o un amministratore del suo spazio di lavoro può approvarla. Puoi chiederglielo.",
+    "readOnly": "Solo l'autore di questo dibattito o un amministratore del suo spazio di lavoro può approvarlo. Puoi chiederglielo.",
     "note": "Nota sulla decisione",
     "noteHint": "Una o due frasi su cosa è stato deciso e perché.",
     "reviewOn": "Da rivedere il",
@@ -1064,11 +1125,16 @@
     "reviewWhenPlaceholder": "es. il prezzo degli SMS raddoppia",
     "reviewHint": "In quella data, un promemoria viene inviato all'autore e a chi ha approvato la decisione, oltre che al canale del team, se esiste.",
     "save": "Salva la nota e il riesame",
-    "saved": "Salvato."
+    "saved": "Salvato.",
+    "more": "Nota e data di revisione",
+    "rejectTitle": "Respingere questa decisione?",
+    "rejectLead": "Passerà allo stato «Respinta». Potrai riaprirla in seguito.",
+    "rejectConfirm": "Respingi",
+    "reviewPast": "Scegli oggi o una data futura: non è possibile inviare un promemoria in una data già passata."
   },
   "register": {
     "title": "Registro delle decisioni",
-    "lead": "Una riga per ogni sessione arrivata a un verdetto: cosa è stato deciso, chi l'ha approvato e quando riesaminarlo.",
+    "lead": "Una riga per ogni dibattito arrivato a un verdetto: cosa è stato deciso, chi l'ha approvato e quando riesaminarlo.",
     "filters": "Filtri",
     "status": "Stato",
     "anyStatus": "Qualsiasi stato",
@@ -1128,12 +1194,14 @@
       "panel": "Il panel",
       "review": "Riepilogo"
     },
-    "stepsLabel": "Passaggi della nuova sessione",
+    "stepsLabel": "Passaggi del nuovo dibattito",
     "stepOf": "Passaggio {{number}} di {{total}}",
     "back": "Indietro",
     "next": "Avanti",
     "launchNow": "Inizia subito",
     "launchNowHint": "Salta i passaggi successivi: nessun documento, panel e opzioni predefiniti.",
+    "launchNowHintAudit": "Salta i passaggi successivi: panel e opzioni predefiniti.",
+    "expressRounds": "Express: un solo turno, nulla da scegliere.",
     "missingIdea": "Descrivi il tuo progetto per continuare.",
     "missingNeed": "Per continuare, scrivi a cosa deve servire il documento.",
     "missingSolution": "Descrivi la tua soluzione per continuare.",
@@ -1145,8 +1213,8 @@
     "profileLink": "Apri le impostazioni",
     "panelLead": "I modelli che propongono, criticano e decidono. Le impostazioni predefinite vanno bene per la maggior parte dei progetti.",
     "customize": "Personalizza il panel",
-    "customizeDone": "Torna al riepilogo",
-    "debaters": "Partecipanti al dibattito",
+    "customizeDone": "Fatto",
+    "debaters": "Partecipanti",
     "proposerHint": "Progetta una propria soluzione, critica quelle degli altri e rivede la sua.",
     "moderation": "Conduzione del dibattito",
     "moderationHint": "L'intervistatore e l'arbitro",
@@ -1183,5 +1251,52 @@
     "common": "Valute più usate",
     "others": "Altre valute",
     "unknown": "{{code}} (non è una valuta)"
+  },
+  "progress": {
+    "critiques": "Turno {{round}} di {{total}}: critiche",
+    "revisions": "Turno {{round}} di {{total}}: revisioni",
+    "awaiting": "Il dibattito aspetta la tua risposta",
+    "awaitingAuthor": "Il dibattito aspetta la risposta di chi l'ha avviato",
+    "verdictReady": "Il verdetto è pronto"
+  },
+  "awaiting": {
+    "title": "Il dibattito aspetta la tua risposta",
+    "lead": "È in pausa su una domanda a cui solo tu puoi rispondere e riprende non appena rispondi.",
+    "go": "Rispondi"
+  },
+  "verdictReady": {
+    "lead": "L'arbitro ha deciso mentre leggevi.",
+    "go": "Vedi il verdetto"
+  },
+  "notFound": {
+    "pageTitle": "Questa pagina non esiste",
+    "pageLead": "L'indirizzo potrebbe essere sbagliato, oppure la pagina è stata spostata.",
+    "sessionTitle": "Dibattito non trovato",
+    "sessionLead": "Questo dibattito non esiste o è stato eliminato.",
+    "sessionLeadShared": "Questo dibattito non esiste, è stato eliminato o non appartiene al tuo spazio di lavoro.",
+    "privateTitle": "Questo dibattito è privato",
+    "privateLead": "Ora può aprirlo solo chi l'ha avviato. Se ti serve, chiedi a questa persona di condividerlo di nuovo con lo spazio di lavoro.",
+    "linkTitle": "Questo link non funziona più",
+    "linkLead": "Potrebbe essere stato ritirato, oppure l'indirizzo è incompleto. Chiedine uno nuovo a chi te l'ha inviato.",
+    "newDebate": "Avvia un nuovo dibattito",
+    "debates": "Vedi i tuoi dibattiti"
+  },
+  "recent": {
+    "toAnswer": "Servono le tue risposte",
+    "toCheck": "Requisiti da controllare",
+    "authorsTurn": "In attesa dell'autore",
+    "running": "Dibattito in corso"
+  },
+  "validation": {
+    "required": "Compila questo campo.",
+    "email": "Inserisci un indirizzo e-mail, ad esempio nome@esempio.it.",
+    "number": "Inserisci un numero pari o superiore a 0.",
+    "invalid": "Questo valore non è accettato. Controllalo e riprova.",
+    "passwordEmpty": "Inserisci la password.",
+    "passwordShort": "Usa almeno {{min}} caratteri.",
+    "counter": "{{used}} / {{max}}",
+    "counterNear": "Ti stai avvicinando al limite di {{max}} caratteri.",
+    "counterFull": "Raggiunto il limite di {{max}} caratteri. Il resto non viene conservato.",
+    "shortcut": "<ltr>{{key}}+Invio</ltr> per inviare"
   }
 }

@@ -1,5 +1,5 @@
 import { agencyLabels } from "./agency-labels.ts";
-import type { AuditDocumentKind, AuditOpinion, AuditReport } from "./audit.ts";
+import type { AuditDocumentKind, AuditOpinion, AuditReport, StoredAuditFinding } from "./audit.ts";
 import { auditedDocuments, auditOf, pricePosition, type QuoteCheck, quoteCheck } from "./audit-check.ts";
 import {
   type AuditLabels,
@@ -25,6 +25,7 @@ import {
   formatDays,
   formatMoney,
   formatRange,
+  inItem,
   joinItems,
   labelled,
   methodNotes,
@@ -54,7 +55,7 @@ export interface AuditDeliverable {
   rationale: string;
   /** The arbiter's summary. */
   summary: string | null;
-  findings: AuditReport["findings"];
+  findings: StoredAuditFinding[];
   coverage: AuditReport["coverage"];
   price: AuditReport["price"] & { position: "below" | "within" | "above" | null };
   check: QuoteCheck | null;
@@ -155,6 +156,16 @@ export function auditDeliverable(session: Session): AuditDeliverable | null {
 
 const SEVERITIES: Severity[] = ["blocking", "major", "minor"];
 
+/**
+ * Whether to say under a finding that the document says nothing about it: when the arbiter left its quote empty, which
+ * the audit rules define as "the document does not say". A quote Quorumind could not find in the document is no such
+ * sign. An audit stored before the two were told apart falls back on the finding's category.
+ */
+export function saysNothing(finding: Pick<StoredAuditFinding, "category" | "quote" | "quoteDropped">): boolean {
+  if (finding.quote) return false;
+  return finding.quoteDropped === undefined ? finding.category === "missing" : !finding.quoteDropped;
+}
+
 /** The words and the formatting an audit document is written with. */
 export function auditWords(audit: AuditDeliverable) {
   const a = auditLabels(audit.locale);
@@ -190,7 +201,7 @@ export function auditWords(audit: AuditDeliverable) {
       : null,
     deadline: audit.check?.deadline
       ? audit.check.deadline.status === "over"
-        ? fill(a.deadlineOver, { weeks: audit.check.deadline.by })
+        ? fill(a.deadlineOver, { weeks: audit.check.deadline.by }, locale)
         : a.deadlineWithin
       : null,
     /** What the recomputation found, in a sentence each: the gaps, or that the figures add up. */
@@ -198,7 +209,7 @@ export function auditWords(audit: AuditDeliverable) {
       const check = audit.check;
       if (!check) return [];
       const notes: string[] = [];
-      if (check.mismatches > 0) notes.push(fill(a.lineGaps, { count: check.mismatches }));
+      if (check.mismatches > 0) notes.push(fill(a.lineGaps, { count: check.mismatches }, locale));
       if (check.totalGap) notes.push(fill(a.totalGap, { amount: money(Math.abs(check.totalGap)) }));
       if (check.statedTotal === null) notes.push(a.noTotal);
       else if (check.mismatches === 0 && check.totalGap === 0) notes.push(a.figuresAgree);
@@ -230,7 +241,7 @@ export function auditWords(audit: AuditDeliverable) {
 
 export type AuditWords = ReturnType<typeof auditWords>;
 
-const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+const list = (items: string[]) => items.map((item) => `- ${inItem(item)}`).join("\n");
 const cell = (text: string) => text.replaceAll("|", "\\|").replaceAll("\n", " ");
 const quoteBlock = (text: string) =>
   text
@@ -261,9 +272,10 @@ export function auditMarkdown(audit: AuditDeliverable): string[] {
       lines.push(`### ${w.severity(group.severity)}`, "");
       group.items.forEach((finding, index) => {
         lines.push(`${index + 1}. **${finding.title}** _(${w.category(finding.category)})_`);
-        lines.push(finding.quote ? `${quoteBlock(finding.quote)}` : `   _${a.notInDocument}_`);
-        if (finding.detail) lines.push(`   ${finding.detail}`);
-        if (finding.fix) lines.push(`   ${say(`**${a.fix}**`, finding.fix)}`);
+        if (finding.quote) lines.push(quoteBlock(finding.quote));
+        else if (saysNothing(finding)) lines.push(`   _${a.notInDocument}_`);
+        if (finding.detail) lines.push(`   ${inItem(finding.detail, 3)}`);
+        if (finding.fix) lines.push(`   ${inItem(say(`**${a.fix}**`, finding.fix), 3)}`);
         lines.push("");
       });
     }
@@ -348,7 +360,7 @@ export function auditMarkdown(audit: AuditDeliverable): string[] {
   if (audit.roadmap.length > 0) {
     lines.push(`## ${a.nextSteps}`, "");
     audit.roadmap.forEach((phase, index) => {
-      lines.push(`${index + 1}. **${phase.phase}:** ${phase.content} (${say(t.exitCriterion, phase.exitCriterion)})`);
+      lines.push(`${index + 1}. **${phase.phase}:** ${inItem(phase.content, 3)} (${say(t.exitCriterion, phase.exitCriterion)})`);
     });
     lines.push("");
   }

@@ -1,6 +1,8 @@
+import type { Session, Task } from "@quorumind/core";
 import type { SessionError } from "@quorumind/core/session";
 import i18n, { type TFunction } from "i18next";
 import { ApiError, showsProviderCosts } from "./api.ts";
+import { taskRole, taskStepLabel } from "./debateProgress.ts";
 import { formatUsd } from "./format.ts";
 
 /**
@@ -38,5 +40,37 @@ export function sessionErrorText(t: TFunction, error: SessionError | null, provi
   for (const [key, value] of Object.entries(params)) {
     if (key.endsWith("Usd") && typeof value === "number") params[key] = formatUsd(value, language);
   }
+  // The cap and what was spent, when the session recorded them (it always has since caps exist).
+  if (error.code === "budget_exceeded" && params.budgetUsd !== undefined && params.spentUsd !== undefined) {
+    return t("errors.budget_reached", params);
+  }
   return errorText(t, explained(error.code, providerCosts), params);
+}
+
+const TASKS = new Set<string>([
+  "interview",
+  "research",
+  "search",
+  "proposal",
+  "critique",
+  "revision",
+  "probe",
+  "verdict",
+  "reassess",
+  "brief",
+]);
+
+/**
+ * Where a session's model failed: the step and the role whose call it was ("Round 1 of 2: critiques, Debater B").
+ * Null when the failure is not a model's, or was recorded before sessions kept where it happened.
+ */
+export function failurePlace(t: TFunction, session: Session): string | null {
+  const params = session.error?.params;
+  const task = params?.task;
+  if (!session.error?.code.startsWith("provider_") || typeof task !== "string" || !TASKS.has(task)) return null;
+  const seat = typeof params?.seat === "string" ? params.seat : null;
+  return t("error.place", {
+    step: taskStepLabel(session, task as Task, seat, t),
+    role: taskRole(task as Task, seat, t),
+  });
 }

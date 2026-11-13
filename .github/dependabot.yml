@@ -1,4 +1,6 @@
-# Dependencies are pinned to exact versions; updates are proposed once a release is two weeks old.
+# Dependencies are pinned to exact versions; updates are proposed once a release is two weeks old. Security updates
+# (Settings › Code security › Dependabot security updates) are not held back by the cooldown: a fix for a published
+# advisory is proposed at once. .github/workflows/audit.yml checks every day what is still open.
 version: 2
 updates:
   - package-ecosystem: npm

@@ -225,6 +225,22 @@ describe.each(BACKENDS)("on $name", (each) => {
       expect((await detail(app, copy.id, "bob")).status).toBe(404);
     });
 
+    it("tells a member of its workspace that a session is private, and anyone else only that it does not exist", async () => {
+      const app = await makeApp(teamHooks());
+      const hidden = await create(app, "ada", { private: true });
+      const code = async (user: string) => {
+        const response = await app.request(`/api/sessions/${hidden.id}`, { headers: as(user) });
+        return [response.status, ((await response.json()) as { error: string }).error];
+      };
+      // The member held its address: being told it is private says nothing they could not know.
+      expect(await code("bob")).toEqual([404, "private_session"]);
+      // Outside the workspace, or with an address that leads nowhere, the same answer: nothing leaks.
+      expect(await code("dan")).toEqual([404, "not_found"]);
+      expect(await code("nobody")).toEqual([404, "not_found"]);
+      const missing = await app.request("/api/sessions/00000000-0000-0000-0000-000000000000", { headers: as("bob") });
+      expect(((await missing.json()) as { error: string }).error).toBe("not_found");
+    });
+
     it("keeps a session in its workspace: a former member no longer sees it, and shows as such to the others", async () => {
       const app = await makeApp(teamHooks({ formerAda: true, scopes: { ada: { workspace: null, workspaces: [] } } }));
       // A session Ada started when she was a member, and one she starts now, outside any workspace.

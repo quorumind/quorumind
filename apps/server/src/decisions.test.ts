@@ -143,7 +143,7 @@ describe.each(BACKENDS)("on $name", (backend) => {
       expect((await app.request(`/api/sessions/${session.id}/compare?a=1&b=5`, { headers: as("ada") })).status).toBe(404);
       const markdown = await app.request(`/api/sessions/${session.id}/compare.md?a=1&b=2`, { headers: as("ada") });
       expect(markdown.headers.get("content-disposition")).toContain("-comparison-1-2.md");
-      expect(await markdown.text()).toContain("| Build budget | **€15,000** | **€10,500** |");
+      expect(await markdown.text()).toContain("| Build budget | **15,000\u00a0€** | **10,500\u00a0€** |");
       const page = await app.request(`/api/sessions/${session.id}/compare.html?a=1&b=2&print=1`, { headers: as("ada") });
       expect(page.headers.get("content-security-policy")).toContain("script-src 'sha256-");
       expect(await page.text()).toContain('class="differs"');
@@ -154,8 +154,8 @@ describe.each(BACKENDS)("on $name", (backend) => {
       expect(await adopted.json()).toMatchObject({ adopted: 2, decision: { revision: { number: 2, scenario: "Budget cut" } } });
       expect((await detail(app, session.id)) as unknown).toMatchObject({ checks: { A: { build: { budget: 10_500 } } } });
       const report = await (await app.request(`/api/sessions/${session.id}/report.md`, { headers: as("ada") })).text();
-      expect(report).toContain("Build budget: €10,500");
-      expect(report).toContain("## What changed since revision 1");
+      expect(report).toContain("Build budget: 10,500\u00a0€");
+      expect(report).toContain("## What changed since version 1");
       expect(report).toContain("- Build budget -30%");
       const notScenario = await app.request(`/api/sessions/${session.id}/adopted`, send({ revision: 1 }, "ada", "PUT"));
       expect(await notScenario.json()).toMatchObject({ error: "not_a_scenario" });

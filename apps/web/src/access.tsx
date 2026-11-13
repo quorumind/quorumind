@@ -3,6 +3,7 @@ import { createContext, useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessions } from "./App.tsx";
 import { type Author, api, type SessionAccess } from "./api.ts";
+import { BusyButton } from "./components/BusyButton.tsx";
 import { LockIcon } from "./components/Icons.tsx";
 
 /** A self-hosted server sends no access, or a full one: the single local user does everything. */
@@ -64,10 +65,11 @@ export function AccessLine({ id, access, onChange }: { id: string; access: Sessi
             : t("workspace.startedBy", { name: authorName(access.author, t) })}
         </span>
         {access.mine ? (
-          <button type="button" className="button button-quiet" onClick={toggle} disabled={pending}>
+          // A busy button keeps the focus (a disabled one would drop it to the page): the keyboard stays on it.
+          <BusyButton className="button button-quiet" onClick={toggle} busy={pending} busyLabel={t("common.saving")}>
             {access.private ? null : <LockIcon />}
             {t(access.private ? "workspace.makeShared" : "workspace.makePrivate")}
-          </button>
+          </BusyButton>
         ) : null}
       </div>
       {access.canEdit ? null : <p className="notice">{t("workspace.readOnly")}</p>}

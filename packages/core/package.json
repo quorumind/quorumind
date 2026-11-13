@@ -28,7 +28,8 @@
     "./audit-check": "./src/audit-check.ts",
     "./audit-labels": "./src/audit-labels.ts",
     "./audit-report": "./src/audit-report.ts",
-    "./report": "./src/report.ts"
+    "./report": "./src/report.ts",
+    "./money": "./src/money.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.134.0",

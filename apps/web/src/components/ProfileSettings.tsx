@@ -2,11 +2,16 @@ import type { OrgProfile } from "@quorumind/core";
 import { currencyCode, EMPTY_PROFILE, PROFILE_LIMITS } from "@quorumind/core/profile";
 import { type FormEvent, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type ProfileInput } from "../api.ts";
+import { ApiError, api, type ProfileInput } from "../api.ts";
 import { failureText } from "../errors.ts";
+import { sendOnShortcut } from "../formKeys.ts";
+import { BusyButton } from "./BusyButton.tsx";
+import { ConfirmDialog, useConfirm } from "./ConfirmDialog.tsx";
 import { CurrencySelect } from "./CurrencySelect.tsx";
+import { CharCounter, FieldError, fieldProps, serverField, useFieldErrors } from "./Field.tsx";
 import { CrossIcon } from "./Icons.tsx";
 import { LoadFailed } from "./LoadFailed.tsx";
+import { ShortcutHint } from "./ShortcutHint.tsx";
 
 type Status = { kind: "idle" } | { kind: "saving" } | { kind: "done"; message: string } | { kind: "error"; message: string };
 
@@ -85,6 +90,8 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const fields = useFieldErrors();
+  const clearing = useConfirm<null>();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` asks again.
   useEffect(() => {
@@ -108,12 +115,33 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
     };
   }, [attempt]);
 
-  const update = (patch: Partial<Draft>) => {
+  const update = (patch: Partial<Draft>, field?: string) => {
     setDraft((current) => ({ ...current, ...patch }));
     setStatus({ kind: "idle" });
+    if (field) fields.clear(field);
   };
   const updateRole = (key: number, patch: Partial<Draft["roles"][number]>) =>
-    update({ roles: draft.roles.map((role) => (role.key === key ? { ...role, ...patch } : role)) });
+    update({ roles: draft.roles.map((role) => (role.key === key ? { ...role, ...patch } : role)) }, `${id}-rate-${key}`);
+
+  /** The id of the field a name from the server stands for. The server counts the roles that have a name. */
+  const fieldOfServer = (name: string | null): string | null => {
+    if (!name) return null;
+    const path = name.replace(/^profile\./, "");
+    const role = /^roles\.(\d+)\.(name|dailyRate)$/.exec(path);
+    if (role) {
+      const named = draft.roles.filter((item) => item.name.trim());
+      const found = named[Number(role[1])];
+      return found ? (role[2] === "dailyRate" ? `${id}-rate-${found.key}` : `${id}-role-${found.key}`) : null;
+    }
+    const simple: Record<string, string> = {
+      name: `${id}-name`,
+      currency: `${id}-currency`,
+      notes: `${id}-notes`,
+      "capacity.people": `${id}-people`,
+      "capacity.typicalTeamSize": `${id}-teamSize`,
+    };
+    return simple[path] ?? null;
+  };
 
   const save = async (input: ProfileInput | null, message: string) => {
     setStatus({ kind: "saving" });
@@ -124,18 +152,34 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
       setSavedAt(profile?.updatedAt ?? null);
       setStatus({ kind: "done", message });
     } catch (caught) {
-      setStatus({ kind: "error", message: failureText(t, caught) });
+      const message = caught instanceof ApiError && caught.code === "invalid_request" ? t("validation.invalid") : failureText(t, caught);
+      // The server names the field of the profile it refused: "profile.name", "profile.roles.0.dailyRate"…
+      const target = fieldOfServer(serverField(caught));
+      if (target) {
+        fields.report({ [target]: message });
+        setStatus({ kind: "idle" });
+      } else setStatus({ kind: "error", message });
     }
   };
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (!currencyCode(draft.currency)) return setStatus({ kind: "error", message: t("profile.currencyInvalid") });
-    const input = inputOf(draft);
-    if (input.roles.some((role) => !Number.isFinite(role.dailyRate) || role.dailyRate <= 0)) {
-      return setStatus({ kind: "error", message: t("profile.rateInvalid") });
+    const problems: Record<string, string> = {};
+    if (!currencyCode(draft.currency)) problems[`${id}-currency`] = t("profile.currencyInvalid");
+    for (const role of draft.roles) {
+      if (!role.name.trim()) continue;
+      const rate = Number(role.dailyRate.replace(",", "."));
+      if (!Number.isFinite(rate) || rate <= 0 || role.dailyRate.trim() === "")
+        problems[`${id}-rate-${role.key}`] = t("profile.rateInvalid");
     }
-    void save(input, t("profile.saved"));
+    for (const key of ["people", "teamSize"] as const) {
+      const text = draft[key].trim();
+      if (text !== "" && !(Number(text) >= 0)) problems[`${id}-${key}`] = t("validation.number");
+    }
+    fields.report(problems);
+    setStatus({ kind: "idle" });
+    if (Object.keys(problems).length > 0) return;
+    void save(inputOf(draft), t("profile.saved"));
   };
 
   const list = (key: "preferred" | "forbidden" | "providers" | "deliverables" | "guarantees", label: string, hint?: string) => (
@@ -144,8 +188,9 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
         {label}
       </label>
       <textarea
+        dir="auto"
         id={`${id}-${key}`}
-        className={`textarea${key === "forbidden" ? " textarea-hard" : ""}`}
+        className="textarea"
         rows={3}
         value={draft[key]}
         onChange={(event) => update({ [key]: event.target.value })}
@@ -162,7 +207,14 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
   const saving = status.kind === "saving";
   const nextKey = Math.max(-1, ...draft.roles.map((role) => role.key)) + 1;
   return (
-    <form className="card stack profile-settings" onSubmit={onSubmit} aria-busy={!loaded || saving}>
+    <form
+      ref={fields.form}
+      className="card stack profile-settings"
+      onSubmit={onSubmit}
+      onKeyDown={(event) => sendOnShortcut(event, saving)}
+      aria-busy={!loaded || saving}
+      noValidate
+    >
       <div className="stack" style={{ gap: "var(--space-2)" }}>
         <h2 className="heading">{t("profile.title")}</h2>
         <p className="field-hint" style={{ margin: 0 }}>
@@ -179,14 +231,17 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
       <label className="field" htmlFor={`${id}-name`}>
         <span className="field-label">{t("profile.name")}</span>
         <input
+          dir="auto"
           id={`${id}-name`}
           className="input"
           value={draft.name}
           maxLength={PROFILE_LIMITS.name}
           placeholder={t("profile.namePlaceholder")}
-          onChange={(event) => update({ name: event.target.value })}
+          {...fieldProps(`${id}-name`, fields.errors[`${id}-name`])}
+          onChange={(event) => update({ name: event.target.value }, `${id}-name`)}
           disabled={!loaded}
         />
+        <FieldError id={`${id}-name`} error={fields.errors[`${id}-name`]} />
       </label>
 
       <div className="two-col">
@@ -216,75 +271,101 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
               {t("profile.hostingNotes")}
             </label>
             <textarea
+              dir="auto"
               id={`${id}-hosting-notes`}
               className="textarea"
               rows={3}
               maxLength={PROFILE_LIMITS.notes}
               value={draft.hostingNotes}
+              aria-describedby={`${id}-hosting-notes-counter`}
               onChange={(event) => update({ hostingNotes: event.target.value })}
               disabled={!loaded}
             />
+            <CharCounter id={`${id}-hosting-notes`} value={draft.hostingNotes} max={PROFILE_LIMITS.notes} />
           </div>
         </div>
       </fieldset>
 
       <fieldset className="field profile-group">
-        <legend className="field-label">{t("profile.roles")}</legend>
-        <p className="field-hint" style={{ margin: 0 }}>
-          {t("profile.rolesHint")}
-        </p>
+        <legend className="field-label">{t("profile.pricing")}</legend>
         <div className="field profile-currency">
           <label className="field-label" htmlFor={`${id}-currency`}>
             {t("profile.currency")}
           </label>
-          <CurrencySelect id={`${id}-currency`} value={draft.currency} onChange={(currency) => update({ currency })} disabled={!loaded} />
+          <CurrencySelect
+            id={`${id}-currency`}
+            value={draft.currency}
+            onChange={(currency) => update({ currency }, `${id}-currency`)}
+            disabled={!loaded}
+            invalid={Boolean(fields.errors[`${id}-currency`])}
+            describedBy={fields.errors[`${id}-currency`] ? `${id}-currency-hint ${id}-currency-error` : `${id}-currency-hint`}
+          />
+          <p className="field-hint" id={`${id}-currency-hint`} style={{ margin: 0 }}>
+            {t("profile.currencyHint")}
+          </p>
+          <FieldError id={`${id}-currency`} error={fields.errors[`${id}-currency`]} />
         </div>
-        {draft.roles.map((role, index) => (
-          <div className="profile-role" key={role.key}>
-            <input
-              className="input"
-              aria-label={t("profile.role", { number: index + 1 })}
-              placeholder={t("profile.rolePlaceholder")}
-              maxLength={PROFILE_LIMITS.item}
-              value={role.name}
-              onChange={(event) => updateRole(role.key, { name: event.target.value })}
-              disabled={!loaded}
-            />
-            <input
-              className="input mono"
-              type="number"
-              min={0}
-              step="any"
-              inputMode="decimal"
-              aria-label={t("profile.dailyRate", { number: index + 1, currency: draft.currency })}
-              placeholder={t("profile.dailyRatePlaceholder", { currency: draft.currency })}
-              value={role.dailyRate}
-              onChange={(event) => updateRole(role.key, { dailyRate: event.target.value })}
-              disabled={!loaded}
-            />
-            <button
-              type="button"
-              className="icon-button"
-              style={{ inlineSize: 24, blockSize: 24, border: 0 }}
-              aria-label={t("profile.removeRole", { name: role.name || index + 1 })}
-              onClick={() => update({ roles: draft.roles.filter((item) => item.key !== role.key) })}
-            >
-              <CrossIcon />
-            </button>
-          </div>
-        ))}
-        {draft.roles.length < PROFILE_LIMITS.roles ? (
-          <div>
-            <button
-              type="button"
-              className="button button-quiet"
-              onClick={() => update({ roles: [...draft.roles, { key: nextKey, name: "", dailyRate: "" }] })}
-              disabled={!loaded}
-            >
-              + {t("profile.addRole")}
-            </button>
-          </div>
-        ) : null}
+        <fieldset className="field profile-group profile-rates">
+          <legend className="field-label">{t("profile.roles")}</legend>
+          <p className="field-hint" style={{ margin: 0 }}>
+            {t("profile.rolesHint")}
+          </p>
+          {draft.roles.map((role, index) => (
+            <div className="profile-role" key={role.key}>
+              <input
+                dir="auto"
+                className="input"
+                aria-label={t("profile.role", { number: index + 1 })}
+                placeholder={t("profile.rolePlaceholder")}
+                maxLength={PROFILE_LIMITS.item}
+                value={role.name}
+                onChange={(event) => updateRole(role.key, { name: event.target.value })}
+                disabled={!loaded}
+              />
+              <div className="profile-rate">
+                <input
+                  className="input mono"
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
+                  aria-label={t("profile.dailyRate", { number: index + 1, currency: draft.currency })}
+                  placeholder={t("profile.dailyRatePlaceholder")}
+                  value={role.dailyRate}
+                  {...fieldProps(`${id}-rate-${role.key}`, fields.errors[`${id}-rate-${role.key}`])}
+                  onChange={(event) => updateRole(role.key, { dailyRate: event.target.value })}
+                  disabled={!loaded}
+                />
+                {/* The field's name already says the currency: the code beside it is only for the eye. */}
+                <span className="profile-rate-code figure" aria-hidden="true">
+                  <bdi>{draft.currency.trim().toUpperCase()}</bdi>
+                </span>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                style={{ inlineSize: 24, blockSize: 24, border: 0 }}
+                aria-label={t("profile.removeRole", { name: role.name || index + 1 })}
+                onClick={() => update({ roles: draft.roles.filter((item) => item.key !== role.key) })}
+              >
+                <CrossIcon />
+              </button>
+              <FieldError id={`${id}-rate-${role.key}`} error={fields.errors[`${id}-rate-${role.key}`]} />
+            </div>
+          ))}
+          {draft.roles.length < PROFILE_LIMITS.roles ? (
+            <div>
+              <button
+                type="button"
+                className="button button-quiet"
+                onClick={() => update({ roles: [...draft.roles, { key: nextKey, name: "", dailyRate: "" }] })}
+                disabled={!loaded}
+              >
+                + {t("profile.addRole")}
+              </button>
+            </div>
+          ) : null}
+        </fieldset>
       </fieldset>
 
       <fieldset className="field profile-group">
@@ -302,9 +383,11 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
                 min={0}
                 inputMode="numeric"
                 value={draft[key]}
-                onChange={(event) => update({ [key]: event.target.value })}
+                {...fieldProps(`${id}-${key}`, fields.errors[`${id}-${key}`])}
+                onChange={(event) => update({ [key]: event.target.value }, `${id}-${key}`)}
                 disabled={!loaded}
               />
+              <FieldError id={`${id}-${key}`} error={fields.errors[`${id}-${key}`]} />
             </div>
           ))}
         </div>
@@ -320,25 +403,29 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
           {t("profile.notes")}
         </label>
         <textarea
+          dir="auto"
           id={`${id}-notes`}
           className="textarea"
           rows={3}
           maxLength={PROFILE_LIMITS.notes}
           value={draft.notes}
-          onChange={(event) => update({ notes: event.target.value })}
+          {...fieldProps(`${id}-notes`, fields.errors[`${id}-notes`], `${id}-notes-counter`)}
+          onChange={(event) => update({ notes: event.target.value }, `${id}-notes`)}
           disabled={!loaded}
         />
+        <FieldError id={`${id}-notes`} error={fields.errors[`${id}-notes`]} />
+        <CharCounter id={`${id}-notes`} value={draft.notes} max={PROFILE_LIMITS.notes} />
       </div>
 
       <div className="row">
-        <button type="submit" className="button button-primary" disabled={!loaded || saving}>
-          {saving ? t("profile.saving") : t("profile.save")}
-        </button>
+        <BusyButton type="submit" busy={saving} busyLabel={t("profile.saving")} disabled={!loaded}>
+          {t("profile.save")}
+        </BusyButton>
         {savedAt ? (
           <button
             type="button"
             className="button button-secondary"
-            onClick={() => void save(null, t("profile.cleared"))}
+            onClick={(event) => clearing.ask(null, event.currentTarget)}
             disabled={!loaded || saving}
           >
             {t("profile.clear")}
@@ -348,6 +435,23 @@ export function ProfileSettings({ defaultCurrency }: { defaultCurrency: string }
           {status.kind === "done" || status.kind === "error" ? status.message : ""}
         </span>
       </div>
+      <ShortcutHint />
+      <ConfirmDialog
+        confirm={clearing}
+        title={t("profile.clearTitle")}
+        confirmLabel={t("profile.clear")}
+        errorText={(caught) => failureText(t, caught)}
+        // The button that opened the dialog goes with the profile: the focus goes to the form's first field.
+        focusAfter={() => document.getElementById(`${id}-name`)}
+        onConfirm={async () => {
+          await api.saveProfile(null);
+          setDraft(draftOf({ ...EMPTY_PROFILE, currency: defaultCurrency }));
+          setSavedAt(null);
+          setStatus({ kind: "done", message: t("profile.cleared") });
+        }}
+      >
+        <p style={{ margin: 0 }}>{t("profile.clearLead")}</p>
+      </ConfirmDialog>
     </form>
   );
 }

@@ -14,6 +14,7 @@ import {
 import { decisionFacts, decisionMarkdown, decisionStatusText } from "./decision-report.ts";
 import type { DiagramComponent, DiagramFlow } from "./diagram.ts";
 import type { Locale } from "./locales.ts";
+import { formatCurrency } from "./money.ts";
 import { CAP_FALLBACK_PRICE } from "./pricing.ts";
 import { isGenericRole, type OrgProfile } from "./profile.ts";
 import { rankOptions } from "./ranking.ts";
@@ -22,7 +23,7 @@ import { researchLabels } from "./research-labels.ts";
 import { numberedSources, refsOf, refsText, researchMarkdown, researchNote } from "./research-report.ts";
 import { revisionMarkdown, revisionNote } from "./revision-report.ts";
 import type { ComponentKind, Probe, Proposal, RequirementsSheet } from "./schemas.ts";
-import { COMPLIANCE_KEYS, currentProposals, DEVIL_SEAT, hasUnpricedCalls, type Session, USER_SEAT } from "./session.ts";
+import { COMPLIANCE_KEYS, currentProposals, currentRevision, DEVIL_SEAT, hasUnpricedCalls, type Session, USER_SEAT } from "./session.ts";
 
 export { threeYearCost };
 
@@ -46,20 +47,41 @@ export function modeName(session: Session, t: Labels): string {
 
 export function formatMoney(amount: number, currency: string, locale: Locale): string {
   try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+    return formatCurrency(new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }), amount, currency);
   } catch {
     return `${new Intl.NumberFormat(locale).format(amount)} ${currency}`;
   }
 }
 
-/** A cost range such as "€120 – €260". */
+/** A cost range such as "120 € – 260 €". */
 export function formatRange(range: { low: number; high: number; currency: string }, locale: Locale): string {
   return `${formatMoney(range.low, range.currency, locale)} – ${formatMoney(range.high, range.currency, locale)}`;
 }
 
 /** Fills `{name}` placeholders of a label. */
-export function fill(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) => (key in values ? String(values[key]) : match));
+export function fill(
+  template: string,
+  values: Record<string, string | number>,
+  locale: Locale = "en",
+  counts: Record<string, number> = {},
+): string {
+  // {name|one=# week|other=# weeks}: the form of the language for the number `name` stands for ("#" is the number).
+  // A form ends at the next "|" and the block at the next "}": write "\\|" or "\\}" for a literal one inside a form.
+  // `counts` gives the number when the value is already formatted text ("+2", "1,200").
+  const rules = new Intl.PluralRules(locale);
+  const unescapeForm = (text: string) => text.replace(/\\([|}])/g, "$1");
+  const plural = (key: string, forms: string) => {
+    if (!(key in values)) return `{${key}|${forms}}`;
+    const parsed = forms.split(/(?<!\\)\|/).map((form) => [form.slice(0, form.indexOf("=")), form.slice(form.indexOf("=") + 1)] as const);
+    const byForm = new Map(parsed);
+    const number = counts[key] ?? Number(values[key]);
+    // The form of the number, else `other`, else the first one written: never an empty string.
+    const form = (Number.isFinite(number) ? byForm.get(rules.select(number)) : undefined) ?? byForm.get("other") ?? parsed[0]?.[1] ?? "";
+    return unescapeForm(form).replaceAll("#", String(values[key]));
+  };
+  return template
+    .replace(/\{(\w+)\|((?:\\.|[^}\\])*)\}/g, (_match, key: string, forms: string) => plural(key, forms))
+    .replace(/\{(\w+)\}/g, (match, key: string) => (key in values ? String(values[key]) : match));
 }
 
 /** "Label: value" with the punctuation of the language: French puts a narrow no-break space before the colon. */
@@ -162,14 +184,19 @@ export function checkBadges(checks: OptionChecks | undefined, t: Labels, locale:
     const { status, by } = checks.time;
     badges.push({
       status,
-      text: status === "over" ? fill(t.late, { weeks: by }) : status === "at_risk" ? fill(t.lateAtRisk, { weeks: by }) : t.onTime,
+      text:
+        status === "over"
+          ? fill(t.late, { weeks: by }, locale)
+          : status === "at_risk"
+            ? fill(t.lateAtRisk, { weeks: by }, locale)
+            : t.onTime,
     });
   }
   const order: Record<CheckStatus, number> = { over: 0, at_risk: 1, within: 2 };
   return badges.sort((a, b) => order[a.status] - order[b.status]);
 }
 
-/** The build budget and the running budget of a sheet, then its note: "Build budget: €15,000 · Running budget: €400 a month". */
+/** The build budget and the running budget of a sheet, then its note: "Build budget: 15,000 € · Running budget: 400 € a month". */
 export function budgetText(sheet: RequirementsSheet, t: Labels, locale: Locale): string {
   return [budgetAmounts(sheet, t, locale), sheet.budget.note.trim()].filter(Boolean).join(". ");
 }
@@ -182,7 +209,7 @@ export function budgetLine(sheet: RequirementsSheet, t: Labels, locale: Locale):
   return note ? labelled(t.budget, note, locale) : "";
 }
 
-/** The amounts of the budget alone: "Build budget: €15,000 · Running budget: €400 a month", or "" when unknown. */
+/** The amounts of the budget alone: "Build budget: 15,000 € · Running budget: 400 € a month", or "" when unknown. */
 export function budgetAmounts(sheet: RequirementsSheet, t: Labels, locale: Locale): string {
   const { build, run } = sheet.budget;
   const parts = [
@@ -223,7 +250,7 @@ export function deadlineText(sheet: RequirementsSheet, t: Labels, locale: Locale
   const head = date
     ? formatDate(date, locale)
     : duration
-      ? fill(duration.unit === "week" ? t.weeks : t.months, { count: count(duration.amount, locale) })
+      ? fill(duration.unit === "week" ? t.weeks : t.months, { count: count(duration.amount, locale) }, locale, { count: duration.amount })
       : "";
   return [head, note.trim()].filter(Boolean).join(". ");
 }
@@ -237,7 +264,7 @@ export function complianceItems(sheet: RequirementsSheet, t: Labels): string[] {
 export function weeksText(weeks: { low: number; high: number } | null, t: Labels, locale: Locale): string | null {
   if (!weeks) return null;
   return weeks.low === weeks.high
-    ? fill(t.weeks, { count: count(weeks.low, locale) })
+    ? fill(t.weeks, { count: count(weeks.low, locale) }, locale, { count: weeks.low })
     : fill(t.weeksRange, { low: count(weeks.low, locale), high: count(weeks.high, locale) });
 }
 
@@ -338,8 +365,8 @@ export function participants(session: Session, t: Labels): { role: string; model
  * how its cost cap counted the calls of models without a known price.
  */
 export function methodNotes(session: Session, t: Labels): string[] {
-  const notes = [fill(t.methodText, { rounds: session.rounds })];
-  if (session.shortened) notes.push(fill(t.shortened, { done: session.shortened.rounds, planned: session.rounds }));
+  const notes = [fill(t.methodText, { rounds: session.rounds }, session.locale)];
+  if (session.shortened) notes.push(fill(t.shortened, { done: session.shortened.rounds, planned: session.rounds }, session.locale));
   if (session.budgetUsd !== null && hasUnpricedCalls(session)) {
     const usd = (amount: number) => formatMoney(amount, "USD", session.locale);
     notes.push(fill(t.unpricedCap, { input: usd(CAP_FALLBACK_PRICE.input), output: usd(CAP_FALLBACK_PRICE.output) }));
@@ -373,7 +400,28 @@ export function reportSlug(session: Session): string {
   return slug || "quorumind";
 }
 
-const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+/**
+ * The name of an exported file: the project, the version of the verdict the document shows, then what it is, e.g.
+ * "studio-booking-app-v2-report.docx". Exporting versions 1, 2 and 3 therefore gives three different files. Only
+ * lowercase letters, digits and hyphens come from the session, so the name is valid on every operating system (no
+ * reserved device name such as "con" or "nul" can stand alone: the suffix always follows it) and safe inside a
+ * Content-Disposition header.
+ */
+export function exportFileName(session: Session, part: string | null, extension: string): string {
+  const revision = currentRevision(session);
+  const version = revision ? `-v${revision.number}` : "";
+  const base = `${reportSlug(session)}${version}${part ? `-${part}` : ""}`;
+  // Windows reserves these names whatever the extension: a bare project called "con" or "nul" gets a word after it.
+  return `${/^(con|prn|aux|nul|com\d|lpt\d)$/.test(base) ? `${base}-export` : base}.${extension}`;
+}
+
+/**
+ * A model's text inside a Markdown list item: its further lines indented under the item, so that a blank line between
+ * paragraphs does not end the list. Blank lines stay empty.
+ */
+export const inItem = (text: string, indent = 2) => text.replace(/\n(?=[^\n])/g, `\n${" ".repeat(indent)}`);
+
+const list = (items: string[]) => items.map((item) => `- ${inItem(item)}`).join("\n");
 const cell = (text: string) => text.replaceAll("|", "\\|").replaceAll("\n", " ");
 
 // Mermaid reads quoted labels literally except for its entity codes, so the characters that could
@@ -537,7 +585,7 @@ export function renderReport(session: Session): string {
     }
     lines.push("", `_${t.scoreLegend}_`, "");
     for (const option of verdict.options) {
-      lines.push(`- **${seatName(option.seat, t)}, ${t[option.feasibility]}:** ${option.reason}`);
+      lines.push(`- **${seatName(option.seat, t)}, ${t[option.feasibility]}:** ${inItem(option.reason)}`);
       if (option.conditions.length > 0) lines.push(`  - ${say(t.conditions, option.conditions.join("; "))}`);
       if (badges(option.seat)) lines.push(`  - ${say(t.checks, badges(option.seat))}`);
     }
@@ -614,7 +662,7 @@ export function renderReport(session: Session): string {
     if (verdict.roadmap.length > 0) {
       lines.push(`## ${t.roadmap}`, "");
       verdict.roadmap.forEach((phase, index) => {
-        lines.push(`${index + 1}. **${phase.phase}:** ${phase.content} (${say(t.exitCriterion, phase.exitCriterion)})`);
+        lines.push(`${index + 1}. **${phase.phase}:** ${inItem(phase.content, 3)} (${say(t.exitCriterion, phase.exitCriterion)})`);
       });
       lines.push("");
     }
@@ -735,8 +783,8 @@ export function renderAdr(session: Session, numbering: { number?: number | null 
     const proposal = proposals[seat];
     const title = proposal?.title ?? option?.title ?? "";
     lines.push(`${index + 1}. **${seatName(seat, t)}: ${title}**${option ? `: ${t[option.feasibility]}` : ""}`);
-    if (proposal) lines.push(`   - ${proposal.summary}`);
-    if (option) lines.push(`   - ${option.reason}`);
+    if (proposal) lines.push(`   - ${inItem(proposal.summary, 5)}`);
+    if (option) lines.push(`   - ${inItem(option.reason, 5)}`);
   });
   lines.push("");
 
@@ -772,7 +820,7 @@ export function renderAdr(session: Session, numbering: { number?: number | null 
   }
 
   lines.push(`## ${t.links}`, "");
-  lines.push(`- ${t.fullReport}: ${reportSlug(session)}-report.md`, `- ${t.session}: ${session.id}`);
+  lines.push(`- ${t.fullReport}: ${exportFileName(session, "report", "md")}`, `- ${t.session}: ${session.id}`);
   if (session.parentId) lines.push(`- ${t.revisits}: ${session.parentId}`);
   lines.push("", `_${t.generated}_`, "");
   return lines.join("\n");

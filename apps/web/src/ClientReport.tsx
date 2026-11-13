@@ -2,6 +2,7 @@ import type { ClientDeliverable } from "@quorumind/core";
 import { useTranslation } from "react-i18next";
 import { AuditView, auditHeadline } from "./Audit.tsx";
 import { DownloadIcon, SparkIcon } from "./components/Icons.tsx";
+import { ScrollRegion } from "./components/ScrollRegion.tsx";
 import { ResearchFacts } from "./components/Sources.tsx";
 import { CheckBadges, dayRange, moneyRange } from "./costing.tsx";
 import { labelled } from "./format.ts";
@@ -34,8 +35,14 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
           <p className="title" style={{ margin: 0 }}>
             {audit.hint}
           </p>
-          <p style={{ margin: 0, maxInlineSize: "70ch" }}>{recommendation.rationale}</p>
-          {deliverable.summary ? <p style={{ margin: 0, maxInlineSize: "70ch" }}>{deliverable.summary}</p> : null}
+          <p className="model-text" style={{ margin: 0, maxInlineSize: "70ch" }}>
+            {recommendation.rationale}
+          </p>
+          {deliverable.audit.summary ? (
+            <p className="model-text" style={{ margin: 0, maxInlineSize: "70ch" }}>
+              {deliverable.audit.summary}
+            </p>
+          ) : null}
           <div className="row">
             <a className="button button-secondary" href={reportUrl} download>
               <DownloadIcon />
@@ -63,8 +70,12 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
             {recommendation.title}
           </p>
         ) : null}
-        <p style={{ margin: 0, maxInlineSize: "70ch" }}>{recommendation.rationale}</p>
-        {deliverable.summary ? <p style={{ margin: 0, maxInlineSize: "70ch" }}>{deliverable.summary}</p> : null}
+        {/* The rationale is written for whoever ran the debate: the version written for the client replaces it. */}
+        {brief ? null : (
+          <p className="model-text" style={{ margin: 0, maxInlineSize: "70ch" }}>
+            {recommendation.rationale}
+          </p>
+        )}
         <div className="row">
           <a className="button button-secondary" href={reportUrl} download>
             <DownloadIcon />
@@ -79,11 +90,15 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
             <SparkIcon />
             {brief.headline}
           </h2>
-          <p style={{ margin: 0 }}>{brief.summary}</p>
+          <p className="model-text" style={{ margin: 0 }}>
+            {brief.summary}
+          </p>
           {brief.sections.map((section) => (
             <div key={section.title}>
               <h3 className="title">{section.title}</h3>
-              <p style={{ margin: 0 }}>{section.body}</p>
+              <p className="model-text" style={{ margin: 0 }}>
+                {section.body}
+              </p>
             </div>
           ))}
           {brief.nextSteps.length > 0 ? (
@@ -102,7 +117,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
       {deliverable.options.length > 0 ? (
         <section className="stack">
           <h2 className="heading">{t("verdict.matrix")}</h2>
-          <div className="table-wrap">
+          <ScrollRegion label={t("verdict.matrix")}>
             <table>
               <thead>
                 <tr>
@@ -130,7 +145,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
                     <td>
                       <div className="stack" style={{ gap: "var(--space-2)" }}>
                         <FeasibilityChip value={option.feasibility} />
-                        <span className="field-hint">{option.reason}</span>
+                        <span className="field-hint model-text">{option.reason}</span>
                         {option.conditions.length > 0 ? (
                           <span className="field-hint">
                             {labelled(t("verdict.conditions"), option.conditions.join(" · "), i18n.language)}
@@ -146,7 +161,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
         </section>
       ) : null}
 
@@ -167,7 +182,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
                 </div>
                 <CheckBadges checks={costing.checks ?? undefined} />
                 {costing.packages.length > 0 ? (
-                  <div className="table-wrap">
+                  <ScrollRegion label={option.title}>
                     <table className="costing">
                       <thead>
                         <tr>
@@ -200,7 +215,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
                         </tr>
                       </tfoot>
                     </table>
-                  </div>
+                  </ScrollRegion>
                 ) : null}
                 <div className="facts">
                   <div className="fact">
@@ -247,7 +262,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
       {deliverable.risks.length > 0 ? (
         <section className="stack">
           <h2 className="heading">{t("verdict.risks")}</h2>
-          <div className="table-wrap">
+          <ScrollRegion label={t("verdict.risks")}>
             <table>
               <thead>
                 <tr>
@@ -268,7 +283,7 @@ export function ClientReport({ deliverable, reportUrl }: { deliverable: ClientDe
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
         </section>
       ) : null}
 

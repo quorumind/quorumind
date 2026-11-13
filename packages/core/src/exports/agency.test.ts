@@ -55,7 +55,7 @@ describe("client proposal", () => {
     expect(xml).toContain("Prepared for: </w:t>");
     expect(xml).toContain("Studio Collective");
     expect(xml).toContain("Atelier Nord");
-    expect(xml).toMatch(/Revision 2 · \w+ \d+, \d{4}/);
+    expect(xml).toMatch(/Version 2 · \w+ \d+, \d{4}/);
     expect(xml.match(/<w:tbl>/g)).toHaveLength(2);
     expect(xml).toContain("<w:numPr>");
     expect(xml).not.toContain("<w:drawing>");
@@ -64,7 +64,7 @@ describe("client proposal", () => {
     }
     const styles = readZip(document, "word/styles.xml");
     expect(styles).toContain("AA3366");
-    expect(readZip(document, "word/footer1.xml")).toContain("Atelier Nord · Revision 2");
+    expect(readZip(document, "word/footer1.xml")).toContain("Atelier Nord · Version 2");
   });
 
   it("puts the agency's logo on the cover with a text alternative", async () => {

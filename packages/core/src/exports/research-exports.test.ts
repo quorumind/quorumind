@@ -35,6 +35,9 @@ describe("exports with web research", () => {
     expect(xml).toContain("Web research");
     expect(xml).toContain("https://www.postgresql.org/support/versioning/");
     expect(xml).toContain("[2]");
+    // The day each source was read is filled in, not left as the {date} of the template.
+    expect(xml).toContain("(retrieved on June 15, 2026)");
+    expect(xml).not.toContain("{date}");
   });
 
   it("the client deliverable and the client proposal carry the facts and their public sources", async () => {

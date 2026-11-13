@@ -7,6 +7,7 @@ import { useCanEdit } from "./access.tsx";
 import { ApiError, api, type Share, type ShareSettings } from "./api.ts";
 import { CopyField } from "./components/CopyField.tsx";
 import { Dialog, useDialog } from "./components/Dialog.tsx";
+import { useRefocus } from "./components/focus.ts";
 import { BranchIcon, ShareIcon, StopIcon, TrashIcon } from "./components/Icons.tsx";
 import { ShareOptions } from "./components/ShareOptions.tsx";
 import { failureText } from "./errors.ts";
@@ -43,6 +44,8 @@ export function SessionActions({
   // its dialog.
   const [errors, setErrors] = useState<Partial<Record<Action, string>>>({});
   const link = share ? `${window.location.origin}${window.location.pathname}#/shared/${share.token}` : "";
+  // Creating the link or stopping it replaces the button pressed: the keyboard stays in the dialog, on its title.
+  useRefocus(Boolean(share), () => document.getElementById("share-title"));
   const working = isWorking(session);
 
   const run = async (action: Action, work: () => Promise<void>) => {
@@ -78,7 +81,7 @@ export function SessionActions({
       {session.sheet ? (
         <button type="button" className="button button-quiet" onClick={fork} disabled={pending !== null} title={t("session.forkHint")}>
           <BranchIcon />
-          {t("session.fork")}
+          <span className="fork-label">{t("session.fork")}</span>
         </button>
       ) : null}
       {canEdit && working ? (

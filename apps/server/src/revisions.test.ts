@@ -73,9 +73,9 @@ describe.each(BACKENDS)("verdict revisions on $name", (backend) => {
     expect(revised.usage.filter((record) => record.revision === 2).map((record) => record.task)).toEqual(["critique", "reassess"]);
 
     const latest = await (await app.request(`/api/sessions/${session.id}/report.md`, { headers: as("ada") })).text();
-    expect(latest).toContain("## What changed since revision 1");
+    expect(latest).toContain("## What changed since version 1");
     const first = await (await app.request(`/api/sessions/${session.id}/report.md?revision=1`, { headers: as("ada") })).text();
-    expect(first).toContain(" · Revision 1 · ");
+    expect(first).toContain(" · Version 1 · ");
     expect(first).not.toContain("What changed");
     expect(first).toContain("Which SMS provider meets the cost assumption?");
     expect((await app.request(`/api/sessions/${session.id}/report.md?revision=9`, { headers: as("ada") })).status).toBe(404);

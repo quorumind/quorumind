@@ -5,7 +5,8 @@ import en from "./locales/en.json";
 
 const STORAGE_KEY = "quorumind.locale";
 
-type Translations = typeof en;
+// Plural forms differ by language (Arabic has six, Japanese one), so the files share a shape, not a key list.
+type Translations = Record<string, unknown>;
 
 // English is bundled, as the fallback of every missing key; each other language is a file of its own, loaded when
 // it is used.

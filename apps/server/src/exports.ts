@@ -4,6 +4,7 @@ import {
   BRAND_NAME_MAX,
   clientProposal,
   currentView,
+  exportFileName,
   isAccent,
   LOGO_MAX_DATA_URL,
   normalizeSession,
@@ -130,7 +131,7 @@ export function exportRoutes(deps: ExportDeps) {
     const session = await load(c);
     if (!session) return notFound(c);
     const document = await renderDocx(session, await branding(c));
-    attachment(c, MIME.docx, `${reportSlug(session)}-report.docx`);
+    attachment(c, MIME.docx, exportFileName(session, "report", "docx"));
     return c.body(document as Uint8Array<ArrayBuffer>);
   });
 
@@ -144,7 +145,7 @@ export function exportRoutes(deps: ExportDeps) {
     if (!session) return notFound(c);
     if (!session.verdict || session.phase !== "complete") return noVerdict(c);
     const document = await renderProposalDocx(proposalOf(c, session), await branding(c));
-    attachment(c, MIME.docx, `${reportSlug(session)}-proposal.docx`);
+    attachment(c, MIME.docx, exportFileName(session, "proposal", "docx"));
     return c.body(document as Uint8Array<ArrayBuffer>);
   });
 
@@ -167,6 +168,7 @@ export function exportRoutes(deps: ExportDeps) {
     if (number && !number.success)
       return c.json({ error: "invalid_request", message: "The ADR number must be a whole number from 1." }, 400);
     const value = number?.success ? number.data : null;
+    // An ADR is identified by its number (a repository keeps "0007-title.md"), so it carries no version suffix.
     attachment(c, MIME.markdown, `${String(value ?? 1).padStart(4, "0")}-${reportSlug(session)}.md`);
     return c.body(renderAdr(session, { number: value }));
   });
@@ -200,7 +202,7 @@ export function exportRoutes(deps: ExportDeps) {
     const session = await load(c);
     if (!session) return notFound(c);
     if (!session.verdict) return noVerdict(c);
-    attachment(c, MIME.zip, `${reportSlug(session)}-handoff.zip`);
+    attachment(c, MIME.zip, exportFileName(session, "handoff", "zip"));
     return c.body(zipFiles(renderHandoff(session), new Date(session.updatedAt)) as Uint8Array<ArrayBuffer>);
   });
 

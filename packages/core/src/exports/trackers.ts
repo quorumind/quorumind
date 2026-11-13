@@ -1,4 +1,4 @@
-import { chosenOption, reportSlug } from "../report.ts";
+import { chosenOption, exportFileName } from "../report.ts";
 import type { Session } from "../session.ts";
 import { toCsv } from "./csv.ts";
 
@@ -87,7 +87,7 @@ export function roadmapPlan(session: Session): RoadmapPlan {
 
 const phaseTitle = (phase: RoadmapPhase) => shortTitle(`Phase ${phase.number}: ${phase.name}`, 200);
 const source = (plan: RoadmapPlan) =>
-  `Planned with Quorumind from decision session ${plan.sessionId} (${plan.date})${plan.decision ? `: ${plan.decision}` : ""}.`;
+  `Planned with Quorumind from debate ${plan.sessionId} (${plan.date})${plan.decision ? `: ${plan.decision}` : ""}.`;
 
 /**
  * Jira's CSV importer (System, External system import, CSV), one row per work item, epics first. Map the columns
@@ -315,4 +315,4 @@ export function renderGithubIssues(session: Session): { path: string; content: s
 
 /** File names of the tracker exports. */
 export const trackerFileName = (session: Session, kind: "jira" | "linear" | "github") =>
-  `${reportSlug(session)}-${kind === "github" ? "github-issues.zip" : `${kind}.csv`}`;
+  kind === "github" ? exportFileName(session, "github-issues", "zip") : exportFileName(session, kind, "csv");

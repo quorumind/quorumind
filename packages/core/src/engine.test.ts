@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEMO_LINEUP, providersFor } from "./config.ts";
 import { DEMO_IDEA } from "./demo.ts";
-import { BudgetExceededError, DebateEngine, type EngineEvent, type ProviderSet, retryDelay } from "./engine.ts";
+import { BudgetExceededError, collectQuestions, DebateEngine, type EngineEvent, type ProviderSet, retryDelay } from "./engine.ts";
 import { setModelPrice } from "./pricing.ts";
 import { MockProvider } from "./providers/mock.ts";
 import { type GenerateRequest, type GenerateResult, type LlmProvider, ProviderError } from "./providers/types.ts";
@@ -152,7 +152,7 @@ describe("cost cap", () => {
     expect(session.shortened).toEqual({ rounds: 0 });
     expect(session.debate.some((entry) => entry.kind === "critiques")).toBe(false);
     expect(session.usage.map((record) => record.task)).toEqual(["interview", "interview", "proposal", "proposal", "verdict"]);
-    expect(renderReport(session)).toContain("The debate was shortened to stay within its budget: 0 of the 1 planned round(s)");
+    expect(renderReport(session)).toContain("The debate was shortened to stay within its budget: 0 of the 1 planned round");
     session.locale = "fr";
     expect(renderReport(session)).toContain("Le débat a été écourté pour rester dans son budget");
   });
@@ -275,7 +275,11 @@ describe("failures", () => {
     const { engine, session } = setup({ interviewer: mock, arbiter: flaky, proposers: { A: mock, B: mock } });
     await runToVerdict(engine, session);
     expect(session.phase).toBe("failed");
-    expect(session.error).toEqual({ code: "provider_error", message: "Temporary outage", params: { provider: "mock", model: "mock" } });
+    expect(session.error).toEqual({
+      code: "provider_error",
+      message: "Temporary outage",
+      params: { provider: "mock", model: "mock", task: "verdict" },
+    });
     const proposalsBefore = session.debate.filter((entry) => entry.kind === "proposal").length;
 
     const next = await engine.resume(session);
@@ -302,7 +306,7 @@ describe("failures", () => {
     expect(session.error).toEqual({
       code: "provider_auth",
       message: "The Anthropic API key was rejected.",
-      params: { provider: "anthropic", model: "claude-test" },
+      params: { provider: "anthropic", model: "claude-test", task: "interview" },
     });
   });
 
@@ -662,5 +666,48 @@ describe("briefs", () => {
     target = session;
     await expect(engine.writeBrief(session, "executive")).rejects.toMatchObject({ code: "verdict_changed" });
     expect(session.briefs.executive).toBeUndefined();
+  });
+});
+
+describe("the questions a round of critiques asks the person", () => {
+  it("are asked once, however the critics wrote the same question", () => {
+    const round = (seat: string, questionsForUser: string[]) =>
+      ({ kind: "critiques", seat, round: 1, data: { speech: "", critiques: [], questionsForUser } }) as Session["debate"][number];
+    const session = {
+      debate: [
+        round("A", ["Is the budget firm?", "Who hosts the data?"]),
+        round("B", ["is the budget  firm ?", "Who hosts the data ?"]),
+        round("devil", ["Is the  Budget firm"]),
+      ],
+    } as Session;
+    expect(collectQuestions(session, 1)).toEqual(["Is the budget firm?", "Who hosts the data?"]);
+  });
+});
+
+describe("two questions of a round", () => {
+  const asked = (...questions: string[]) =>
+    collectQuestions(
+      {
+        debate: questions.map((question, index) => ({
+          kind: "critiques",
+          seat: `S${index}`,
+          round: 1,
+          data: { speech: "", critiques: [], questionsForUser: [question] },
+        })) as Session["debate"],
+      },
+      1,
+    );
+
+  it("stay apart when a symbol tells them apart", () => {
+    expect(asked("Does the team know C#?", "Does the team know C++?", "Does the team know C?")).toHaveLength(3);
+    expect(asked("Can you spend over €10k?", "Can you spend over $10k?")).toHaveLength(2);
+    expect(asked("Is downtime > 1 hour acceptable?", "Is downtime < 1 hour acceptable?")).toHaveLength(2);
+    expect(asked("Do you prefer .NET or Node?", "Do you prefer NET or Node?")).toHaveLength(2);
+  });
+
+  it("are one when only spacing, case or the final punctuation differ", () => {
+    expect(asked("Can members pay at the desk?", "can members pay at the desk ?", "Can members  pay at the desk")).toHaveLength(1);
+    expect(asked("会员可以在前台付款吗？", "会员可以在前台付款吗?")).toHaveLength(1);
+    expect(asked("هل يمكن الدفع نقدًا؟", "هل يمكن الدفع نقدًا ؟")).toHaveLength(1);
   });
 });

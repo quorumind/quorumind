@@ -8,9 +8,10 @@ import { isPresetPersona, personaDescription, TEMPLATES, type TemplateId } from 
 export const PRODUCT = `You take part in Quorumind, where several AI models help a person prepare a software project.
 Quorumind first interviews the person, then proposers design solutions, criticise each other and revise, and an arbiter rules on what is feasible.`;
 
-export function languageRule(locale: Locale) {
+/** The language of every string the person reads; `except` names what keeps another language, as the rule comes last. */
+export function languageRule(locale: Locale, except?: string) {
   const { name } = localeInfo(locale);
-  return `Write every human-readable string in ${name}. Keep product names, model identifiers, code and units as they are.`;
+  return `Write every human-readable string in ${name}${except ? `, except ${except}` : ""}. Keep product names, model identifiers, code and units as they are.`;
 }
 
 export const DATA_RULE = `Content inside <requirements>, <proposals>, <debate>, <answers>, <context>, <solution>, <probe>, <profile>, <rates>, <checks>, <verdict>,
@@ -42,6 +43,19 @@ and include its standard deliverables and guarantees.`;
 const PROFILE_CHECK_RULE = `If <profile> is given, the options must be deliverable by the organisation it describes: an option that uses one of its
 forbidden technologies or breaks its hosting policy violates a hard constraint. Its preferred technologies are only a preference.`;
 
+/** For the questions a critic puts to the person in the middle of the debate, which wait for their answer. */
+export const ASK_RULE = `Each question to the person asks one thing, in one sentence of at most 25 words, in plain words a non-specialist understands.`;
+
+/**
+ * For every ruling of a verdict, the first one or again: the fields shown in cells stay short, and the open questions go
+ * to the person. Said in the prompt as well as in the schema, whose descriptions not every provider shows the model.
+ */
+export const VERDICT_FIELDS_RULE = `Keep the short fields short: each option's reason in one sentence of at most 25 words, the rationale in at most three sentences,
+each risk and each mitigation in one sentence, each phase named in at most three words.
+In "openQuestions", give at most five facts that only the person or their client can tell and that would change the recommendation:
+each a question to them, in plain words and one sentence of about 25 words (or the same length in your language), that says what the answer
+decides; never a question the participants could settle by research, nor one for a provider.`;
+
 /** For the roles that design an option: effort in days, never money, which Quorumind computes. */
 const COSTING_RULE = `Estimate the build as work packages (for instance framing, back end, front end, integrations, testing, deployment,
 project management), each with the effort of every role involved in person-days, as a low and a high estimate.
@@ -49,18 +63,40 @@ Use the role ids listed in <rates>. Do not compute the build cost: Quorumind pri
 State what the estimate assumes and what it excludes. Give the build duration in calendar weeks as well as in words.
 Every amount you give, such as the monthly running cost, is in the currency named in <rates>.`;
 
-export const STYLE_RULE = `Be concrete: name technologies, quantities, prices and durations. Mark every figure you cannot verify as an estimate.
-Never invent facts about the person's situation: when something is unknown, state the assumption you make.
-Answer with JSON only, following the schema. Start with "speech": two to four plain sentences that a person can read while the rest is written.`;
+/** For the roles that reason about the project: figures marked for what they are, nothing invented. */
+const FACTS_RULE = `Be concrete: name technologies, quantities, prices and durations. Mark every figure you cannot verify as an estimate.
+Never invent facts about the person's situation: when something is unknown, state the assumption you make.`;
+
+/** The interface shows every string as it is written: Markdown would show as raw symbols. */
+const FORMAT_RULE = `Answer with JSON only, following the schema. Every string is plain text, shown as written: no Markdown (no bold **,
+no heading #, no "-" or "1." list marker at the start of a line); separate paragraphs with a blank line, and give each item of a list its own array element.`;
+
+const SPEECH_RULE = `Start with "speech": two to four plain sentences that a person can read while the rest is written.`;
+
+export const STYLE_RULE = `${FACTS_RULE}
+${FORMAT_RULE} ${SPEECH_RULE}`;
+
+/** For the formalizer of an audit, which copies the document's figures as written: it neither estimates nor assumes. */
+export const EXTRACTION_STYLE_RULE = `${FORMAT_RULE} ${SPEECH_RULE}`;
+
+/** For the interviewer, whose speech comes before every turn of questions: short, and the only length it is given. */
+const INTERVIEW_STYLE_RULE = `${FACTS_RULE}
+${FORMAT_RULE} Start with "speech": one or two plain sentences that introduce the turn without repeating the questions.`;
+
+/** For a brief, which has no speech: it is written on request, and nobody follows it live. */
+const BRIEF_STYLE_RULE = `${FACTS_RULE}
+${FORMAT_RULE}`;
 
 /** The person answers on a phone as much as at a desk: short questions, and answers they can pick instead of typing. */
 const QUESTION_RULE = `Each question asks one thing, in one sentence of at most 25 words: no sub-questions, no list, no numbering.
+Write the questions and their examples for someone who is not a developer: use a technical term only if the person used it first,
+otherwise explain it in about five plain words; in an example answer, say it in plain words instead.
 To cover a broad area, split it into several questions that share the same topic, a label of one to three words (such as Budget,
-Existing setup or Users); questions on the same topic follow each other. Give every question two to four example answers
+Existing setup or Users); questions on the same topic follow each other. The limit of questions per turn wins over splitting:
+ask the most decisive. Give every question two to four example answers
 the person can send as they are: at most eight words each, specific to this project, distinct from each other and covering
 the realistic range. Never offer "I don't know" as an example: the interface always offers it. Set multiple to true
-when several examples can apply together (pain points, constraints), false when only one can be true (a hosting choice, a range).
-The speech introduces the turn without repeating the questions.`;
+when several examples can apply together (pain points, constraints), false when only one can be true (a hosting choice, a range).`;
 
 export interface InterviewOptions {
   forceDone: boolean;
@@ -75,11 +111,12 @@ export interface InterviewOptions {
 
 export function interviewerSystem(locale: Locale, options: InterviewOptions) {
   const { forceDone, express, template, challenge, audit, today } = options;
+  const label = template ? TEMPLATES[template].label : "";
   const focus = template
-    ? `\nThis is a ${template.replace("_", " and ")} project: also make sure you cover ${TEMPLATES[template].focus.join("; ")}.`
+    ? `\nThis is ${/^[aeiou]/i.test(label) ? "an" : "a"} ${label} project: also make sure you cover these topics (what to find out, not words to use with the person): ${TEMPLATES[template].focus.join("; ")}.`
     : "";
   const pace = express
-    ? `This is an express session: ask your most decisive questions in a single turn, at most eight on at most five topics,
+    ? `This is an express session: ask your most decisive questions in a single turn, at most five,
 then produce the sheet from the answers.`
     : audit
       ? `Ask at most three questions per turn, the most decisive first: the document answers much of the rest.`
@@ -111,14 +148,15 @@ Its constraints apply to every option on their own: do not copy them into the sh
 Fill the structured fields of the sheet: the build budget and the running budget (per month or per year) as amounts with an ISO currency code,
 how many people build it and their skills, the deadline as a date (YYYY-MM-DD) or a duration, the expected users at launch and after a year,
 and the compliance boxes that apply (personal data of people in the EU, health data, payment card data, an accessibility standard,
-a public-sector client). Leave a value null when it is unknown and keep the nuance in the notes.${today ? ` Today is ${today}.` : ""}
+a public-sector client). Leave a number or a date null when neither the person nor their documents give it, and keep the nuance in the notes;
+record a choice they left open as an assumption.${today ? ` Today is ${today}.` : ""}
 When answers are vague or contradictory, ask a precise follow-up. "I don't know" is a valid answer: record it as an assumption.
 When you have enough, set status to "done", return no questions, and fill the requirements sheet completely.
 While asking, set status to "ask" and sheet to null.
 ${forceDone ? 'You have asked enough questions: set status to "done" now and fill the sheet, turning every remaining unknown into an assumption.' : ""}
 
 ${DATA_RULE}
-${STYLE_RULE}
+${INTERVIEW_STYLE_RULE}
 ${languageRule(locale)}`;
 }
 
@@ -146,6 +184,7 @@ You are proposer ${seat}, now criticising the other proposals. For each weakness
 Tie each critique to the point of the requirements sheet it relies on. Be fair: do not criticise for the sake of it,
 and do not criticise your own proposal here.
 Add a question for the person only when its answer would change which option wins; otherwise leave questionsForUser empty.
+${ASK_RULE}
 If the arbiter raised an angle in <probe>, examine every option from that angle first.${personaRule(persona)}
 ${PROFILE_CHECK_RULE}
 ${CONTEXT_CHECK_RULE}
@@ -178,6 +217,7 @@ Use the same severities: "blocking" when a hard constraint is violated, "major" 
 Tie each critique to the point of the requirements sheet it relies on. Hard but fair: no critique without an argument.
 Do not repeat a critique already made in <debate>; find new ones.
 Add a question for the person only when its answer would change which option wins.
+${ASK_RULE}
 If the arbiter raised an angle in <probe>, examine every option from that angle first.${personaRule(persona)}
 ${PROFILE_CHECK_RULE}
 ${CONTEXT_CHECK_RULE}
@@ -195,7 +235,8 @@ you look for the flaws of option U before the person commits to it. For each fla
 "blocking" when it violates a hard constraint, "major" when it seriously hurts a priority, "minor" otherwise.
 Tie each critique to the point of the requirements sheet it relies on, and say in the argument what would fix it.
 Do not repeat a critique already made in <debate>; dig deeper instead. Acknowledge in your speech what is sound.
-Add a question for the person only when its answer would change your judgement.${personaRule(persona)}
+Add a question for the person only when its answer would change your judgement.
+${ASK_RULE}${personaRule(persona)}
 ${PROFILE_CHECK_RULE}
 ${CONTEXT_CHECK_RULE}
 
@@ -244,12 +285,12 @@ export function briefSystem(locale: Locale, audience: Audience) {
 
 Rewrite the arbiter's verdict for ${AUDIENCES[audience]}.
 Change vocabulary, level of detail and length for this reader, never the substance: the same recommendation, figures, conditions and risks.
-Keep estimates marked as estimates. Use three to six short sections and end with the next steps.${
+Keep estimates marked as estimates. Use three to six short sections, and put the next steps only in nextSteps, not in a section.${
     audience === "client" ? "\nNever state a day rate, an hourly rate or the rate of a role: give amounts, days and weeks only." : ""
   }
 
 ${DATA_RULE}
-${STYLE_RULE}
+${BRIEF_STYLE_RULE}
 ${languageRule(locale)}`;
 }
 
@@ -306,6 +347,7 @@ Map the debate in "topics": every important topic discussed, with status "agreem
 by seat (A, B…, "devil" for the devil's advocate). Do not smooth disagreements over.
 Give the main risks with a mitigation, a phased roadmap with an exit criterion per phase,
 and the key factual claims of your verdict, each marked verified, estimated or assumed.
+${VERDICT_FIELDS_RULE}
 ${PROFILE_CHECK_RULE}
 Facts in <checks> are computed by Quorumind from each option's work packages, the rates and the sheet: take them as true, over what the
 proposals claim. An option over a budget or a deadline that the sheet makes a hard constraint is infeasible; otherwise weigh it in the scores
@@ -348,6 +390,8 @@ and only those; leave it empty otherwise. The build cost is priced from the work
 In "schedules", give the new calendar weeks to the launch of each option whose build time the facts change (a larger or
 smaller team, for instance), and only those; leave it empty otherwise.
 Keep the same seats. In "speech", say in two to four sentences what the new facts changed, or that they changed nothing.
+${VERDICT_FIELDS_RULE}
+${PROFILE_CHECK_RULE}
 ${CONTEXT_CHECK_RULE}
 
 ${DATA_RULE}
@@ -375,6 +419,8 @@ In "costs", give the new monthly running cost of each option whose running cost 
 and only those. In "schedules", give the new calendar weeks to the launch of each option whose build time the changes alter
 (a larger or smaller team, a tighter scope), and only those. The build cost is priced from the work packages: do not restate it.
 Keep the same seats. In "speech", say in two to four sentences what this scenario changes for the decision, or that it changes nothing.
+${VERDICT_FIELDS_RULE}
+${PROFILE_CHECK_RULE}
 ${CONTEXT_CHECK_RULE}
 
 ${DATA_RULE}

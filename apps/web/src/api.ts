@@ -69,7 +69,7 @@ export interface AppConfig {
 }
 
 /** A page of the host's own screens, by a stable kind the menu names in the interface's language. */
-export type HostLinkKind = "home" | "billing" | "members" | "profile" | "account" | "staff";
+export type HostLinkKind = "home" | "billing" | "members" | "profile" | "settings" | "account" | "tokens" | "staff";
 
 /** The host's part of the menu: the caller's workspaces, the host's pages, who is signed in, the host's website. */
 export interface HostNavigation {
@@ -185,13 +185,46 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: init?.body ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
-  });
+/**
+ * How long a request may go unanswered before it fails as a lost connection does: the action's error shows and what
+ * waited on it (a busy button, a confirmation dialog) is usable again, instead of waiting for ever. The few requests
+ * that wait on a model pass `null`.
+ */
+export const REQUEST_TIMEOUT_MS = 30_000;
+
+/** The caller's own signal, if any, and the timeout, whichever ends first (a browser without them keeps the caller's). */
+function withTimeout(signal: AbortSignal | null | undefined, timeoutMs: number | null): AbortSignal | undefined {
+  if (timeoutMs === null || typeof AbortSignal.timeout !== "function") return signal ?? undefined;
+  const timeout = AbortSignal.timeout(timeoutMs);
+  if (!signal) return timeout;
+  return typeof AbortSignal.any === "function" ? AbortSignal.any([signal, timeout]) : signal;
+}
+
+/** A request that ended early: a timeout gets no status, so the interface says it failed, as for a lost connection. */
+function failed(caught: unknown): never {
+  if (caught instanceof DOMException && caught.name === "TimeoutError")
+    throw new ApiError(0, "timeout", "The server did not answer in time.");
+  throw caught;
+}
+
+async function request<T>(path: string, init?: RequestInit, timeoutMs: number | null = REQUEST_TIMEOUT_MS): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers: init?.body ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
+      signal: withTimeout(init?.signal, timeoutMs),
+    });
+  } catch (caught) {
+    failed(caught);
+  }
   if (response.status === 204) return undefined as T;
-  const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string; params?: Record<string, string | number> };
+  // A body that is not JSON reads as empty; a timeout or a cancel while it arrives still fails the request.
+  const body = (await response.json().catch((caught: unknown) => (caught instanceof DOMException ? failed(caught) : {}))) as {
+    error?: string;
+    message?: string;
+    params?: Record<string, string | number>;
+  };
   if (!response.ok) throw new ApiError(response.status, body.error ?? "error", body.message ?? response.statusText, body.params);
   return body as T;
 }
@@ -287,7 +320,11 @@ export const api = {
         ...(europeanOnly === undefined ? {} : { europeanOnly }),
       }),
     ),
-  sessions: (mine = false) => request<{ sessions: SessionSummary[]; shared?: boolean }>(`/api/sessions${mine ? "?mine=1" : ""}`),
+  /** A page of the history: the latest first, the page after `before` (the `next` of an earlier page), the titles holding `q`. */
+  sessions: (options: { mine?: boolean; q?: string; before?: string | null } = {}) =>
+    request<{ sessions: SessionSummary[]; shared?: boolean; next?: string | null }>(
+      `/api/sessions${query({ mine: options.mine ? "1" : undefined, q: options.q, before: options.before ?? undefined })}`,
+    ),
   session: (id: string) =>
     request<{
       session: Session;
@@ -345,7 +382,8 @@ export const api = {
   /** Retries a failed session, with a new cost cap when `budgetUsd` is given (self-hosted only). */
   resume: (id: string, budgetUsd?: number) => request(`/api/sessions/${id}/resume`, post(budgetUsd === undefined ? {} : { budgetUsd })),
   stop: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/stop`, post()),
-  brief: (id: string, audience: Audience) => request<{ brief: Brief }>(`/api/sessions/${id}/brief`, post({ audience })),
+  // Writing a brief calls a model before the server answers: it takes the time it takes.
+  brief: (id: string, audience: Audience) => request<{ brief: Brief }>(`/api/sessions/${id}/brief`, post({ audience }), null),
   fork: (id: string) => request<{ session: Session }>(`/api/sessions/${id}/fork`, post()),
   share: (id: string, settings: ShareSettings) => request<{ share: Share }>(`/api/sessions/${id}/share`, post(settings)),
   unshare: (id: string) => request<void>(`/api/sessions/${id}/share`, { method: "DELETE" }),
@@ -356,7 +394,8 @@ export const api = {
     request<SharedView>(`/api/shared/${token}`, access ? { headers: { "X-Share-Access": access } } : undefined),
   shareAccess: (token: string, password: string) =>
     request<{ access: string | null; expiresAt: string | null }>(`/api/shared/${token}/access`, post({ password })),
-  gallery: () => request<{ sessions: GalleryItem[] }>("/api/gallery"),
+  gallery: (before?: string | null) =>
+    request<{ sessions: GalleryItem[]; next?: string | null }>(`/api/gallery${query({ before: before ?? undefined })}`),
   reportUrl: (id: string) => `/api/sessions/${id}/report.md`,
   sharedReportUrl: (token: string, access: string | null = null) =>
     `/api/shared/${token}/report.md${access ? `?access=${encodeURIComponent(access)}` : ""}`,
@@ -371,8 +410,11 @@ export const api = {
     request<{ comparison: RevisionComparison }>(`/api/sessions/${id}/compare${query({ a: String(a), b: String(b) })}`),
   compareUrl: (id: string, a: number, b: number, format: "md" | "html" | "pdf") =>
     `/api/sessions/${id}/compare.${format === "md" ? "md" : "html"}${query({ a: String(a), b: String(b), print: format === "pdf" ? "1" : undefined })}`,
-  decisions: (filters: DecisionFilters = {}) =>
-    request<{ decisions: DecisionRow[]; authors: (Author & { id: string })[]; shared: boolean }>(`/api/decisions${query({ ...filters })}`),
+  /** The register, `limit` rows at a time when it is paged, from the page after `before`. */
+  decisions: (filters: DecisionFilters = {}, page: { limit?: number; before?: string | null } = {}) =>
+    request<{ decisions: DecisionRow[]; authors: (Author & { id: string })[]; shared: boolean; next?: string | null }>(
+      `/api/decisions${query({ ...filters, limit: page.limit ? String(page.limit) : undefined, before: page.before ?? undefined })}`,
+    ),
   decisionsCsvUrl: (filters: DecisionFilters, lang: string) => `/api/decisions.csv${query({ ...filters, lang })}`,
   /** A step of the register; `by` names the superseding session. */
   decide: (id: string, action: DecisionAction, input: { comment?: string | null; name?: string | null; by?: string } = {}) =>

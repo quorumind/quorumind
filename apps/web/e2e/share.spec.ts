@@ -8,21 +8,23 @@ test("a full share link made mid-interview is read-only, outside the app", async
   const { token } = ((await share.json()) as { share: { token: string } }).share;
 
   await page.goto(`/#/shared/${token}`);
-  await expect(page.getByText("You are reading a shared session. It cannot be changed.")).toBeVisible();
+  await expect(page.getByText("You are reading a shared debate. It cannot be changed.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Send answers" })).toHaveCount(0);
   await expect(page.locator("textarea")).toHaveCount(0);
   // No sidebar: neither the app's actions nor the history of the server's sessions.
-  await expect(page.getByRole("link", { name: "New session" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "New debate" })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Main menu" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Sessions" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Debates" })).toHaveCount(0);
 });
 
 test("Enter in the share password sets it, and the link then asks for it", async ({ page, request, browser }) => {
   const id = await demoToVerdict(request);
   await page.goto(`/#/s/${id}`);
   await page.getByRole("button", { name: "Share", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Share this session" });
+  const dialog = page.getByRole("dialog", { name: "Share this debate" });
   await dialog.getByRole("button", { name: "Create a read-only link" }).click();
+  // Enter waits for the link: pressed while it is still being created, it does nothing.
+  await expect(dialog.getByRole("button", { name: "Set the password" })).toBeVisible();
   const field = dialog.getByLabel("Password");
   await field.fill("s3cret-pass");
   await field.press("Enter");
@@ -32,7 +34,7 @@ test("Enter in the share password sets it, and the link then asks for it", async
   await dialog.getByRole("button", { name: "Close" }).click();
   await expect(dialog).toBeHidden();
   // The focus is back on the button that opened the dialog.
-  await expect(page.getByRole("button", { name: "Shared", exact: true })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Link active", exact: true })).toBeFocused();
 
   const visitor = await browser.newPage();
   await visitor.goto(link);

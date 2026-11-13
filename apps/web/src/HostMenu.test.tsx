@@ -4,7 +4,7 @@ import { act, fireEvent, render, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 import type { HostNavigation } from "./api.ts";
-import { failure, json, stubApi } from "./test/dom.ts";
+import { failure, json, stubApi, stubEventSource } from "./test/dom.ts";
 
 const config = (navigation?: HostNavigation | null) =>
   json({
@@ -75,15 +75,15 @@ describe("the menu, self-hosted", () => {
     window.location.hash = "#/decisions";
     render(<App />);
     await waitFor(() => expect(localStorage.getItem("quorumind.hostMenu")).toBeNull());
-    expect(sidebar().getByRole("link", { name: "New session" })).toBeTruthy();
+    expect(sidebar().getByRole("link", { name: "New debate" })).toBeTruthy();
     expect(links("Main menu")).toEqual([
-      ["Sessions", "#/sessions"],
+      ["Debates", "#/sessions"],
       ["Decisions", "#/decisions"],
       ["Gallery", "#/gallery"],
       ["Settings", "#/settings"],
     ]);
     expect(sidebar().getByRole("link", { name: "Decisions" }).getAttribute("aria-current")).toBe("page");
-    const list = await sidebar().findByRole("list", { name: "Recent sessions" });
+    const list = await sidebar().findByRole("list", { name: "Recent debates" });
     expect(Array.from(list.querySelectorAll("a"), (link) => link.getAttribute("href"))).toEqual(["#/s/s1"]);
     // The state and the day are said with the title.
     expect(
@@ -93,7 +93,7 @@ describe("the menu, self-hosted", () => {
     ).toBeNull();
     expect(links("Recent")).toEqual([
       ["A booking app, Verdict, Oct 1", "#/s/s1"],
-      ["See all sessions", "#/sessions"],
+      ["See all debates", "#/sessions"],
     ]);
     expect(
       sidebar()
@@ -107,8 +107,9 @@ describe("the menu, self-hosted", () => {
     const { calls } = stub(null);
     render(<App />);
     await waitFor(() => expect(calls.some((call) => call.path === "/api/config")).toBe(true));
-    await waitFor(() => expect(sidebar().queryByRole("link", { name: "New debate" })).toBeNull());
-    expect(sidebar().getByRole("link", { name: "Sessions" }).getAttribute("href")).toBe("#/sessions");
+    // The hosted menu titles its debates with a heading; the self-hosted one has only the page's link.
+    await waitFor(() => expect(sidebar().queryByRole("heading", { name: "Debates" })).toBeNull());
+    expect(sidebar().getByRole("link", { name: "Debates" }).getAttribute("href")).toBe("#/sessions");
     // No one signs in to a self-hosted server: no workspace, no card for the person, the foot alone at the bottom.
     expect(sidebar().queryByRole("button", { name: /Workspace|Account/ })).toBeNull();
     expect(document.querySelector(".account-switch")).toBeNull();
@@ -129,9 +130,11 @@ describe("the latest sessions in the menu", () => {
       "GET /api/sessions": () => json({ sessions: many, shared: false }),
       "GET /api/sessions/s3": () => failure(404, "not_found"),
     });
+    // The session's page may load before the test ends, on a busy machine: it follows its events too.
+    stubEventSource();
     window.location.hash = "#/s/s3";
     render(<App />);
-    const list = await sidebar().findByRole("list", { name: "Recent sessions" });
+    const list = await sidebar().findByRole("list", { name: "Recent debates" });
     const rows = within(list).getAllByRole("link");
     expect(rows).toHaveLength(15);
     expect(rows[0]?.textContent).toContain("Idea 1");
@@ -139,15 +142,96 @@ describe("the latest sessions in the menu", () => {
     expect(rows.filter((row) => row.getAttribute("aria-current") === "page").map((row) => row.getAttribute("href"))).toEqual(["#/s/s3"]);
     // The full title on hover, as the line cuts it short.
     expect(rows[2]?.getAttribute("title")).toBe("Idea 3");
-    expect(sidebar().getByRole("link", { name: "See all sessions" }).getAttribute("href")).toBe("#/sessions");
+    expect(sidebar().getByRole("link", { name: "See all debates" }).getAttribute("href")).toBe("#/sessions");
+  });
+
+  it("lists first those waiting for the person, says in a word what each one waits for, and tells two of the same name apart by their time", async () => {
+    const at = (day: number, hour: number) => new Date(Date.UTC(2026, 9, day, hour, 5)).toISOString();
+    stub(undefined, {
+      "GET /api/sessions": () =>
+        json({
+          sessions: [
+            { id: "done", idea: "Studio booking app", phase: "complete", updatedAt: at(20, 10) },
+            { id: "running", idea: "A CRM", phase: "debating", updatedAt: at(19, 10) },
+            { id: "theirs", idea: "Bob's idea", phase: "review", updatedAt: at(18, 10), mine: false },
+            { id: "stopped", idea: "A shop", phase: "failed", updatedAt: at(17, 10) },
+            { id: "check", idea: "Studio booking app", phase: "review", updatedAt: at(16, 9) },
+            { id: "answer", idea: "A portal", phase: "awaiting_answers", updatedAt: at(15, 10) },
+          ],
+          shared: true,
+        }),
+    });
+    render(<App />);
+    const list = await sidebar().findByRole("list", { name: "Recent debates" });
+    const rows = within(list).getAllByRole("link");
+    expect(rows.map((row) => row.getAttribute("href"))).toEqual([
+      "#/s/check",
+      "#/s/answer",
+      "#/s/done",
+      "#/s/running",
+      "#/s/theirs",
+      "#/s/stopped",
+    ]);
+    const status = (row: Element | undefined) => row?.querySelector(".recent-status");
+    expect(status(rows[0])?.textContent).toBe(", Requirements to check");
+    expect(status(rows[0])?.hasAttribute("data-yours")).toBe(true);
+    expect(status(rows[1])?.textContent).toBe(", Waiting for your answers");
+    expect(status(rows[2])).toBeNull();
+    expect(status(rows[3])?.textContent).toBe(", Debate running");
+    expect(status(rows[4])?.textContent).toBe(", Waiting for its author");
+    expect(status(rows[4])?.hasAttribute("data-yours")).toBe(false);
+    expect(status(rows[5])?.textContent).toBe(", Stopped");
+    // The two "Studio booking app" show their time under their name; the others their day only.
+    expect(rows[0]?.querySelector(".recent-time")?.textContent).toMatch(/\d:05/);
+    expect(rows[2]?.querySelector(".recent-time")?.textContent).toMatch(/\d:05/);
+    expect(rows[0]?.querySelector("time")?.textContent).toBe("Oct 16");
+    expect(rows[1]?.querySelector(".recent-time")).toBeNull();
+  });
+
+  it("rings the dot of the sessions that wait for the person, and those only, whatever their phase", async () => {
+    const at = (day: number) => new Date(Date.UTC(2026, 9, day, 10, 5)).toISOString();
+    stub(undefined, {
+      "GET /api/sessions": () =>
+        json({
+          sessions: [
+            { id: "interview", idea: "An interview", phase: "interview", updatedAt: at(20) },
+            { id: "check", idea: "A sheet", phase: "review", updatedAt: at(19) },
+            { id: "answer", idea: "A question", phase: "awaiting_answers", updatedAt: at(18) },
+            { id: "their-answer", idea: "Bob's question", phase: "awaiting_answers", updatedAt: at(17), mine: false },
+            { id: "their-interview", idea: "Bob's interview", phase: "interview", updatedAt: at(16), mine: false },
+            { id: "running", idea: "A CRM", phase: "debating", updatedAt: at(15) },
+          ],
+          shared: true,
+        }),
+    });
+    render(<App />);
+    const list = await sidebar().findByRole("list", { name: "Recent debates" });
+    const lines = within(list)
+      .getAllByRole("link")
+      .map((row) => [
+        row.getAttribute("href"),
+        row.querySelector(".phase-dot")?.hasAttribute("data-yours"),
+        row.querySelector(".recent-status")?.hasAttribute("data-yours"),
+        row.querySelector(".recent-status")?.textContent,
+      ]);
+    // The dot and the word say the same: an interview waiting for answers is the person's move, someone else's
+    // question is its author's.
+    expect(lines).toEqual([
+      ["#/s/interview", true, true, ", Waiting for your answers"],
+      ["#/s/check", true, true, ", Requirements to check"],
+      ["#/s/answer", true, true, ", Waiting for your answers"],
+      ["#/s/their-answer", false, false, ", Waiting for its author"],
+      ["#/s/their-interview", false, false, ", Waiting for its author"],
+      ["#/s/running", false, false, ", Debate running"],
+    ]);
   });
 
   it("says so in a short line when there is none yet", async () => {
     stub(undefined, { "GET /api/sessions": () => json({ sessions: [], shared: false }) });
     render(<App />);
-    expect(await sidebar().findByText("No session yet.")).toBeTruthy();
-    expect(sidebar().queryByRole("list", { name: "Recent sessions" })).toBeNull();
-    expect(sidebar().queryByRole("link", { name: "See all sessions" })).toBeNull();
+    expect(await sidebar().findByText("No debate yet.")).toBeTruthy();
+    expect(sidebar().queryByRole("list", { name: "Recent debates" })).toBeNull();
+    expect(sidebar().queryByRole("link", { name: "See all debates" })).toBeNull();
   });
 
   it("leaves no section when the history cannot be read", async () => {
@@ -156,7 +240,7 @@ describe("the latest sessions in the menu", () => {
     await waitFor(() => expect(calls.some((call) => call.path === "/api/sessions")).toBe(true));
     await waitFor(() => expect(sidebar().queryByRole("heading", { name: "Recent" })).toBeNull());
     expect(sidebar().queryByRole("navigation", { name: "Recent" })).toBeNull();
-    expect(sidebar().getByRole("link", { name: "Sessions" })).toBeTruthy();
+    expect(sidebar().getByRole("link", { name: "Debates" })).toBeTruthy();
   });
 
   it("names them debates on a hosted service", async () => {
@@ -268,6 +352,41 @@ describe("the menu, hosted", () => {
     expect(within(sidebar().getByRole("menu", { name: "Workspace" })).queryByRole("menuitem", { name: "Back-office" })).toBeNull();
   });
 
+  it("puts the workspace's settings in the workspace's menu and the API tokens under the person's card, and skips a kind it does not know", async () => {
+    stub({
+      ...HOSTED,
+      links: [
+        ...HOSTED.links,
+        { kind: "settings", url: "https://app.example.com/account/#/settings" },
+        { kind: "tokens", url: "https://app.example.com/account/#/tokens" },
+        // A newer host's page this version cannot name: left out, the rest of the menu intact.
+        { kind: "future" as "home", url: "https://app.example.com/account/#/future" },
+      ],
+    });
+    render(<App />);
+    fireEvent.click(await sidebar().findByRole("button", { name: WORKSPACE }));
+    expect(items("Workspace").map(([name]) => name)).toEqual([
+      "Home",
+      "Billing",
+      "Members",
+      "Organisation profile",
+      "Workspace settings",
+      "Create a workspace",
+    ]);
+    expect(
+      within(sidebar().getByRole("menu", { name: "Workspace" }))
+        .getByRole("menuitem", { name: "Workspace settings" })
+        .getAttribute("href"),
+    ).toBe("https://app.example.com/account/#/settings");
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    fireEvent.click(sidebar().getByRole("button", { name: ACCOUNT }));
+    expect(accountItems()).toEqual([
+      ["Account", "https://app.example.com/account/#/account", null],
+      ["API tokens", "https://app.example.com/account/#/tokens", null],
+    ]);
+    expect(document.querySelector('a[href$="#/future"]')).toBeNull();
+  });
+
   it("opens the workspace's menu over its button: the workspace, the workspaces, its pages, then a way to create one", async () => {
     stub(HOSTED);
     render(<App />);
@@ -293,7 +412,7 @@ describe("the menu, hosted", () => {
       ["menuitemradio", "Atelier Nord", "true"],
       ["menuitemradio", "Studio Sud", "false"],
       ["HR", "", null],
-      ["menuitem", "Dashboard", "https://app.example.com/account/#/"],
+      ["menuitem", "Home", "https://app.example.com/account/#/"],
       ["menuitem", "Billing", "https://app.example.com/account/#/billing"],
       ["menuitem", "Members", "https://app.example.com/account/#/members"],
       ["menuitem", "Organisation profile", "https://app.example.com/account/#/profile"],
@@ -322,7 +441,7 @@ describe("the menu, hosted", () => {
     key("ArrowDown");
     expect(label()).toBe("Studio Sud");
     key("ArrowDown");
-    expect(label()).toBe("Dashboard");
+    expect(label()).toBe("Home");
     key("End");
     expect(label()).toBe("Create a workspace");
     key("ArrowUp");
@@ -354,7 +473,7 @@ describe("the menu, hosted", () => {
         .map((item) => [item.querySelector(".workspace-text")?.textContent, item.getAttribute("aria-checked")]),
     ).toEqual([["Atelier NordOwner", "true"]]);
     expect(items("Workspace").map(([label]) => label)).toEqual([
-      "Dashboard",
+      "Home",
       "Billing",
       "Members",
       "Organisation profile",
@@ -428,14 +547,14 @@ describe("the menu, hosted", () => {
     expect(create.getAttribute("href")).toBe("https://app.example.com/account/#/workspaces/new");
     // No workspace to show its pages under: the person's menu keeps them.
     fireEvent.click(sidebar().getByRole("button", { name: ACCOUNT }));
-    expect(accountItems().map(([label]) => label)).toEqual(["Dashboard", "Billing", "Members", "Organisation profile", "Account"]);
+    expect(accountItems().map(([label]) => label)).toEqual(["Home", "Billing", "Members", "Organisation profile", "Account"]);
   });
 
   it("keeps every page in the person's menu for a host without workspaces", async () => {
     stub({ ...HOSTED, workspaces: null });
     render(<App />);
     fireEvent.click(await sidebar().findByRole("button", { name: ACCOUNT }));
-    expect(accountItems().map(([label]) => label)).toEqual(["Dashboard", "Billing", "Members", "Organisation profile", "Account"]);
+    expect(accountItems().map(([label]) => label)).toEqual(["Home", "Billing", "Members", "Organisation profile", "Account"]);
     expect(sidebar().queryByRole("button", { name: /^Workspace/ })).toBeNull();
   });
 

@@ -1,5 +1,5 @@
 import type { Session, Task } from "@quorumind/core";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { followSession, type StreamEnvironment } from "./eventStream.ts";
 
 /** What a role is writing right now, keyed by `${task}:${seat}`. */
@@ -19,6 +19,7 @@ export function useSession(id: string, environment?: StreamEnvironment) {
   const [live, setLive] = useState<LiveSpeech>({});
   const [connected, setConnected] = useState(true);
   const [missing, setMissing] = useState(false);
+  const reconnectNow = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     setSession(null);
@@ -79,11 +80,13 @@ export function useSession(id: string, environment?: StreamEnvironment) {
       },
       environment,
     );
+    reconnectNow.current = stop.reconnect;
     return () => {
       stop();
       if (timer !== null) clearTimeout(timer);
     };
   }, [id, environment]);
 
-  return { session, live, connected, missing };
+  const reconnect = useCallback(() => reconnectNow.current(), []);
+  return { session, live, connected, missing, reconnect };
 }

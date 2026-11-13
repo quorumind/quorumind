@@ -4,8 +4,21 @@ import { watchConsole } from "./servers.ts";
 test("the recorded demo, from the idea to the verdict", async ({ page }) => {
   const problems = watchConsole(page);
   await page.goto("/");
-  await expect(page).toHaveTitle("New session · Quorumind");
-  await page.getByRole("button", { name: "Replay the recorded demo" }).click();
+  await expect(page).toHaveTitle("New debate · Quorumind");
+
+  // First launch without a key: the recording leads the page, in the first screen, and the unusable form is folded.
+  await expect(page.getByRole("heading", { level: 2, name: "Watch a complete debate, recorded" })).toBeVisible();
+  const demo = page.getByRole("button", { name: "Replay the recorded demo" });
+  await expect(demo).toBeInViewport({ ratio: 1 });
+  await expect(page.getByText(/Step \d of 4/)).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Steps of the new debate" })).toHaveCount(0);
+  const fold = page.locator("details.disclosure", { hasText: "Start your own debate" });
+  await expect(fold).not.toHaveAttribute("open", "");
+  await fold.locator("summary").click();
+  await expect(fold.getByText("No API key is configured on this server")).toBeVisible();
+  await fold.locator("summary").click();
+
+  await demo.click();
 
   // Interview: one suggested answer per question.
   const send = page.getByRole("button", { name: "Send answers" });

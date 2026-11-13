@@ -63,10 +63,24 @@ describe("the actions of a session", () => {
     for (const dialog of document.querySelectorAll("dialog")) expect(within(dialog).queryByRole("alert", { hidden: true })).toBeNull();
   });
 
+  it("says in a line what a link without a password means, and keeps the field's placeholder for a change", () => {
+    renderActions(share);
+    fireEvent.click(screen.getByRole("button", { name: "Link active" }));
+    const dialog = openDialog();
+    expect(within(dialog).getByText("Without a password, anyone with the link can open it.")).toBeTruthy();
+    // The state is no placeholder: an empty field has nothing to suggest typing.
+    const field = within(dialog).getByLabelText("Password");
+    expect(field.getAttribute("placeholder")).toBeNull();
+    // A screen reader reads the state and the rule when the field takes the focus.
+    const described = (field.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
+    expect(described[0]).toBe("Without a password, anyone with the link can open it.");
+    expect(described[1]).toMatch(/at least/);
+  });
+
   it("applies the share password when Enter is pressed, and keeps the dialog open", async () => {
     const { calls } = stubApi({ "POST /api/sessions/s1/share": () => json({ share: { ...share, hasPassword: true } }) });
     const onShare = renderActions(share);
-    fireEvent.click(screen.getByRole("button", { name: "Shared" }));
+    fireEvent.click(screen.getByRole("button", { name: "Link active" }));
     const dialog = openDialog();
     const field = within(dialog).getByLabelText("Password");
     fireEvent.change(field, { target: { value: "s3cret" } });
@@ -90,7 +104,7 @@ describe("the actions of a session", () => {
     stubApi({});
     vi.stubGlobal("navigator", { ...navigator, clipboard: undefined });
     renderActions(share);
-    fireEvent.click(screen.getByRole("button", { name: "Shared" }));
+    fireEvent.click(screen.getByRole("button", { name: "Link active" }));
     const dialog = openDialog();
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy", hidden: true }));
     expect(await within(dialog).findByText("Could not copy: the link is selected, copy it with your keyboard.")).toBeTruthy();

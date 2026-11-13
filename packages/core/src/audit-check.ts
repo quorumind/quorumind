@@ -2,7 +2,15 @@
 // the budget and its timeline against the deadline, and every passage a model quotes checked against the document
 // itself. Browser-safe: the schemas are imported as types only.
 
-import type { AuditCritiqueInput, AuditExtraction, AuditedVerdict, AuditFinding, AuditReport, ChecklistItem } from "./audit.ts";
+import type {
+  AuditCritiqueInput,
+  AuditExtraction,
+  AuditedVerdict,
+  AuditFinding,
+  AuditReport,
+  ChecklistItem,
+  StoredAuditFinding,
+} from "./audit.ts";
 import { AUDIT_CHECKLIST } from "./audit-constants.ts";
 import { availableWeeks } from "./costing.ts";
 import { redact } from "./privacy.ts";
@@ -27,8 +35,8 @@ export function backgroundDocuments(session: Pick<Session, "audit" | "context">)
   return session.context.filter((doc) => !ids.has(doc.id));
 }
 
-// Quotes are compared without case, accents of typography, emphasis marks or line breaks: a model copying a PDF's text
-// rarely keeps its curly quotes, its non-breaking spaces or its Markdown.
+// Quotes are compared without case, accents of typography, emphasis marks, list markers or line breaks: a model copying a
+// PDF's text rarely keeps its curly quotes, its non-breaking spaces or its Markdown, and is asked for plain text.
 const normalize = (text: string) =>
   text
     .normalize("NFKC")
@@ -36,6 +44,7 @@ const normalize = (text: string) =>
     .replace(/[‘’ʼ`´]/g, "'")
     .replace(/[“”«»„]/g, '"')
     .replace(/[‐‑‒–—―]/g, "-")
+    .replace(/^[ \t]*(?:[-+•]|\d{1,3}[.)])[ \t]+/gm, "")
     .replace(/[*_#>|]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -124,9 +133,13 @@ export function settleFindings(round: AuditCritiqueInput, documents: ContextDocu
 
 /**
  * The arbiter's audit as stored: quotes checked against the documents, findings from the most serious, one entry per
- * item of the checklist in its order, a market range only when it is one, questions and points without repeats.
+ * item of the checklist in its order, a market range only when it is one, questions and points without repeats. `earlier`
+ * are the findings of the ruling it revises: a finding whose quote was not found then, and that comes back with an empty
+ * quote, stays in doubt, since the arbiter may simply have kept the empty quote it was shown.
  */
-export function settleAudit(audit: AuditReport, documents: ContextDocument[]): AuditReport {
+export function settleAudit(audit: AuditReport, documents: ContextDocument[], earlier: StoredAuditFinding[] = []): AuditReport {
+  const titleKey = (title: string) => title.trim().toLowerCase();
+  const doubted = new Set(earlier.filter((finding) => finding.quoteDropped).map((finding) => titleKey(finding.title)));
   const coverage = new Map<ChecklistItem, AuditReport["coverage"][number]>();
   for (const entry of audit.coverage)
     if (AUDIT_CHECKLIST.includes(entry.item) && !coverage.has(entry.item)) coverage.set(entry.item, entry);
@@ -139,7 +152,13 @@ export function settleAudit(audit: AuditReport, documents: ContextDocument[]): A
       : null;
   return {
     ...audit,
-    findings: bySeverity(audit.findings.map((finding) => ({ ...finding, quote: verified(documents, finding.quote) }))),
+    findings: bySeverity(
+      audit.findings.map((finding): StoredAuditFinding => {
+        const quote = verified(documents, finding.quote);
+        const given = Boolean(finding.quote.trim());
+        return { ...finding, quote, quoteDropped: given ? !quote : doubted.has(titleKey(finding.title)) };
+      }),
+    ),
     coverage: AUDIT_CHECKLIST.flatMap((item) => {
       const entry = coverage.get(item);
       return entry ? [entry] : [];
@@ -302,7 +321,7 @@ export function quoteFacts(check: QuoteCheck | null): string[] {
   if (check.deadline) {
     facts.push(
       check.deadline.status === "over"
-        ? `The stated timeline of ${check.deadline.weeks} weeks misses the deadline (${check.deadline.availableWeeks} weeks away) by ${check.deadline.by} week(s).`
+        ? `The stated timeline of ${check.deadline.weeks} weeks misses the deadline (${check.deadline.availableWeeks} weeks away) by ${check.deadline.by} ${check.deadline.by === 1 ? "week" : "weeks"}.`
         : `The stated timeline of ${check.deadline.weeks} weeks fits the deadline (${check.deadline.availableWeeks} weeks away).`,
     );
   }

@@ -1,5 +1,5 @@
 import { auditLabels } from "../audit-labels.ts";
-import { auditDeliverable, auditMethodNotes, auditSeatName, auditWords, needFacts } from "../audit-report.ts";
+import { auditDeliverable, auditMethodNotes, auditSeatName, auditWords, needFacts, saysNothing } from "../audit-report.ts";
 import { type Branding, isAccent, parseLogo, QUORUMIND_ACCENT } from "../branding.ts";
 import { complianceHtml } from "../compliance-report.ts";
 import { localeInfo } from "../locales.ts";
@@ -88,7 +88,9 @@ export function renderAuditHtml(session: Session, branding: Branding, options: P
                   )}</span><strong>${esc(finding.title)}</strong></header>${
                     finding.quote
                       ? `<p class="label">${esc(a.inDocument)}</p><blockquote>${esc(finding.quote)}</blockquote>`
-                      : `<p class="note">${esc(a.notInDocument)}</p>`
+                      : saysNothing(finding)
+                        ? `<p class="note">${esc(a.notInDocument)}</p>`
+                        : ""
                   }${finding.detail ? `<p>${esc(finding.detail)}</p>` : ""}${finding.fix ? `<p>${say(a.fix, finding.fix)}</p>` : ""}</article>`,
               )
               .join("")}</div>`

@@ -1,6 +1,8 @@
 import { type KeyboardEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Share, ShareExpiry, ShareMode, ShareSettings } from "../api.ts";
+import { BusyButton } from "./BusyButton.tsx";
+import { FieldError, fieldProps } from "./Field.tsx";
 
 const MODES: ShareMode[] = ["client", "full"];
 const EXPIRIES: ShareExpiry[] = ["7d", "30d", "never"];
@@ -25,8 +27,11 @@ export function ShareOptions({
   const [mode, setMode] = useState<ShareMode>(share?.mode ?? "client");
   const [expiry, setExpiry] = useState<ShareExpiry>("30d");
   const [password, setPassword] = useState("");
+  // Which button started the request in flight: that one waits, the others are only unavailable.
+  const [acting, setActing] = useState<"create" | "password" | "remove" | null>(null);
   const date = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" });
   const tooShort = password.length > 0 && password.length < PASSWORD_MIN;
+  const shortMessage = tooShort ? t("validation.passwordShort", { min: PASSWORD_MIN }) : null;
   const currentMode = share?.mode ?? mode;
 
   const chooseMode = (next: ShareMode) => {
@@ -38,10 +43,14 @@ export function ShareOptions({
     if (share) onApply({ expiresIn: next });
   };
   const applyPassword = () => {
+    setActing("password");
     onApply({ password });
     setPassword("");
   };
-  const create = () => onApply({ mode, expiresIn: expiry, ...(password ? { password } : {}) });
+  const create = () => {
+    setActing("create");
+    onApply({ mode, expiresIn: expiry, ...(password ? { password } : {}) });
+  };
   // Enter in the password field does what its button does: set the password, or create the protected link.
   const onPasswordKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
@@ -95,7 +104,9 @@ export function ShareOptions({
         <label className="field-label" htmlFor={`${id}-password`}>
           {t("share.passwordLabel")}
         </label>
-        {share?.hasPassword ? <span className="field-hint">{t("share.passwordSet")}</span> : null}
+        <span id={`${id}-password-state`} className="field-hint">
+          {share?.hasPassword ? t("share.passwordSet") : t("share.passwordNone")}
+        </span>
         <div className="copy-row">
           <input
             id={`${id}-password`}
@@ -104,40 +115,50 @@ export function ShareOptions({
             autoComplete="new-password"
             maxLength={200}
             value={password}
-            placeholder={share?.hasPassword ? t("share.passwordChange") : t("share.passwordNone")}
-            aria-invalid={tooShort}
-            aria-describedby={`${id}-password-hint`}
+            placeholder={share?.hasPassword ? t("share.passwordChange") : undefined}
+            {...fieldProps(`${id}-password`, shortMessage, `${id}-password-state`, `${id}-password-hint`)}
             onChange={(event) => setPassword(event.target.value)}
             onKeyDown={onPasswordKey}
           />
           {share ? (
-            <button
-              type="button"
+            <BusyButton
               className="button button-secondary"
+              busy={pending && acting === "password"}
+              busyLabel={t("common.saving")}
               disabled={pending || password.length < PASSWORD_MIN}
               onClick={applyPassword}
             >
               {t("share.passwordApply")}
-            </button>
+            </BusyButton>
           ) : null}
         </div>
         <span id={`${id}-password-hint`} className="field-hint">
           {t("share.passwordHint", { min: PASSWORD_MIN })}
         </span>
+        <FieldError id={`${id}-password`} error={shortMessage} />
         {share?.hasPassword ? (
           <div>
-            <button type="button" className="button button-quiet" disabled={pending} onClick={() => onApply({ password: null })}>
+            <BusyButton
+              className="button button-quiet"
+              busy={pending && acting === "remove"}
+              busyLabel={t("common.saving")}
+              disabled={pending}
+              onClick={() => {
+                setActing("remove");
+                onApply({ password: null });
+              }}
+            >
               {t("share.passwordRemove")}
-            </button>
+            </BusyButton>
           </div>
         ) : null}
       </div>
 
       {share ? null : (
         <div>
-          <button type="button" className="button button-primary" disabled={pending || tooShort} onClick={create}>
+          <BusyButton busy={pending && acting === "create"} disabled={pending || tooShort} onClick={create}>
             {t("share.create")}
-          </button>
+          </BusyButton>
         </div>
       )}
     </div>

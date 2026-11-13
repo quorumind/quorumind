@@ -5,11 +5,18 @@ import { currentProposals, currentRevision, sessionAtRevision } from "@quorumind
 import { type FormEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type PriceQuote } from "./api.ts";
+import { BusyButton } from "./components/BusyButton.tsx";
+import { CharCounter, FieldError, fieldProps, useFieldErrors } from "./components/Field.tsx";
+import { useRefocus } from "./components/focus.ts";
 import { RetryIcon } from "./components/Icons.tsx";
+import { REVISION_PROGRESS_ID, RevisionStatus, useClearAfterRevision } from "./components/RevisionStatus.tsx";
+import { ShortcutHint } from "./components/ShortcutHint.tsx";
 import { dayRange } from "./costing.tsx";
 import { seatName } from "./Debate.tsx";
 import { failureText, sessionErrorText } from "./errors.ts";
 import { formatMoney, formatPrice } from "./format.ts";
+import { sendOnShortcut } from "./formKeys.ts";
+import { isolate } from "./isolate.ts";
 import { changeLabel, versionLabel } from "./Scenarios.tsx";
 
 // The versions of a verdict in the interface: which one is shown, the one being made, what changed since the one
@@ -62,6 +69,12 @@ export function RevisionBar({
   const latest = currentRevision(session);
   const current = revisions.find((revision) => revision.number === shown) ?? latest;
   const revising = session.revising;
+  // A revision that starts again or ends replaces the button that asked for it: the keyboard follows its progress line,
+  // or the verdict once it is done.
+  useRefocus(
+    revising ? `${revising.id}:${revising.error ? "failed" : "running"}` : null,
+    () => document.getElementById(REVISION_PROGRESS_ID) ?? document.querySelector<HTMLElement>(".verdict-panel h2"),
+  );
   if (!current || !latest) return null;
 
   const adopt = async (number: number | null) => {
@@ -100,7 +113,7 @@ export function RevisionBar({
           {t("revision.label", { number: current.number, date: dateOf(current.createdAt, i18n.language) })}
         </span>
         <span className="field-hint">
-          {current.scenario ? t("scenario.named", { title: current.scenario.title }) : t(`revision.reason.${current.reason}`)}
+          {current.scenario ? t("scenario.named", { title: isolate(current.scenario.title) }) : t(`revision.reason.${current.reason}`)}
         </span>
         {session.adopted === current.number ? <span className="chip status-done">{t("scenario.adopted")}</span> : null}
         {revisions.length > 1 ? (
@@ -137,14 +150,14 @@ export function RevisionBar({
           </ul>
           {canEdit ? (
             <div>
-              <button
-                type="button"
+              <BusyButton
                 className="button button-secondary"
-                disabled={adopting || Boolean(revising && !revising.error)}
+                busy={adopting}
+                disabled={Boolean(revising && !revising.error)}
                 onClick={() => adopt(session.adopted === current.number ? null : current.number)}
               >
                 {session.adopted === current.number ? t("scenario.unadopt") : t("scenario.adopt")}
-              </button>
+              </BusyButton>
             </div>
           ) : null}
         </div>
@@ -163,7 +176,7 @@ export function RevisionBar({
         </p>
       ) : null}
       {revising && !revising.error ? (
-        <p className="notice revision-working" role="status" style={{ margin: 0 }}>
+        <p className="notice revision-working" role="status" id={REVISION_PROGRESS_ID} tabIndex={-1} style={{ margin: 0 }}>
           {revising.scenario ? t("scenario.working") : t("revision.working")}
         </p>
       ) : null}
@@ -173,13 +186,13 @@ export function RevisionBar({
           {error ? <span>{error}</span> : null}
           {canEdit ? (
             <div>
-              <button type="button" className="button button-secondary" onClick={retry} disabled={pending}>
+              <BusyButton className="button button-secondary" onClick={retry} busy={pending} busyLabel={t("revision.updating")}>
                 <RetryIcon />
                 {t("revision.retry")}
                 {price && price.amount > 0 ? (
                   <span className="update-price">{formatPrice(price.amount, price.currency, i18n.language)}</span>
                 ) : null}
-              </button>
+              </BusyButton>
             </div>
           ) : null}
         </div>
@@ -309,14 +322,26 @@ export function NewFacts({ session, price }: { session: Session; price: PriceQuo
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const busy = Boolean(session.revising && !session.revising.error);
+  // What was written stays readable until the revision is over: the form never looks emptied with nothing happening.
+  const after = useClearAfterRevision({
+    running: busy,
+    failed: Boolean(session.revising?.error),
+    count: session.revisions.length,
+    draft: note,
+    reset: () => setNote(""),
+  });
+  const working = pending || after.locked;
 
+  const fields = useFieldErrors();
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (working) return;
+    if (!note.trim()) return fields.report({ note: t("revision.noteRequired") });
     setPending(true);
     setError(null);
     try {
       await api.revise(session.id, { facts: [], note: note.trim() });
-      setNote("");
+      after.submitted();
     } catch (caught) {
       setError(failureText(t, caught));
     } finally {
@@ -325,7 +350,7 @@ export function NewFacts({ session, price }: { session: Session; price: PriceQuo
   };
 
   return (
-    <form className="stack" onSubmit={submit}>
+    <form ref={fields.form} className="stack" onSubmit={submit} onKeyDown={(event) => sendOnShortcut(event, working)} noValidate>
       <div className="field">
         <label className="field-label" htmlFor={`${id}-note`}>
           {t("revision.editLabel")}
@@ -335,13 +360,19 @@ export function NewFacts({ session, price }: { session: Session; price: PriceQuo
           className="textarea"
           rows={3}
           maxLength={4000}
+          readOnly={working}
           value={note}
-          aria-describedby={`${id}-hint`}
-          onChange={(event) => setNote(event.target.value)}
+          {...fieldProps(`${id}-note`, fields.errors.note, `${id}-hint`, `${id}-note-counter`)}
+          onChange={(event) => {
+            fields.clear("note");
+            setNote(event.target.value);
+          }}
         />
         <span id={`${id}-hint`} className="field-hint">
           {t("revision.editHint")}
         </span>
+        <FieldError id={`${id}-note`} error={fields.errors.note} />
+        <CharCounter id={`${id}-note`} value={note} max={4000} />
       </div>
       {error ? (
         <p className="notice notice-error" role="alert" style={{ margin: 0 }}>
@@ -349,10 +380,12 @@ export function NewFacts({ session, price }: { session: Session; price: PriceQuo
         </p>
       ) : null}
       <div>
-        <button type="submit" className="button button-secondary" disabled={pending || busy || !note.trim()}>
+        <BusyButton type="submit" className="button button-secondary" busy={working} announce={false} busyLabel={t("revision.updating")}>
           <UpdateLabel price={price} />
-        </button>
+        </BusyButton>
+        <ShortcutHint style={{ marginInlineStart: "var(--space-3)" }} />
       </div>
+      <RevisionStatus working={working} stalled={after.stalled} following={busy} />
     </form>
   );
 }

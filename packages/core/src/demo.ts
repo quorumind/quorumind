@@ -82,7 +82,7 @@ export const DEMO_SHEET: RequirementsSheet = {
 
 export const DEMO_DONE: InterviewTurn = {
   speech:
-    "Thank you, I have what the debate needs. Please check the requirements sheet: the proposers will treat the hard constraints as non-negotiable.",
+    "Thank you, I have what the debate needs. Please check the requirements sheet: the debaters will treat the hard constraints as non-negotiable.",
   status: "done",
   questions: [],
   sheet: DEMO_SHEET,
@@ -455,7 +455,6 @@ const PROBE: Probe = {
 
 const BRIEFS: Record<Audience, Brief> = {
   cto: {
-    speech: "Build option A, scoped down: Next.js and Postgres in the EU, Stripe, a managed scheduler.",
     headline: "Build a lean custom app on the stack the team knows",
     summary: "Option A respects both hard constraints: EU hosting and a running cost of €120 to €260 per month (estimate).",
     sections: [
@@ -468,14 +467,12 @@ const BRIEFS: Record<Audience, Brief> = {
     nextSteps: ["Freeze the first-release scope", "Load test the Sunday evening peak"],
   },
   executive: {
-    speech: "We recommend building our own booking app: it fits the budget and keeps member data in Europe.",
     headline: "Our own app, live before September, within budget",
     summary: "About €12,300 to €15,500 to build and €120 to €260 a month to run (estimates), with member data kept in Europe.",
     sections: [{ title: "What we need from you", body: "Approve a smaller first release; extras come after launch." }],
     nextSteps: ["Approve the first-release scope"],
   },
   client: {
-    speech: "Your members will book classes and buy passes online, from September, without going over your monthly budget.",
     headline: "Online booking for your 12 studios by September",
     summary: "Members book, pay and get reminders; your managers update schedules themselves.",
     sections: [{ title: "Cost", body: "About €12,300 to €15,500 once, then €120 to €260 a month (estimates)." }],

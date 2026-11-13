@@ -35,7 +35,7 @@ then map the columns:
 | `Parent` | Parent | Empty for an epic; the `Issue ID` of its epic for a story. |
 | `Issue Type` | Issue Type | `Epic` for a phase, `Story` for a step. Epics come first, as Jira requires. |
 | `Summary` | Summary | `Phase N: <phase>` for an epic; the step, cut to 120 characters at a word boundary, for a story. |
-| `Description` | Description | The phase's content or the step in full, the phase's exit criterion and the decision session it comes from. |
+| `Description` | Description | The phase's content or the step in full, the phase's exit criterion and the debate it comes from. |
 | `Acceptance Criteria` | The project's acceptance criteria field, if it has one | The exit criterion of the phase. Leave it unmapped otherwise: the description already holds it. |
 | `Epic Name` | Epic Name, on Jira versions that still have it | The epic's summary; empty for stories. Jira Cloud no longer needs it. |
 | `Labels` | Labels | `quorumind`. |

@@ -66,6 +66,17 @@ describe("the branding of the exports", () => {
     expect(screen.getByText("No logo")).toBeTruthy();
   });
 
+  it("drops the message about a refused logo once something else is changed", async () => {
+    stub();
+    render(<BrandingSettings />);
+    await screen.findByText("No logo");
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["GIF89a"], "logo.gif", { type: "image/gif" })] } });
+    await screen.findByRole("alert");
+    fireEvent.change(screen.getAllByRole("textbox")[0] as HTMLElement, { target: { value: "Atelier Sud" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("asks before restoring Quorumind's branding", async () => {
     const { calls } = stub();
     // happy-dom's dialogs: showModal opens them as the browser does.

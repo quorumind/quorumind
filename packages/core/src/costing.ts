@@ -309,7 +309,11 @@ export function checkFacts(session: Session): string[] {
       const { status, availableWeeks: weeks, by } = checks.time;
       facts.push(
         `Option ${seat}: build time against ${weeks} weeks to the deadline: ${
-          status === "over" ? `late by at least ${by} week(s)` : status === "at_risk" ? `may be late by up to ${by} week(s)` : "on time"
+          status === "over"
+            ? `late by at least ${by} ${by === 1 ? "week" : "weeks"}`
+            : status === "at_risk"
+              ? `may be late by up to ${by} ${by === 1 ? "week" : "weeks"}`
+              : "on time"
         }.`,
       );
     }
