@@ -69,6 +69,74 @@ describe("the confirmation dialog", () => {
   });
 });
 
+describe("the confirmation dialog for one of several things", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function People() {
+    const confirm = useConfirm<string>();
+    return (
+      <>
+        {["Bob", "Ann"].map((name) => (
+          <button key={name} type="button" onClick={(event) => confirm.ask(name, event.currentTarget)}>
+            Ask about {name}
+          </button>
+        ))}
+        <ConfirmDialog confirm={confirm} title={`Remove ${confirm.target}?`} confirmLabel={`Remove ${confirm.target}`} onConfirm={() => {}}>
+          <p>{confirm.target} loses access at once.</p>
+        </ConfirmDialog>
+      </>
+    );
+  }
+
+  it("opens once it names the person asked about, so that its name is never empty or someone else's", () => {
+    // What the dialog says at the moment it opens is what a screen reader announces.
+    const announced: string[] = [];
+    vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) {
+      announced.push(`${this.querySelector("h2")?.textContent} ${this.querySelector(".button-danger")?.textContent}`);
+      this.setAttribute("open", "");
+    });
+    render(<People />);
+    fireEvent.click(screen.getByRole("button", { name: "Ask about Bob" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel", hidden: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask about Ann" }));
+    expect(announced).toEqual(["Remove Bob? Remove Bob", "Remove Ann? Remove Ann"]);
+  });
+
+  it("shows the error and stays usable when the action throws at once", async () => {
+    let fail = true;
+    const onConfirm = vi.fn(() => {
+      if (fail) throw new Error("x");
+    });
+    function Throwing() {
+      const confirm = useConfirm<string>();
+      return (
+        <>
+          <button type="button" onClick={(event) => confirm.ask("Bob", event.currentTarget)}>
+            Remove Bob
+          </button>
+          <ConfirmDialog
+            confirm={confirm}
+            title="Remove?"
+            confirmLabel="Remove it"
+            errorText={() => "It could not be removed."}
+            onConfirm={onConfirm}
+          />
+        </>
+      );
+    }
+    render(<Throwing />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Bob" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove it", hidden: true }));
+    const alert = await screen.findByRole("alert", { hidden: true });
+    expect(alert.textContent).toBe("It could not be removed.");
+    expect(document.querySelector("dialog")?.hasAttribute("open")).toBe(true);
+    fail = false;
+    fireEvent.click(screen.getByRole("button", { name: "Remove it", hidden: true }));
+    await waitFor(() => expect(document.querySelector("dialog")?.hasAttribute("open")).toBe(false));
+    expect(onConfirm).toHaveBeenCalledTimes(2);
+  });
+});
+
 /** A list of rows, each with its remove button: the dialog asks, the action takes a while, and may fail or remove the row. */
 function Rows({ action }: { action: () => Promise<unknown> }) {
   const confirm = useConfirm<string>();
