@@ -24,6 +24,9 @@ jobs:
     permissions:
       contents: read
       issues: write
+    env:
+      # The directories whose lockfile is audited. Both steps read this list: the second one expects a report for each.
+      AUDIT_DIRS: "."
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -34,9 +37,10 @@ jobs:
       # The lockfile is enough: nothing is installed, no script runs.
       - name: Audit
         run: |
-          for dir in .; do
+          for dir in $AUDIT_DIRS; do
             name=$([ "$dir" = . ] && echo root || echo "$dir" | tr / _)
-            # npm audit exits non-zero when it finds something: the next step reads the report and decides.
+            # npm audit exits non-zero when it finds something, and also when it fails: the next step checks every report
+            # before it reads one, so a failed audit never passes for a clean one.
             (cd "$dir" && npm audit --package-lock-only --json > "$RUNNER_TEMP/audit-$name.json" || true)
           done
       - name: Open, update or close the issue
@@ -47,15 +51,31 @@ jobs:
             const path = require("node:path");
             const dir = process.env.RUNNER_TEMP;
             const levels = ["moderate", "high", "critical"];
+            // Every expected report must be there and complete before the issue is touched: a missing, empty, truncated or
+            // failed report fails the run and leaves the issue as it is, instead of passing for a clean audit.
+            const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+            const reports = [];
+            for (const lockDir of process.env.AUDIT_DIRS.split(/\s+/).filter(Boolean)) {
+              const lockfile = lockDir === "." ? "root" : lockDir.replaceAll("/", "_");
+              let report;
+              try {
+                report = JSON.parse(fs.readFileSync(path.join(dir, `audit-${lockfile}.json`), "utf8"));
+              } catch (error) {
+                return core.setFailed(`No readable npm audit report for ${lockfile}: ${error.message}`);
+              }
+              if (report?.error) return core.setFailed(`npm audit failed for ${lockfile}: ${report.error.summary ?? report.error.code}`);
+              if (!isObject(report?.vulnerabilities) || !isObject(report.metadata?.vulnerabilities)) {
+                return core.setFailed(`The npm audit report for ${lockfile} is incomplete.`);
+              }
+              reports.push([lockfile, report]);
+            }
             const rows = [];
-            for (const file of fs.readdirSync(dir).filter((f) => f.startsWith("audit-") && f.endsWith(".json"))) {
-              const report = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8") || "{}");
-              if (report.error) return core.setFailed(`npm audit failed for ${file}: ${report.error.summary ?? report.error.code}`);
-              for (const [name, vuln] of Object.entries(report.vulnerabilities ?? {})) {
+            for (const [lockfile, report] of reports) {
+              for (const [name, vuln] of Object.entries(report.vulnerabilities)) {
                 if (!levels.includes(vuln.severity)) continue;
                 const advisories = (vuln.via ?? []).filter((v) => typeof v === "object").map((v) => `[${v.title}](${v.url})`);
                 const fix = vuln.fixAvailable === true ? "yes" : vuln.fixAvailable ? `${vuln.fixAvailable.name}@${vuln.fixAvailable.version}` : "none yet";
-                rows.push(`| ${file.slice(6, -5)} | ${name} | ${vuln.severity} | ${vuln.range} | ${fix} | ${advisories.join("<br>") || "via " + (vuln.via ?? []).join(", ")} |`);
+                rows.push(`| ${lockfile} | ${name} | ${vuln.severity} | ${vuln.range} | ${fix} | ${advisories.join("<br>") || "via " + (vuln.via ?? []).join(", ")} |`);
               }
             }
             const title = "Dependency audit: vulnerable dependencies";
