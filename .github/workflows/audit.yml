@@ -1,0 +1,91 @@
+name: Dependency audit
+
+# Every day, and on demand: npm audit on each lockfile. A proven vulnerability (moderate or worse) opens one issue,
+# kept up to date while it lasts and closed when the audit is clean again. Dependabot security updates open the fix
+# pull requests as soon as an advisory is published; this run is the safety net that says what is still open.
+# Actions are pinned to a full commit SHA (their version in a comment); Dependabot proposes the updates.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.22.1
+      # The lockfile is enough: nothing is installed, no script runs.
+      - name: Audit
+        run: |
+          for dir in .; do
+            name=$([ "$dir" = . ] && echo root || echo "$dir" | tr / _)
+            # npm audit exits non-zero when it finds something: the next step reads the report and decides.
+            (cd "$dir" && npm audit --package-lock-only --json > "$RUNNER_TEMP/audit-$name.json" || true)
+          done
+      - name: Open, update or close the issue
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const dir = process.env.RUNNER_TEMP;
+            const levels = ["moderate", "high", "critical"];
+            const rows = [];
+            for (const file of fs.readdirSync(dir).filter((f) => f.startsWith("audit-") && f.endsWith(".json"))) {
+              const report = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8") || "{}");
+              if (report.error) return core.setFailed(`npm audit failed for ${file}: ${report.error.summary ?? report.error.code}`);
+              for (const [name, vuln] of Object.entries(report.vulnerabilities ?? {})) {
+                if (!levels.includes(vuln.severity)) continue;
+                const advisories = (vuln.via ?? []).filter((v) => typeof v === "object").map((v) => `[${v.title}](${v.url})`);
+                const fix = vuln.fixAvailable === true ? "yes" : vuln.fixAvailable ? `${vuln.fixAvailable.name}@${vuln.fixAvailable.version}` : "none yet";
+                rows.push(`| ${file.slice(6, -5)} | ${name} | ${vuln.severity} | ${vuln.range} | ${fix} | ${advisories.join("<br>") || "via " + (vuln.via ?? []).join(", ")} |`);
+              }
+            }
+            const title = "Dependency audit: vulnerable dependencies";
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: "open", labels: "dependency-audit", per_page: 10 });
+            const issue = open.find((i) => i.title === title);
+            if (rows.length === 0) {
+              if (issue) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body: "The audit is clean again." });
+                await github.rest.issues.update({ ...context.repo, issue_number: issue.number, state: "closed" });
+              }
+              return;
+            }
+            const body = [
+              `npm audit found ${rows.length} vulnerable package(s), moderate or worse, on ${new Date().toISOString().slice(0, 10)}.`,
+              "Dependabot security updates open the fix pull requests; this issue lists what is still open.",
+              "",
+              "| Lockfile | Package | Severity | Affected | Fix | Advisories |",
+              "| --- | --- | --- | --- | --- | --- |",
+              ...rows,
+              "",
+              `[Audit run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            ].join("\n");
+            if (issue) await github.rest.issues.update({ ...context.repo, issue_number: issue.number, body });
+            else {
+              // The label finds the issue again on the next run.
+              try {
+                await github.rest.issues.createLabel({ ...context.repo, name: "dependency-audit", color: "b0174f" });
+              } catch (error) {
+                if (error.status !== 422) throw error; // 422: it already exists
+              }
+              await github.rest.issues.create({ ...context.repo, title, body, labels: ["dependency-audit"] });
+            }
+            core.setFailed(`${rows.length} vulnerable package(s): see the issue.`);
