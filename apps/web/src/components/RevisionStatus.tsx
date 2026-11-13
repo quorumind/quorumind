@@ -68,8 +68,9 @@ export function RevisionStatus({
  * when it does. `locked`: the form waits for a revision, its own or one already running.
  *
  * When the page hears nothing for a while (the revision never showed, or the feed dropped while it ran), the form is
- * given back (`stalled`) and stays usable until the revision is over. What the person writes in it meanwhile is their
- * next request: the end of the earlier revision does not wipe it, it empties only the text that was sent.
+ * given back (`stalled`) and stays usable until the revision is over. That holds for a revision this form did not send
+ * too (another form's, or one already running when it opened). What the person writes in it meanwhile is their next
+ * request: the end of the earlier revision does not wipe it, it empties only the text this form sent.
  */
 export function useClearAfterRevision({
   running,
@@ -93,9 +94,13 @@ export function useClearAfterRevision({
   const began = useRef(false);
   const countAtSubmit = useRef(count);
   const failedAtSubmit = useRef(failed);
-  const sent = useRef(draft);
+  // What this form sent, until its revision is over; null when the revision being waited for is not its own.
+  const sent = useRef<string | null>(null);
   const current = useRef(draft);
   current.current = draft;
+  // The page as it is now, for the form given back during a revision it did not send (see the silence below).
+  const now = useRef({ count, failed });
+  now.current = { count, failed };
   const latest = useRef(reset);
   latest.current = reset;
   useEffect(() => {
@@ -105,19 +110,29 @@ export function useClearAfterRevision({
       began.current = false;
       setWaiting(false);
       setStalled(false);
-      if (current.current === sent.current) latest.current();
+      if (sent.current !== null && current.current === sent.current) latest.current();
+      sent.current = null;
     }
   }, [running, failed, count, waiting, stalled]);
   // The revision may never have shown, or the feed may have dropped while it ran (the page then hears neither its
   // progress nor its end): do not keep the form locked for ever. While it runs with the feed up, its end will come.
+  // A form locked by a revision it did not send is given back the same way when the feed drops.
   useEffect(() => {
-    if (!waiting || (running && connected)) return;
+    if (stalled || (!waiting && !running) || (running && connected)) return;
     const timer = setTimeout(() => {
+      if (!waiting) {
+        // From now on its end is watched as if this form had sent it, from the page as it is now, not from an
+        // earlier request's version count; there is no text of its own to clear.
+        countAtSubmit.current = now.current.count;
+        failedAtSubmit.current = now.current.failed;
+        began.current = true;
+        sent.current = null;
+      }
       setWaiting(false);
       setStalled(true);
     }, REVISION_SILENCE_MS);
     return () => clearTimeout(timer);
-  }, [waiting, running, connected]);
+  }, [waiting, stalled, running, connected]);
   return {
     waiting,
     stalled,
