@@ -73,18 +73,19 @@ export function ConfirmDialog({
     setError(null);
     // Looked for before the action: it may remove the row the neighbours are found from.
     const next = focusAfter?.(dialog.opener.current ?? null);
-    const result = onConfirm();
-    if (result) {
-      setBusy(true);
-      try {
+    try {
+      // Called inside the try: an action that throws at once shows its error like one whose promise rejects.
+      const result = onConfirm();
+      if (result) {
+        setBusy(true);
         await result;
-      } catch (caught) {
-        setError(errorText ? errorText(caught) : t("common.actionFailed"));
-        setBusy(false);
-        return;
       }
+    } catch (caught) {
+      setError(errorText ? errorText(caught) : t("common.actionFailed"));
       setBusy(false);
+      return;
     }
+    setBusy(false);
     if (next) dialog.opener.current = next;
     dialog.close();
   };

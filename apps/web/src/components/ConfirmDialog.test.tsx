@@ -69,6 +69,36 @@ describe("the confirmation dialog", () => {
   });
 });
 
+describe("the confirmation dialog around an action that throws at once", () => {
+  it("shows the error and stays usable when the action throws at once", async () => {
+    let fail = true;
+    const onConfirm = vi.fn(() => {
+      if (fail) throw new Error("x");
+    });
+    function Throwing() {
+      const confirm = useConfirm<string>();
+      return (
+        <>
+          <button type="button" onClick={(event) => confirm.ask("Bob", event.currentTarget)}>
+            Remove Bob
+          </button>
+          <ConfirmDialog confirm={confirm} title="Remove?" confirmLabel="Remove it" errorText={() => "It could not be removed."} onConfirm={onConfirm} />
+        </>
+      );
+    }
+    render(<Throwing />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Bob" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove it", hidden: true }));
+    const alert = await screen.findByRole("alert", { hidden: true });
+    expect(alert.textContent).toBe("It could not be removed.");
+    expect(document.querySelector("dialog")?.hasAttribute("open")).toBe(true);
+    fail = false;
+    fireEvent.click(screen.getByRole("button", { name: "Remove it", hidden: true }));
+    await waitFor(() => expect(document.querySelector("dialog")?.hasAttribute("open")).toBe(false));
+    expect(onConfirm).toHaveBeenCalledTimes(2);
+  });
+});
+
 /** A list of rows, each with its remove button: the dialog asks, the action takes a while, and may fail or remove the row. */
 function Rows({ action }: { action: () => Promise<unknown> }) {
   const confirm = useConfirm<string>();
