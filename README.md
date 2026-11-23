@@ -33,7 +33,7 @@ you bring) and **Audit a document** (a provider's quote or proposal checked agai
 
 ## Quick start
 
-Requirements: Node.js 22.18 or later.
+Requirements: Node.js 24.11 or later.
 
 ```bash
 npm install

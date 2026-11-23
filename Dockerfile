@@ -1,6 +1,6 @@
 # Build the interface, then run the server directly from its TypeScript sources (this Node release strips types).
 # Node is pinned to an exact version, kept in step with .github/workflows/ci.yml; Dependabot proposes updates.
-FROM node:24.22.1-slim AS build
+FROM node:26.13.1-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY packages/core/package.json packages/core/
@@ -11,7 +11,7 @@ RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM node:24.22.1-slim
+FROM node:26.13.1-slim
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8787 QUORUMIND_DATA_DIR=/data
 WORKDIR /app
 COPY --from=build /app/package.json ./

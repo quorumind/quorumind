@@ -9,7 +9,7 @@ costs stay on the Quorumind server.
 
 ## Requirements
 
-- Node.js 22.18 or later (it runs the TypeScript sources directly).
+- Node.js 24.11 or later (it runs the TypeScript sources directly).
 - A clone of this repository with `npm install` done.
 - A running Quorumind server (`npm start` at the repository root, http://127.0.0.1:8787 by
   default), or the hosted version and a personal API token (see [The hosted version](#the-hosted-version)).

@@ -13,6 +13,10 @@ updates:
       dependencies:
         patterns: ["*"]
     open-pull-requests-limit: 5
+    # Node's types follow the oldest Node release the engines field accepts (24), not the one the images run
+    ignore:
+      - dependency-name: "@types/node"
+        versions: [">=25"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -13,7 +13,7 @@ a change must pass, and the conventions the codebase follows.
 
 ## Setup
 
-Requirements: Node.js 22.18 or later, git. ffmpeg is only needed to film the demo media.
+Requirements: Node.js 24.11 or later, git. ffmpeg is only needed to film the demo media.
 
 ```bash
 git clone https://github.com/quorumind/quorumind.git
